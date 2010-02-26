@@ -1,0 +1,14 @@
+<stack>
+  <description brief="motion plannig packages from ros-pkg">
+   This stack contains motion planners and supporting infrastructure.
+  </description>
+  <author>Sachin Chitta sachinc@willowgarage.com</author>
+  <license>BSD</license>  
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/motion_planning_common</url>
+  <depend stack="common_msgs" /> <!-- geometry_msgs, sensor_msgs -->
+  <depend stack="geometry" /> <!-- tf -->
+  <depend stack="pr2_controllers" /> <!-- trajectory_msgs -->
+  <depend stack="ros" /> <!-- std_msgs -->
+
+</stack>

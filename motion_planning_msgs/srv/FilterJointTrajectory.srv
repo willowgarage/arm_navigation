@@ -1,0 +1,5 @@
+trajectory_msgs/JointTrajectory trajectory
+duration allowed_time
+---
+trajectory_msgs/JointTrajectory trajectory
+ArmNavigationErrorCodes error_code
