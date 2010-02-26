@@ -1,0 +1,13 @@
+# A service call to carry out an inverse kinematics computation
+# The inverse kinematics request
+kinematics_msgs/PositionIKRequest ik_request
+# A set of allowable contact regions
+motion_planning_msgs/AllowedContactSpecification[] allowed_contacts
+# A set of ordered collision operations to determine the resultant collision matrix to use
+motion_planning_msgs/OrderedCollisionOperations ordered_collision_operations
+# Maximum allowed time for IK calculation
+duration timeout
+---
+# The returned solution 
+motion_planning_msgs/RobotState solution
+motion_planning_msgs/ArmNavigationErrorCodes error_code

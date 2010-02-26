@@ -1,0 +1,21 @@
+<package>
+  <description brief="kinematics_msgs">
+    This package provides general-purpose messages and services that can be used for kinematic computation using a ROS interface.
+  </description>
+  <author>Sachin Chitta</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/kinematics_msgs</url>
+
+  <depend package="gtest" />
+  <depend package="geometry_msgs" />
+  <depend package="trajectory_msgs" />
+  <depend package="motion_planning_msgs" />
+
+  <export>
+    <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/srv/cpp -I${prefix}/include"/>
+  </export>
+
+</package>
+
+
