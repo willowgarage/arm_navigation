@@ -1,0 +1,101 @@
+/**
+\mainpage
+\htmlinclude manifest.html
+
+@section summary Summary
+
+@b ompl_planning provides a node capable of planning kinematic paths for a
+set of robot models. Each robot model is a group of links/joints from a
+URDF file, not necessarily the complete robot model. The available
+models (groups of links) are defined as described in the
+<a href="../../planning_environment/html">planning_environment</a> package.
+
+When a request for motion planning is received, depending on the goal
+specification (whether it is a state, a position for the end effector
+or a combination of constraints) a motion planner is chosen. The
+motion planner and its state space have been instantiated since the
+model was loaded, but certain parameters need to be updated, depending
+on the planning problem. The motion planner is then executed. If a
+solution is found in the allowed time, a path is sent as result. The
+path consists of a set of states. Between subsequent states, it is
+assumed that linear interpolation is used. The constraints the motion
+planner has to satisfy are that there is no collision (can be done
+using the collision space) and additional user constraints (see <a
+href="../../motion_planning_msgs/html">motion_planning_msgs</a>).	
+									
+
+Organization:
+
+ - there are multiple models (defined by @b group_list as in <a href="../../planning_environment/html">planning_environment</a>)
+
+ - there are multiple planners that can be used for each model (defined by @b planner_configs as in <a href="../../planning_environment/html">planning_environment</a>)
+
+
+For each model, a kinematic structure (as in <a
+href="../../planning_models/html">planning_models</a>), a collision
+space (as in <a href="../../collision_space/html">collision_space</a>)
+and a set of planners (from <a href="../../ompl/html">ompl</a>) are
+maintained. The collision space is shared between models.  If a
+planner is used for different models, it is instantiated each
+time. 
+
+The planners are associated to string names: kinematic::RRT,
+kinematic::LazyRRT, kinematic::EST, kinematic::SBL, kinematic::IKSBL,
+kinematic::KPIECE, dynamic::RRT. These string names can be used for
+the @b planner_id component of the planning request. If no @b
+planner_id is specified, an appropriate planner is automatically
+selected. This is in fact the preferred use.
+
+When checking states for validity, a resolution at which paths are
+check needs to be defined. To make things easier for the user, this
+parameter is computed by default by the
+ompl_planning::SpaceInformationKinematicModel class. The current
+settings work fine for the PR2, but if another robot is to be used,
+different settings may need to be employed.
+
+<!--
+\section codeapi Code API
+-->
+
+\section rosapi ROS API
+
+List of nodes:
+- \b motion_planner
+
+<!-- START: copy for each node -->
+
+<hr>
+
+\subsection motion_planner
+
+\subsubsection Usage
+\verbatim
+$ ompl_planning [standard ROS args]
+\endverbatim
+
+\par Example
+
+\verbatim
+$ ompl_planning robot_description:=pr2/robot_description
+\endverbatim
+
+
+\subsubsection topics ROS topics
+
+Subscribes to:
+- only topics planning_environment::PlanningMonitor from <a href="../../planning_environment/html">planning_environment</a> package subscribes to
+
+\subsubsection parameters ROS parameters
+- @b "~planning_frame_id"/string : if the default frame is not to be used when planning, this parameter allows changing that frame. 
+- @b "~state_delay"/double : the time interval assumed between states on the solution path. A lower value of this parameter makes the path execution faster.
+
+\subsubsection services ROS services
+
+- @b "plan_kinematic_path"/MotionPlan : given a robot model, starting and goal states,
+  this service computes a collision free path.
+
+
+
+<!-- END: copy for each node -->
+
+*/

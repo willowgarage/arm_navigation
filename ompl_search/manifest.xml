@@ -1,0 +1,18 @@
+<package>
+  <description brief="ompl_search">
+
+     ompl_search
+
+  </description>
+  <author>Ioan Sucan</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://pr.willowgarage.com/wiki/ompl_search</url>
+
+  <depend package="ompl_ros" />
+  <depend package="roscpp" />
+  <depend package="motion_planning_msgs" />
+  
+</package>
+
+

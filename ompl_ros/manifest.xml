@@ -1,0 +1,18 @@
+<package>
+  <description>A ROS interface to OMPL</description>
+  <author>Ioan A. Sucan</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+
+  <depend package="rosconsole" />
+  <depend package="motion_planning_msgs" />
+  <depend package="planning_environment"/>  
+  <depend package="collision_space"/>  
+  <depend package="planning_models"/>  
+  <depend package="ompl" />
+
+  <export>
+    <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lompl_ros `rosboost-cfg --lflags thread`"/>
+  </export>
+
+</package>
