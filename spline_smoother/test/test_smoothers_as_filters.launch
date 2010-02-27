@@ -1,0 +1,5 @@
+<launch>	
+	<rosparam command="load" file="$(find spline_smoother)/test/test_smoothers_as_filters.yaml"/>
+	<test test-name="test_smoothers_as_filters" pkg="spline_smoother" type="test_smoothers_as_filters"/>
+	<rosparam command="dump" file="$(find spline_smoother)/test/output.yaml"/>
+</launch>

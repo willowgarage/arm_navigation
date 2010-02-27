@@ -1,0 +1,23 @@
+<package>
+  <description brief="trajectory_filter">
+
+     trajectory_filter
+
+  </description>
+  <author>Sachin Chitta</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/trajectory_filter</url>
+  <depend package="filters" />
+  <depend package="roscpp" />
+  <depend package="trajectory_msgs" />
+  <depend package="motion_planning_msgs" />
+  <depend package="spline_smoother" />
+  <export>
+		<cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib -ltrajectory_filter_library"/>
+    <filters plugin="${prefix}/default_plugins.xml"/>
+  </export>
+
+</package>
+
+

@@ -1,0 +1,10 @@
+<class_libraries>
+  <library path="lib/libcollision_free_spline_smoothers">
+    <class name="CubicSplineShortCutter" type="collision_free_spline_smoother::CubicSplineShortCutter" 
+            base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
+      <description>
+        Generates collision free cubic spline trajectories
+      </description>
+    </class>
+  </library>
+</class_libraries>

@@ -1,0 +1,10 @@
+<class_libraries>
+  <library path="lib/libtrajectory_filter_library">
+    <class name="FixWraparoundJoints" type="trajectory_filter::FixWraparoundJoints" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
+      <description>
+	      Fixes the input values for wrap-around joints so they they have no wrap-arounds (to form the input to spline creation)
+      </description>
+    </class>
+  </library>
+</class_libraries>

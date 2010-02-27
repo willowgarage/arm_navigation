@@ -1,0 +1,5 @@
+<launch>	
+	<rosparam command="load" file="$(find spline_smoother)/test/test_linear_spline_velocity_scaler.yaml"/>
+	<test test-name="test_linear_spline_velocity_scaler" pkg="spline_smoother" type="test_linear_spline_velocity_scaler"/>
+	<rosparam command="dump" file="$(find spline_smoother)/test/output.yaml"/>
+</launch>
