@@ -1,0 +1,77 @@
+cmake_minimum_required(VERSION 2.4.6)
+include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
+
+set(ROS_BUILD_TYPE Debug)
+
+rosbuild_init()
+
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+
+#rosbuild_genmsg()
+
+#rosbuild_add_executable(move_arm_monitor src/move_arm_setup.cpp src/move_arm_monitor.cpp)
+#rosbuild_link_boost(move_arm_monitor thread)
+
+rosbuild_add_executable(move_arm_simple_action src/move_arm_simple_action.cpp)
+rosbuild_link_boost(move_arm_simple_action thread)
+
+# simple tests
+#rosbuild_add_executable(oscillate_move test/oscillate_move.cpp)
+#rosbuild_link_boost(oscillate_move thread)
+
+
+#automated regression test for move_arm
+rosbuild_add_executable(move_arm_regression_test_pose_goal test/regression_test_pose_goal.cpp)
+rosbuild_link_boost(move_arm_regression_test_pose_goal thread)
+rosbuild_declare_test(move_arm_regression_test_pose_goal)
+target_link_libraries(move_arm_regression_test_pose_goal gtest)
+#rosbuild_add_rostest(test_move_arm.xml)
+
+#automated regression test for move_arm
+rosbuild_add_executable(move_arm_regression_test_joint_goal test/regression_test_joint_goal.cpp)
+rosbuild_link_boost(move_arm_regression_test_joint_goal thread)
+rosbuild_declare_test(move_arm_regression_test_joint_goal)
+target_link_libraries(move_arm_regression_test_joint_goal gtest)
+#rosbuild_add_rostest(test_move_arm.xml)
+
+#automated regression test for move_arm
+rosbuild_add_executable(move_arm_regression_test_invalid_joint_goal test/regression_test_invalid_joint_goal.cpp)
+rosbuild_link_boost(move_arm_regression_test_invalid_joint_goal thread)
+rosbuild_declare_test(move_arm_regression_test_invalid_joint_goal)
+target_link_libraries(move_arm_regression_test_invalid_joint_goal gtest)
+
+#automated regression test for move_arm
+rosbuild_add_executable(move_arm_regression_test_joint_goal_point_head test/regression_test_joint_goal_point_head.cpp)
+rosbuild_link_boost(move_arm_regression_test_joint_goal_point_head thread)
+rosbuild_declare_test(move_arm_regression_test_joint_goal_point_head)
+target_link_libraries(move_arm_regression_test_joint_goal_point_head gtest)
+#rosbuild_add_rostest(test_move_arm.xml)
+
+#automated regression test for move_arm
+rosbuild_add_executable(move_arm_regression_test_pose_goal_param test/regression_test_pose_goal_param.cpp)
+rosbuild_link_boost(move_arm_regression_test_pose_goal_param thread)
+rosbuild_declare_test(move_arm_regression_test_pose_goal_param)
+target_link_libraries(move_arm_regression_test_pose_goal_param gtest)
+
+rosbuild_add_executable(move_arm_regression_test_under_table_pose_goal test/regression_test_under_table_pose_goal.cpp)
+rosbuild_link_boost(move_arm_regression_test_under_table_pose_goal thread)
+rosbuild_declare_test(move_arm_regression_test_under_table_pose_goal)
+target_link_libraries(move_arm_regression_test_under_table_pose_goal gtest)
+
+rosbuild_add_executable(move_arm_regression_test_simple_pose test/regression_test_simple_pose.cpp)
+rosbuild_link_boost(move_arm_regression_test_simple_pose thread)
+rosbuild_declare_test(move_arm_regression_test_simple_pose)
+target_link_libraries(move_arm_regression_test_simple_pose gtest)
+
+
+#automated regression test for move_arm
+#not ready for prime time yet
+#rosbuild_add_executable(move_arm_regression_test_fake_ompl_detect_collision test/regression_test_fake_ompl_detect_collision.cpp)
+#rosbuild_link_boost(move_arm_regression_test_fake_ompl_detect_collision thread)
+#target_link_libraries(move_arm_regression_test_fake_ompl_detect_collision gtest)
+
+#automated regression test for move_arm
+#rosbuild_add_executable(move_arm_regression_test_cylinder_constraint test/regression_test_cylinder_constraint.cpp)
+#rosbuild_link_boost(move_arm_regression_test_cylinder_constraint thread)
+#target_link_libraries(move_arm_regression_test_cylinder_constraint gtest)

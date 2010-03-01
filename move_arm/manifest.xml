@@ -1,0 +1,38 @@
+<package>
+  <description brief="A general arm planning and control interface">
+
+The move_arm package provides an implementation of a action (see the <a href="http://www.ros.org/wiki/actionlib">actionlib</a> package) that, given a goal in the world, will attempt to reach it with a robot arm. The move_arm node links together a planner, trajectory monitor and trajectory controller to acheive its goal. It supports any planner that provides a GetMotionPlan interface and any controller that provides services for setting, querying and canceling trajectories. The node is designed to be modular and so uses ROS services for planning, control and IK and does minimal computation within the node itself. 
+
+  </description>
+  <author>Ioan Sucan, Sachin Chitta(sachinc@willowgarage.com)</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://pr.willowgarage.com/wiki/move_arm</url>
+
+  <depend package="joy"/>
+  <depend package="roscpp"/>
+  <depend package="rosconsole"/>
+  <depend package="std_msgs"/>
+  <depend package="motion_planning_msgs"/>
+  <depend package="geometry_msgs"/>
+  <depend package="mapping_msgs"/>
+  <depend package="visualization_msgs"/>
+  <depend package="geometric_shapes" />
+  <depend package="planning_models" />
+  <depend package="planning_environment" />
+  <depend package="actionlib"/>
+  <depend package="actionlib_msgs"/>
+  <depend package="tf_conversions"/>
+  <depend package="planning_environment_msgs"/>
+  <depend package="pr2_controllers_msgs"/>
+
+  <depend package="arm_control_msgs"/>
+  <depend package="kinematics_msgs"/>
+  <depend package="move_arm_msgs"/>
+  <depend package="geometric_shapes_msgs"/>
+
+  <export>
+    <cpp cflags="-I${prefix}/msg/cpp" />
+  </export>  
+  
+</package>
