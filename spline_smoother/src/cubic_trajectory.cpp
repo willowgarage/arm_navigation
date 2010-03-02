@@ -66,88 +66,65 @@ namespace spline_smoother
                                          const double &v1, 
                                          const motion_planning_msgs::JointLimits &limit)
   {
-    double t1(MAX_ALLOWABLE_TIME), t2(MAX_ALLOWABLE_TIME), result(MAX_ALLOWABLE_TIME);
     double dq = jointDiff(q0,q1,limit);
     double vmax = limit.max_velocity;
-
-    /*    double v(0.0);
-    if(dq > 0)
-      v = vmax;
-    else
-      v = -vmax;
-
-    double a = 3.0*(v0+v1)*v - 3.0* (v0+v1)*v0 + pow((2.0*v0+v1),2.0);
-    double b = -6.0*dq*v + 6.0 * v0 *dq - 6.0*dq*(2.0*v0+v1);
-    double c = 9.0 * pow(dq,2);
-
-    if (fabs(a) > EPS_TRAJECTORY)
-    {
-      if((pow(b,2)-4.0*a*c) >= 0)
-      {
-        t1 = (-b + sqrt(pow(b,2)-4.0*a*c))/(2.0*a);
-        t2 = (-b - sqrt(pow(b,2)-4.0*a*c))/(2.0*a);
-      }
-    }
-    else
-    {
-      t1 = -c/b;
-      t2 = t1;
-    }
-
-    if(t1 < 0)
-      t1 = MAX_ALLOWABLE_TIME;
-
-    if(t2 < 0)
-      t2 = MAX_ALLOWABLE_TIME;
-
-    result = std::min(t1,t2);
-    return result;
-    */
     if( q0 == q1 && fabs(v0-v1) == 0.0)
     {
-      result = 0.0;
-      return result;
+      return 0.0;
     }
+    dq = q1-q0;
+    double v = vmax;
+    double solution;
+    std::vector<double> solution_vec;
 
-    double dt_result = 0.01;
-    result = dt_result;
-    bool done = false;
+    double a1 = 3*(v0+v1)*v - 3* (v0+v1)*v0 + (2*v0+v1)*(2*v0+v1);
+    double b1 = -6*dq*v + 6 * v0 *dq - 6*dq*(2*v0+v1);
+    double c1 = 9*dq*dq;
+
+    double a2 = 3*(v0+v1)*v + 3* (v0+v1)*v0 - (2*v0+v1)*(2*v0+v1);
+    double b2 = -6*dq*v - 6 * v0 *dq + 6*dq*(2*v0+v1);
+    double c2 = -9*dq*dq;
+    if(quadSolve(a1,b1,c1,solution))
+      solution_vec.push_back(solution);
+    if(quadSolve(a2,b2,c2,solution))
+      solution_vec.push_back(solution);
+
     if(limit.has_acceleration_limits)
-      ROS_DEBUG("Checking acceleration limits");
-    double a0(0.0),a1(0.0),a2(0.0),a3(0.0),max_velocity_time(0.0);
-
-    while(!done && result > EPS_TRAJECTORY)
     {
-      ROS_DEBUG("Time: %f",result);
-      a0 = q0;
-      a1 = v0;
-      a2 = (3*(q1-q0)-(2*v0+v1)*result)/(result*result);
-      a3 = (2*(q0-q1)+(v0+v1)*result)/(result*result*result);
-      if(a3 != 0.0)
-      {
-        max_velocity_time = -2*a2/(6*a3);
-        if(max_velocity_time >= 0.0)
-	      {
-          double max_velocity = a1+2*a2*max_velocity_time+3*a3*max_velocity_time*max_velocity_time;
-          if(fabs(max_velocity) <= limit.max_velocity)
-            done = true;
-          else
-            done = false;
-	      }
-        else
-          done = true;
-      }
-      if(limit.has_acceleration_limits)
-        if(fabs(2*a2) <= limit.max_acceleration && fabs(2*a2+6*a3*result) <= limit.max_acceleration)
-          done = true;
-        else
-          done = false;
+      double amax = limit.max_acceleration;
+      double a3 = amax/2.0;
+      double b3 = 2*v0+v1;
+      double c3 = -3*dq;
+      if(quadSolve(a3,b3,c3,solution))
+        solution_vec.push_back(solution);
+      double a4 = amax/2.0;
+      double b4 = -(2*v0+v1);
+      double c4 = 3*dq;
+      if(quadSolve(a4,b4,c4,solution))
+        solution_vec.push_back(solution);
 
-      if(!done)
-        result += dt_result;
-    }       
-    return result;
-  }
+      double a5 = amax;
+      double b5 = (-2*v0-4*v1);
+      double c5 = 6*dq;
+      if(quadSolve(a5,b5,c5,solution))
+        solution_vec.push_back(solution);
+
+      double a6 = amax;
+      double b6 = (2*v0+4*v1);
+      double c6 = -6*dq;
+      if(quadSolve(a6,b6,c6,solution))
+        solution_vec.push_back(solution);
+    }
+    std::vector<double> positive_durations;
+    for(unsigned int i=0; i < solution_vec.size(); i++)
+    {
+      if(solution_vec[i] > 0)
+        positive_durations.push_back(solution_vec[i]);        
+    }
+    std::sort(positive_durations.begin(),positive_durations.end());
+    solution = positive_durations.back();
+    return solution;
+ }
 
   bool CubicTrajectory::parameterize(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
                                      spline_smoother::SplineTrajectory& spline)
@@ -174,7 +151,7 @@ namespace spline_smoother
       double dT = (trajectory_in.trajectory.points[i].time_from_start - trajectory_in.trajectory.points[i-1].time_from_start).toSec();
       if(apply_limits_)
       {
-      double dTMin = calculateMinimumTime(trajectory_in.trajectory.points[i],trajectory_in.trajectory.points[i-1],trajectory_in.limits);
+      double dTMin = calculateMinimumTime(trajectory_in.trajectory.points[i-1],trajectory_in.trajectory.points[i],trajectory_in.limits);
       if(dTMin > dT) // if minimum time required to satisfy limits is greater than time available, stretch this segment
         dT = dTMin;      
       }
@@ -190,4 +167,35 @@ namespace spline_smoother
     }
     return true;
   }
+
+bool CubicTrajectory::quadSolve(const double &a, const double &b, const double &c, double &solution)
+{
+  double t1(0.0), t2(0.0);
+  if (fabs(a) > 0.0)
+  {
+    double discriminant = b*b-4*a*c;
+    if (discriminant > 0)
+    {
+      t1 = (-b + sqrt(discriminant))/(2*a);
+      t2 = (-b - sqrt(discriminant))/(2*a);
+      ROS_DEBUG("t1:%f t2:%f",t1,t2);
+      solution = std::max(t1,t2);
+      ROS_DEBUG("Solution: %f",solution);
+      return true;
+    }
+    else
+      return false;
+  }
+  else
+  {
+    if(fabs(b) == 0.0)
+      return false;
+    t1 = -c/b;
+    t2 = t1;
+    solution = t1;
+    ROS_DEBUG("Solution: %f",solution);
+    return true;
+  }
+}
+
 }

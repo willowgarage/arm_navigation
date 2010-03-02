@@ -86,7 +86,7 @@ namespace spline_smoother
       double dT = (trajectory_in.trajectory.points[i].time_from_start - trajectory_in.trajectory.points[i-1].time_from_start).toSec();
       if(apply_limits_)
       {
-        double dTMin = calculateMinimumTime(trajectory_in.trajectory.points[i],trajectory_in.trajectory.points[i-1],trajectory_in.limits);
+        double dTMin = calculateMinimumTime(trajectory_in.trajectory.points[i-1],trajectory_in.trajectory.points[i],trajectory_in.limits);
         if(dTMin > dT) // if minimum time required to satisfy limits is greater than time available, stretch this segment
           dT = dTMin;      
       }

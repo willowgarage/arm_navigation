@@ -67,6 +67,8 @@ namespace spline_smoother
                                 const trajectory_msgs::JointTrajectoryPoint &end, 
                                 const std::vector<motion_planning_msgs::JointLimits> &limits);
 
+    bool quadSolve(const double &a, const double &b, const double &c, double &solution);
+
     bool apply_limits_;
   };
 }
