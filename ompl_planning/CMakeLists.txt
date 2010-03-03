@@ -6,21 +6,23 @@ set(ROS_BUILD_TYPE Debug)
 
 rosbuild_add_boost_directories()
 
-rosbuild_add_library(ompl_planning_helpers src/helpers/ompl_planner/PlannerSetup.cpp
-                                          src/helpers/ompl_planner/kinematicESTSetup.cpp
-                                          src/helpers/ompl_planner/kinematicIKSBLSetup.cpp
-                                          src/helpers/ompl_planner/kinematicLazyRRTSetup.cpp
-                                          src/helpers/ompl_planner/kinematicRRTSetup.cpp
-                                          src/helpers/ompl_planner/kinematicRRTConnectSetup.cpp
-                                          src/helpers/ompl_planner/kinematicpRRTSetup.cpp
-                                          src/helpers/ompl_planner/kinematicKPIECESetup.cpp
-                                          src/helpers/ompl_planner/kinematicLBKPIECESetup.cpp
-                                          src/helpers/ompl_planner/kinematicSBLSetup.cpp
-                                          src/helpers/ompl_planner/kinematicpSBLSetup.cpp
-                                          src/helpers/ompl_planner/dynamicRRTSetup.cpp
-                                          src/helpers/ompl_planner/dynamicKPIECESetup.cpp
-					  src/helpers/Model.cpp
-					  )
+rosbuild_add_library(ompl_planning_helpers 
+  src/helpers/ompl_planner/PlannerSetup.cpp
+  src/helpers/ompl_planner/kinematicESTSetup.cpp
+  src/helpers/ompl_planner/kinematicIKSBLSetup.cpp
+  src/helpers/ompl_planner/kinematicLazyRRTSetup.cpp
+  src/helpers/ompl_planner/kinematicRRTSetup.cpp
+  src/helpers/ompl_planner/kinematicRRTConnectSetup.cpp
+  src/helpers/ompl_planner/kinematicpRRTSetup.cpp
+  src/helpers/ompl_planner/kinematicKPIECESetup.cpp
+  src/helpers/ompl_planner/kinematicLBKPIECESetup.cpp
+  src/helpers/ompl_planner/kinematicSBLSetup.cpp
+  src/helpers/ompl_planner/kinematicpSBLSetup.cpp
+  src/helpers/ompl_planner/dynamicRRTSetup.cpp
+  src/helpers/ompl_planner/dynamicKPIECESetup.cpp
+  src/helpers/PlannerConfig.cpp
+  src/helpers/Model.cpp
+  )
 rosbuild_link_boost(ompl_planning_helpers thread)
 
 rosbuild_add_executable(motion_planner src/motion_planner.cpp src/request_handler/RequestHandler.cpp src/debug/DisplayPlanner.cpp)

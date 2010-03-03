@@ -45,6 +45,8 @@
 #include <ompl/base/Planner.h>
 #include <ompl/extension/kinematic/PathSmootherKinematic.h>
 
+#include <ompl_planning/PlannerConfig.h>
+
 #include <ros/console.h>
 #include <string>
 #include <map>
@@ -59,7 +61,7 @@ namespace ompl_planning
 	virtual ~PlannerSetup(void);
 	
 	virtual bool setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-			   boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options) = 0;
+			   boost::shared_ptr<PlannerConfig> &options) = 0;
 	
 	std::string                                                name;       // name of planner
 	ompl_ros::ModelBase                                       *ompl_model;       
@@ -69,12 +71,12 @@ namespace ompl_planning
 
     protected:
 
-	virtual ompl::base::ProjectionEvaluator* getProjectionEvaluator(boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options) const;
+	virtual ompl::base::ProjectionEvaluator* getProjectionEvaluator(boost::shared_ptr<PlannerConfig> &options) const;
 	
 	virtual void preSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-			      boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options);
+			      boost::shared_ptr<PlannerConfig> &options);
 	virtual void postSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-			       boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options);
+			       boost::shared_ptr<PlannerConfig> &options);
 	
     };
 

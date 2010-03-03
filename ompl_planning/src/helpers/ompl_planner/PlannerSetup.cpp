@@ -58,7 +58,7 @@ ompl_planning::PlannerSetup::~PlannerSetup(void)
 	delete ompl_model;
 }
 	
-ompl::base::ProjectionEvaluator* ompl_planning::PlannerSetup::getProjectionEvaluator(boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options) const
+ompl::base::ProjectionEvaluator* ompl_planning::PlannerSetup::getProjectionEvaluator(boost::shared_ptr<PlannerConfig> &options) const
 {
     ompl::base::ProjectionEvaluator *pe = NULL;
     
@@ -104,7 +104,7 @@ ompl::base::ProjectionEvaluator* ompl_planning::PlannerSetup::getProjectionEvalu
 }
 
 void ompl_planning::PlannerSetup::preSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-					   boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options)
+					   boost::shared_ptr<PlannerConfig> &options)
 {
     ROS_DEBUG("Adding %s instance for motion planning: %s", name.c_str(), groupName.c_str());
     bool dynamic = options->getParamString("type")[0] == 'd';
@@ -125,7 +125,7 @@ void ompl_planning::PlannerSetup::preSetup(planning_environment::PlanningMonitor
 }
 
 void ompl_planning::PlannerSetup::postSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-					    boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options)
+					    boost::shared_ptr<PlannerConfig> &options)
 {
     mp->setup();
 }

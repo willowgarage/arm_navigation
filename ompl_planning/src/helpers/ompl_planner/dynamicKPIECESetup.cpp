@@ -53,7 +53,7 @@ ompl_planning::dynamicKPIECESetup::~dynamicKPIECESetup(void)
 }
 
 bool ompl_planning::dynamicKPIECESetup::setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-					      boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options)
+					      boost::shared_ptr<PlannerConfig> &options)
 {
     preSetup(planningMonitor, groupName, options);
     

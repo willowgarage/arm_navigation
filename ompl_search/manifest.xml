@@ -12,6 +12,7 @@
   <depend package="ompl_ros" />
   <depend package="roscpp" />
   <depend package="motion_planning_msgs" />
+  <depend package="ompl_planning" />
   
 </package>
 

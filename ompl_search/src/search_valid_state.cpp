@@ -36,6 +36,7 @@
 
 #include <ros/ros.h>
 #include "SearchRequestHandler.h"
+#include <ompl_planning/PlannerConfig.h>
 
 using namespace ompl_search;
 
@@ -72,19 +73,25 @@ public:
   {
     bool execute = false;
     std::vector<std::string> mlist;    
-	
+
     if (collisionModels_->loadedModels())
-      {	    
-        std::map< std::string, std::vector<std::string> > groups = planningMonitor_->getCollisionModels()->getPlanningGroups();
-        for (std::map< std::string, std::vector<std::string> >::iterator it = groups.begin(); it != groups.end() ; ++it)
-          {
-            std::vector< boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> > cfgs = planningMonitor_->getCollisionModels()->getGroupPlannersConfig(it->first);
+    {	    
+      //create PlannerConfigMap
+      //and load the planner configs
+      ompl_planning::PlannerConfigMap plan_config_map(ros::this_node::getName());
+      plan_config_map.loadPlannerConfigs();
+      
+      /* create a model for each group */
+      for(std::vector<std::string>::iterator it = plan_config_map.planning_group_names_.begin();
+          it != plan_config_map.planning_group_names_.end();
+          it++) {
+        std::vector< boost::shared_ptr<ompl_planning::PlannerConfig> > cfgs = plan_config_map.getGroupPlannersConfig(*it);
             for (unsigned int i = 0 ; i < cfgs.size() ; ++i)
               {
                 if (cfgs[i]->getParamString("type") != "GAIK")
                   continue;
-                models_[it->first] = new SearchModel(planningMonitor_, it->first);
-                ompl::kinematic::GAIK *gaik = models_[it->first]->gaik;
+                models_[*it] = new SearchModel(planningMonitor_, *it);
+                ompl::kinematic::GAIK *gaik = models_[*it]->gaik;
                 if (cfgs[i]->hasParam("max_improve_steps"))
                   {
                     gaik->setMaxImproveSteps(cfgs[i]->getParamInt("max_improve_steps", gaik->getMaxImproveSteps()));
@@ -114,7 +121,7 @@ public:
                     gaik->setMaxImproveSteps(cfgs[i]->getParamInt("max_improve_steps", gaik->getMaxImproveSteps()));
                     ROS_DEBUG("Max improve steps is set to %u", gaik->getMaxImproveSteps());
                   }
-                mlist.push_back(it->first);
+                mlist.push_back(*it);
               }
           }
 	    

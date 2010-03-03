@@ -40,6 +40,7 @@
 #include "ompl_ros/ModelKinematic.h"
 #include "ompl_ros/ModelDynamic.h"
 #include "ompl_planning/planners/PlannerSetup.h"
+#include "ompl_planning/PlannerConfig.h"
 
 #include <boost/shared_ptr.hpp>
 #include <string>
@@ -51,11 +52,11 @@ namespace ompl_planning
   {
   public:
 	
-    Model(planning_environment::PlanningMonitor *pMonitor, const std::string &gName)
+    Model(planning_environment::PlanningMonitor *pMonitor, const std::string &gName, std::vector< boost::shared_ptr<PlannerConfig> >& cfgs)
       {
         planningMonitor = pMonitor;
         groupName = gName;
-        createMotionPlanningInstances(planningMonitor->getCollisionModels()->getGroupPlannersConfig(groupName));
+        createMotionPlanningInstances(cfgs);
       }
 	
     virtual ~Model(void)
@@ -72,10 +73,10 @@ namespace ompl_planning
   protected:
 	
     /** \brief Instantiate the planners that can be used  */
-    void createMotionPlanningInstances(std::vector< boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> > cfgs);
+    void createMotionPlanningInstances(std::vector< boost::shared_ptr<PlannerConfig> >& cfgs);
 	
     template<typename _T>
-      void add_planner(boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options);
+      void add_planner(boost::shared_ptr<PlannerConfig> &options);
 	
   };
     

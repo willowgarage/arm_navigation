@@ -50,7 +50,7 @@ namespace ompl_planning
         kinematicLazyRRTSetup(void);
 	virtual ~kinematicLazyRRTSetup(void);
 	virtual bool setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-			   boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options);
+			   boost::shared_ptr<PlannerConfig> &options);
     };
 }
 

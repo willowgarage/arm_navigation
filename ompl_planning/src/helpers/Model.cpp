@@ -50,7 +50,7 @@
 #include "ompl_planning/planners/dynamicKPIECESetup.h"
 
 /* instantiate the planners that can be used  */
-void ompl_planning::Model::createMotionPlanningInstances(std::vector< boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> > cfgs)
+void ompl_planning::Model::createMotionPlanningInstances(std::vector< boost::shared_ptr<PlannerConfig> >& cfgs)
 {	
     for (unsigned int i = 0 ; i < cfgs.size() ; ++i)
     {
@@ -102,7 +102,7 @@ void ompl_planning::Model::createMotionPlanningInstances(std::vector< boost::sha
 }
 
 template<typename _T>
-void ompl_planning::Model::add_planner(boost::shared_ptr<planning_environment::RobotModels::PlannerConfig> &options)
+void ompl_planning::Model::add_planner(boost::shared_ptr<PlannerConfig> &options)
 {
     PlannerSetup *p = new _T();
     if (p->setup(planningMonitor, groupName, options))
@@ -127,10 +127,18 @@ void ompl_planning::setupPlanningModels(planning_environment::PlanningMonitor *p
     ss << "=======================================" << std::endl;
     ROS_DEBUG("%s", ss.str().c_str());
     
+    //create PlannerConfigMap
+    //and load the planner configs
+    PlannerConfigMap plan_config_map(ros::this_node::getName());
+    plan_config_map.loadPlannerConfigs();
+
     /* create a model for each group */
-    std::map< std::string, std::vector<std::string> > groups = planningMonitor->getCollisionModels()->getPlanningGroups();
-    for (std::map< std::string, std::vector<std::string> >::iterator it = groups.begin(); it != groups.end() ; ++it)
-	models[it->first] = new Model(planningMonitor, it->first);
+    for(std::vector<std::string>::iterator it = plan_config_map.planning_group_names_.begin();
+        it != plan_config_map.planning_group_names_.end();
+        it++) {
+      std::vector< boost::shared_ptr<PlannerConfig> > group_planner_config = plan_config_map.getGroupPlannersConfig(*it);
+      models[*it] = new Model(planningMonitor, (*it), group_planner_config);
+    }
 }
 
 std::vector<std::string> ompl_planning::knownModels(ompl_planning::ModelMap &models)

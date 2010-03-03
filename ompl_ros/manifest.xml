@@ -12,7 +12,7 @@
   <depend package="ompl" />
 
   <export>
-    <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lompl_ros `rosboost-cfg --lflags thread`"/>
+    <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lompl_ros -lompl_planning_helpers `rosboost-cfg --lflags thread`"/>
   </export>
 
 </package>
