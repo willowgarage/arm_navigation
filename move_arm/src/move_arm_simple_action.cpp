@@ -50,7 +50,7 @@
 #include <move_arm_msgs/MoveArmAction.h>
 
 #include <trajectory_msgs/JointTrajectory.h>
-#include <kinematics_msgs/GetCollisionFreePositionIK.h>
+#include <kinematics_msgs/GetConstraintAwarePositionIK.h>
 #include <kinematics_msgs/GetPositionFK.h>
 
 #include <motion_planning_msgs/FilterJointTrajectory.h>
@@ -138,7 +138,7 @@ public:
     state_ = PLANNING;
 
     done_visualizer_ = false;
-    ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetCollisionFreePositionIK>(ARM_IK_NAME);
+    ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
     trajectory_start_client_  = root_handle_.serviceClient<arm_control_msgs::TrajectoryStart>(CONTROL_START_NAME);
     trajectory_query_client_  = root_handle_.serviceClient<arm_control_msgs::TrajectoryQuery>(CONTROL_QUERY_NAME);
     trajectory_cancel_client_ = root_handle_.serviceClient<arm_control_msgs::TrajectoryCancel>(CONTROL_CANCEL_NAME);
@@ -1080,13 +1080,13 @@ private:
                  motion_planning_msgs::OrderedCollisionOperations &ordered_collision_operations)
   {
     // define the service messages
-    kinematics_msgs::GetCollisionFreePositionIK::Request request;
-    kinematics_msgs::GetCollisionFreePositionIK::Response response;
+    kinematics_msgs::GetConstraintAwarePositionIK::Request request;
+    kinematics_msgs::GetConstraintAwarePositionIK::Response response;
 	    
     request.ik_request.pose_stamped = pose_stamped_msg;
     request.ik_request.ik_seed_state.joint_state.name = group_joint_names_;	    
     request.ik_request.ik_link_name = link_name;
-    request.ik_request.ik_seed_state.joint_state.position = state_monitor_.getJointState(group_joint_names_).position;	    
+    request.ik_request.ik_seed_state.joint_state = state_monitor_.getJointState(group_joint_names_);	    
     request.timeout = ros::Duration(2.0);
     request.ordered_collision_operations = ordered_collision_operations;
     if (ik_client_.call(request, response))

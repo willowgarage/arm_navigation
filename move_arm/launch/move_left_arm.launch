@@ -5,7 +5,8 @@
     <remap from="collision_map" to="collision_map_occ" />
     <remap from="collision_map_update" to="collision_map_occ_update" />
 
-    <remap from="arm_ik" to="pr2_ik_left_arm/ik_service_with_collision" />	
+    <remap from="arm_ik" to="pr2_left_arm_kinematics/get_collision_free_ik" />	
+    <remap from="arm_fk" to="pr2_left_arm_kinematics/get_fk" />
 
     <remap from="get_valid_state" to="ompl_search/find_valid_state" />
     
@@ -13,6 +14,8 @@
     <remap from="controller_query"  to="/l_arm_joint_waypoint_controller/TrajectoryQuery" />
     <remap from="controller_cancel" to="/l_arm_joint_waypoint_controller/TrajectoryCancel" />
     
+    <remap from="filter_trajectory" to="trajectory_filter/filter_trajectory" />	
+
     <param name="group" type="string" value="left_arm" />
     <param name="show_collisions" type="bool" value="true" />
 
