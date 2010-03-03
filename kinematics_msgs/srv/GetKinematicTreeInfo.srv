@@ -1,3 +1,0 @@
-# A service call to get more information about a node performing kinematics
----
-kinematics_msgs/KinematicTreeInfo kinematic_tree_info
