@@ -46,7 +46,7 @@
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 
-namespace collision_free_spline_smoother
+namespace constraint_aware_spline_smoother
 {
 
 /**
@@ -59,8 +59,8 @@ public:
 
   CubicSplineShortCutter();
   virtual ~CubicSplineShortCutter();
-  virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
-                      motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
+  virtual bool smooth(const T& trajectory_in, 
+                      T& trajectory_out) const;
 
 private:
 
@@ -104,8 +104,8 @@ int CubicSplineShortCutter<T>::getRandomInt(int min_index,int max_index)const
 }
 
 template <typename T>
-bool CubicSplineShortCutter<T>::smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
-                                    motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const
+bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in, 
+                                       T& trajectory_out) const
 {
   srand(time(NULL)); // initialize random seed: 
 
@@ -161,7 +161,7 @@ bool CubicSplineShortCutter<T>::smooth(const motion_planning_msgs::JointTrajecto
     ROS_DEBUG("Pushed back 2 points");
     shortcut.trajectory.points[0].time_from_start = ros::Duration(0.0);
     shortcut.trajectory.points[1].time_from_start = ros::Duration(0.0);
-    success = traj.parameterize(shortcut,spline);      
+    success = traj.parameterize(shortcut.trajectory,shortcut.limits,spline);      
     if(!success)
       break;
     ROS_DEBUG("Set trajectory");
@@ -223,7 +223,7 @@ bool CubicSplineShortCutter<T>::smooth(const motion_planning_msgs::JointTrajecto
 
   std::set<double> times;
   double total_time;
-  success = traj.parameterize(trajectory_out,spline);      
+  success = traj.parameterize(trajectory_out.trajectory,trajectory_out.limits,spline);      
   spline_smoother::getTotalTime(spline,total_time);
   for(int i=1; i< (int) (total_time/dT_); i++)
     times.insert(i*dT_);

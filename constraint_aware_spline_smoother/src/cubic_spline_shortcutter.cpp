@@ -34,14 +34,14 @@
 
 /** \author Sachin Chitta */
 
-#include <collision_free_spline_smoother/cubic_spline_shortcutter.h>
+#include <constraint_aware_spline_smoother/cubic_spline_shortcutter.h>
 #include <spline_smoother/spline_smoother_utils.h>
 #include <stdlib.h>
 
-namespace collision_free_spline_smoother
-{
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraintsRequest.h>
+#include <motion_planning_msgs/FilterJointTrajectoryRequest.h>
+#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
 
-
-}
-
-REGISTER_SPLINE_SMOOTHER(CubicSplineShortCutter, collision_free_spline_smoother::CubicSplineShortCutter)
+PLUGINLIB_REGISTER_CLASS(CubicSplineShortCutterFilterJointTrajectoryWithConstraintsRequest, constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
+PLUGINLIB_REGISTER_CLASS(CubicSplineShortCutterFilterJointTrajectoryRequest, constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(CubicSplineShortCutterJointTrajectoryWithLimits, constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
