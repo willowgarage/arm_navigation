@@ -34,49 +34,14 @@
 
 /** \author Sachin Chitta */
 
-#ifndef CUBIC_SPLINE_SHORT_CUTTER_H_
-#define CUBIC_SPLINE_SHORT_CUTTER_H_
-
-#include <ros/ros.h>
-#include <tf/tf.h>
-#include <spline_smoother/spline_smoother.h>
-#include <spline_smoother/cubic_trajectory.h>
-#include <planning_environment/monitors/planning_monitor.h>
-#include <motion_planning_msgs/RobotState.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <trajectory_msgs/JointTrajectoryPoint.h>
+#include <collision_free_spline_smoother/cubic_spline_shortcutter.h>
+#include <spline_smoother/spline_smoother_utils.h>
+#include <stdlib.h>
 
 namespace collision_free_spline_smoother
 {
 
-/**
- * \brief Scales the time intervals stretching them if necessary so that the trajectory conforms to velocity limits
- */
-class CubicSplineShortCutter: public spline_smoother::SplineSmoother
-  {
-    public:
 
-    CubicSplineShortCutter();
-    virtual ~CubicSplineShortCutter();
-    virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
-                        motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
-
-    private:
-
-    bool active_;
-
-    bool setupCollisionEnvironment();
-
-    planning_environment::CollisionModels *collision_models_;
-    planning_environment::PlanningMonitor *planning_monitor_;
-    
-    ros::NodeHandle node_handle_;
-
-    double dT_;
-    tf::TransformListener tf_;
-    int getRandomInt(int min,int max) const;
-
-  };
 }
 
-#endif /* CUBIC_SPLINE_SMOOTHER_H_ */
+REGISTER_SPLINE_SMOOTHER(CubicSplineShortCutter, collision_free_spline_smoother::CubicSplineShortCutter)

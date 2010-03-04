@@ -34,14 +34,54 @@
 
 /** \author Sachin Chitta */
 
-#include <collision_free_spline_smoother/cubic_spline_shortcutter.h>
-#include <spline_smoother/spline_smoother_utils.h>
-#include <stdlib.h>
+#ifndef CUBIC_SPLINE_SHORT_CUTTER_H_
+#define CUBIC_SPLINE_SHORT_CUTTER_H_
+
+#include <ros/ros.h>
+#include <tf/tf.h>
+#include <spline_smoother/spline_smoother.h>
+#include <spline_smoother/cubic_trajectory.h>
+#include <planning_environment/monitors/planning_monitor.h>
+#include <motion_planning_msgs/RobotState.h>
+#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <trajectory_msgs/JointTrajectoryPoint.h>
 
 namespace collision_free_spline_smoother
 {
 
-CubicSplineShortCutter::CubicSplineShortCutter()
+/**
+ * \brief Scales the time intervals stretching them if necessary so that the trajectory conforms to velocity limits
+ */
+template <typename T>
+class CubicSplineShortCutter: public spline_smoother::SplineSmoother<T>
+{
+public:
+
+  CubicSplineShortCutter();
+  virtual ~CubicSplineShortCutter();
+  virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
+                      motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
+
+private:
+
+  bool active_;
+
+  bool setupCollisionEnvironment();
+
+  planning_environment::CollisionModels *collision_models_;
+  planning_environment::PlanningMonitor *planning_monitor_;
+    
+  ros::NodeHandle node_handle_;
+
+  double dT_;
+  tf::TransformListener tf_;
+  int getRandomInt(int min,int max) const;
+
+};
+
+
+template <typename T>
+CubicSplineShortCutter<T>::CubicSplineShortCutter()
 {
   node_handle_.param<double>("dT", dT_, 0.1);
   if(!setupCollisionEnvironment())
@@ -50,18 +90,21 @@ CubicSplineShortCutter::CubicSplineShortCutter()
     active_ = true;
 }
 
-CubicSplineShortCutter::~CubicSplineShortCutter()
+template <typename T>
+CubicSplineShortCutter<T>::~CubicSplineShortCutter()
 {
 }
 
-int CubicSplineShortCutter::getRandomInt(int min_index,int max_index)const
+template <typename T>
+int CubicSplineShortCutter<T>::getRandomInt(int min_index,int max_index)const
 {
   int rand_num = rand()%100+1;
   double result = min_index + (double)((max_index-min_index)*rand_num)/101.0;
   return (int) result;
 }
 
-bool CubicSplineShortCutter::smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
+template <typename T>
+bool CubicSplineShortCutter<T>::smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
                                     motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const
 {
   srand(time(NULL)); // initialize random seed: 
@@ -183,7 +226,7 @@ bool CubicSplineShortCutter::smooth(const motion_planning_msgs::JointTrajectoryW
   success = traj.parameterize(trajectory_out,spline);      
   spline_smoother::getTotalTime(spline,total_time);
   for(int i=1; i< (int) (total_time/dT_); i++)
-  times.insert(i*dT_);
+    times.insert(i*dT_);
   times.insert(total_time);
 
   double insert_time = 0;
@@ -209,7 +252,8 @@ bool CubicSplineShortCutter::smooth(const motion_planning_msgs::JointTrajectoryW
   return success;
 }
 
-bool CubicSplineShortCutter::setupCollisionEnvironment()
+template <typename T>
+bool CubicSplineShortCutter<T>::setupCollisionEnvironment()
 {
   bool use_collision_map, compute_contacts, show_collisions;
   node_handle_.param<bool>("use_collision_map", use_collision_map, true);
@@ -230,7 +274,6 @@ bool CubicSplineShortCutter::setupCollisionEnvironment()
     planning_monitor_->waitForMap();
   return true;
 }
-
 }
 
-REGISTER_SPLINE_SMOOTHER(CubicSplineShortCutter, collision_free_spline_smoother::CubicSplineShortCutter)
+#endif /* CUBIC_SPLINE_SMOOTHER_H_ */
