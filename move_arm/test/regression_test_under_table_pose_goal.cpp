@@ -46,7 +46,7 @@
 #include <boost/thread.hpp>
 #include <ros/ros.h>
 #include <gtest/gtest.h>
-#include <mapping_msgs/ObjectsInMap.h>
+#include <mapping_msgs/CollisionObject.h>
 #include <geometric_shapes_msgs/Shape.h>
 
 typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
@@ -66,7 +66,7 @@ TEST(MoveArm, goToPoseGoal)
   ros::NodeHandle private_handle("~");
 
   ros::Publisher object_in_map_pub_;
-  object_in_map_pub_  = nh.advertise<mapping_msgs::ObjectsInMap>("objects_in_map", 10);
+  object_in_map_pub_  = nh.advertise<mapping_msgs::CollisionObject>("collision_object", 10);
 
   actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
   boost::thread spin_thread(&spinThread);
@@ -75,8 +75,8 @@ TEST(MoveArm, goToPoseGoal)
   ROS_INFO("Connected to server");
 
   //push the table and legs into the collision space
-  mapping_msgs::ObjectsInMap table_object;
-  table_object.action.action = mapping_msgs::ObjectAction::ADD;
+  mapping_msgs::CollisionObject table_object;
+  table_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
   table_object.header.frame_id = "base_link";
   table_object.header.stamp = ros::Time::now();
   geometric_shapes_msgs::Shape object;
@@ -93,7 +93,7 @@ TEST(MoveArm, goToPoseGoal)
   pose.orientation.y = 0;
   pose.orientation.z = 0;
   pose.orientation.w = 1;
-  table_object.objects.push_back(object);
+  table_object.shapes.push_back(object);
   table_object.poses.push_back(pose);
 
   table_object.id = "table";
