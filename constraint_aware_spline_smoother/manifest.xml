@@ -1,13 +1,11 @@
 <package>
-  <description brief="collision_free_spline_smoother">
-
-     collision_free_spline_smoother
-
+  <description brief="constraint_aware_spline_smoother">
+    This package contains filters for joint trajectories. The filters can take into account constraints. However, the current set of filters only take collision constraints into account, i.e. they will apply only the smoothing that does not violate collision constraints.
   </description>
   <author>Sachin Chitta</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/collision_free_spline_smoother</url>
+  <url>http://ros.org/wiki/constraint_aware_spline_smoother</url>
   <depend package="planning_environment"/>
   <depend package="spline_smoother"/>
   <depend package="tf"/>

@@ -55,7 +55,7 @@ bool TrajectoryFilterServer::init()
 }
 
 bool TrajectoryFilterServer::filter(motion_planning_msgs::FilterJointTrajectory::Request &req,
-                                                    motion_planning_msgs::FilterJointTrajectory::Response &resp)
+                                    motion_planning_msgs::FilterJointTrajectory::Response &resp)
 {
   ROS_INFO("TrajectoryFilter::Got trajectory with %d points and %d joints",(int)req.filter_request.trajectory.points.size(),(int)req.filter_request.trajectory.joint_names.size());
   // first convert the input into a "WaypointTrajWithLimits" message
@@ -73,8 +73,6 @@ bool TrajectoryFilterServer::filter(motion_planning_msgs::FilterJointTrajectory:
   resp.error_code.val = resp.error_code.SUCCESS;
   return true;
 }
-
-
 
 void TrajectoryFilterServer::jointTrajectoryToJointTrajectoryWithLimits(const trajectory_msgs::JointTrajectory& joint_traj, motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj)
 {
