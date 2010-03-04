@@ -34,7 +34,7 @@
 
 /** \author Mrinal Kalakrishnan, Sachin Chitta */
 
-#include <trajectory_filter/trajectory_filter_server.h>
+#include <trajectory_filter_server/trajectory_filter_server.h>
 
 namespace trajectory_filter
 {
