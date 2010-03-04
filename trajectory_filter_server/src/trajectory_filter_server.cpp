@@ -34,34 +34,34 @@
 
 /** \author Mrinal Kalakrishnan, Sachin Chitta */
 
-#include <trajectory_filter/trajectory_filter_node.h>
+#include <trajectory_filter/trajectory_filter_server.h>
 
 namespace trajectory_filter
 {
-TrajectoryFilterNode::TrajectoryFilterNode() : priv_handle_("~"),filter_chain_("motion_planning_msgs::JointTrajectoryWithLimits")                                                                 
+TrajectoryFilterServer::TrajectoryFilterServer() : priv_handle_("~"),filter_chain_("motion_planning_msgs::JointTrajectoryWithLimits")                                                                 
 {
- filter_trajectory_service_ = priv_handle_.advertiseService("filter_trajectory", &TrajectoryFilterNode::filter, this);
+ filter_trajectory_service_ = priv_handle_.advertiseService("filter_trajectory", &TrajectoryFilterServer::filter, this);
 }
 
-TrajectoryFilterNode::~TrajectoryFilterNode()
+TrajectoryFilterServer::~TrajectoryFilterServer()
 {
 }
 
-bool TrajectoryFilterNode::init()
+bool TrajectoryFilterServer::init()
 {
   if (!filter_chain_.configure("filter_chain",priv_handle_))
     return false;
   return true;
 }
 
-bool TrajectoryFilterNode::filter(motion_planning_msgs::FilterJointTrajectory::Request &req,
+bool TrajectoryFilterServer::filter(motion_planning_msgs::FilterJointTrajectory::Request &req,
                                                     motion_planning_msgs::FilterJointTrajectory::Response &resp)
 {
-  ROS_INFO("TrajectoryFilter::Got trajectory with %d points and %d joints",(int)req.trajectory.points.size(),(int)req.trajectory.joint_names.size());
+  ROS_INFO("TrajectoryFilter::Got trajectory with %d points and %d joints",(int)req.filter_request.trajectory.points.size(),(int)req.filter_request.trajectory.joint_names.size());
   // first convert the input into a "WaypointTrajWithLimits" message
   motion_planning_msgs::JointTrajectoryWithLimits trajectory_in;
   motion_planning_msgs::JointTrajectoryWithLimits trajectory_out;
-  jointTrajectoryToJointTrajectoryWithLimits(req.trajectory, trajectory_in);
+  jointTrajectoryToJointTrajectoryWithLimits(req.filter_request.trajectory, trajectory_in);
 
   // run the filters on it:
   if (!filter_chain_.update(trajectory_in, trajectory_out))
@@ -76,7 +76,7 @@ bool TrajectoryFilterNode::filter(motion_planning_msgs::FilterJointTrajectory::R
 
 
 
-void TrajectoryFilterNode::jointTrajectoryToJointTrajectoryWithLimits(const trajectory_msgs::JointTrajectory& joint_traj, motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj)
+void TrajectoryFilterServer::jointTrajectoryToJointTrajectoryWithLimits(const trajectory_msgs::JointTrajectory& joint_traj, motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj)
 {
   waypoint_traj.trajectory = joint_traj;
   int size = joint_traj.points.size();
@@ -115,16 +115,13 @@ void TrajectoryFilterNode::jointTrajectoryToJointTrajectoryWithLimits(const traj
   }
 }
 
-
-
-
 }
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "trajectory_filter_node");
-  trajectory_filter::TrajectoryFilterNode traj_filter_node;
-  if(traj_filter_node.init())
+  ros::init(argc, argv, "trajectory_filter_server");
+  trajectory_filter::TrajectoryFilterServer traj_filter_server;
+  if(traj_filter_server.init())
   {
     ROS_INFO("Started trajectory filter");
     ros::spin();  

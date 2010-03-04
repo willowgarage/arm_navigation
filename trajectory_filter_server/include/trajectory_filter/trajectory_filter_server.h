@@ -47,12 +47,12 @@
 namespace trajectory_filter
 {
 
-class TrajectoryFilterNode
+class TrajectoryFilterServer
 {
 
 public:
-  TrajectoryFilterNode();
-  virtual ~TrajectoryFilterNode();
+  TrajectoryFilterServer();
+  virtual ~TrajectoryFilterServer();
   bool init();
 
 private:

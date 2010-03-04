@@ -1,8 +1,6 @@
 <package>
-  <description brief="trajectory_filter">
-
-     trajectory_filter
-
+  <description brief="trajectory_filter_server">
+  This package contains a server that advertises a ROS service over which joint trajectories can be filtered. Internally, it creates and uses a chain of filters that can filter joint trajectories. The filters are configured using a yaml configuration file. 
   </description>
   <author>Sachin Chitta</author>
   <license>BSD</license>
