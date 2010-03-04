@@ -1,4 +1,4 @@
-FilterJointTrajectoryRequest filter_request
+FilterJointTrajectoryWithConstraintsRequest filter_request
 ---
 trajectory_msgs/JointTrajectory trajectory
 ArmNavigationErrorCodes error_code

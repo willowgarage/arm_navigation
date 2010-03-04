@@ -1,0 +1,23 @@
+# A trajectory message that encodes joint limits, collision and state constraints within it.
+trajectory_msgs/JointTrajectory trajectory
+
+# A vector of JointLimit messages.
+# Each message contains the limits for a specific joint
+motion_planning_msgs/JointLimits[] limits
+
+# A specification for regions where contact is 
+# allowed upto a certain depth
+# Any collision within this set of regions with a link 
+# specified in the message will be allowed if
+# it is less than the penetration depth specified in the message
+AllowedContactSpecification[] allowed_contacts
+
+# A set of ordered collision operations, 
+# these are applied to all links, objects, 
+# namespaces in the collision space
+OrderedCollisionOperations ordered_collision_operations
+
+# A set of state constraints on the trajectory
+Constraints constraints
+
+duration allowed_time
