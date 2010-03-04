@@ -39,6 +39,8 @@
 #define SPLINE_SMOOTHER_UTILS_H_
 
 #include <motion_planning_msgs/JointTrajectoryWithLimits.h>
+#include <trajectory_msgs/JointTrajectory.h>
+#include <motion_planning_msgs/JointLimits.h>
 #include <spline_smoother/LSPBTrajectoryMsg.h>
 #include <spline_smoother/SplineTrajectory.h>
 #include <angles/angles.h>
@@ -47,14 +49,6 @@
 namespace spline_smoother
 {
 
-/**
- * \brief Ensures the consistency of a WaypointTrajWithLimits message, and resizes vel and acc arrays
- *
- * Ensures that the number of (joint) names matches the number of positions in each waypoint
- * Resizes the velocities and accelerations for every waypoint, filling in zeros if necessary
- * Ensures that time is strictly increasing
- */
-bool checkTrajectoryConsistency(motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj);
 
 template <typename T>
 void differentiate(const std::vector<T>& x, std::vector<T>& xd);
@@ -117,7 +111,15 @@ void tridiagonalSolve(std::vector<T>& a,
   }
 }
 
-inline bool checkTrajectoryConsistency(motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj)
+/**
+ * \brief Ensures the consistency of a WaypointTrajWithLimits message, and resizes vel and acc arrays
+ *
+ * Ensures that the number of (joint) names matches the number of positions in each waypoint
+ * Resizes the velocities and accelerations for every waypoint, filling in zeros if necessary
+ * Ensures that time is strictly increasing
+ */
+template <typename T>
+bool checkTrajectoryConsistency(T& waypoint_traj)
 {
   unsigned int length = waypoint_traj.trajectory.points.size();
   unsigned int num_joints = waypoint_traj.trajectory.joint_names.size();

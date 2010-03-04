@@ -1,40 +1,79 @@
 <class_libraries>
   <library path="lib/libspline_smoother">
-    <class name="NumericalDifferentiationSplineSmoother" type="spline_smoother::NumericalDifferentiationSplineSmoother" 
+    <class name="NumericalDifferentiationSplineSmootherJointTrajectoryWithLimits" type="spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
       <description>
 	Generates velocities and accelerations from numerical differentiation
       </description>
     </class>
-    <class name="ClampedCubicSplineSmoother" type="spline_smoother::ClampedCubicSplineSmoother" 
+    <class name="ClampedCubicSplineSmootherJointTrajectoryWithLimits" type="spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
       <description>
 	Generates velocities using clamped cubic splines
       </description>
     </class>
-    <class name="FritschButlandSplineSmoother" type="spline_smoother::FritschButlandSplineSmoother" 
+    <class name="FritschButlandSplineSmootherJointTrajectoryWithLimits" type="spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
       <description>
 	Generates velocities using monotonic cubic spline interpolation by Fritsch, Butland
       </description>
     </class>
-    <class name="LinearSplineVelocityScaler" type="spline_smoother::LinearSplineVelocityScaler" 
+    <class name="LinearSplineVelocityScalerJointTrajectoryWithLimits" type="spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::JointTrajectoryWithLimits>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
       <description>
 	Generates position trajectories that conform to velocity limits
       </description>
     </class>
-    <class name="CubicSplineVelocityScaler" type="spline_smoother::CubicSplineVelocityScaler" 
+    <class name="CubicSplineVelocityScalerJointTrajectoryWithLimits" type="spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::JointTrajectoryWithLimits>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
       <description>
 	      Generates position trajectories that conform to velocity limits
       </description>
     </class>
-    <class name="UnNormalizeTrajectory" type="spline_smoother::UnNormalizeTrajectory" 
+    <class name="UnNormalizeTrajectoryJointTrajectoryWithLimits" type="spline_smoother::UnNormalizeTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
       <description>
        	Unnormalize continuous joints by using information about the current positions of joints on the robot
       </description>
     </class>
+
+
+    <class name="NumericalDifferentiationSplineSmootherFilterJointTrajectoryRequest" type="spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+	Generates velocities and accelerations from numerical differentiation
+      </description>
+    </class>
+    <class name="ClampedCubicSplineSmootherFilterJointTrajectoryRequest" type="spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+	Generates velocities using clamped cubic splines
+      </description>
+    </class>
+    <class name="FritschButlandSplineSmootherFilterJointTrajectoryRequest" type="spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+	Generates velocities using monotonic cubic spline interpolation by Fritsch, Butland
+      </description>
+    </class>
+    <class name="LinearSplineVelocityScalerFilterJointTrajectoryRequest" type="spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+	Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
+    <class name="CubicSplineVelocityScalerFilterJointTrajectoryRequest" type="spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+	      Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
+    <class name="UnNormalizeTrajectoryFilterJointTrajectoryRequest" type="spline_smoother::UnNormalizeTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+       	Unnormalize continuous joints by using information about the current positions of joints on the robot
+      </description>
+    </class>
+
   </library>
 </class_libraries>

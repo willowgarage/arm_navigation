@@ -35,88 +35,10 @@
 /** \author Mrinal Kalakrishnan */
 
 #include <spline_smoother/clamped_cubic_spline_smoother.h>
-#include <spline_smoother/spline_smoother_utils.h>
 #include <ros/ros.h>
 
 namespace spline_smoother
 {
-
-ClampedCubicSplineSmoother::ClampedCubicSplineSmoother()
-{
-}
-
-ClampedCubicSplineSmoother::~ClampedCubicSplineSmoother()
-{
-}
-
-bool ClampedCubicSplineSmoother::smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const
-{
-  int length = trajectory_in.trajectory.points.size();
-  trajectory_out = trajectory_in;
-
-  if (!checkTrajectoryConsistency(trajectory_out))
-    return false;
-
-  if (length<3)
-    return true;
-
-  if (length <= MAX_TRIDIAGONAL_SOLVER_ELEMENTS)
-  {
-    smoothSegment(trajectory_out.trajectory.points);
-  }
-  else
-  {
-    ROS_ERROR("ClampedCubicSplineSmoother: does not support trajectory lengths > %d due to numerical instability.", MAX_TRIDIAGONAL_SOLVER_ELEMENTS);
-    return false;
-  }
-
-  return true;
-}
-
-bool ClampedCubicSplineSmoother::smoothSegment(std::vector<trajectory_msgs::JointTrajectoryPoint>& wpts) const
-{
-  int length = wpts.size();
-  int num_joints = wpts[0].positions.size();
-  if (length < 3)
-    return true;
-
-  std::vector<double> intervals(length-1);
-
-  // generate time intervals:
-  for (int i=0; i<length-1; i++)
-    intervals[i] = (wpts[i+1].time_from_start - wpts[i].time_from_start).toSec();
-
-  // arrays for tridiagonal matrix
-  std::vector<double> a(length-2);
-  std::vector<double> b(length-2);
-  std::vector<double> c(length-2);
-  std::vector<double> d(length-2);
-  std::vector<double> x(length-2);
-
-  // for each joint:
-  for (int j=0; j<num_joints; j++)
-  {
-    a[0] = 0.0;
-    c[length-3] = 0.0;
-    for (int i=0; i<length-2; i++)
-    {
-      c[i] = intervals[i];
-      if (i<length-3)
-        a[i+1] = intervals[i+2];
-      b[i] = 2.0*(intervals[i] + intervals[i+1]);
-      d[i] = (3.0/(intervals[i]*intervals[i+1]))*
-          ((intervals[i]*intervals[i])*(wpts[i+2].positions[j]-wpts[i+1].positions[j]) +
-              (intervals[i+1]*intervals[i+1])*(wpts[i+1].positions[j]-wpts[i].positions[j]));
-    }
-    d[0] -= wpts[0].velocities[j]*intervals[1];
-    d[length-3] -= wpts[length-1].velocities[j]*intervals[length-3];
-
-    tridiagonalSolve(a, b, c, d, x);
-    for (int i=0; i<length-2; i++)
-      wpts[i+1].velocities[j] = x[i];
-  }
-  return true;
-}
 
 }
 

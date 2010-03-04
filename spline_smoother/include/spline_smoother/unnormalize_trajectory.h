@@ -41,6 +41,7 @@
 #include <urdf/model.h>
 #include <sensor_msgs/JointState.h>
 #include <spline_smoother/spline_smoother.h>
+#include <spline_smoother/spline_smoother_utils.h>
 
 namespace spline_smoother
 {
@@ -48,7 +49,8 @@ namespace spline_smoother
 /**
  * \brief Scales the time intervals stretching them if necessary so that the trajectory conforms to velocity limits
  */
-class UnNormalizeTrajectory: public SplineSmoother
+template <typename T>
+class UnNormalizeTrajectory: public SplineSmoother<T>
 {
 private:
   //! The node handle
@@ -73,8 +75,112 @@ public:
   UnNormalizeTrajectory();
   virtual ~UnNormalizeTrajectory();
 
-  virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
+  virtual bool smooth(const T& trajectory_in, 
+                      T& trajectory_out) const;
 };
+
+template <typename T>
+UnNormalizeTrajectory<T>::UnNormalizeTrajectory()
+{
+  joint_states_sub_ = nh_.subscribe("joint_states", 1, &UnNormalizeTrajectory::jointStatesCallback, this);
+
+  std::string urdf_xml,full_urdf_xml;
+  nh_.param("urdf_xml", urdf_xml, std::string("robot_description"));
+  if(!nh_.getParam(urdf_xml,full_urdf_xml))
+  {
+    ROS_ERROR("Could not load the xml from parameter server: %s\n", urdf_xml.c_str());
+    robot_model_initialized_ = false;
+  }
+  else
+  {
+    robot_model_.initString(full_urdf_xml);
+    robot_model_initialized_ = true;
+  }
+}
+
+template <typename T>
+UnNormalizeTrajectory<T>::~UnNormalizeTrajectory()
+{
+}
+
+template <typename T>
+bool UnNormalizeTrajectory<T>::smooth(const T& trajectory_in, 
+                                      T& trajectory_out) const
+{
+  trajectory_out = trajectory_in;
+
+  if (!checkTrajectoryConsistency(trajectory_out))
+    return false;
+
+  if (!robot_model_initialized_) 
+  {
+    ROS_ERROR("Robot model not initialized; can not tell continuous joints");
+    return false;
+  }
+
+  if (raw_joint_states_.get() == NULL)
+  {
+    ROS_ERROR("Did not receive current robot state message");
+    return false;
+  }
+
+  std::vector<double> current_values;
+  std::vector<int> wraparound;
+  trajectory_msgs::JointTrajectory input_trajectory = trajectory_in.trajectory;
+  for (size_t i=0; i<input_trajectory.joint_names.size(); i++)
+  {
+    std::string name = input_trajectory.joint_names[i];
+    size_t j;
+    for (j=0; j<raw_joint_states_->name.size(); j++)
+    {
+      if (name == raw_joint_states_->name[j]) break;
+    }
+    if ( j==raw_joint_states_->name.size())
+    {
+      ROS_ERROR("Joint name %s not found in raw joint state message", name.c_str());
+      return false;
+    }
+    //first waypoint is unnormalized relative to current joint states
+    current_values.push_back(raw_joint_states_->position.at(j));
+    
+    boost::shared_ptr<const urdf::Joint> joint = robot_model_.getJoint(name);
+    if (joint.get() == NULL)
+    {
+      ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
+      return false;
+    }
+    if (joint->type == urdf::Joint::CONTINUOUS) wraparound.push_back(1);
+    else wraparound.push_back(0);
+  }
+
+  trajectory_msgs::JointTrajectory normalized_trajectory = input_trajectory;
+  for (size_t i=0; i<normalized_trajectory.points.size(); i++)
+  {
+    for (size_t j=0; j<normalized_trajectory.points[i].positions.size(); j++ )
+    {
+      if (!wraparound.at(j)) continue;
+      double current = current_values.at(j);
+      double traj = normalized_trajectory.points[i].positions[j];
+      while ( current - traj > M_PI ) traj += 2*M_PI;
+      while ( traj - current > M_PI ) traj -= 2*M_PI;
+      ROS_DEBUG("Normalizing joint %s from %f to %f", normalized_trajectory.joint_names.at(j).c_str(), 
+                normalized_trajectory.points[i].positions[j], traj);
+      normalized_trajectory.points[i].positions[j] = traj;
+      //all other waypoints are unnormalized relative to the previous waypoint
+      current_values.at(j) = traj;
+    }  
+  }
+  trajectory_out.trajectory = normalized_trajectory;
+  return true;
+}
+
+//! Remembers the latest joint state
+template <typename T>
+void UnNormalizeTrajectory<T>::jointStatesCallback(const sensor_msgs::JointState::ConstPtr& states)
+{
+  raw_joint_states_ = states;
+}
+
 }
 
 #endif /* UNNORMALIZE_TRAJECTORY_H_ */

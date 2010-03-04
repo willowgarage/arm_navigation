@@ -111,7 +111,7 @@ TEST(TestLSPBTrajectory, TestLSPBTrajectory)
   fclose(f);
 
   spline_smoother::LSPBTrajectoryMsg spline;
-  bool success = traj.parameterize(wpt,spline);
+  bool success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
   EXPECT_TRUE(success);
   // traj->writeSpline(spline,"test_lspb_spline.txt");
 

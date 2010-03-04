@@ -51,7 +51,8 @@ namespace spline_smoother
 
     LSPBTrajectory();
 
-    bool parameterize(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
+    bool parameterize(const trajectory_msgs::JointTrajectory& trajectory_in, 
+                      const std::vector<motion_planning_msgs::JointLimits>& limits,
                       spline_smoother::LSPBTrajectoryMsg& spline);
 
     private:

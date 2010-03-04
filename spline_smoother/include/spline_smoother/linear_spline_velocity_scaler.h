@@ -45,14 +45,55 @@ namespace spline_smoother
 /**
  * \brief Scales the time intervals stretching them if necessary so that the trajectory conforms to velocity limits
  */
-  class LinearSplineVelocityScaler: public SplineSmoother
-  {
-    public:
-    LinearSplineVelocityScaler();
-    virtual ~LinearSplineVelocityScaler();
+template <typename T>
+class LinearSplineVelocityScaler: public SplineSmoother<T>
+{
+public:
+  LinearSplineVelocityScaler();
+  virtual ~LinearSplineVelocityScaler();
 
-    virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
-  };
+  virtual bool smooth(const T& trajectory_in, 
+                      T& trajectory_out) const;
+};
+
+template <typename T>
+LinearSplineVelocityScaler<T>::LinearSplineVelocityScaler()
+{
+}
+
+template <typename T>
+LinearSplineVelocityScaler<T>::~LinearSplineVelocityScaler()
+{
+}
+
+template <typename T>
+bool LinearSplineVelocityScaler<T>::smooth(const T& trajectory_in, 
+                                        T& trajectory_out) const
+{
+  spline_smoother::LinearTrajectory traj;
+  spline_smoother::SplineTrajectory spline;
+  bool success = traj.parameterize(trajectory_in.trajectory,trajectory_in.limits,spline);
+  if(!success)
+    return false;
+
+  trajectory_out = trajectory_in;
+  if (!checkTrajectoryConsistency(trajectory_out))
+    return false;
+
+  std::vector<double> times;
+  times.resize(spline.segments.size()+1);
+  times[0] = 0.0;
+  for(int i=0; i< (int) spline.segments.size(); i++)
+    times[i+1] = times[i] + spline.segments[i].duration.toSec(); 
+
+  trajectory_msgs::JointTrajectory joint_traj;
+  spline_smoother::sampleSplineTrajectory(spline,times,joint_traj);
+  trajectory_out.trajectory = joint_traj;
+  trajectory_out.trajectory.joint_names = trajectory_in.trajectory.joint_names;
+
+  return success;
+}
+
 }
 
 #endif /* LINEAR_SPLINE_SMOOTHER_H_ */

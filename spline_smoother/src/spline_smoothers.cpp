@@ -33,7 +33,7 @@
 *********************************************************************/
 
 /** \author Mrinal Kalakrishnan */
-
+#include <motion_planning_msgs/FilterJointTrajectoryRequest.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/linear_spline_velocity_scaler.h>
 #include <spline_smoother/unnormalize_trajectory.h>
@@ -42,9 +42,20 @@
 #include <spline_smoother/numerical_differentiation_spline_smoother.h>
 #include <spline_smoother/cubic_spline_velocity_scaler.h>
 
-REGISTER_SPLINE_SMOOTHER(LinearSplineVelocityScaler, spline_smoother::LinearSplineVelocityScaler)
-REGISTER_SPLINE_SMOOTHER(ClampedCubicSplineSmoother, spline_smoother::ClampedCubicSplineSmoother)
-REGISTER_SPLINE_SMOOTHER(FritschButlandSplineSmoother, spline_smoother::FritschButlandSplineSmoother)
-REGISTER_SPLINE_SMOOTHER(NumericalDifferentiationSplineSmoother, spline_smoother::NumericalDifferentiationSplineSmoother)
-REGISTER_SPLINE_SMOOTHER(UnNormalizeTrajectory, spline_smoother::UnNormalizeTrajectory)
-REGISTER_SPLINE_SMOOTHER(CubicSplineVelocityScaler, spline_smoother::CubicSplineVelocityScaler)
+//  PLUGINLIB_REGISTER_CLASS(class_name, class_type, filters::FilterBase<T>)
+
+PLUGINLIB_REGISTER_CLASS(LinearSplineVelocityScalerFilterJointTrajectoryRequest, spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(ClampedCubicSplineSmootherFilterJointTrajectoryRequest, spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(FritschButlandSplineSmootherFilterJointTrajectoryRequest, spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(NumericalDifferentiationSplineSmootherFilterJointTrajectoryRequest, spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(UnNormalizeTrajectoryFilterJointTrajectoryRequest, spline_smoother::UnNormalizeTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(CubicSplineVelocityScalerFilterJointTrajectoryRequest, spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+
+
+
+PLUGINLIB_REGISTER_CLASS(LinearSplineVelocityScalerJointTrajectoryWithLimits, spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+PLUGINLIB_REGISTER_CLASS(ClampedCubicSplineSmootherJointTrajectoryWithLimits, spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+PLUGINLIB_REGISTER_CLASS(FritschButlandSplineSmootherJointTrajectoryWithLimits, spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+PLUGINLIB_REGISTER_CLASS(NumericalDifferentiationSplineSmootherJointTrajectoryWithLimits, spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+PLUGINLIB_REGISTER_CLASS(UnNormalizeTrajectoryJointTrajectoryWithLimits, spline_smoother::UnNormalizeTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+PLUGINLIB_REGISTER_CLASS(CubicSplineVelocityScalerJointTrajectoryWithLimits, spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)

@@ -75,7 +75,7 @@ TEST(TestCubicTrajectory, TestCubicTrajectory)
   }
 
   spline_smoother::SplineTrajectory spline;
-  bool success = traj.parameterize(wpt,spline);
+  bool success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
 
   double total_time;
   bool ss = spline_smoother::getTotalTime(spline,total_time);
@@ -141,7 +141,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits1)
   }
   wpt.trajectory.points[1].positions[0] = 1.0;
   spline_smoother::SplineTrajectory spline;
-  bool success = traj.parameterize(wpt,spline);
+  bool success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
   EXPECT_TRUE(success);
 
   double total_time;
@@ -188,7 +188,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits2)
   wpt.trajectory.points[1].positions[0] = 1.0;
   wpt.trajectory.points[1].velocities[0] = -0.2;
   spline_smoother::SplineTrajectory spline;
-  bool success = traj.parameterize(wpt,spline);
+  bool success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
   EXPECT_TRUE(success);
 
   double total_time;
@@ -198,7 +198,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits2)
 
 
   wpt.trajectory.points[1].velocities[0] = 0.2;
-  success = traj.parameterize(wpt,spline);
+  success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
   EXPECT_TRUE(success);
   ss = spline_smoother::getTotalTime(spline,total_time);
   EXPECT_TRUE(ss);

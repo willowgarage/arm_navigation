@@ -44,7 +44,7 @@ using namespace spline_smoother;
 
 TEST(TestClampedCubicSplineSmoother, TestZeroPositionsSmall)
 {
-  int length = ClampedCubicSplineSmoother::MAX_TRIDIAGONAL_SOLVER_ELEMENTS - 2;
+  int length = ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS - 2;
 
   motion_planning_msgs::JointTrajectoryWithLimits wpt;
   motion_planning_msgs::JointTrajectoryWithLimits wpt_out;
@@ -62,7 +62,7 @@ TEST(TestClampedCubicSplineSmoother, TestZeroPositionsSmall)
     wpt.trajectory.points[i].time_from_start = ros::Duration(i);
   }
 
-  ClampedCubicSplineSmoother ccss;
+  ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits> ccss;
   ccss.smooth(wpt, wpt_out);
 
   // verify that velocities are 0:
@@ -74,7 +74,7 @@ TEST(TestClampedCubicSplineSmoother, TestZeroPositionsSmall)
 
 TEST(TestClampedCubicSplineSmoother, TestStraightLineSmall)
 {
-  int length = ClampedCubicSplineSmoother::MAX_TRIDIAGONAL_SOLVER_ELEMENTS-2;
+  int length = ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS-2;
 
   motion_planning_msgs::JointTrajectoryWithLimits wpt;
   motion_planning_msgs::JointTrajectoryWithLimits wpt_out;
@@ -92,7 +92,7 @@ TEST(TestClampedCubicSplineSmoother, TestStraightLineSmall)
     wpt.trajectory.points[i].time_from_start = ros::Duration(i);
   }
 
-  ClampedCubicSplineSmoother ccss;
+  ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits> ccss;
   ccss.smooth(wpt, wpt_out);
 
   // verify that velocities are still 1:

@@ -126,17 +126,18 @@ namespace spline_smoother
     return solution;
  }
 
-  bool CubicTrajectory::parameterize(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
+  bool CubicTrajectory::parameterize(const trajectory_msgs::JointTrajectory& trajectory_in, 
+                                     const std::vector<motion_planning_msgs::JointLimits> &limits,
                                      spline_smoother::SplineTrajectory& spline)
   {
-    int num_traj = trajectory_in.trajectory.points.size();
-    int num_joints = trajectory_in.trajectory.joint_names.size();
-    spline.names = trajectory_in.trajectory.joint_names;
+    int num_traj = trajectory_in.points.size();
+    int num_joints = trajectory_in.joint_names.size();
+    spline.names = trajectory_in.joint_names;
     spline.segments.resize(num_traj-1);
 
     for(int i=0; i<num_joints; i++)
     {
-      if(!trajectory_in.limits[i].has_velocity_limits)
+      if(!limits[i].has_velocity_limits)
       {
         ROS_ERROR("Trying to apply velocity limits without supplying them. Set velocity_limits in the message and set has_velocity_limits flag to true.");
         return false;
@@ -148,27 +149,30 @@ namespace spline_smoother
 
       for(int j =0; j < num_joints; j++)
         spline.segments[i-1].joints[j].coefficients.resize(4);
-      double dT = (trajectory_in.trajectory.points[i].time_from_start - trajectory_in.trajectory.points[i-1].time_from_start).toSec();
+      double dT = (trajectory_in.points[i].time_from_start - trajectory_in.points[i-1].time_from_start).toSec();
       if(apply_limits_)
       {
-      double dTMin = calculateMinimumTime(trajectory_in.trajectory.points[i-1],trajectory_in.trajectory.points[i],trajectory_in.limits);
+      double dTMin = calculateMinimumTime(trajectory_in.points[i-1],trajectory_in.points[i],limits);
       if(dTMin > dT) // if minimum time required to satisfy limits is greater than time available, stretch this segment
         dT = dTMin;      
       }
       spline.segments[i-1].duration = ros::Duration(dT);
       for(int j=0; j<num_joints; j++)
       {
-        double diff = jointDiff(trajectory_in.trajectory.points[i-1].positions[j],trajectory_in.trajectory.points[i].positions[j],trajectory_in.limits[j]);
-        spline.segments[i-1].joints[j].coefficients[0] = trajectory_in.trajectory.points[i-1].positions[j];
-        spline.segments[i-1].joints[j].coefficients[1] = trajectory_in.trajectory.points[i-1].velocities[j];
-        spline.segments[i-1].joints[j].coefficients[2] = (3*diff-(2*trajectory_in.trajectory.points[i-1].velocities[j]+trajectory_in.trajectory.points[i].velocities[j])*spline.segments[i-1].duration.toSec())/(spline.segments[i-1].duration.toSec()*spline.segments[i-1].duration.toSec());;
-        spline.segments[i-1].joints[j].coefficients[3] = (-2*diff+(trajectory_in.trajectory.points[i-1].velocities[j]+trajectory_in.trajectory.points[i].velocities[j])*spline.segments[i-1].duration.toSec())/pow(spline.segments[i-1].duration.toSec(),3);
+        double diff = jointDiff(trajectory_in.points[i-1].positions[j],trajectory_in.points[i].positions[j],limits[j]);
+        spline.segments[i-1].joints[j].coefficients[0] = trajectory_in.points[i-1].positions[j];
+        spline.segments[i-1].joints[j].coefficients[1] = trajectory_in.points[i-1].velocities[j];
+        spline.segments[i-1].joints[j].coefficients[2] = (3*diff-(2*trajectory_in.points[i-1].velocities[j]+trajectory_in.points[i].velocities[j])*spline.segments[i-1].duration.toSec())/(spline.segments[i-1].duration.toSec()*spline.segments[i-1].duration.toSec());;
+        spline.segments[i-1].joints[j].coefficients[3] = (-2*diff+(trajectory_in.points[i-1].velocities[j]+trajectory_in.points[i].velocities[j])*spline.segments[i-1].duration.toSec())/pow(spline.segments[i-1].duration.toSec(),3);
       }
     }
     return true;
   }
 
-bool CubicTrajectory::quadSolve(const double &a, const double &b, const double &c, double &solution)
+bool CubicTrajectory::quadSolve(const double &a, 
+                                const double &b, 
+                                const double &c, 
+                                double &solution)
 {
   double t1(0.0), t2(0.0);
   if (fabs(a) > 0.0)

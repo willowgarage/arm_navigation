@@ -40,7 +40,6 @@
 #include <vector>
 #include <filters/filter_base.h>
 #include <pluginlib/class_list_macros.h>
-#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
 
 namespace spline_smoother
 {
@@ -57,7 +56,8 @@ namespace spline_smoother
  * To implement a smoother, just override the virtual "smooth" method, and call the
  * REGISTER_SPLINE_SMOOTHER macro with the class name (anywhere in the cpp file)
  */
-  class SplineSmoother: public filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>
+template <typename T>
+class SplineSmoother: public filters::FilterBase<T>
 {
 public:
   SplineSmoother(){};
@@ -68,7 +68,7 @@ public:
   /**
    * \brief Implementation of the update() function for the filter
    */
-  virtual bool update(const motion_planning_msgs::JointTrajectoryWithLimits& data_in, motion_planning_msgs::JointTrajectoryWithLimits& data_out);
+  virtual bool update(const T& data_in, T& data_out);
 
   /**
    * \brief Smooths the input position trajectory by generating velocities and accelerations at the waypoints.
@@ -76,24 +76,27 @@ public:
    * This virtual method needs to implemented by the derived class.
    * \return true if successful, false if not
    */
-  virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const = 0;
+  virtual bool smooth(const T& trajectory_in, T& trajectory_out) const = 0;
 };
 
 /////////////////////////// inline functions follow //////////////////////////
 
-inline bool SplineSmoother::configure()
+template <typename T>
+inline bool SplineSmoother<T>::configure()
 {
   return true;
 }
 
-inline bool SplineSmoother::update(const motion_planning_msgs::JointTrajectoryWithLimits& data_in, motion_planning_msgs::JointTrajectoryWithLimits& data_out)
+template <typename T>
+inline bool SplineSmoother<T>::update(const T& data_in, 
+                                   T& data_out)
 {
   return smooth(data_in, data_out);
 }
 
 }
 
-#define REGISTER_SPLINE_SMOOTHER(class_name, class_type) \
-  PLUGINLIB_REGISTER_CLASS(class_name, class_type, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+//#define REGISTER_SPLINE_SMOOTHER(class_name, class_type)              \
+//  PLUGINLIB_REGISTER_CLASS(class_name, class_type, filters::FilterBase<T>)
 
 #endif /* SPLINE_SMOOTHER_H_ */

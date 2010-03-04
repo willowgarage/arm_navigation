@@ -38,6 +38,7 @@
 #define NUMERICAL_DIFFERENTIATION_SPLINE_SMOOTHER_H_
 
 #include <spline_smoother/spline_smoother.h>
+#include <spline_smoother/spline_smoother_utils.h>
 
 namespace spline_smoother
 {
@@ -45,15 +46,67 @@ namespace spline_smoother
 /**
  * \brief Generates velocities at waypoints by finite differencing. Accelerations are set to zero.
  */
-class NumericalDifferentiationSplineSmoother: public SplineSmoother
+template <typename T>
+class NumericalDifferentiationSplineSmoother: public SplineSmoother<T>
 {
 public:
   NumericalDifferentiationSplineSmoother();
   virtual ~NumericalDifferentiationSplineSmoother();
 
-  virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
+  virtual bool smooth(const T& trajectory_in, 
+                      T& trajectory_out) const;
 };
 
+template <typename T>
+NumericalDifferentiationSplineSmoother<T>::NumericalDifferentiationSplineSmoother()
+{
+}
+
+template <typename T>
+NumericalDifferentiationSplineSmoother<T>::~NumericalDifferentiationSplineSmoother()
+{
+}
+
+template <typename T>
+bool NumericalDifferentiationSplineSmoother<T>::smooth(const T& trajectory_in, 
+                                                       T& trajectory_out) const
+{
+  bool success = true;
+  int size = trajectory_in.trajectory.points.size();
+  int num_traj = trajectory_in.trajectory.joint_names.size();
+  trajectory_out = trajectory_in;
+
+  if (!checkTrajectoryConsistency(trajectory_out))
+    return false;
+
+  // keep the first and last velocities intact
+
+  // for every point in time:
+  for (int i=1; i<size-1; ++i)
+  {
+    double dt1 = (trajectory_in.trajectory.points[i].time_from_start - trajectory_in.trajectory.points[i-1].time_from_start).toSec();
+    double dt2 = (trajectory_in.trajectory.points[i+1].time_from_start - trajectory_in.trajectory.points[i].time_from_start).toSec();
+
+    // for every (joint) trajectory
+    for (int j=0; j<num_traj; ++j)
+    {
+      double dx1 = trajectory_in.trajectory.points[i].positions[j] - trajectory_in.trajectory.points[i-1].positions[j];
+      double dx2 = trajectory_in.trajectory.points[i+1].positions[j] - trajectory_in.trajectory.points[i].positions[j];
+
+      double v1 = dx1/dt1;
+      double v2 = dx2/dt2;
+
+      trajectory_out.trajectory.points[i].velocities[j] = 0.5*(v1 + v2);
+    }
+  }
+
+  // all accelerations are 0 for now:
+  for (int i=0; i<size; i++)
+    for (int j=0; j<num_traj; j++)
+      trajectory_out.trajectory.points[i].accelerations[j] = 0.0;
+
+  return success;
+}
 }
 
 #endif /* NUMERICAL_DIFFERENTIATION_SPLINE_SMOOTHER_H_ */

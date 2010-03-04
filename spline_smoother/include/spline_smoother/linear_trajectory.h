@@ -44,30 +44,31 @@ namespace spline_smoother
 /**
  * \brief Generates velocities at waypoints by finite differencing. Accelerations are set to zero.
  */
-  class LinearTrajectory
-  {
-    public:
-
-    LinearTrajectory();
-
-    /*! 
+class LinearTrajectory
+{
+public:
+  
+  LinearTrajectory();
+  
+  /*! 
     \brief A pure virtual function that must be implemented by each different trajectory generation algorithm.
     \return true on success, false if any failure occurs
     \param trajectory_in The input trajectory. It could contain position, velocity and acceleration information
     \param spline The output spline trajectory. The number of spline segments = number of trajectory points - 1
-    */
-    bool parameterize(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, 
-                      spline_smoother::SplineTrajectory& spline);
+  */
+  bool parameterize(const trajectory_msgs::JointTrajectory& trajectory_in,
+                    const std::vector<motion_planning_msgs::JointLimits> &limits,
+                    spline_smoother::SplineTrajectory& spline);
+  
 
-
-    private:
-
-    double calculateMinimumTime(const trajectory_msgs::JointTrajectoryPoint &start, 
-                                const trajectory_msgs::JointTrajectoryPoint &end, 
-                                const std::vector<motion_planning_msgs::JointLimits> &limits);
-
-    bool apply_limits_;
-  };
+private:
+  
+  double calculateMinimumTime(const trajectory_msgs::JointTrajectoryPoint &start, 
+                              const trajectory_msgs::JointTrajectoryPoint &end, 
+                              const std::vector<motion_planning_msgs::JointLimits> &limits);
+  
+  bool apply_limits_;
+};
 }
 
 #endif /* LINEAR_TRAJECTORY_H_ */

@@ -76,7 +76,7 @@ TEST(TestLinearTrajectory, TestLinearTrajectory)
   }
 
   spline_smoother::SplineTrajectory spline;
-  bool success = traj.parameterize(wpt,spline);
+  bool success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
 
   double total_time;
   bool ss = spline_smoother::getTotalTime(spline,total_time);

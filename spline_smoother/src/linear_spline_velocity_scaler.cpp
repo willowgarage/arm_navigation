@@ -39,38 +39,4 @@
 
 namespace spline_smoother
 {
-  LinearSplineVelocityScaler::LinearSplineVelocityScaler()
-  {
-  }
-
-  LinearSplineVelocityScaler::~LinearSplineVelocityScaler()
-  {
-  }
-
-  bool LinearSplineVelocityScaler::smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const
-  {
-//    bool success;
-    spline_smoother::LinearTrajectory traj;
-    spline_smoother::SplineTrajectory spline;
-    bool success = traj.parameterize(trajectory_in,spline);
-    if(!success)
-      return false;
-
-    trajectory_out = trajectory_in;
-    if (!checkTrajectoryConsistency(trajectory_out))
-      return false;
-
-    std::vector<double> times;
-    times.resize(spline.segments.size()+1);
-    times[0] = 0.0;
-    for(int i=0; i< (int) spline.segments.size(); i++)
-      times[i+1] = times[i] + spline.segments[i].duration.toSec(); 
-
-    trajectory_msgs::JointTrajectory joint_traj;
-    spline_smoother::sampleSplineTrajectory(spline,times,joint_traj);
-    trajectory_out.trajectory = joint_traj;
-    trajectory_out.trajectory.joint_names = trajectory_in.trajectory.joint_names;
-
-    return success;
-  }
 }

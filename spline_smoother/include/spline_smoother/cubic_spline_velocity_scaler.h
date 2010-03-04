@@ -45,14 +45,69 @@ namespace spline_smoother
 /**
  * \brief Scales the time intervals stretching them if necessary so that the trajectory conforms to velocity limits
  */
-  class CubicSplineVelocityScaler: public SplineSmoother
+  template <typename T>
+  class CubicSplineVelocityScaler: public SplineSmoother<T>
   {
     public:
     CubicSplineVelocityScaler();
     virtual ~CubicSplineVelocityScaler();
 
-    virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
+    virtual bool smooth(const T& trajectory_in, 
+                        T& trajectory_out) const;
   };
+
+  template <typename T>
+  CubicSplineVelocityScaler<T>::CubicSplineVelocityScaler()
+  {
+  }
+
+  template <typename T>
+  CubicSplineVelocityScaler<T>::~CubicSplineVelocityScaler()
+  {
+  }
+
+  template <typename T>
+  bool CubicSplineVelocityScaler<T>::smooth(const T& trajectory_in, T& trajectory_out) const
+  {
+    spline_smoother::CubicTrajectory traj;
+    spline_smoother::SplineTrajectory spline;
+    bool success = traj.parameterize(trajectory_in.trajectory,trajectory_in.limits,spline);
+    if(!success)
+      return false;
+
+    trajectory_out = trajectory_in;
+    if (!checkTrajectoryConsistency(trajectory_out))
+      return false;
+
+    double dT = 0.01;
+    std::set<double> times;
+    double total_time;
+    spline_smoother::getTotalTime(spline,total_time);
+    for(int i=1; i< (int) (total_time/dT); i++)
+      times.insert(i*dT);
+    times.insert(total_time);
+
+    double insert_time = 0;
+    for(unsigned int i=0; i < spline.segments.size(); i++)
+    {
+      insert_time += spline.segments[i].duration.toSec();
+      times.insert(insert_time);
+    }
+
+    std::vector<double> times_vec;
+    for(std::set<double>::iterator set_iter = times.begin(); set_iter != times.end(); set_iter++)
+    {
+      times_vec.push_back(*set_iter);
+    }
+    std::sort(times_vec.begin(), times_vec.end());
+    //traj_gen->write(spline,times_vec,"shortcutter_robot.txt");    
+    //traj_gen->sample(spline,times,trajectory_out.trajectory);
+
+    if(!spline_smoother::sampleSplineTrajectory(spline,times_vec,trajectory_out.trajectory))
+      return false;
+
+    return true;
+  }
 }
 
 #endif /* CUBIC_SPLINE_SMOOTHER_H_ */
