@@ -34,18 +34,19 @@
 
 /** \author Mrinal Kalakrishnan */
 
-#ifndef TRAJECTORY_FILTER_H_
-#define TRAJECTORY_FILTER_H_
+#ifndef TRAJECTORY_FILTER_SERVER_H_
+#define TRAJECTORY_FILTER_SERVER_H_
 
 #include <ros/ros.h>
 #include <filters/filter_chain.h>
-#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
-#include <motion_planning_msgs/JointLimits.h>
 #include <motion_planning_msgs/FilterJointTrajectory.h>
-#include <trajectory_msgs/JointTrajectory.h>
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
 
-namespace trajectory_filter
+namespace trajectory_filter_server
 {
+
+static const int FILTER_JOINT_TRAJECTORY = 0;
+static const int FILTER_JOINT_TRAJECTORY_WITH_CONSTRAINTS = 1;
 
 class TrajectoryFilterServer
 {
@@ -58,14 +59,28 @@ public:
 private:
   bool filter(motion_planning_msgs::FilterJointTrajectory::Request &req, 
               motion_planning_msgs::FilterJointTrajectory::Response &resp);
-  ros::NodeHandle priv_handle_, root_handle_;
-  std::map<std::string, motion_planning_msgs::JointLimits> joint_limits_;
-  filters::FilterChain<motion_planning_msgs::JointTrajectoryWithLimits> filter_chain_;
-  void jointTrajectoryToJointTrajectoryWithLimits(const trajectory_msgs::JointTrajectory& joint_traj, motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj);
 
-  ros::ServiceServer filter_trajectory_service_;
+  bool filterConstraints(motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request &req, 
+                         motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response &resp);
+
+  //  void jointTrajectoryToJointTrajectoryWithLimits(const trajectory_msgs::JointTrajectory& joint_traj, 
+  //motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj);
+
+  void getLimits(const trajectory_msgs::JointTrajectory& trajectory, 
+                 std::vector<motion_planning_msgs::JointLimits>& limits_out);
+
+  ros::NodeHandle private_handle_, root_handle_;
+  ros::ServiceServer filter_service_, filter_constraints_service_;
+  std::map<std::string, motion_planning_msgs::JointLimits> joint_limits_;
+
+  int service_type_;
+
+  filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryRequest> filter_chain_;
+  filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest> filter_constraints_chain_;
+
+
 };
 
 }
 
-#endif /* JOINT_WAYPOINT_CONTROLLER_H_ */
+#endif /* TRAJECTORY_FILTER_SERVER_H_ */

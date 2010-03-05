@@ -34,6 +34,7 @@
 
 /** \author Mrinal Kalakrishnan */
 #include <motion_planning_msgs/FilterJointTrajectoryRequest.h>
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraintsRequest.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/linear_spline_velocity_scaler.h>
 #include <spline_smoother/unnormalize_trajectory.h>
