@@ -34,27 +34,11 @@
 
 /** \author Mrinal Kalakrishnan */
 
-#ifndef FIX_WRAPAROUND_JOINTS_H_
-#define FIX_WRAPAROUND_JOINTS_H_
+#include <motion_planning_msgs/FilterJointTrajectoryRequest.h>
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraintsRequest.h>
+#include <joint_normalization_filters/normalize_joint_trajectory.h>
 
-#include <spline_smoother/spline_smoother.h>
+PLUGINLIB_REGISTER_CLASS(NormalizeFilterJointTrajectoryWithConstraintsRequest,joint_normalization_filters::NormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>,filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
+PLUGINLIB_REGISTER_CLASS(NormalizeFilterJointTrajectoryRequest,joint_normalization_filters::NormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>,filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(NormalizeJointTrajectoryWithLimits,joint_normalization_filters::NormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>,filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
 
-namespace trajectory_filter
-{
-
-/**
- * \brief This class converts a trajectory to remove all wrap-arounds, so that spline processing is easier
- */
-class FixWraparoundJoints: public spline_smoother::SplineSmoother
-{
-public:
-  FixWraparoundJoints();
-  virtual ~FixWraparoundJoints();
-
-  virtual bool smooth(const motion_planning_msgs::JointTrajectoryWithLimits& trajectory_in, motion_planning_msgs::JointTrajectoryWithLimits& trajectory_out) const;
-
-};
-
-}
-
-#endif /* FIX_WRAPAROUND_JOINTS_H_ */

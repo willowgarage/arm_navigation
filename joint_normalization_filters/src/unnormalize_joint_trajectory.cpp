@@ -32,51 +32,12 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/** \author Mrinal Kalakrishnan */
+/** \author Matei Ciocarlei, Sachin Chitta */
 
-#include <trajectory_filter/fix_wraparound_joints.h>
-#include <spline_smoother/spline_smoother_utils.h>
-#include <angles/angles.h>
+#include <motion_planning_msgs/FilterJointTrajectoryRequest.h>
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraintsRequest.h>
+#include <joint_normalization_filters/unnormalize_joint_trajectory.h>
 
-namespace trajectory_filter
-{
-
-FixWraparoundJoints::FixWraparoundJoints()
-{
-
-}
-
-FixWraparoundJoints::~FixWraparoundJoints()
-{
-}
-
-bool FixWraparoundJoints::smooth(const motion_planning_msgs::JointTrajectoryWithLimits& data_in, motion_planning_msgs::JointTrajectoryWithLimits& data_out) const
-{
-  data_out = data_in;
-
-  int size = data_in.trajectory.points.size();
-  int num_joints = data_in.trajectory.joint_names.size();
-
-  if (!spline_smoother::checkTrajectoryConsistency(data_out))
-    return false;
-
-  for (int i=0; i<num_joints; ++i)
-  {
-    if (!data_out.limits[i].has_position_limits)
-    {
-      for (int j=1; j<size; ++j)
-      {
-        double& cur = data_out.trajectory.points[j].positions[i];
-        double prev = data_out.trajectory.points[j-1].positions[i];
-
-        cur = prev + angles::shortest_angular_distance(prev, cur);
-      }
-    }
-  }
-
-  return true;
-}
-
-}
-
-REGISTER_SPLINE_SMOOTHER(FixWraparoundJoints, trajectory_filter::FixWraparoundJoints)
+PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryWithConstraintsRequest,joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>,filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
+PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryRequest,joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>,filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(UnNormalizeJointTrajectoryWithLimits,joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>,filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)

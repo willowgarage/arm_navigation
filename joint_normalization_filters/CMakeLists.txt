@@ -29,4 +29,5 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
-rosbuild_add_executable(trajectory_filter_server src/trajectory_filter_server.cpp)
+rosbuild_add_library(trajectory_normalization_filters src/unnormalize_joint_trajectory.cpp)
+rosbuild_add_library(trajectory_normalization_filters src/normalize_joint_trajectory.cpp)

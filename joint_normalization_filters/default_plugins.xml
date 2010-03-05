@@ -1,0 +1,42 @@
+<class_libraries>
+  <library path="lib/libjoint_normalization_filters">
+    <class name="NormalizeJointTrajectoryWithLimits" type="joint_normalization_filters::NormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
+      <description>
+        Wraps continuous joints between -M_PI to M_PI.
+      </description>
+    </class>
+    <class name="NormalizeFilterJointTrajectoryRequest" type="joint_normalization_filters::NormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+        Wraps continuous joints between -M_PI to M_PI.
+      </description>
+    </class>
+    <class name="NormalizeFilterJointTrajectoryWithConstraints" type="joint_normalization_filters::NormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>">
+      <description>
+        Wraps continuous joints between -M_PI to M_PI.
+      </description>
+    </class>
+
+
+    <class name="UnNormalizeJointTrajectoryWithLimits" type="joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
+      <description>
+        Uses the current joint state information to unwrap continuous joints to the nearest position to the current joint state. This filter will incrementally update points in a trajectory. This filter listens for a message on the "/joint_states" topic for the current joint state.
+      </description>
+    </class>
+    <class name="UnNormalizeFilterJointTrajectoryRequest" type="joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>">
+      <description>
+        Uses the current joint state information to unwrap continuous joints to the nearest position to the current joint state. This filter will incrementally update points in a trajectory. This filter listens for a message on the "/joint_states" topic for the current joint state.
+      </description>
+    </class>
+    <class name="UnNormalizeFilterJointTrajectoryWithConstraints" type="joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>">
+      <description>
+        Uses the current joint state information to unwrap continuous joints to the nearest position to the current joint state. This filter will incrementally update points in a trajectory. This filter listens for a message on the "/joint_states" topic for the current joint state.
+      </description>
+    </class>
+  </library>
+</class_libraries>

@@ -35,7 +35,6 @@ rosbuild_add_library(spline_smoother
 	src/numerical_differentiation_spline_smoother.cpp
 	src/spline_smoothers.cpp
   src/linear_spline_velocity_scaler.cpp
-  src/unnormalize_trajectory.cpp
   src/cubic_spline_velocity_scaler.cpp
   src/cubic_trajectory.cpp
   src/linear_trajectory.cpp

@@ -32,10 +32,71 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/** \author Sachin Chitta */
+/** \author Mrinal Kalakrishnan */
 
-#include <spline_smoother/unnormalize_trajectory.h>
+#ifndef NORMALIZE_JOINT_TRAJECTORY_H_
+#define NORMALIZE_JOINT_TRAJECTORY_H_
 
-namespace spline_smoother
+#include <spline_smoother/spline_smoother.h>
+#include <spline_smoother/spline_smoother_utils.h>
+#include <angles/angles.h>
+
+namespace joint_normalization_filters
+{
+
+/**
+ * \brief This class converts a trajectory to remove all wrap-arounds, so that spline processing is easier
+ */
+template <typename T>
+class NormalizeJointTrajectory: public spline_smoother::SplineSmoother<T>
+{
+public:
+  NormalizeJointTrajectory();
+  virtual ~NormalizeJointTrajectory();
+
+  virtual bool smooth(const T& trajectory_in, 
+                      T& trajectory_out) const;
+
+};
+
+template <typename T>
+bool NormalizeJointTrajectory<T>::smooth(const T& data_in, 
+                                         T& data_out) const
+{
+  data_out = data_in;
+
+  int size = data_in.trajectory.points.size();
+  int num_joints = data_in.trajectory.joint_names.size();
+
+  if (!spline_smoother::checkTrajectoryConsistency(data_out))
+    return false;
+
+  for (int i=0; i<num_joints; ++i)
+  {
+    if (!data_out.limits[i].has_position_limits)
+    {
+      for (int j=1; j<size; ++j)
+      {
+        double& cur = data_out.trajectory.points[j].positions[i];
+        double prev = data_out.trajectory.points[j-1].positions[i];
+
+        cur = prev + angles::shortest_angular_distance(prev, cur);
+      }
+    }
+  }
+  return true;
+}
+
+template <typename T>
+NormalizeJointTrajectory<T>::NormalizeJointTrajectory()
 {
 }
+
+template <typename T>
+NormalizeJointTrajectory<T>::~NormalizeJointTrajectory()
+{
+}
+
+}
+
+#endif /* NORMALIZE_JOINT_TRAJECTORY_H */

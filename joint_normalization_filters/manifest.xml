@@ -1,0 +1,14 @@
+<package>
+  <description brief="joint_normalization_filters">
+    This package implements a set of filters that can deal with wrapping or unwrapping continuous joints.
+  </description>
+  <author>Sachin Chitta</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/joint_normalization_filters</url>
+  <depend package="spline_smoother"/>
+  <depend package="angles"/>
+
+</package>
+
+

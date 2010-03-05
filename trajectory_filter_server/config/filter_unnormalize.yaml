@@ -1,3 +1,4 @@
+message_type: FilterJointTrajectory
 filter_chain:
   - 
     type: UnNormalizeTrajectory

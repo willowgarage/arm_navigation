@@ -34,8 +34,8 @@
 
 /** \author Matei Ciocarlei, Sachin Chitta */
 
-#ifndef UNNORMALIZE_TRAJECTORY_H_
-#define UNNORMALIZE_TRAJECTORY_H_
+#ifndef UNNORMALIZE_JOINT_TRAJECTORY_H_
+#define UNNORMALIZE_JOINT_TRAJECTORY_H_
 
 #include <ros/ros.h>
 #include <urdf/model.h>
@@ -43,14 +43,14 @@
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/spline_smoother_utils.h>
 
-namespace spline_smoother
+namespace joint_normalization_filters
 {
 
 /**
  * \brief Scales the time intervals stretching them if necessary so that the trajectory conforms to velocity limits
  */
 template <typename T>
-class UnNormalizeTrajectory: public SplineSmoother<T>
+class UnNormalizeJointTrajectory: public spline_smoother::SplineSmoother<T>
 {
 private:
   //! The node handle
@@ -72,17 +72,17 @@ private:
   void jointStatesCallback(const sensor_msgs::JointState::ConstPtr& states);
 
 public:
-  UnNormalizeTrajectory();
-  virtual ~UnNormalizeTrajectory();
+  UnNormalizeJointTrajectory();
+  virtual ~UnNormalizeJointTrajectory();
 
   virtual bool smooth(const T& trajectory_in, 
                       T& trajectory_out) const;
 };
 
 template <typename T>
-UnNormalizeTrajectory<T>::UnNormalizeTrajectory()
+UnNormalizeJointTrajectory<T>::UnNormalizeJointTrajectory()
 {
-  joint_states_sub_ = nh_.subscribe("joint_states", 1, &UnNormalizeTrajectory::jointStatesCallback, this);
+  joint_states_sub_ = nh_.subscribe("joint_states", 1, &UnNormalizeJointTrajectory::jointStatesCallback, this);
 
   std::string urdf_xml,full_urdf_xml;
   nh_.param("urdf_xml", urdf_xml, std::string("robot_description"));
@@ -99,17 +99,17 @@ UnNormalizeTrajectory<T>::UnNormalizeTrajectory()
 }
 
 template <typename T>
-UnNormalizeTrajectory<T>::~UnNormalizeTrajectory()
+UnNormalizeJointTrajectory<T>::~UnNormalizeJointTrajectory()
 {
 }
 
 template <typename T>
-bool UnNormalizeTrajectory<T>::smooth(const T& trajectory_in, 
+bool UnNormalizeJointTrajectory<T>::smooth(const T& trajectory_in, 
                                       T& trajectory_out) const
 {
   trajectory_out = trajectory_in;
 
-  if (!checkTrajectoryConsistency(trajectory_out))
+  if (!spline_smoother::checkTrajectoryConsistency(trajectory_out))
     return false;
 
   if (!robot_model_initialized_) 
@@ -176,11 +176,11 @@ bool UnNormalizeTrajectory<T>::smooth(const T& trajectory_in,
 
 //! Remembers the latest joint state
 template <typename T>
-void UnNormalizeTrajectory<T>::jointStatesCallback(const sensor_msgs::JointState::ConstPtr& states)
+void UnNormalizeJointTrajectory<T>::jointStatesCallback(const sensor_msgs::JointState::ConstPtr& states)
 {
   raw_joint_states_ = states;
 }
 
 }
 
-#endif /* UNNORMALIZE_TRAJECTORY_H_ */
+#endif /* UNNORMALIZE_JOINT_TRAJECTORY_H_ */
