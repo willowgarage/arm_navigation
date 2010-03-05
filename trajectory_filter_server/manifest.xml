@@ -12,7 +12,7 @@
   <depend package="motion_planning_msgs" />
   <depend package="spline_smoother" />
   <export>
-		<cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib -ltrajectory_filter_library"/>
+    <cpp cflags="-I${prefix}/include"/>
     <filters plugin="${prefix}/default_plugins.xml"/>
   </export>
 
