@@ -1,4 +1,5 @@
 # This message contains information about limits of a particular joint (or control dimension)
+string joint_name
 
 # true if the joint has position limits
 uint8 has_position_limits
