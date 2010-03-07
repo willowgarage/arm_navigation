@@ -48,7 +48,10 @@ TrajectoryFilterServer::TrajectoryFilterServer() : private_handle_("~"),
   if(service_type_string == std::string("FilterJointTrajectory"))
     service_type_ = FILTER_JOINT_TRAJECTORY;
   else if(service_type_string == std::string("FilterJointTrajectoryWithConstraints"))
+  {
+    ROS_INFO("Filtering joint trajectories with constraints");
     service_type_ = FILTER_JOINT_TRAJECTORY_WITH_CONSTRAINTS;
+  }
   else
     service_type_ = FILTER_JOINT_TRAJECTORY;
   

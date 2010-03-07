@@ -1,7 +1,7 @@
 <launch> 
-	<node pkg="trajectory_filter" name="trajectory_filter" type="trajectory_filter_node" output="screen">
-		<rosparam command="load" file="$(find trajectory_filter)/config/joint_limits.yaml"/>
-		<rosparam command="load" file="$(find trajectory_filter)/config/filters.yaml"/>
+	<node pkg="trajectory_filter_server" name="trajectory_filter" type="trajectory_filter_server" output="screen">
+		<rosparam command="load" file="$(find trajectory_filter_server)/config/joint_limits.yaml"/>
+		<rosparam command="load" file="$(find trajectory_filter_server)/config/filters.yaml"/>
 
     <remap from="robot_description" to="robot_description" />
     <remap from="collision_map" to="collision_map_occ" />

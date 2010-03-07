@@ -8,6 +8,12 @@
   <url>http://ros.org/wiki/joint_normalization_filters</url>
   <depend package="spline_smoother"/>
   <depend package="angles"/>
+  <depend package="filters"/>
+
+  <export>
+    <cpp lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -ljoint_normalization_filters"/>
+    <filters plugin="${prefix}/default_plugins.xml" />
+  </export>
 
 </package>
 

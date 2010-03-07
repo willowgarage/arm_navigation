@@ -1,10 +1,10 @@
-message_type: FilterJointTrajectory
+service_type: FilterJointTrajectoryWithConstraints
 filter_chain:
   - 
     name: unnormalize_trajectory
-    type: UnNormalizeTrajectory
+    type: UnNormalizeFilterJointTrajectoryWithConstraintsRequest
   -
     name: cubic_spline_short_cutter_smoother
-    type: CubicSplineShortCutter
+    type: CubicSplineShortCutterFilterJointTrajectoryWithConstraintsRequest
 
 

@@ -1,6 +1,6 @@
 <class_libraries>
   <library path="lib/libconstraint_aware_spline_smoother">
-    <class name="CubicSplineShortCutterJointFilterJointTrajectoryWithConstraintsRequest" type="collision_free_spline_smoother::CubicSplineShortCuttere<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>" 
+    <class name="CubicSplineShortCutterFilterJointTrajectoryWithConstraintsRequest" type="constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>" 
             base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>">
       <description>
         Generates collision free cubic spline trajectories

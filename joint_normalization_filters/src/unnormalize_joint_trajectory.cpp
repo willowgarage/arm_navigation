@@ -38,6 +38,14 @@
 #include <motion_planning_msgs/FilterJointTrajectoryWithConstraintsRequest.h>
 #include <joint_normalization_filters/unnormalize_joint_trajectory.h>
 
-PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryWithConstraintsRequest,joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>,filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
-PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryRequest,joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>,filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
-PLUGINLIB_REGISTER_CLASS(UnNormalizeJointTrajectoryWithLimits,joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>,filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryWithConstraintsRequest,
+                         joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>,
+                         filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
+
+PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryRequest,
+                         joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryRequest>,
+                         filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+
+PLUGINLIB_REGISTER_CLASS(UnNormalizeJointTrajectoryWithLimits,
+                         joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>,
+                         filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
