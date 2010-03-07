@@ -168,7 +168,7 @@ private:
     res.trajectory.joint_trajectory.header.frame_id = planningMonitor_->getFrameId();
     res.trajectory.joint_trajectory.header.stamp = planningMonitor_->lastMapUpdate();
 	
-    planning_models::KinematicState *startState = fillStartState(req.start_state);
+    planning_models::KinematicState *startState = fillStartState(req.motion_plan_request.start_state);
 	
     if (startState)
       {
@@ -177,7 +177,7 @@ private:
         ROS_DEBUG("Complete starting state:\n%s", ss.str().c_str());
         st = requestHandler_.computePlan(models_, startState, stateDelay_, req, res, distance_metric_);
         if (st && !res.trajectory.joint_trajectory.points.empty())
-	        if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory, req.start_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes))
+	        if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory, req.motion_plan_request.start_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes))
             ROS_ERROR("Reported solution appears to have already become invalidated");
         delete startState;
       }

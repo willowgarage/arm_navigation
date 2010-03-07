@@ -46,11 +46,11 @@ void ompl_planning::RequestHandler::setOnFinishPlan(const boost::function<void(P
 
 bool ompl_planning::RequestHandler::isRequestValid(ModelMap &models, motion_planning_msgs::GetMotionPlan::Request &req, const std::string &distance_metric)
 {   
-  ModelMap::const_iterator pos = models.find(req.group_name);
+  ModelMap::const_iterator pos = models.find(req.motion_plan_request.group_name);
     
   if (pos == models.end())
     {
-      ROS_ERROR("Cannot plan for '%s'. Model does not exist", req.group_name.c_str());
+      ROS_ERROR("Cannot plan for '%s'. Model does not exist", req.motion_plan_request.group_name.c_str());
       return false;
     }
     
@@ -58,32 +58,32 @@ bool ompl_planning::RequestHandler::isRequestValid(ModelMap &models, motion_plan
   Model *m = pos->second;
     
   /* if the user did not specify a planner, use the first available one */
-  if (req.planner_id.empty())
+  if (req.motion_plan_request.planner_id.empty())
     for (std::map<std::string, PlannerSetup*>::const_iterator it = m->planners.begin() ; it != m->planners.end() ; ++it)
-	    if ((req.goal_constraints.position_constraints.empty() && req.goal_constraints.orientation_constraints.empty() && (it->second->mp->getType() & ompl::base::PLAN_TO_GOAL_STATE) != 0) ||
-          (!req.goal_constraints.position_constraints.empty() && !req.goal_constraints.orientation_constraints.empty() && (it->second->mp->getType() & ompl::base::PLAN_TO_GOAL_REGION) != 0))
+	    if ((req.motion_plan_request.goal_constraints.position_constraints.empty() && req.motion_plan_request.goal_constraints.orientation_constraints.empty() && (it->second->mp->getType() & ompl::base::PLAN_TO_GOAL_STATE) != 0) ||
+          (!req.motion_plan_request.goal_constraints.position_constraints.empty() && !req.motion_plan_request.goal_constraints.orientation_constraints.empty() && (it->second->mp->getType() & ompl::base::PLAN_TO_GOAL_REGION) != 0))
         {
-          if (req.planner_id.empty())
-            req.planner_id = it->first;
+          if (req.motion_plan_request.planner_id.empty())
+            req.motion_plan_request.planner_id = it->first;
           else
-            if (m->planners[req.planner_id]->priority < it->second->priority ||
-                (m->planners[req.planner_id]->priority == it->second->priority && rand() % 2 == 1))
-              req.planner_id = it->first;
+            if (m->planners[req.motion_plan_request.planner_id]->priority < it->second->priority ||
+                (m->planners[req.motion_plan_request.planner_id]->priority == it->second->priority && rand() % 2 == 1))
+              req.motion_plan_request.planner_id = it->first;
         }
     
   /* check if desired planner exists */
   std::map<std::string, PlannerSetup*>::iterator plannerIt = m->planners.end();
   for (std::map<std::string, PlannerSetup*>::iterator it = m->planners.begin() ; it != m->planners.end() ; ++it)
-    if (it->first.find(req.planner_id) != std::string::npos)
+    if (it->first.find(req.motion_plan_request.planner_id) != std::string::npos)
       {
-        req.planner_id = it->first;
+        req.motion_plan_request.planner_id = it->first;
         plannerIt = it;
         break;
       }
     
   if (plannerIt == m->planners.end())
     {
-      ROS_ERROR("Motion planner not found: '%s'", req.planner_id.c_str());
+      ROS_ERROR("Motion planner not found: '%s'", req.motion_plan_request.planner_id.c_str());
       return false;
     }
     
@@ -97,46 +97,46 @@ bool ompl_planning::RequestHandler::isRequestValid(ModelMap &models, motion_plan
     }
     
   // check headers
-  for (unsigned int i = 0 ; i < req.goal_constraints.position_constraints.size() ; ++i)
-    if (!m->planningMonitor->getTransformListener()->frameExists(req.goal_constraints.position_constraints[i].header.frame_id))
+  for (unsigned int i = 0 ; i < req.motion_plan_request.goal_constraints.position_constraints.size() ; ++i)
+    if (!m->planningMonitor->getTransformListener()->frameExists(req.motion_plan_request.goal_constraints.position_constraints[i].header.frame_id))
       {
-        ROS_ERROR("Frame '%s' is not defined for goal position constraint message %u", req.goal_constraints.position_constraints[i].header.frame_id.c_str(), i);
+        ROS_ERROR("Frame '%s' is not defined for goal position constraint message %u", req.motion_plan_request.goal_constraints.position_constraints[i].header.frame_id.c_str(), i);
         return false;
       }
 
-  for (unsigned int i = 0 ; i < req.goal_constraints.orientation_constraints.size() ; ++i)
-    if (!m->planningMonitor->getTransformListener()->frameExists(req.goal_constraints.orientation_constraints[i].header.frame_id))
+  for (unsigned int i = 0 ; i < req.motion_plan_request.goal_constraints.orientation_constraints.size() ; ++i)
+    if (!m->planningMonitor->getTransformListener()->frameExists(req.motion_plan_request.goal_constraints.orientation_constraints[i].header.frame_id))
       {
-        ROS_ERROR("Frame '%s' is not defined for goal pose constraint message %u", req.goal_constraints.orientation_constraints[i].header.frame_id.c_str(), i);
+        ROS_ERROR("Frame '%s' is not defined for goal pose constraint message %u", req.motion_plan_request.goal_constraints.orientation_constraints[i].header.frame_id.c_str(), i);
         return false;
       }
     
-  /*  for (unsigned int i = 0 ; i < req.goal_constraints.joint_constraints.size() ; ++i)
-    if (!m->planningMonitor->getTransformListener()->frameExists(req.goal_constraints.joint_constraints[i].header.frame_id))
+  /*  for (unsigned int i = 0 ; i < req.motion_plan_request.goal_constraints.joint_constraints.size() ; ++i)
+    if (!m->planningMonitor->getTransformListener()->frameExists(req.motion_plan_request.goal_constraints.joint_constraints[i].header.frame_id))
       {
-        ROS_ERROR("Frame '%s' is not defined for goal joint constraint message %u", req.goal_constraints.joint_constraints[i].header.frame_id.c_str(), i);
+        ROS_ERROR("Frame '%s' is not defined for goal joint constraint message %u", req.motion_plan_request.goal_constraints.joint_constraints[i].header.frame_id.c_str(), i);
         return false;
       }
   */
-  for (unsigned int i = 0 ; i < req.path_constraints.position_constraints.size() ; ++i)
-    if (!m->planningMonitor->getTransformListener()->frameExists(req.path_constraints.position_constraints[i].header.frame_id))
+  for (unsigned int i = 0 ; i < req.motion_plan_request.path_constraints.position_constraints.size() ; ++i)
+    if (!m->planningMonitor->getTransformListener()->frameExists(req.motion_plan_request.path_constraints.position_constraints[i].header.frame_id))
       {
-        ROS_ERROR("Frame '%s' is not defined for path pose constraint message %u", req.path_constraints.position_constraints[i].header.frame_id.c_str(), i);
+        ROS_ERROR("Frame '%s' is not defined for path pose constraint message %u", req.motion_plan_request.path_constraints.position_constraints[i].header.frame_id.c_str(), i);
         return false;
       }
 
-  for (unsigned int i = 0 ; i < req.path_constraints.orientation_constraints.size() ; ++i)
-    if (!m->planningMonitor->getTransformListener()->frameExists(req.path_constraints.orientation_constraints[i].header.frame_id))
+  for (unsigned int i = 0 ; i < req.motion_plan_request.path_constraints.orientation_constraints.size() ; ++i)
+    if (!m->planningMonitor->getTransformListener()->frameExists(req.motion_plan_request.path_constraints.orientation_constraints[i].header.frame_id))
       {
-        ROS_ERROR("Frame '%s' is not defined for path pose constraint message %u", req.path_constraints.orientation_constraints[i].header.frame_id.c_str(), i);
+        ROS_ERROR("Frame '%s' is not defined for path pose constraint message %u", req.motion_plan_request.path_constraints.orientation_constraints[i].header.frame_id.c_str(), i);
         return false;
       }
 
     
-  /*  for (unsigned int i = 0 ; i < req.path_constraints.joint_constraints.size() ; ++i)
-    if (!m->planningMonitor->getTransformListener()->frameExists(req.path_constraints.joint_constraints[i].header.frame_id))
+  /*  for (unsigned int i = 0 ; i < req.motion_plan_request.path_constraints.joint_constraints.size() ; ++i)
+    if (!m->planningMonitor->getTransformListener()->frameExists(req.motion_plan_request.path_constraints.joint_constraints[i].header.frame_id))
       {
-        ROS_ERROR("Frame '%s' is not defined for path joint constraint message %u", req.path_constraints.joint_constraints[i].header.frame_id.c_str(), i);
+        ROS_ERROR("Frame '%s' is not defined for path joint constraint message %u", req.motion_plan_request.path_constraints.joint_constraints[i].header.frame_id.c_str(), i);
         return false;
       }
   */
@@ -194,12 +194,12 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     psetup->ompl_model->clearEnvironmentDescriptions();
 
     /* before configuring, we may need to update bounds on the state space + other path constraints */
-    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.path_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
+    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.path_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
     if (ompl_ros::ROSSpaceInformationKinematic *s = dynamic_cast<ompl_ros::ROSSpaceInformationKinematic*>(psetup->ompl_model->si))
-  	s->setPathConstraints(req.path_constraints);
+  	s->setPathConstraints(req.motion_plan_request.path_constraints);
     if (ompl_ros::ROSSpaceInformationDynamic *s = dynamic_cast<ompl_ros::ROSSpaceInformationDynamic*>(psetup->ompl_model->si))
-	  s->setPathConstraints(req.path_constraints);
-    setWorkspaceBounds(req.workspace_parameters, psetup->ompl_model);
+	  s->setPathConstraints(req.motion_plan_request.path_constraints);
+    setWorkspaceBounds(req.motion_plan_request.workspace_parameters, psetup->ompl_model);
     psetup->ompl_model->si->setStateDistanceEvaluator(psetup->ompl_model->sde[distance_metric]);
     
     /* set the starting state */
@@ -217,8 +217,8 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     psetup->ompl_model->si->addStartState(start);
     
     /* add goal state */
-    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.goal_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
-    psetup->ompl_model->si->setGoal(computeGoalFromConstraints(psetup->ompl_model, req.goal_constraints));
+    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
+    psetup->ompl_model->si->setGoal(computeGoalFromConstraints(psetup->ompl_model, req.motion_plan_request.goal_constraints));
 
     /* fix invalid input states, if we have any */
     fixInputStates(psetup, 0.02, 50);
@@ -271,12 +271,12 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning
     return false;
     
   // find the data we need 
-  Model *m = models[req.group_name];
+  Model *m = models[req.motion_plan_request.group_name];
     
   // get the planner setup
-  PlannerSetup *psetup = m->planners[req.planner_id];
+  PlannerSetup *psetup = m->planners[req.motion_plan_request.planner_id];
     
-  ROS_INFO("Selected motion planner: '%s', with priority %d", req.planner_id.c_str(), psetup->priority);
+  ROS_INFO("Selected motion planner: '%s', with priority %d", req.motion_plan_request.planner_id.c_str(), psetup->priority);
     
   m->planningMonitor->getEnvironmentModel()->lock();
   m->planningMonitor->getKinematicModel()->lock();
@@ -289,7 +289,7 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning
   sol.path = NULL;
   sol.difference = 0.0;
   sol.approximate = false;
-  callPlanner(psetup, req.num_planning_attempts, req.allowed_planning_time.toSec(), sol);
+  callPlanner(psetup, req.motion_plan_request.num_planning_attempts, req.motion_plan_request.allowed_planning_time.toSec(), sol);
     
   m->planningMonitor->getEnvironmentModel()->unlock();
   m->planningMonitor->getKinematicModel()->unlock();
@@ -316,7 +316,7 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning
       if (psetup->priority < -(int)m->planners.size())
         psetup->priority = -m->planners.size();
     }
-  ROS_DEBUG("New motion priority for  '%s' is %d", req.planner_id.c_str(), psetup->priority);
+  ROS_DEBUG("New motion priority for  '%s' is %d", req.motion_plan_request.planner_id.c_str(), psetup->priority);
   return true;
 }
 
