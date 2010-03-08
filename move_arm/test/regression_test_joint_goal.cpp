@@ -71,27 +71,27 @@ TEST(MoveArm, goToJointGoal)
   names[5] = "r_wrist_flex_joint";
   names[6] = "r_wrist_roll_joint";
 
-  goalB.group_name = "right_arm";
-  goalB.num_planning_attempts = 1;
-  goalB.allowed_planning_time = 5.0;
+  goalB.motion_plan_request.group_name = "right_arm";
+  goalB.motion_plan_request.num_planning_attempts = 1;
+  goalB.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
 
-  private_handle.param<std::string>("planner_id",goalB.planner_id,std::string("chomp_planner_longrange"));
+  private_handle.param<std::string>("planner_id",goalB.motion_plan_request.planner_id,std::string("chomp_planner_longrange"));
   private_handle.param<std::string>("planner_service_name",goalB.planner_service_name,std::string("/chomp_planner_longrange/plan_path"));
     
-  goalB.goal_constraints.joint_constraints.resize(names.size());
-  for (unsigned int i = 0 ; i < goalB.goal_constraints.joint_constraints.size(); ++i)
+  goalB.motion_plan_request.goal_constraints.joint_constraints.resize(names.size());
+  for (unsigned int i = 0 ; i < goalB.motion_plan_request.goal_constraints.joint_constraints.size(); ++i)
   {
-    // goalB.goal_constraints.joint_constraints[i].header.stamp = ros::Time::now();
-    // goalB.goal_constraints.joint_constraints[i].header.frame_id = "base_link";
-    goalB.goal_constraints.joint_constraints[i].joint_name = names[i];
-    goalB.goal_constraints.joint_constraints[i].position = 0.0;
-    goalB.goal_constraints.joint_constraints[i].tolerance_below = 0.1;
-    goalB.goal_constraints.joint_constraints[i].tolerance_above = 0.1;
+    // goalB.motion_plan_request.goal_constraints.joint_constraints[i].header.stamp = ros::Time::now();
+    // goalB.motion_plan_request.goal_constraints.joint_constraints[i].header.frame_id = "base_link";
+    goalB.motion_plan_request.goal_constraints.joint_constraints[i].joint_name = names[i];
+    goalB.motion_plan_request.goal_constraints.joint_constraints[i].position = 0.0;
+    goalB.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.1;
+    goalB.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.1;
   }
     
-  goalB.goal_constraints.joint_constraints[0].position = -2.0;
-  goalB.goal_constraints.joint_constraints[3].position = -0.2;
-  goalB.goal_constraints.joint_constraints[5].position = -0.20;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[0].position = -2.0;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[3].position = -0.2;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[5].position = -0.20;
    
   int num_test_attempts = 0;
   int max_attempts = 5;

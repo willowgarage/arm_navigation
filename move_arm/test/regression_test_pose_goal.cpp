@@ -67,44 +67,44 @@ TEST(MoveArm, goToPoseGoal)
   ROS_INFO("Connected to server");
   move_arm_msgs::MoveArmGoal goalA;
 
-  goalA.group_name = "right_arm";
-  goalA.num_planning_attempts = 1;
-  private_handle.param<std::string>("planner_id",goalA.planner_id,std::string("chomp_planner_longrange"));
+  goalA.motion_plan_request.group_name = "right_arm";
+  goalA.motion_plan_request.num_planning_attempts = 1;
+  private_handle.param<std::string>("planner_id",goalA.motion_plan_request.planner_id,std::string("chomp_planner_longrange"));
   private_handle.param<std::string>("planner_service_name",goalA.planner_service_name,std::string("/chomp_planner_longrange/plan_path"));
 
-  goalA.allowed_planning_time = 5.0;
+  goalA.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
     
-  goalA.goal_constraints.set_position_constraints_size(1);
-  goalA.goal_constraints.position_constraints[0].header.stamp = ros::Time::now();
-  goalA.goal_constraints.position_constraints[0].header.frame_id = "torso_lift_link";
+  goalA.motion_plan_request.goal_constraints.set_position_constraints_size(1);
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].header.stamp = ros::Time::now();
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].header.frame_id = "torso_lift_link";
     
-  goalA.goal_constraints.position_constraints[0].link_name = "r_wrist_roll_link";
-  goalA.goal_constraints.position_constraints[0].position.x = 0.75;
-  goalA.goal_constraints.position_constraints[0].position.y = -0.188;
-  goalA.goal_constraints.position_constraints[0].position.z = 0;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].link_name = "r_wrist_roll_link";
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].position.x = 0.75;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].position.y = -0.188;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].position.z = 0;
     
-  goalA.goal_constraints.position_constraints[0].constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
-  goalA.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
-  goalA.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
-  goalA.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
 
-  goalA.goal_constraints.position_constraints[0].constraint_region_orientation.w = 1.0;
-  goalA.goal_constraints.position_constraints[0].weight = 1.0;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_orientation.w = 1.0;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].weight = 1.0;
 
-  goalA.goal_constraints.set_orientation_constraints_size(1);
-  goalA.goal_constraints.orientation_constraints[0].header.stamp = ros::Time::now();
-  goalA.goal_constraints.orientation_constraints[0].header.frame_id = "torso_lift_link";    
-  goalA.goal_constraints.orientation_constraints[0].link_name = "r_wrist_roll_link";
-  goalA.goal_constraints.orientation_constraints[0].orientation.x = 0.0;
-  goalA.goal_constraints.orientation_constraints[0].orientation.y = 0.0;
-  goalA.goal_constraints.orientation_constraints[0].orientation.z = 0.0;
-  goalA.goal_constraints.orientation_constraints[0].orientation.w = 1.0;
+  goalA.motion_plan_request.goal_constraints.set_orientation_constraints_size(1);
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].header.stamp = ros::Time::now();
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].header.frame_id = "torso_lift_link";    
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].link_name = "r_wrist_roll_link";
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.x = 0.0;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.y = 0.0;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.z = 0.0;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.w = 1.0;
     
-  goalA.goal_constraints.orientation_constraints[0].absolute_roll_tolerance = 0.04;
-  goalA.goal_constraints.orientation_constraints[0].absolute_pitch_tolerance = 0.04;
-  goalA.goal_constraints.orientation_constraints[0].absolute_yaw_tolerance = 0.04;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_roll_tolerance = 0.04;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_pitch_tolerance = 0.04;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_yaw_tolerance = 0.04;
 
-  goalA.goal_constraints.orientation_constraints[0].weight = 1.0;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].weight = 1.0;
 
   /*   
   // These are in here just for reference

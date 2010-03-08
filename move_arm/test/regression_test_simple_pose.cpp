@@ -62,12 +62,12 @@ TEST(MoveArm, goToPoseGoal)
   ROS_INFO("Connected to server");
   move_arm_msgs::MoveArmGoal goalA;
 
-  goalA.group_name = "right_arm";
-  goalA.num_planning_attempts = 1;
-  private_handle.param<std::string>("planner_id",goalA.planner_id,std::string(""));
+  goalA.motion_plan_request.group_name = "right_arm";
+  goalA.motion_plan_request.num_planning_attempts = 1;
+  private_handle.param<std::string>("planner_id",goalA.motion_plan_request.planner_id,std::string(""));
   private_handle.param<std::string>("planner_service_name",goalA.planner_service_name,std::string("ompl_planning/plan_kinematic_path"));
 
-  goalA.allowed_planning_time = 5.0;
+  goalA.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
 
 
   motion_planning_msgs::SimplePoseConstraint desired_pose;

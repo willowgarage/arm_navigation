@@ -50,7 +50,7 @@ namespace move_arm_msgs
     motion_planning_msgs::PositionConstraint position_constraint;
     motion_planning_msgs::OrientationConstraint orientation_constraint;
     poseConstraintToPositionOrientationConstraints(pose_constraint,position_constraint,orientation_constraint);
-    move_arm_goal.goal_constraints.position_constraints.push_back(position_constraint);
-    move_arm_goal.goal_constraints.orientation_constraints.push_back(orientation_constraint);
+    move_arm_goal.motion_plan_request.goal_constraints.position_constraints.push_back(position_constraint);
+    move_arm_goal.motion_plan_request.goal_constraints.orientation_constraints.push_back(orientation_constraint);
   }
 }
