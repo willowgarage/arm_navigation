@@ -96,7 +96,7 @@ inline bool SplineSmoother<T>::update(const T& data_in,
 
 }
 
-//#define REGISTER_SPLINE_SMOOTHER(class_name, class_type)              \
+//#define REGISTER_SPLINE_SMOOTHER(class_name, class_type)              
 //  PLUGINLIB_REGISTER_CLASS(class_name, class_type, filters::FilterBase<T>)
 
 #endif /* SPLINE_SMOOTHER_H_ */

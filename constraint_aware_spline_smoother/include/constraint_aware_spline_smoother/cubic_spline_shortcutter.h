@@ -255,16 +255,13 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 template <typename T>
 bool CubicSplineShortCutter<T>::setupCollisionEnvironment()
 {
-  bool use_collision_map, compute_contacts, show_collisions;
+  bool use_collision_map;
   node_handle_.param<bool>("use_collision_map", use_collision_map, true);
-  node_handle_.param<bool>("compute_contacts", compute_contacts, true);
-  node_handle_.param<bool>("show_collisions", show_collisions, false);
 
   // monitor robot
   collision_models_ = new planning_environment::CollisionModels("robot_description");
   planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
   planning_monitor_->use_collision_map_ = use_collision_map;
-  planning_monitor_->compute_contacts_ = compute_contacts;
   if(!collision_models_->loadedModels())
     return false;
 
