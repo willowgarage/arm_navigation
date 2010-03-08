@@ -17,7 +17,10 @@ AllowedContactSpecification[] allowed_contacts
 # namespaces in the collision space
 OrderedCollisionOperations ordered_collision_operations
 
-# A set of state constraints on the trajectory
-Constraints constraints
+# A set of path constraints on the trajectory
+Constraints path_constraints
+
+# A set of goal constraints on the trajectory
+Constraints goal_constraints
 
 duration allowed_time
