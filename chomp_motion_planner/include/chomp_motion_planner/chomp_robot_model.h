@@ -46,7 +46,7 @@
 #include <kdl/tree.hpp>
 #include <kdl/chain.hpp>
 #include <boost/shared_ptr.hpp>
-#include <mapping_msgs/AttachedObject.h>
+#include <mapping_msgs/AttachedCollisionObject.h>
 
 #include <sensor_msgs/JointState.h>
 
@@ -198,7 +198,7 @@ public:
   /**
    * \brief Callback for information about objects attached to the robot
    */
-  void attachedObjectCallback(const mapping_msgs::AttachedObjectConstPtr& attached_object);
+  void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object);
 
 
 private:
@@ -218,11 +218,11 @@ private:
   std::string reference_frame_;                                 /**< Reference frame for all kinematics operations */
   std::map<std::string, std::vector<ChompCollisionPoint> > link_collision_points_;    /**< Collision points associated with every link */
   double max_radius_clearance_;                                 /**< Maximum value of radius + clearance for any of the collision points */
-  std::map<std::string, mapping_msgs::AttachedObject> attached_objects_;        /**< Map of links -> attached objects */
+  std::map<std::string, mapping_msgs::AttachedCollisionObject> attached_objects_;        /**< Map of links -> attached objects */
 
   void generateCollisionPoints();
   void addCollisionPointsFromLinkRadius(std::string link_name, double radius, double clearance, double extension);
-  void addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedObject& attached_object);
+  void addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedCollisionObject& attached_object);
   void getLinkInformation(const std::string link_name, std::vector<int>& active_joints, int& segment_number);
 
 //  void getActiveJointsSegmentNumberForLink(std::string link_name, 

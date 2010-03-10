@@ -168,7 +168,7 @@ namespace chomp
 
 
 
-  bool ChompCostServer::getStateCost(planning_environment_msgs::GetStateCost::Request& request, planning_environment_msgs::GetStateCost::Response& response)
+  bool ChompCostServer::getStateCost(chomp_motion_planner::GetStateCost::Request& request, chomp_motion_planner::GetStateCost::Response& response)
   {
     chomp_motion_planner::GetChompCollisionCost::Request  chomp_request;
     chomp_motion_planner::GetChompCollisionCost::Response chomp_response;

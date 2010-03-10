@@ -100,13 +100,13 @@ int ChompPlannerNode::run()
 
 bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res)
 {
-  if (!(req.goal_constraints.position_constraints.empty() && req.goal_constraints.orientation_constraints.empty()))
+  if (!(req.motion_plan_request.goal_constraints.position_constraints.empty() && req.motion_plan_request.goal_constraints.orientation_constraints.empty()))
   {
     ROS_ERROR("CHOMP cannot handle pose contraints yet.");
     return false;
   }
 
-  sensor_msgs::JointState joint_goal_chomp = motion_planning_msgs::jointConstraintsToJointState(req.goal_constraints.joint_constraints);
+  sensor_msgs::JointState joint_goal_chomp = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
   ROS_INFO("Chomp goal");
 
   if(joint_goal_chomp.name.size() != joint_goal_chomp.position.size())
@@ -123,24 +123,24 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
   ros::WallTime start_time = ros::WallTime::now();
   ROS_INFO("Received planning request...");
   // get the planning group:
-  const ChompRobotModel::ChompPlanningGroup* group = chomp_robot_model_.getPlanningGroup(req.group_name);
+  const ChompRobotModel::ChompPlanningGroup* group = chomp_robot_model_.getPlanningGroup(req.motion_plan_request.group_name);
 
   if (group==NULL)
   {
-    ROS_ERROR("Could not load planning group %s", req.group_name.c_str());
+    ROS_ERROR("Could not load planning group %s", req.motion_plan_request.group_name.c_str());
     return false;
   }
 
   ChompTrajectory trajectory(&chomp_robot_model_, trajectory_duration_, trajectory_discretization_);
 
   // set the start state:
-  chomp_robot_model_.jointStateToArray(req.start_state.joint_state, trajectory.getTrajectoryPoint(0));
+  chomp_robot_model_.jointStateToArray(req.motion_plan_request.start_state.joint_state, trajectory.getTrajectoryPoint(0));
 
   // set the goal state equal to start state, and override the joints specified in the goal
   // joint constraints
   int goal_index = trajectory.getNumPoints()-1;
   trajectory.getTrajectoryPoint(goal_index) = trajectory.getTrajectoryPoint(0);
-  chomp_robot_model_.jointStateToArray(motion_planning_msgs::jointConstraintsToJointState(req.goal_constraints.joint_constraints), trajectory.getTrajectoryPoint(goal_index));
+  chomp_robot_model_.jointStateToArray(motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints), trajectory.getTrajectoryPoint(goal_index));
 
   // fix the goal to move the shortest angular distance for wrap-around joints:
   for (int i=0; i<group->num_joints_; i++)
@@ -158,7 +158,7 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
   trajectory.fillInMinJerk();
 
   // set the max planning time:
-  chomp_parameters_.setPlanningTimeLimit(req.allowed_planning_time.toSec());
+  chomp_parameters_.setPlanningTimeLimit(req.motion_plan_request.allowed_planning_time.toSec());
 
   // optimize!
   ChompOptimizer optimizer(&trajectory, &chomp_robot_model_, group, &chomp_parameters_,
@@ -182,7 +182,7 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
     velocity_limits[i] = joint_velocity_limits_[res.trajectory.joint_trajectory.joint_names[i]];
   }
 
-  res.trajectory.joint_trajectory.header = req.start_state.joint_state.header; // @TODO this is probably a hack
+  res.trajectory.joint_trajectory.header = req.motion_plan_request.start_state.joint_state.header; // @TODO this is probably a hack
 
   // fill in the entire trajectory
   res.trajectory.joint_trajectory.points.resize(trajectory.getNumPoints());

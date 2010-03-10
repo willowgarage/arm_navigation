@@ -131,7 +131,7 @@ bool ChompRobotModel::init()
   }
 
   // initialize the planning groups
-  std::map<std::string, std::vector<std::string> > groups = robot_models_->getPlanningGroups();
+  std::map<std::string, std::vector<std::string> > groups = robot_models_->getPlanningGroupJoints();
   for (std::map< std::string, std::vector<std::string> >::iterator it = groups.begin(); it != groups.end() ; ++it)
   {
     ChompPlanningGroup group;
@@ -329,7 +329,7 @@ void ChompRobotModel::getLinkCollisionPoints(std::string link_name, std::vector<
   points = it->second;
 }
 
-void ChompRobotModel::attachedObjectCallback(const mapping_msgs::AttachedObjectConstPtr& attached_object)
+void ChompRobotModel::attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object)
 {
   attached_objects_[attached_object->link_name] =  *attached_object;
   generateCollisionPoints();
@@ -341,8 +341,8 @@ void ChompRobotModel::generateCollisionPoints()
   link_collision_points_.clear();
 
   // iterate over all collision checking links to add collision points
-  for (vector<string>::const_iterator link_it=robot_models_->getCollisionCheckLinks().begin();
-      link_it!=robot_models_->getCollisionCheckLinks().end(); ++link_it)
+  for (vector<string>::const_iterator link_it=robot_models_->getGroupLinkUnion().begin();
+      link_it!=robot_models_->getGroupLinkUnion().end(); ++link_it)
   {
     // get the "radius" of this link from the param server, if any:
     double link_radius;
@@ -363,7 +363,7 @@ void ChompRobotModel::generateCollisionPoints()
     // now, if there are attached objects on this link, add them too:
     if (attached_objects_.find(link_name)!=attached_objects_.end())
     {
-      AttachedObject& ao = (attached_objects_.find(link_name))->second;
+      AttachedCollisionObject& ao = (attached_objects_.find(link_name))->second;
       addCollisionPointsFromAttachedObject(link_name, ao);
     }
   }
@@ -375,8 +375,8 @@ void ChompRobotModel::generateCollisionPoints()
     group_it->second.collision_points_.clear();
     ROS_INFO("Group %s has collision points from:", group_it->second.name_.c_str());
 
-    for (vector<string>::const_iterator link_name_it=robot_models_->getCollisionCheckLinks().begin();
-        link_name_it!=robot_models_->getCollisionCheckLinks().end(); ++link_name_it)
+    for (vector<string>::const_iterator link_name_it=robot_models_->getGroupLinkUnion().begin();
+        link_name_it!=robot_models_->getGroupLinkUnion().end(); ++link_name_it)
     {
       std::map<std::string, std::vector<ChompCollisionPoint> >::iterator link_it = link_collision_points_.find(*link_name_it);
       if (link_it != link_collision_points_.end())
@@ -394,7 +394,7 @@ void ChompRobotModel::generateCollisionPoints()
 
 }
 
-void ChompRobotModel::addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedObject& attached_object)
+void ChompRobotModel::addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedCollisionObject& attached_object)
 {
   std::vector<int> active_joints(num_kdl_joints_, 0);
   int segment_number;
@@ -402,12 +402,12 @@ void ChompRobotModel::addCollisionPointsFromAttachedObject(std::string link_name
   getLinkInformation(link_name, active_joints, segment_number);
   std::vector<ChompCollisionPoint>& collision_points_vector = link_collision_points_.find(link_name)->second;
 
-  for (size_t i=0; i<attached_object.objects.objects.size(); ++i)
+  for (size_t i=0; i<attached_object.object.shapes.size(); ++i)
   {
-    if (attached_object.objects.poses.size()<=i)
+    if (attached_object.object.poses.size()<=i)
       break;
-    geometric_shapes_msgs::Shape& object = attached_object.objects.objects[i];
-    geometry_msgs::Pose& pose = attached_object.objects.poses[i];
+    geometric_shapes_msgs::Shape& object = attached_object.object.shapes[i];
+    geometry_msgs::Pose& pose = attached_object.object.poses[i];
     if (object.type == geometric_shapes_msgs::Shape::CYLINDER)
     {
       if (object.dimensions.size()<2)

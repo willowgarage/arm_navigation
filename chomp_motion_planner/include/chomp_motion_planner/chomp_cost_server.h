@@ -46,7 +46,7 @@
 #include <sensor_msgs/JointState.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include <planning_environment_msgs/GetStateCost.h>
+#include <chomp_motion_planner/GetStateCost.h>
 
 namespace chomp
 {
@@ -64,7 +64,7 @@ public:
   bool init(bool advertise_service);
   int run();
   bool getChompCollisionCost(chomp_motion_planner::GetChompCollisionCost::Request& request, chomp_motion_planner::GetChompCollisionCost::Response& response);
-  bool getStateCost(planning_environment_msgs::GetStateCost::Request& request, planning_environment_msgs::GetStateCost::Response& response);
+  bool getStateCost(chomp_motion_planner::GetStateCost::Request& request, chomp_motion_planner::GetStateCost::Response& response);
 
   void mechanismStateCallback(const sensor_msgs::JointStateConstPtr& mech_state);
 
