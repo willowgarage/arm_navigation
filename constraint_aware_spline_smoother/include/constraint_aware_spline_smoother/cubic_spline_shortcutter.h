@@ -56,34 +56,45 @@ template <typename T>
 class CubicSplineShortCutter: public spline_smoother::SplineSmoother<T>
 {
 public:
-
+ /**
+   * \brief Construct the smoother
+   */
   CubicSplineShortCutter();
   virtual ~CubicSplineShortCutter();
   virtual bool smooth(const T& trajectory_in, 
                       T& trajectory_out) const;
-
+  /** \brief Configure the filter with the discretization for returned trajectories
+   */
+  virtual bool configure();
 private:
-
   bool active_;
-
+  double discretization_;
   bool setupCollisionEnvironment();
-
   planning_environment::CollisionModels *collision_models_;
-  planning_environment::PlanningMonitor *planning_monitor_;
-    
+  planning_environment::PlanningMonitor *planning_monitor_;    
   ros::NodeHandle node_handle_;
-
-  double dT_;
   tf::TransformListener tf_;
   int getRandomInt(int min,int max) const;
-
 };
 
+template <typename T>
+bool CubicSplineShortCutter<T>::configure()
+{
+  if (!spline_smoother::SplineSmoother<T>::getParam("discretization", discretization_))
+  {
+    ROS_ERROR("Spline smoother, \"%s\", params has no attribute discretization.", spline_smoother::SplineSmoother<T>::getName().c_str());
+    return false;
+  }///\todo check length
+  else
+  {
+    ROS_INFO("Using a discretization value of %f",discretization_);
+    return true;
+  }
+};
 
 template <typename T>
 CubicSplineShortCutter<T>::CubicSplineShortCutter()
 {
-  node_handle_.param<double>("dT", dT_, 0.1);
   if(!setupCollisionEnvironment())
     active_ = false;
   else
@@ -115,6 +126,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     return false;
   }
 
+  ROS_DEBUG("Got trajectory with %d points",(int)trajectory_in.trajectory.points.size());
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
   motion_planning_msgs::RobotState robot_state;
@@ -132,7 +144,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   shortcut.limits = trajectory_in.limits;
   shortcut.trajectory.joint_names = trajectory_in.trajectory.joint_names;
   ros::Time start_time = ros::Time::now();
-  ros::Duration timeout = ros::Duration(2.0);
+  ros::Duration timeout = trajectory_in.allowed_time;
   bool success = true;
 
   //  planning_monitor_->getEnvironmentModel()->lock();
@@ -142,6 +154,13 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   planning_monitor_->getChildLinks(trajectory_in.trajectory.joint_names, child_links);
   planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
   planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
+  planning_monitor_->setAllowedContacts(trajectory_in.allowed_contacts);
+  planning_monitor_->setPathConstraints(trajectory_in.path_constraints,error_code);
+  if(error_code.val != error_code.SUCCESS)
+  {
+    ROS_ERROR("Could not set path constraints");
+    return false;
+  }
 
   while(ros::Time::now() - start_time < timeout)
   {
@@ -171,10 +190,10 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     ROS_DEBUG("Succeeded in setting trajectory with total time: %f",total_time);
 
     std::vector<double> times;
-    times.resize(std::max((int)(total_time/dT_)+1,2));
+    times.resize(std::max((int)(total_time/discretization_)+1,2));
     times[0] = 0.0;
     for(int i=0; i< (int) times.size()-1; i++)
-      times[i+1] = times[i] + dT_; 
+      times[i+1] = times[i] + discretization_; 
     times.back() = total_time;
 
     trajectory_msgs::JointTrajectory joint_traj;
@@ -186,7 +205,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
                                             robot_state,
                                             0,
                                             joint_traj.points.size(),
-                                            planning_environment::PlanningMonitor::COLLISION_TEST,
+                                            planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST,
                                             false,
                                             error_code, 
                                             trajectory_error_codes))
@@ -214,6 +233,9 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     else 
       continue;
   }
+  planning_monitor_->revertAllowedCollisionToDefault();
+  planning_monitor_->clearAllowedContacts();
+  planning_monitor_->clearConstraints();
 	planning_monitor_->getKinematicModel()->lock();
 	planning_monitor_->getEnvironmentModel()->lock();
 	planning_monitor_->revertAllowedCollisionToDefault();
@@ -225,8 +247,8 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   double total_time;
   success = traj.parameterize(trajectory_out.trajectory,trajectory_out.limits,spline);      
   spline_smoother::getTotalTime(spline,total_time);
-  for(int i=1; i< (int) (total_time/dT_); i++)
-    times.insert(i*dT_);
+  for(int i=1; i< (int) (total_time/discretization_); i++)
+    times.insert(i*discretization_);
   times.insert(total_time);
 
   double insert_time = 0;
