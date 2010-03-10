@@ -1,0 +1,20 @@
+<package>
+  <description brief="geometric_shapes">
+
+     geometric_shapes
+
+  </description>
+  <author>Ioan Sucan</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://pr.willowgarage.com/wiki/geometric_shapes</url>
+
+  <depend package="bullet" />
+
+  <export>
+    <cpp cflags="-I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lgeometric_shapes"/>
+  </export>
+  
+</package>
+
+
