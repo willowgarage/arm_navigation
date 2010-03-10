@@ -6,7 +6,7 @@ string object1
 string object2
 string COLLISION_SET_ALL="all"
 string COLLISION_SET_OBJECTS="objects"
-string COLLISION_SET_ATTACHED_BODIES="attached"
+string COLLISION_SET_ATTACHED_OBJECTS="attached"
 
 # The penetration distance to which collisions are allowed. This is 0.0 by default.
 float64 penetration_distance
