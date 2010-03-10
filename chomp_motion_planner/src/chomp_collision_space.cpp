@@ -41,7 +41,7 @@ namespace chomp
 {
 
 ChompCollisionSpace::ChompCollisionSpace():
-  distance_field_(NULL),node_handle_("~"),collision_map_subscriber_(node_handle_,"collision_map",1)
+  distance_field_(NULL),node_handle_("~"),collision_map_subscriber_(root_handle_,"collision_map_occ",1)
 {
 }
 

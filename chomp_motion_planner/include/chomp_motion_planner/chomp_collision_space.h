@@ -90,7 +90,7 @@ public:
       double& potential, Eigen::MatrixBase<DerivedOther>& gradient) const;
 
 private:
-  ros::NodeHandle node_handle_;
+  ros::NodeHandle node_handle_, root_handle_;
   distance_field::PropagationDistanceField* distance_field_;
   tf::TransformListener tf_;
   //  tf::MessageNotifier<mapping_msgs::CollisionMap> *collision_map_notifier_;
