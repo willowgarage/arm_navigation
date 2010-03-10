@@ -1,0 +1,27 @@
+<package>
+  <description brief="robot_self_filter">
+
+    robot_self_filter
+
+  </description>
+  <author>Ioan Sucan</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://pr.willowgarage.com/wiki/robot_self_filter</url>
+
+  <depend package="roscpp"/>
+  <depend package="tf"/>
+  <depend package="filters"/>
+  <depend package="sensor_msgs"/>
+  <depend package="visualization_msgs"/>
+  <depend package="geometric_shapes"/>
+  <depend package="urdf"/>
+  <depend package="resource_retriever"/>
+
+  <export>
+    <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lrobot_self_filter" />
+  </export>
+
+</package>
+
+
