@@ -90,6 +90,7 @@ public:
       double& potential, Eigen::MatrixBase<DerivedOther>& gradient) const;
 
 private:
+  ros::NodeHandle node_handle_;
   distance_field::PropagationDistanceField* distance_field_;
   tf::TransformListener tf_;
   //  tf::MessageNotifier<mapping_msgs::CollisionMap> *collision_map_notifier_;
@@ -97,7 +98,6 @@ private:
   tf::MessageFilter<mapping_msgs::CollisionMap> *collision_map_filter_;
   //tf::MessageNotifier<mapping_msgs::CollisionMap> *collision_map_update_notifier_;
   std::string reference_frame_;
-  ros::NodeHandle node_handle_;
   boost::mutex mutex_;
   std::vector<btVector3> cuboid_points_;
 
