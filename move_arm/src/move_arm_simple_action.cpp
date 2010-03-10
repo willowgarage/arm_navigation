@@ -130,6 +130,9 @@ public:
     private_handle_("~")
   {
     private_handle_.param<double>("move_arm_frequency",move_arm_frequency_, 50.0);
+    private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
+    private_handle_.param<double>("ik_allowed_time",ik_allowed_time_, 2.0);
+
     num_planning_attempts_ = 0;
     state_ = PLANNING;
 
@@ -274,7 +277,7 @@ private:
     request.ik_request.ik_seed_state.joint_state.name = group_joint_names_;	    
     request.ik_request.ik_link_name = link_name;
     request.ik_request.ik_seed_state.joint_state = state_monitor_.getJointState(group_joint_names_);	    
-    request.timeout = ros::Duration(2.0);
+    request.timeout = ros::Duration(ik_allowed_time_);
     request.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     request.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
     request.constraints = original_request_.motion_plan_request.goal_constraints;
@@ -356,6 +359,7 @@ private:
     req.filter_request.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.filter_request.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.filter_request.goal_constraints = original_request_.motion_plan_request.goal_constraints;
+    req.filter_request.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
     if(filter_trajectory_client_.call(req,res))
     {
       trajectory_out = res.trajectory;
@@ -1178,6 +1182,8 @@ private:
 
   JointExecutorActionClient* controller_action_client_;
   JointExecutorActionClient::GoalHandle controller_goal_handle_;
+
+  double trajectory_filter_allowed_time_, ik_allowed_time_;
 };
 }
 
