@@ -10,7 +10,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 
 set(ROS_BUILD_TYPE Release)
 
-rosbuild_init(robot_self_filter)
+rosbuild_init()
 
 rosbuild_add_boost_directories()
 
