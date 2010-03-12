@@ -177,9 +177,8 @@ public:
     ROS_DEBUG("Got robot state");
 
     getRobotState(req.robot_state);
-    req.start_index = 0;
-    req.end_index = (int)req.trajectory.points.size()-1;
-    req.flag = planning_environment_msgs::GetJointTrajectoryValidity::Request::PATH_CONSTRAINTS_TEST | planning_environment_msgs::GetJointTrajectoryValidity::Request::COLLISION_TEST;
+    req.check_path_constraints = true;
+    req.check_collisions =  true;
 
     if(check_trajectory_validity_client_.call(req,res))
     {
@@ -236,7 +235,7 @@ public:
   {
     motion_planning_msgs::FilterJointTrajectory::Request  req;
     motion_planning_msgs::FilterJointTrajectory::Response res;
-    req.trajectory = trajectory;
+    req.filter_request.trajectory = trajectory;
     if(filter_trajectory_client_.call(req,res))
     {
       if(res.error_code.val == res.error_code.SUCCESS)

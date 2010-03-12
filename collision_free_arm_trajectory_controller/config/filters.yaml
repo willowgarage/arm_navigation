@@ -1,9 +1,0 @@
-filter_chain:
-  - 
-    name: unnormalize_trajectory
-    type: UnNormalizeTrajectory
-  -
-    name: cubic_spline_velocity_scaler
-    type: CubicSplineVelocityScaler
-
-
