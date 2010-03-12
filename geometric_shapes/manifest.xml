@@ -1,8 +1,6 @@
 <package>
   <description brief="geometric_shapes">
-
-     geometric_shapes
-
+    The geometric shapes package provides implementations of basic geometric primitives. It can be used for collision checking, ray intersection and other operations with geoemtric primitives. 
   </description>
   <author>Ioan Sucan</author>
   <license>BSD</license>
