@@ -1,10 +1,8 @@
 <package>
   <description brief="geometric_shapes_msgs">
-
-     geometric_shapes_msgs
-
+    This package contains messages for representing primitive geometric shapes.
   </description>
-  <author>Sachin Chitta</author>
+  <author>Ioan Sucan</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/geometric_shapes_msgs</url>
