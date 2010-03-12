@@ -835,6 +835,7 @@ private:
   ///
   void resetStateMachine()
   {
+    num_planning_attempts_ = 0;
     current_trajectory_.points.clear();
     current_trajectory_.joint_names.clear();
     state_ = PLANNING;
