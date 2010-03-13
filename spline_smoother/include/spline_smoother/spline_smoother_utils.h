@@ -147,8 +147,10 @@ bool checkTrajectoryConsistency(T& waypoint_traj)
       return false;
     }      
     prev_time = waypoint_traj.trajectory.points[i].time_from_start.toSec();
-    waypoint_traj.trajectory.points[i].velocities.resize(num_joints, 0.0);
-    waypoint_traj.trajectory.points[i].accelerations.resize(num_joints, 0.0);
+    if(waypoint_traj.trajectory.points[i].velocities.size() != waypoint_traj.trajectory.points[i].positions.size()) 
+      waypoint_traj.trajectory.points[i].velocities.resize(num_joints, 0.0);
+    if(waypoint_traj.trajectory.points[i].accelerations.size() != waypoint_traj.trajectory.points[i].positions.size()) 
+      waypoint_traj.trajectory.points[i].accelerations.resize(num_joints, 0.0);
   }
   return true;
 }

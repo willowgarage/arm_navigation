@@ -71,13 +71,14 @@ namespace spline_smoother
   {
     spline_smoother::CubicTrajectory traj;
     spline_smoother::SplineTrajectory spline;
-    bool success = traj.parameterize(trajectory_in.trajectory,trajectory_in.limits,spline);
+    T trajectory_local = trajectory_in;
+    if (!checkTrajectoryConsistency(trajectory_local))
+      return false;
+    bool success = traj.parameterize(trajectory_local.trajectory,trajectory_local.limits,spline);
     if(!success)
       return false;
 
-    trajectory_out = trajectory_in;
-    if (!checkTrajectoryConsistency(trajectory_out))
-      return false;
+    trajectory_out = trajectory_local;
 
     double dT = 0.01;
     std::set<double> times;
