@@ -1,8 +1,6 @@
 <package>
   <description brief="robot_self_filter">
-
-    robot_self_filter
-
+    The robot self filter is a package that allows you to filter out robot body parts from sensor information using the known positions and orientations of these parts. 
   </description>
   <author>Ioan Sucan</author>
   <license>BSD</license>
