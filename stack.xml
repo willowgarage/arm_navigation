@@ -1,6 +1,6 @@
 <stack>
   <description brief="arm_navigation">
-    The arm navigation stack contains the action/behavior used to execute collision free motion planning and control for a robot arm manipulator. Included in this stack are the messages required for an action interface that can be used to specify and abort goals for the move_arm action. An implementation for arm navigation on the PR2 robot can be found in the arm_navigation_pr2 stack. 
+    The arm navigation stack contains the action/behavior used to execute collision free motion planning and control for a robot arm manipulator. Included in this stack are the messages required for an action interface that can be used to specify and abort goals for the move_arm action. An implementation for arm navigation on the PR2 robot can be found in the pr2_arm_navigation stack. 
   </description>
   <author>Maintained by Sachin Chitta</author>
   <license>BSD</license>  
