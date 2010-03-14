@@ -1,5 +1,7 @@
 <stack>
-  <description brief="trajectory_filters">trajectory_filters</description>
+  <description brief="trajectory_filters">
+  This stack contains a set of filters to work with joint trajectories. It also contains a trajectory filter server which is a ROS node that exposes a ROS service interface to a chain of filters. 
+  </description>
   <author>Maintained by Sachin Chitta</author>
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
