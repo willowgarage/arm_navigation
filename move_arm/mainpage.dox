@@ -30,5 +30,5 @@ and a controller for the arm need to be running as well.  Running a
 node that can perform inverse kinematics is optional.  
 
 Example launch files that start all the necessary components for navigation for the PR2 robot can be found in the 
-<a href="http://www.ros.org/wiki/arm_navigation_pr2/html">arm_navigation_pr2</a> package.  
+ <a href="http://www.ros.org/wiki/pr2_arm_navigation/html">pr2_arm_navigation</a> and <a href="http://www.ros.org/wiki/pr2_3dnav/html">pr2_3dnav</a> packages.  
 */
