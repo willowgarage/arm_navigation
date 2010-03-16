@@ -7,7 +7,7 @@
   <author>Ioan Sucan</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://pr.willowgarage.com/wiki/mapping_msgs</url>
+  <url>http://ros.org/wiki/mapping_msgs</url>
 
   <depend package="std_msgs"/>
   <depend package="sensor_msgs"/>

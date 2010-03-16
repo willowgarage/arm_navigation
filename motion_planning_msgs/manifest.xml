@@ -5,7 +5,7 @@ This package defines a set of general-purpose messages and services for motion p
   <author>Ioan Sucan/isucan@willowgarage.com, Sachin Chitta/sachinc@willowgarage.com</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://pr.willowgarage.com/wiki/motion_planning_msgs</url>
+  <url>http://ros.org/wiki/motion_planning_msgs</url>
 
   <depend package="std_msgs"/>
   <depend package="geometry_msgs"/>

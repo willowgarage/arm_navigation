@@ -5,7 +5,7 @@
   <author>Ioan Sucan</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://pr.willowgarage.com/wiki/geometric_shapes</url>
+  <url>http://ros.org/wiki/geometric_shapes</url>
 
   <depend package="bullet" />
 
