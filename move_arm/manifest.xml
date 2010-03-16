@@ -7,7 +7,7 @@ The move_arm package provides an implementation of a action (see the <a href="ht
   <author>Ioan Sucan, Sachin Chitta(sachinc@willowgarage.com)</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://pr.willowgarage.com/wiki/move_arm</url>
+  <url>http://ros.org/wiki/move_arm</url>
 
   <depend package="joy"/>
   <depend package="roscpp"/>
