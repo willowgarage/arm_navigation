@@ -138,7 +138,7 @@ TEST(MoveArm, goToPoseGoal)
     finished_within_time = move_arm.waitForResult(ros::Duration(200.0));
     actionlib::SimpleClientGoalState state = move_arm.getState();
     success = (state == actionlib::SimpleClientGoalState::SUCCEEDED);
-    if (!finished_within_time && num_test_attempts < max_attempts)
+    if ((!finished_within_time || !success) && num_test_attempts < max_attempts)
     {
       move_arm.cancelAllGoals();
       ROS_INFO("Timed out achieving goal A, trying again. Trying again, attempt: %d",num_test_attempts);
