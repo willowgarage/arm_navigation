@@ -7,7 +7,7 @@
   <author>Ioan Sucan</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://pr.willowgarage.com/wiki/ompl_search</url>
+  <url>http://ros.org/wiki/ompl_search</url>
 
   <depend package="ompl_ros" />
   <depend package="roscpp" />

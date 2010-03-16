@@ -6,8 +6,8 @@
   <url>http://ros.org/wiki/motion_planners</url>
   <depend stack="collision_environment" /> <!-- collision_space, distance_field -->
   <depend stack="common_msgs" /> <!-- sensor_msgs -->
-  <depend stack="geometry" /> <!-- tf, kdl, eigen, angles -->
-  <depend stack="motion_planning_common" /> <!-- planning_models, motion_planning_msgs, mapping_msgs -->
+  <depend stack="geometry" /> <!-- kdl, tf, eigen, angles -->
+  <depend stack="motion_planning_common" /> <!-- planning_models, mapping_msgs, motion_planning_msgs -->
   <depend stack="motion_planning_environment" /> <!-- planning_environment, planning_environment_msgs -->
   <depend stack="robot_model" /> <!-- kdl_parser -->
   <depend stack="ros" /> <!-- rosconsole, roslib, roscpp -->
