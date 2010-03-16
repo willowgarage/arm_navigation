@@ -54,6 +54,7 @@
 namespace collision_free_arm_trajectory_controller
 {
 static const std::string TRAJECTORY_FILTER = "filter_trajectory";
+static const double MIN_DELTA = 0.01;
 typedef actionlib::ActionClient<pr2_controllers_msgs::JointTrajectoryAction> JointExecutorActionClient;
 
 enum ControllerState{
@@ -173,7 +174,9 @@ public:
     planning_environment_msgs::GetJointTrajectoryValidity::Response res;
         
     ROS_DEBUG("Received trajectory has %d points with %d joints",(int) traj.points.size(),(int)traj.joint_names.size());
-    req.trajectory = traj;
+    trajectory_msgs::JointTrajectory traj_discretized;
+    discretizeTrajectory(traj,traj_discretized);
+    req.trajectory = traj_discretized;
     ROS_DEBUG("Got robot state");
 
     getRobotState(req.robot_state);
@@ -229,6 +232,37 @@ public:
     else
       ROS_DEBUG("Unknown comm state");
 
+  }
+
+  void discretizeTrajectory(const trajectory_msgs::JointTrajectory &trajectory, trajectory_msgs::JointTrajectory &trajectory_out)
+  {    
+    trajectory_out.joint_names = trajectory.joint_names;
+    for(unsigned int i=1; i < trajectory.points.size(); i++)
+    {
+      double diff = 0.0;      
+      for(unsigned int j=0; j < trajectory.points[i].positions.size(); j++)
+      {
+        double start = trajectory.points[i-1].positions[j];
+        double end   = trajectory.points[i].positions[j];
+        if(fabs(end-start) > diff)
+          diff = fabs(end-start);        
+      }
+      int num_intervals =(int) (diff/MIN_DELTA+0.5);
+      
+      for(unsigned int k=0; k < (unsigned int) num_intervals; k++)
+      {
+        trajectory_msgs::JointTrajectoryPoint point;
+        for(unsigned int j=0; j < trajectory.points[i].positions.size(); j++)
+        {
+          double start = trajectory.points[i-1].positions[j];
+          double end   = trajectory.points[i].positions[j];
+          point.positions.push_back(start + (end-start)*k/num_intervals);
+        }
+        point.time_from_start = ros::Duration(trajectory.points[i].time_from_start.toSec() + k* (trajectory.points[i].time_from_start - trajectory.points[i].time_from_start).toSec()/num_intervals);
+        trajectory_out.points.push_back(point);
+      }
+    }
+    trajectory_out.points.push_back(trajectory.points.back());
   }
 
   bool filterTrajectory(trajectory_msgs::JointTrajectory &trajectory)
