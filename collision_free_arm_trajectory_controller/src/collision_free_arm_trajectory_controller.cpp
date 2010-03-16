@@ -258,7 +258,7 @@ public:
           double end   = trajectory.points[i].positions[j];
           point.positions.push_back(start + (end-start)*k/num_intervals);
         }
-        point.time_from_start = ros::Duration(trajectory.points[i].time_from_start.toSec() + k* (trajectory.points[i].time_from_start - trajectory.points[i].time_from_start).toSec()/num_intervals);
+        point.time_from_start = ros::Duration(trajectory.points[i].time_from_start.toSec() + k* (trajectory.points[i].time_from_start - trajectory.points[i-1].time_from_start).toSec()/num_intervals);
         trajectory_out.points.push_back(point);
       }
     }
