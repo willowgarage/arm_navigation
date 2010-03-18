@@ -6,6 +6,12 @@
         Generates collision free cubic spline trajectories
       </description>
     </class>
+    <class name="ParabolicBlendShortCutterFilterJointTrajectoryWithConstraintsRequest" type="constraint_aware_spline_smoother::ParabolicBlendShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>" 
+            base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>">
+      <description>
+        Generates collision free parabolic spline trajectories
+      </description>
+    </class>
 
   </library>
 </class_libraries>
