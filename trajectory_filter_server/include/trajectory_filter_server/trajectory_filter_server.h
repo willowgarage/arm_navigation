@@ -75,8 +75,8 @@ private:
 
   int service_type_;
 
-  filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryRequest> filter_chain_;
-  filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest> filter_constraints_chain_;
+  filters::FilterChain<motion_planning_msgs::FilterJointTrajectory::Request> filter_chain_;
+  filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request> filter_constraints_chain_;
 
 
 };

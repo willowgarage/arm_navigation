@@ -1,13 +1,13 @@
 <class_libraries>
   <library path="lib/libconstraint_aware_spline_smoother">
-    <class name="CubicSplineShortCutterFilterJointTrajectoryWithConstraintsRequest" type="constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>" 
-            base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>">
+    <class name="CubicSplineShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+            base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>">
       <description>
         Generates collision free cubic spline trajectories
       </description>
     </class>
-    <class name="ParabolicBlendShortCutterFilterJointTrajectoryWithConstraintsRequest" type="constraint_aware_spline_smoother::ParabolicBlendShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>" 
-            base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>">
+    <class name="ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::ParabolicBlendShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+            base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>">
       <description>
         Generates collision free parabolic spline trajectories
       </description>

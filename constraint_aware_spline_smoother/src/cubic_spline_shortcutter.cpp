@@ -38,6 +38,6 @@
 #include <spline_smoother/spline_smoother_utils.h>
 #include <stdlib.h>
 
-#include <motion_planning_msgs/FilterJointTrajectoryWithConstraintsRequest.h>
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
 
-PLUGINLIB_REGISTER_CLASS(CubicSplineShortCutterFilterJointTrajectoryWithConstraintsRequest, constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
+PLUGINLIB_REGISTER_CLASS(CubicSplineShortCutterFilterJointTrajectoryWithConstraints, constraint_aware_spline_smoother::CubicSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)

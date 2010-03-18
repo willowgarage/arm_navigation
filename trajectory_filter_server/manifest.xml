@@ -14,7 +14,6 @@
   <depend package="joint_normalization_filters" />
   <export>
     <cpp cflags="-I${prefix}/include"/>
-    <filters plugin="${prefix}/default_plugins.xml"/>
   </export>
 
 </package>

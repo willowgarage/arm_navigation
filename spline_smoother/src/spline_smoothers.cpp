@@ -33,8 +33,8 @@
 *********************************************************************/
 
 /** \author Mrinal Kalakrishnan */
-#include <motion_planning_msgs/FilterJointTrajectoryRequest.h>
-#include <motion_planning_msgs/FilterJointTrajectoryWithConstraintsRequest.h>
+#include <motion_planning_msgs/FilterJointTrajectory.h>
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/linear_spline_velocity_scaler.h>
 #include <spline_smoother/clamped_cubic_spline_smoother.h>
@@ -44,11 +44,11 @@
 
 //  PLUGINLIB_REGISTER_CLASS(class_name, class_type, filters::FilterBase<T>)
 
-PLUGINLIB_REGISTER_CLASS(LinearSplineVelocityScalerFilterJointTrajectoryRequest, spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
-PLUGINLIB_REGISTER_CLASS(ClampedCubicSplineSmootherFilterJointTrajectoryRequest, spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
-PLUGINLIB_REGISTER_CLASS(FritschButlandSplineSmootherFilterJointTrajectoryRequest, spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
-PLUGINLIB_REGISTER_CLASS(NumericalDifferentiationSplineSmootherFilterJointTrajectoryRequest, spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
-PLUGINLIB_REGISTER_CLASS(CubicSplineVelocityScalerFilterJointTrajectoryRequest, spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryRequest>)
+PLUGINLIB_REGISTER_CLASS(LinearSplineVelocityScalerFilterJointTrajectory, spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectory::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>)
+PLUGINLIB_REGISTER_CLASS(ClampedCubicSplineSmootherFilterJointTrajectory, spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::FilterJointTrajectory::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>)
+PLUGINLIB_REGISTER_CLASS(FritschButlandSplineSmootherFilterJointTrajectory, spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::FilterJointTrajectory::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>)
+PLUGINLIB_REGISTER_CLASS(NumericalDifferentiationSplineSmootherFilterJointTrajectory, spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::FilterJointTrajectory::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>)
+PLUGINLIB_REGISTER_CLASS(CubicSplineVelocityScalerFilterJointTrajectory, spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectory::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>)
 
 
 PLUGINLIB_REGISTER_CLASS(LinearSplineVelocityScalerJointTrajectoryWithLimits, spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
@@ -58,8 +58,8 @@ PLUGINLIB_REGISTER_CLASS(NumericalDifferentiationSplineSmootherJointTrajectoryWi
 PLUGINLIB_REGISTER_CLASS(CubicSplineVelocityScalerJointTrajectoryWithLimits, spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::JointTrajectoryWithLimits>, filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
 
 
-PLUGINLIB_REGISTER_CLASS(LinearSplineVelocityScalerFilterJointTrajectoryWithConstraintsRequest, spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
-PLUGINLIB_REGISTER_CLASS(ClampedCubicSplineSmootherFilterJointTrajectoryWithConstraintsRequest, spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
-PLUGINLIB_REGISTER_CLASS(FritschButlandSplineSmootherFilterJointTrajectoryWithConstraintsRequest, spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
-PLUGINLIB_REGISTER_CLASS(NumericalDifferentiationSplineSmootherFilterJointTrajectoryWithConstraintsRequest, spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
-PLUGINLIB_REGISTER_CLASS(CubicSplineVelocityScalerFilterJointTrajectoryWithConstraintsRequest, spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraintsRequest>)
+PLUGINLIB_REGISTER_CLASS(LinearSplineVelocityScalerFilterJointTrajectoryWithConstraints, spline_smoother::LinearSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_REGISTER_CLASS(ClampedCubicSplineSmootherFilterJointTrajectoryWithConstraints, spline_smoother::ClampedCubicSplineSmoother<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_REGISTER_CLASS(FritschButlandSplineSmootherFilterJointTrajectoryWithConstraints, spline_smoother::FritschButlandSplineSmoother<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_REGISTER_CLASS(NumericalDifferentiationSplineSmootherFilterJointTrajectoryWithConstraints, spline_smoother::NumericalDifferentiationSplineSmoother<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_REGISTER_CLASS(CubicSplineVelocityScalerFilterJointTrajectoryWithConstraints, spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)
