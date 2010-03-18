@@ -66,7 +66,8 @@ namespace spline_smoother
                                          const double &v1, 
                                          const motion_planning_msgs::JointLimits &limit)
   {
-    double dq = jointDiff(q0,q1,limit);
+    //    double dq = jointDiff(q0,q1,limit);
+    double dq = q1-q0;
     double vmax = limit.max_velocity;
     if( q0 == q1 && fabs(v0-v1) == 0.0)
     {
@@ -159,7 +160,8 @@ namespace spline_smoother
       spline.segments[i-1].duration = ros::Duration(dT);
       for(int j=0; j<num_joints; j++)
       {
-        double diff = jointDiff(trajectory_in.points[i-1].positions[j],trajectory_in.points[i].positions[j],limits[j]);
+        //        double diff = jointDiff(trajectory_in.points[i-1].positions[j],trajectory_in.points[i].positions[j],limits[j]);
+        double diff = trajectory_in.points[i].positions[j] - trajectory_in.points[i-1].positions[j];
         spline.segments[i-1].joints[j].coefficients[0] = trajectory_in.points[i-1].positions[j];
         spline.segments[i-1].joints[j].coefficients[1] = trajectory_in.points[i-1].velocities[j];
         spline.segments[i-1].joints[j].coefficients[2] = (3*diff-(2*trajectory_in.points[i-1].velocities[j]+trajectory_in.points[i].velocities[j])*spline.segments[i-1].duration.toSec())/(spline.segments[i-1].duration.toSec()*spline.segments[i-1].duration.toSec());;
