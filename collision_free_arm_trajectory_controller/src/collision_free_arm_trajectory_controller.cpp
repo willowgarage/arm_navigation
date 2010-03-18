@@ -269,7 +269,7 @@ public:
   {
     motion_planning_msgs::FilterJointTrajectory::Request  req;
     motion_planning_msgs::FilterJointTrajectory::Response res;
-    req.filter_request.trajectory = trajectory;
+    req.trajectory = trajectory;
     if(filter_trajectory_client_.call(req,res))
     {
       if(res.error_code.val == res.error_code.SUCCESS)

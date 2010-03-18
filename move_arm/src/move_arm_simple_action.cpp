@@ -354,12 +354,12 @@ private:
   {
     motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request  req;
     motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response res;
-    fillTrajectoryMsg(trajectory_in, req.filter_request.trajectory);
-    req.filter_request.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    req.filter_request.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
-    req.filter_request.path_constraints = original_request_.motion_plan_request.path_constraints;
-    req.filter_request.goal_constraints = original_request_.motion_plan_request.goal_constraints;
-    req.filter_request.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
+    fillTrajectoryMsg(trajectory_in, req.trajectory);
+    req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
+    req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
+    req.path_constraints = original_request_.motion_plan_request.path_constraints;
+    req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
+    req.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
     if(filter_trajectory_client_.call(req,res))
     {
       trajectory_out = res.trajectory;
