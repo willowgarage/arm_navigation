@@ -247,7 +247,7 @@ public:
         if(fabs(end-start) > diff)
           diff = fabs(end-start);        
       }
-      int num_intervals =(int) (diff/MIN_DELTA+0.5);
+      int num_intervals =(int) (diff/MIN_DELTA+1.0);
       
       for(unsigned int k=0; k < (unsigned int) num_intervals; k++)
       {
