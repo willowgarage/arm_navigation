@@ -39,6 +39,61 @@
 #include <spline_smoother/cubic_trajectory.h>
 
 
+TEST(TestCubicTrajectory, TestCubicTrajectoryWithWrapAround)
+{
+  spline_smoother::CubicTrajectory traj;
+
+  // create the input:
+  int length = 2;
+  int joints = 1;
+
+  motion_planning_msgs::JointTrajectoryWithLimits wpt;
+  wpt.trajectory.points.resize(length);
+  wpt.trajectory.joint_names.resize(joints);
+  wpt.trajectory.joint_names[0] = std::string("test0");
+
+  wpt.limits.resize(joints);
+  wpt.limits[0].max_velocity = 0.5;
+  wpt.limits[0].has_velocity_limits = 1;
+
+  wpt.limits[1].max_velocity = 0.25;
+  wpt.limits[1].has_velocity_limits = 1;
+
+  for (int i=0; i<length; i++)
+  {
+    wpt.trajectory.points[i].positions.resize(joints);
+    wpt.trajectory.points[i].velocities.resize(joints);
+    wpt.trajectory.points[i].accelerations.resize(joints);
+    for(int j=0; j<joints; j++)
+    {
+      wpt.trajectory.points[i].positions[j] = 0.0;
+      wpt.trajectory.points[i].velocities[j] = 0.0;
+      wpt.trajectory.points[i].accelerations[j] = 0.0;
+    }
+    wpt.trajectory.points[i].time_from_start = ros::Duration(0.0);
+  }
+
+  wpt.trajectory.points[0].positions[0] = M_PI;
+  wpt.trajectory.points[1].positions[0] = -M_PI;
+
+  spline_smoother::SplineTrajectory spline;
+  bool success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
+
+  double total_time;
+  bool ss = spline_smoother::getTotalTime(spline,total_time);
+  EXPECT_TRUE(ss);
+
+  trajectory_msgs::JointTrajectory wpt_out;
+  std::vector<double> times_out;
+  times_out.resize(length);
+  times_out[0] = 0.0;
+  times_out[1] = total_time;
+  spline_smoother::sampleSplineTrajectory(spline,times_out,wpt_out);
+  EXPECT_NEAR(wpt_out.points[0].positions[0], M_PI, 1e-5);
+  EXPECT_NEAR(wpt_out.points[1].positions[0], -M_PI, 1e-5);
+}
+
+
 TEST(TestCubicTrajectory, TestCubicTrajectory)
 {
   spline_smoother::CubicTrajectory traj;
