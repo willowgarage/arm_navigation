@@ -43,7 +43,7 @@
 #include "ompl_ros/base/ProjectionEvaluators.h"
 
 #include <ompl/base/Planner.h>
-#include <ompl/extension/kinematic/PathSmootherKinematic.h>
+#include <ompl/kinematic/PathSmootherKinematic.h>
 
 #include <ompl_planning/PlannerConfig.h>
 

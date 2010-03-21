@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_DYNAMIC_RRT_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/dynamic/extension/rrt/RRT.h>
+#include <ompl/dynamic/planners/rrt/RRT.h>
 
 namespace ompl_planning
 {

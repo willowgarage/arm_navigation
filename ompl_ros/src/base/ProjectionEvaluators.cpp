@@ -37,7 +37,7 @@
 #include "ompl_ros/base/ProjectionEvaluators.h"
 #include <ros/console.h>
 
-ompl_ros::LinkPositionProjectionEvaluator::LinkPositionProjectionEvaluator(ModelBase *model, const std::string &linkName) : ompl::base::ProjectionEvaluator()
+ompl_ros::LinkPositionProjectionEvaluator::LinkPositionProjectionEvaluator(const ompl::base::SpaceInformation *si, ModelBase *model, const std::string &linkName) : ompl::base::ProjectionEvaluator(si)
 {
     model_ = model;
     linkName_ = linkName;

@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_KINEMATIC_pRRT_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/kinematic/extension/rrt/pRRT.h>
+#include <ompl/kinematic/planners/rrt/pRRT.h>
 
 namespace ompl_planning
 {

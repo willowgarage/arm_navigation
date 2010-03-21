@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_KINEMATIC_IKSBL_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/kinematic/extension/sbl/IKSBL.h>
+#include <ompl/kinematic/planners/sbl/IKSBL.h>
 
 namespace ompl_planning
 {

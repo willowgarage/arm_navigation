@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_KINEMATIC_KPIECE_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/kinematic/extension/kpiece/KPIECE1.h>
+#include <ompl/kinematic/planners/kpiece/KPIECE1.h>
 
 namespace ompl_planning
 {

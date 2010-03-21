@@ -51,7 +51,7 @@ namespace ompl_ros
   class ROSStateValidityPredicateDynamic : public ompl::base::StateValidityChecker
     {
     public:
-    ROSStateValidityPredicateDynamic(ROSSpaceInformationDynamic *si, ModelBase *model) : ompl::base::StateValidityChecker()
+    ROSStateValidityPredicateDynamic(ROSSpaceInformationDynamic *si, ModelBase *model) : ompl::base::StateValidityChecker(si)
         {
           dsi_ = si;
           model_ = model;

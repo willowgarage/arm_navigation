@@ -37,7 +37,7 @@
 #include "ompl_ros/dynamic/ForwardPropagationModels.h"
 #include <cmath>
 
-void ompl_ros::EulerMethod::step(const ompl::base::State *begin, const ompl::base::Control *ctrl, const double resolution, ompl::base::State *end) const
+void ompl_ros::EulerMethod::step(const ompl::base::State *begin, const ompl::dynamic::Control *ctrl, const double resolution, ompl::base::State *end) const
 {
     double diff[dim_];
     ode_(begin, ctrl, diff);

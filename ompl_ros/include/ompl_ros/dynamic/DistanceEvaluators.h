@@ -37,6 +37,6 @@
 #ifndef OMPL_ROS_DYNAMIC_DISTANCE_EVALUATORS_
 #define OMPL_ROS_DYNAMIC_DISTANCE_EVALUATORS_
 
-#include <ompl/base/StateDistanceEvaluator.h>
+#include <ompl/base/L2SquareStateDistanceEvaluator.h>
 
 #endif

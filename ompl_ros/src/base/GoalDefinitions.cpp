@@ -35,7 +35,7 @@
 /** \author Ioan Sucan */
 
 #include "ompl_ros/base/GoalDefinitions.h"
-#include <ompl/extension/kinematic/SpaceInformationKinematic.h>
+#include <ompl/kinematic/SpaceInformationKinematic.h>
 #include <ros/console.h>
 
 double ompl_ros::GoalToState::distanceGoal(const ompl::base::State *s) const
@@ -220,7 +220,7 @@ bool ompl_ros::GoalToMultipleConstraints::isSatisfied(const ompl::base::State *s
 void ompl_ros::GoalToMultipleConstraints::sampleNearGoal(ompl::base::State *s) const
 {
   lock_.lock();
-  sCore_.sampleNear(s, gs_.state, rho_);
+  sCore_->sampleNear(s, gs_.state, rho_);
   lock_.unlock();
 }
 

@@ -37,7 +37,7 @@
 #ifndef OMPL_ROS_DYNAMIC_SPACE_INFORMATION_
 #define OMPL_ROS_DYNAMIC_SPACE_INFORMATION_
 
-#include <ompl/extension/dynamic/SpaceInformationControlsIntegrator.h>
+#include <ompl/dynamic/SpaceInformationControlsIntegrator.h>
 #include "ompl_ros/dynamic/ForwardPropagationModels.h"
 #include "ompl_ros/ModelBase.h"
 #include <vector>

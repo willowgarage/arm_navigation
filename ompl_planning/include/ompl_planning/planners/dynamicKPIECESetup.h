@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_DYNAMIC_KPIECE_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/dynamic/extension/kpiece/KPIECE1.h>
+#include <ompl/dynamic/planners/kpiece/KPIECE1.h>
 
 namespace ompl_planning
 {

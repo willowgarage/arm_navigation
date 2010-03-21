@@ -71,7 +71,7 @@ ompl::base::ProjectionEvaluator* ompl_planning::PlannerSetup::getProjectionEvalu
 	{
 	    std::string linkName = proj.substr(4);
 	    boost::trim(linkName);
-	    pe = new ompl_ros::LinkPositionProjectionEvaluator(ompl_model, linkName);
+	    pe = new ompl_ros::LinkPositionProjectionEvaluator(ompl_model->si, ompl_model, linkName);
 	}
 	else
 	{
@@ -83,7 +83,7 @@ ompl::base::ProjectionEvaluator* ompl_planning::PlannerSetup::getProjectionEvalu
 		ss >> comp;
 		projection.push_back(comp);
 	    }
-	    pe = new ompl::base::OrthogonalProjectionEvaluator(projection);
+	    pe = new ompl::base::OrthogonalProjectionEvaluator(ompl_model->si, projection);
 	}
 	
 	std::vector<double> cdim;

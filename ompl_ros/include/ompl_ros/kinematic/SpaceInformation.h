@@ -38,7 +38,7 @@
 #define OMPL_ROS_KINEMATIC_SPACE_INFORMATION_
 
 #include "ompl_ros/ModelBase.h"
-#include <ompl/extension/kinematic/SpaceInformationKinematic.h>
+#include <ompl/kinematic/SpaceInformationKinematic.h>
 #include <motion_planning_msgs/Constraints.h>
 #include <vector>
 

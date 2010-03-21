@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_KINEMATIC_pSBL_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/kinematic/extension/sbl/pSBL.h>
+#include <ompl/kinematic/planners/sbl/pSBL.h>
 
 namespace ompl_planning
 {

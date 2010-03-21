@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_KINEMATIC_RRT_CONNECT_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/kinematic/extension/rrt/RRTConnect.h>
+#include <ompl/kinematic/planners/rrt/RRTConnect.h>
 
 namespace ompl_planning
 {

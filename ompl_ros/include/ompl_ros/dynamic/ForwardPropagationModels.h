@@ -37,8 +37,8 @@
 #ifndef OMPL_ROS_DYNAMIC_EXTENSIONS_FORWARD_PROPAGATION_MODELS_
 #define OMPL_ROS_DYNAMIC_EXTENSIONS_FORWARD_PROPAGATION_MODELS_
 
-#include <ompl/base/StateForwardPropagator.h>
-#include <ompl/extension/dynamic/SpaceInformationControlsIntegrator.h>
+#include <ompl/dynamic/StateForwardPropagator.h>
+#include <ompl/dynamic/SpaceInformationControlsIntegrator.h>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 
@@ -50,25 +50,29 @@ namespace ompl_ros
     {
     public:
 	
-	EulerMethod(const boost::function<void(const ompl::base::State*, const ompl::base::Control*, double*)> &ode, const unsigned int dim) : ode_(ode), dim_(dim)
+	EulerMethod(const boost::function<void(const ompl::base::State*, const ompl::dynamic::Control*, double*)> &ode, const unsigned int dim) : ode_(ode), dim_(dim)
 	{
 	}
 	
-	void step(const ompl::base::State *begin, const ompl::base::Control *ctrl, const double resolution, ompl::base::State *end) const;
+	void step(const ompl::base::State *begin, const ompl::dynamic::Control *ctrl, const double resolution, ompl::base::State *end) const;
 	
     private:
 	
-	boost::function<void(const ompl::base::State*, const ompl::base::Control*, double*)> ode_;
+	boost::function<void(const ompl::base::State*, const ompl::dynamic::Control*, double*)> ode_;
 	unsigned int                                                                         dim_;
     };
     
     
     /** \brief Base definition for a class that does forward propagation for a specific robot model */
-    class ForwardPropagationModel : public ompl::base::StateForwardPropagator
+    class ForwardPropagationModel : public ompl::dynamic::StateForwardPropagator
     {
     public:
 	
-	virtual void controlDefinition(std::vector<ompl::base::ControlComponent> &controlComponent, unsigned int *controlDimension,
+	ForwardPropagationModel(const ompl::dynamic::SpaceInformationControls *si) : ompl::dynamic::StateForwardPropagator(si)
+	{
+	}
+	
+	virtual void controlDefinition(std::vector<ompl::dynamic::ControlComponent> &controlComponent, unsigned int *controlDimension,
 				       unsigned int *minDuration, unsigned int *maxDuration, double *resolution) = 0;
 
 	std::string name;

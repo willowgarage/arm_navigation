@@ -53,7 +53,7 @@ namespace ompl_ros
     class ROSStateValidityPredicateKinematic : public ompl::base::StateValidityChecker
     {
     public:
-        ROSStateValidityPredicateKinematic(ROSSpaceInformationKinematic *si, ModelBase *model) : ompl::base::StateValidityChecker()
+        ROSStateValidityPredicateKinematic(ROSSpaceInformationKinematic *si, ModelBase *model) : ompl::base::StateValidityChecker(si)
 	{
 	    model_ = model;
 	}

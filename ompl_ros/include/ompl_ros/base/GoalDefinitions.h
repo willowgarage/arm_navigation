@@ -39,7 +39,8 @@
 
 #include "ompl_ros/ModelBase.h"
 #include <planning_environment/util/kinematic_state_constraint_evaluator.h>
-#include <ompl/extension/kinematic/SpaceInformationKinematic.h>
+#include <ompl/kinematic/SpaceInformationKinematic.h>
+#include <ompl/base/GoalState.h>
 
 namespace ompl_ros
 {
@@ -144,8 +145,8 @@ namespace ompl_ros
 	
     protected:
 	
-      mutable ompl::base::SpaceInformation::StateSamplingCore sCore_;
-      mutable boost::mutex                                    lock_;
+      mutable ompl::base::StateSamplerInstance sCore_;
+      mutable boost::mutex                     lock_;
 	
       GoalToPosition      gp_;
       GoalToState         gs_;

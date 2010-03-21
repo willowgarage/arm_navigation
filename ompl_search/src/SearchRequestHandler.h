@@ -38,7 +38,7 @@
 #define OMPL_SEARCH_REQUEST_HANDLER_
 
 #include <ompl_ros/ModelKinematic.h>
-#include <ompl/extension/kinematic/extension/ik/GAIK.h>
+#include <ompl/kinematic/planners/ik/GAIK.h>
 #include <motion_planning_msgs/ConvertToJointConstraint.h>
 #include <string>
 #include <map>

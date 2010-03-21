@@ -46,21 +46,21 @@ namespace ompl_ros
     class PR2BaseModel : public ForwardPropagationModel
     {
     public:
-
-	PR2BaseModel(ompl::dynamic::SpaceInformationControlsIntegrator *si) : m_(boost::bind(&PR2BaseModel::modelODE, this, _1, _2, _3), 3), L_(0.75), si_(si)
+	
+	PR2BaseModel(ompl::dynamic::SpaceInformationControlsIntegrator *si) : ForwardPropagationModel(si), m_(boost::bind(&PR2BaseModel::modelODE, this, _1, _2, _3), 3), L_(0.75), si_(si)
 	{
 	    name = "base";
 	}
 	
-	virtual void controlDefinition(std::vector<ompl::base::ControlComponent> &component, unsigned int *dimension,
+	virtual void controlDefinition(std::vector<ompl::dynamic::ControlComponent> &component, unsigned int *dimension,
 				       unsigned int *minDuration, unsigned int *maxDuration, double *resolution)
 	{
 	    *dimension = 2;
 	    component.resize(*dimension);
-	    component[0].type = ompl::base::ControlComponent::LINEAR;
+	    component[0].type = ompl::dynamic::ControlComponent::LINEAR;
 	    component[0].minValue = -1.0;
 	    component[0].maxValue = 1.5;
-	    component[1].type = ompl::base::ControlComponent::LINEAR;
+	    component[1].type = ompl::dynamic::ControlComponent::LINEAR;
 	    component[1].minValue = -0.9;
 	    component[1].maxValue =  0.9;
 	    
@@ -69,7 +69,7 @@ namespace ompl_ros
 	    *maxDuration = 10;
 	}
 	
-	virtual void operator()(const ompl::base::State *begin, const ompl::base::Control *ctrl, double resolution, ompl::base::State *end) const 
+	virtual void operator()(const ompl::base::State *begin, const ompl::dynamic::Control *ctrl, double resolution, ompl::base::State *end) const 
 	{
 	    m_.step(begin, ctrl, resolution, end);
 	}
@@ -77,7 +77,7 @@ namespace ompl_ros
     private:
 	
 	// state = (x, y, theta) ; control = (fwd speed, turn speed)
-	void modelODE(const ompl::base::State *begin, const ompl::base::Control *ctrl, double *diff) const
+	void modelODE(const ompl::base::State *begin, const ompl::dynamic::Control *ctrl, double *diff) const
 	{
 	    // dx = fwd speed * cos (theta)
 	    diff[0] = ctrl->values[0] * cos(begin->values[2]);

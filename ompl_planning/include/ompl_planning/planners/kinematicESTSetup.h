@@ -38,7 +38,7 @@
 #define OMPL_PLANNING_PLANNERS_KINEMATIC_EST_SETUP_
 
 #include "ompl_planning/planners/PlannerSetup.h"
-#include <ompl/extension/kinematic/extension/est/EST.h>
+#include <ompl/kinematic/planners/est/EST.h>
 
 namespace ompl_planning
 {

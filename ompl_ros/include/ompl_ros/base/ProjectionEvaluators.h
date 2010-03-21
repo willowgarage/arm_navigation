@@ -37,7 +37,8 @@
 #ifndef OMPL_ROS_BASE_PROJECTION_EVALUATORS_
 #define OMPL_ROS_BASE_PROJECTION_EVALUATORS_
 
-#include <ompl/base/ProjectionEvaluator.h>
+#include <ompl/base/OrthogonalProjectionEvaluator.h>
+#include <ompl/base/LinearProjectionEvaluator.h>
 #include "ompl_ros/ModelBase.h"
 
 namespace ompl_ros
@@ -47,7 +48,7 @@ namespace ompl_ros
     {
     public:
 
-        LinkPositionProjectionEvaluator(ModelBase *model, const std::string &linkName);
+	LinkPositionProjectionEvaluator(const ompl::base::SpaceInformation *si, ModelBase *model, const std::string &linkName);
 	
 	/** \brief Return the dimension of the projection defined by this evaluator */
 	virtual unsigned int getDimension(void) const;
