@@ -447,6 +447,7 @@ private:
       else
       {
         move_arm_action_result_.error_code = res.error_code;
+        move_arm_action_result_.contacts = res.contacts;
         ROS_ERROR("Trajectory invalid");
         return false;
       }
@@ -478,6 +479,7 @@ private:
       else
       {
         move_arm_action_result_.error_code = res.error_code;
+        move_arm_action_result_.contacts = res.contacts;
         return false;
       }
     }
@@ -533,6 +535,7 @@ private:
       else
       {
         move_arm_action_result_.error_code = res.error_code;
+        move_arm_action_result_.contacts = res.contacts;
         return false;
       }
     }
@@ -615,6 +618,15 @@ private:
     move_arm_parameters_.allowed_planning_time = goal->motion_plan_request.allowed_planning_time.toSec();
     move_arm_parameters_.planner_service_name = goal->planner_service_name;
     visualizeAllowedContactRegions(req.motion_plan_request.allowed_contacts);
+    ROS_INFO("Move arm: %d allowed contact regions",req.motion_plan_request.allowed_contacts.size());
+    for(unsigned int i=0; i < req.motion_plan_request.allowed_contacts.size(); i++)
+    {
+      ROS_INFO("Position                    : (%f,%f,%f)",req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.x,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.y,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.z);
+      ROS_INFO("Frame id                    : %s",req.motion_plan_request.allowed_contacts[i].pose_stamped.header.frame_id.c_str());
+      ROS_INFO("Depth                       : %f",req.motion_plan_request.allowed_contacts[i].penetration_depth);
+      ROS_INFO("Link                        : %s",req.motion_plan_request.allowed_contacts[i].link_names[0].c_str());
+      ROS_INFO(" ");
+    }
   }
   bool doPrePlanningChecks(motion_planning_msgs::GetMotionPlan::Request &req,  
                            motion_planning_msgs::GetMotionPlan::Response &res)
@@ -625,7 +637,7 @@ private:
     if(!isStateValid(current_state.joint_state) && !move_arm_parameters_.disable_collision_monitoring){
       ROS_ERROR("Current state in collision.  Can't plan.");
       move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.START_STATE_IN_COLLISION;
-      action_server_->setAborted();
+      action_server_->setAborted(move_arm_action_result_);
       return false;
     }
     // processing and checking goal
@@ -634,14 +646,14 @@ private:
       ROS_INFO("Planning to a pose goal");
       if(!convertPoseGoalToJointGoal(req))
       {
-        action_server_->setAborted();
+        action_server_->setAborted(move_arm_action_result_);
         return false;
       }
     }
     if (isJointGoal(req))
       if(!checkJointGoal(req))
       {
-        action_server_->setAborted();
+        action_server_->setAborted(move_arm_action_result_);
         return false;
       }
     return true;
@@ -785,7 +797,7 @@ private:
       action_server_->publishFeedback(move_arm_action_feedback_);        
       ROS_ERROR("Trajectory controller reports failure");
       resetStateMachine();
-      action_server_->setAborted();
+      action_server_->setAborted(move_arm_action_result_);
       return false;
     }
     return false;
@@ -838,7 +850,7 @@ private:
     num_planning_attempts_ = 0;
     current_trajectory_.points.clear();
     current_trajectory_.joint_names.clear();
-    state_ = PLANNING;
+    state_ = PLANNING;    
   }
   bool executeCycle(motion_planning_msgs::GetMotionPlan::Request &req)
   {
@@ -874,7 +886,7 @@ private:
             ROS_ERROR("Trajectory returned by the planner is in collision with a part of the environment");
             ROS_ERROR("Move arm will abort this goal.");
             resetStateMachine();
-            action_server_->setAborted();
+            action_server_->setAborted(move_arm_action_result_);
             return true;
           }
           else{
@@ -892,7 +904,7 @@ private:
           if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
           {
             resetStateMachine();
-            action_server_->setAborted();
+            action_server_->setAborted(move_arm_action_result_);
             return true;
           }
         }
@@ -921,7 +933,7 @@ private:
         else
         {
           resetStateMachine();
-          action_server_->setAborted();
+          action_server_->setAborted(move_arm_action_result_);
           return true;              
         }
         break;
@@ -981,13 +993,16 @@ private:
     moveArmGoalToPlannerRequest(goal,req);	    
     original_request_ = req;
     ros::Rate move_arm_rate(move_arm_frequency_);
-
+    move_arm_action_result_.contacts.clear();
+    move_arm_action_result_.error_code.val = 0;
     while(private_handle_.ok())
     {	    	    
       if (action_server_->isPreemptRequested())
       {
         if(action_server_->isNewGoalAvailable())
         {
+          move_arm_action_result_.contacts.clear();
+          move_arm_action_result_.error_code.val = 0;
           moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
           original_request_ = req;
           stopTrajectory();
@@ -1021,7 +1036,7 @@ private:
     }	    
     //if the node is killed then we'll abort and return
     ROS_INFO("Node was killed, aborting");
-    action_server_->setAborted();
+    action_server_->setAborted(move_arm_action_result_);
   }
   ///
   /// End State machine
@@ -1083,7 +1098,7 @@ private:
       bool valid_shape = true;
       mk.markers[i].header.stamp = ros::Time::now();
       mk.markers[i].header.frame_id = allowed_contacts[i].pose_stamped.header.frame_id;
-      mk.markers[i].ns = allowed_contacts[i].name;
+      mk.markers[i].ns = "move_arm::"+allowed_contacts[i].name;
       mk.markers[i].id = count++;
       if(allowed_contacts[i].shape.type == geometric_shapes_msgs::Shape::SPHERE)
       {        
@@ -1135,7 +1150,7 @@ private:
       }
       else
       {
-        mk.markers[i].color.a = 0.3;
+        mk.markers[i].color.a = 1.0;
         mk.markers[i].color.r = 0.04;
         mk.markers[i].color.g = 1.0;
         mk.markers[i].color.b = 0.04;
