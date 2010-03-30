@@ -75,6 +75,26 @@ private:
   ros::NodeHandle node_handle_;
   tf::TransformListener tf_;
   int getRandomInt(int min,int max) const;
+  double getRandomTimeStamp(double min,double max) const;
+  void discretizeTrajectory(const spline_smoother::SplineTrajectory &spline, 
+                            const double &discretization,
+                            trajectory_msgs::JointTrajectory &joint_trajectory) const;
+  bool trimTrajectory(trajectory_msgs::JointTrajectory &trajectory_out, 
+                      const double &segment_start_time, 
+                      const double &segment_end_time) const;
+  bool findTrajectoryPointsInInterval(const trajectory_msgs::JointTrajectory &trajectory,
+                                      const double &segment_start_time, 
+                                      const double &segment_end_time,
+                                      int &index_1,
+                                      int &index_2) const;
+  bool getWaypoints(const spline_smoother::SplineTrajectory &spline, 
+                    trajectory_msgs::JointTrajectory &joint_trajectory) const;
+  bool addToTrajectory(trajectory_msgs::JointTrajectory &trajectory_out, 
+                       const trajectory_msgs::JointTrajectoryPoint &trajectory_point,
+                       const ros::Duration& delta_time) const;
+
+  void printTrajectory(const trajectory_msgs::JointTrajectory &joint_trajectory) const;
+
 };
 
 template <typename T>
@@ -87,7 +107,7 @@ bool CubicSplineShortCutter<T>::configure()
   }///\todo check length
   else
   {
-    ROS_INFO("Using a discretization value of %f",discretization_);
+    ROS_DEBUG("Using a discretization value of %f",discretization_);
     return true;
   }
 };
@@ -115,11 +135,19 @@ int CubicSplineShortCutter<T>::getRandomInt(int min_index,int max_index)const
 }
 
 template <typename T>
+double CubicSplineShortCutter<T>::getRandomTimeStamp(double min,double max)const
+{
+  int rand_num = rand()%100+1;
+  double result = min + (double)((max-min)*rand_num)/101.0;
+  return result;
+}
+
+template <typename T>
 bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in, 
                                        T& trajectory_out) const
 {
+  double discretization = discretization_;
   srand(time(NULL)); // initialize random seed: 
-
   if(!active_)
   {
     ROS_ERROR("Smoother is not active");
@@ -130,12 +158,11 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
   motion_planning_msgs::RobotState robot_state;
+  spline_smoother::CubicTrajectory trajectory_solver;
+  spline_smoother::SplineTrajectory spline, shortcut_spline;
+  motion_planning_msgs::JointTrajectoryWithLimits shortcut, discretized_trajectory;
+
   planning_monitor_->getRobotStateMsg(robot_state);
-
-  spline_smoother::CubicTrajectory traj;
-  spline_smoother::SplineTrajectory spline;
-
-  motion_planning_msgs::JointTrajectoryWithLimits shortcut;
   trajectory_out = trajectory_in;
 
   if (!spline_smoother::checkTrajectoryConsistency(trajectory_out))
@@ -143,12 +170,12 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 
   shortcut.limits = trajectory_in.limits;
   shortcut.trajectory.joint_names = trajectory_in.trajectory.joint_names;
+
+  discretized_trajectory.limits = trajectory_in.limits;
+  discretized_trajectory.trajectory.joint_names = trajectory_in.trajectory.joint_names;
+
   ros::Time start_time = ros::Time::now();
   ros::Duration timeout = trajectory_in.allowed_time;
-  bool success = true;
-
-  //  planning_monitor_->getEnvironmentModel()->lock();
-  //  planning_monitor_->getKinematicModel()->lock();
   motion_planning_msgs::OrderedCollisionOperations operations, ordered_collision_operations;
   std::vector<std::string> child_links;
   planning_monitor_->getChildLinks(trajectory_in.trajectory.joint_names, child_links);
@@ -162,78 +189,89 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     return false;
   }
 
+  bool success = trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline);      
+  getWaypoints(spline,trajectory_out.trajectory);
+  printTrajectory(trajectory_out.trajectory);
+  std::vector<double> sample_times;
+  sample_times.resize(2);
+  bool first_try = true;
   while(ros::Time::now() - start_time < timeout)
   {
-    int trajectory_size = (int) trajectory_out.trajectory.points.size();
-    if(trajectory_size < 3)
-      break;
-    shortcut.trajectory.points.clear();
-    spline.segments.clear();
-    int index1, index2;
-    index1 = getRandomInt(0,trajectory_size);
-    index2 = getRandomInt(index1,trajectory_size);
-    if(index1 == index2 || index2-index1 < 2)
+    double total_time = trajectory_out.trajectory.points.back().time_from_start.toSec();
+    double segment_start_time = getRandomTimeStamp(0.0,total_time);
+    double segment_end_time = getRandomTimeStamp(segment_start_time,total_time);
+    if(segment_start_time == segment_end_time)
       continue;
-    ROS_DEBUG("index1: %d, index2: %d, trajectory size: %d",index1,index2,trajectory_size);
-    shortcut.trajectory.points.push_back(trajectory_out.trajectory.points[index1]);
-    shortcut.trajectory.points.push_back(trajectory_out.trajectory.points[index2]);
-    ROS_DEBUG("Pushed back 2 points");
+    if(first_try)
+    {
+      segment_start_time = 0.0;
+      segment_end_time = total_time;
+      first_try = false;
+    }
+    sample_times[0] = segment_start_time;
+    sample_times[1] = segment_end_time;
+
+    spline_smoother::sampleSplineTrajectory(spline,sample_times,shortcut.trajectory);
+    ROS_DEBUG("Start time: %f, %f",segment_start_time,shortcut.trajectory.points[0].positions[0]);
+    ROS_DEBUG("End time  : %f, %f",segment_end_time,shortcut.trajectory.points[1].positions[0]);
     shortcut.trajectory.points[0].time_from_start = ros::Duration(0.0);
     shortcut.trajectory.points[1].time_from_start = ros::Duration(0.0);
-    success = traj.parameterize(shortcut.trajectory,shortcut.limits,spline);      
-    if(!success)
-      break;
-    ROS_DEBUG("Set trajectory");
+    
+    if(!trajectory_solver.parameterize(shortcut.trajectory,trajectory_in.limits,shortcut_spline))
+      return false;
+    discretizeTrajectory(shortcut_spline,discretization,discretized_trajectory.trajectory);
+    ROS_DEBUG("Succeeded in sampling trajectory with size: %d",(int)discretized_trajectory.trajectory.points.size());
 
-    double total_time;
-    spline_smoother::getTotalTime(spline,total_time);
-    ROS_DEBUG("Succeeded in setting trajectory with total time: %f",total_time);
-
-    std::vector<double> times;
-    times.resize(std::max((int)(total_time/discretization_)+1,2));
-    times[0] = 0.0;
-    for(int i=0; i< (int) times.size()-1; i++)
-      times[i+1] = times[i] + discretization_; 
-    times.back() = total_time;
-
-    trajectory_msgs::JointTrajectory joint_traj;
-    spline_smoother::sampleSplineTrajectory(spline,times,joint_traj);
-    joint_traj.joint_names = shortcut.trajectory.joint_names;
-    ROS_DEBUG("Succeeded in sampling trajectory with size: %d",(int)joint_traj.points.size());
-
-    if(planning_monitor_->isTrajectoryValid(joint_traj,
+    if(planning_monitor_->isTrajectoryValid(discretized_trajectory.trajectory,
                                             robot_state,
                                             0,
-                                            joint_traj.points.size(),
+                                            discretized_trajectory.trajectory.points.size(),
                                             planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST,
                                             false,
                                             error_code, 
                                             trajectory_error_codes))
     {
-      ros::Duration tmp_index_time = trajectory_out.trajectory.points[index1].time_from_start;
-      ros::Duration dt_index_time = trajectory_out.trajectory.points[index2].time_from_start - tmp_index_time;
-      trajectory_out.trajectory.points[index1].positions = joint_traj.points.front().positions;
-      trajectory_out.trajectory.points[index2].positions = joint_traj.points.back().positions;
-      trajectory_out.trajectory.points[index1].time_from_start = tmp_index_time;
+      ros::Duration shortcut_duration = discretized_trajectory.trajectory.points.back().time_from_start - discretized_trajectory.trajectory.points.front().time_from_start;
+      if(segment_end_time-segment_start_time <= shortcut_duration.toSec())
+        continue;
+      if(!trimTrajectory(trajectory_out.trajectory,segment_start_time,segment_end_time))
+        continue;
+      ROS_DEBUG("Trimmed trajectory has %d points",trajectory_out.trajectory.points.size());
 
-      for(unsigned int i = index2; i < trajectory_out.trajectory.points.size(); i++)
-      {
-        trajectory_out.trajectory.points[i].time_from_start += ros::Duration(total_time)-dt_index_time;        
-      }
-
-      ROS_DEBUG("Removing points %d through %d from trajectory of size %d",index1+1,index2-1,(int)trajectory_out.trajectory.points.size());
-      std::vector<trajectory_msgs::JointTrajectoryPoint>::iterator remove_start = trajectory_out.trajectory.points.begin() + index1 + 1;
-      std::vector<trajectory_msgs::JointTrajectoryPoint>::iterator remove_end = trajectory_out.trajectory.points.begin() + index2 - 1;
-      if(remove_start != remove_end)
-        trajectory_out.trajectory.points.erase(remove_start,remove_end);
-      else
-        trajectory_out.trajectory.points.erase(remove_start);
-
+      ROS_DEBUG("Shortcut reduced duration from: %f to %f",
+                segment_end_time-segment_start_time,
+                shortcut_duration.toSec());
+      shortcut.trajectory.points[0].time_from_start = ros::Duration(segment_start_time);
+      shortcut.trajectory.points[1].time_from_start = ros::Duration(segment_start_time) + shortcut_duration;
+      addToTrajectory(trajectory_out.trajectory,
+                      shortcut.trajectory.points[0],
+                      ros::Duration(0.0));
+      addToTrajectory(trajectory_out.trajectory,
+                      shortcut.trajectory.points[1],
+                      shortcut_duration-ros::Duration(segment_end_time-segment_start_time));
+      spline.segments.clear();
+      if(!trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline))
+        return false;
+      if(!getWaypoints(spline,trajectory_out.trajectory))
+        return false;
+      printTrajectory(trajectory_out.trajectory);
+      if(trajectory_out.trajectory.points.size() < 3)
+        break;
     }
     else 
+    {
+      ROS_DEBUG("Traj segment rejected with error code: %d",error_code.val);
       continue;
+    }
   }
-  planning_monitor_->revertAllowedCollisionToDefault();
+  ROS_INFO("Trajectory filter took %f seconds",(ros::Time::now() - start_time).toSec());
+  for(unsigned int i=0; i < trajectory_out.trajectory.points.size(); i++)
+  {
+    trajectory_out.trajectory.points[i].accelerations.clear();
+  }
+  printTrajectory(trajectory_out.trajectory);
+  discretizeTrajectory(spline,discretization,trajectory_out.trajectory);
+  printTrajectory(trajectory_out.trajectory);
   planning_monitor_->clearAllowedContacts();
   planning_monitor_->clearConstraints();
 	planning_monitor_->getKinematicModel()->lock();
@@ -241,37 +279,181 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 	planning_monitor_->revertAllowedCollisionToDefault();
 	planning_monitor_->getKinematicModel()->unlock();
 	planning_monitor_->getEnvironmentModel()->unlock();
-
-
-  std::set<double> times;
-  double total_time;
-  success = traj.parameterize(trajectory_out.trajectory,trajectory_out.limits,spline);      
-  spline_smoother::getTotalTime(spline,total_time);
-  for(int i=1; i< (int) (total_time/discretization_); i++)
-    times.insert(i*discretization_);
-  times.insert(total_time);
-
-  double insert_time = 0;
-  for(unsigned int i=0; i < spline.segments.size(); i++)
-  {
-    insert_time += spline.segments[i].duration.toSec();
-    times.insert(insert_time);
-  }
-
-  std::vector<double> times_vec;
-  for(std::set<double>::iterator set_iter = times.begin(); set_iter != times.end(); set_iter++)
-  {
-    times_vec.push_back(*set_iter);
-  }
-  std::sort(times_vec.begin(), times_vec.end());
-
-  if(!spline_smoother::sampleSplineTrajectory(spline,times_vec,trajectory_out.trajectory))
-    return false;
 	
   ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),trajectory_out.trajectory.points.back().time_from_start.toSec());
   //  planning_monitor_->getEnvironmentModel()->unlock();
   //  planning_monitor_->getKinematicModel()->unlock();
   return success;
+}
+
+
+template <typename T>
+void CubicSplineShortCutter<T>::printTrajectory(const trajectory_msgs::JointTrajectory &trajectory) const
+{
+  for(unsigned int i = 0; i < trajectory.points.size(); i++)
+  {
+    ROS_DEBUG("%f: %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+             trajectory.points[i].time_from_start.toSec(),
+             trajectory.points[i].positions[0],
+             trajectory.points[i].positions[1],
+             trajectory.points[i].positions[2],
+             trajectory.points[i].positions[3],
+             trajectory.points[i].positions[4],
+             trajectory.points[i].positions[5],
+             trajectory.points[i].positions[6],
+             trajectory.points[i].velocities[0],
+             trajectory.points[i].velocities[1],
+             trajectory.points[i].velocities[2],
+             trajectory.points[i].velocities[3],
+             trajectory.points[i].velocities[4],
+             trajectory.points[i].velocities[5],
+             trajectory.points[i].velocities[6]);
+  }
+  ROS_DEBUG(" ");
+}
+
+template <typename T>
+void CubicSplineShortCutter<T>::discretizeTrajectory(const spline_smoother::SplineTrajectory &spline, 
+                                                     const double &discretization,
+                                                     trajectory_msgs::JointTrajectory &joint_trajectory) const
+{
+  double total_time;
+  spline_smoother::getTotalTime(spline,total_time);
+  std::vector<double> times;
+  double time_index = 0.0;
+  while(time_index < total_time)
+  {
+    times.push_back(time_index);
+    time_index += discretization;
+  }
+  times.push_back(total_time);  
+  spline_smoother::sampleSplineTrajectory(spline,times,joint_trajectory);
+}
+
+template <typename T>
+bool CubicSplineShortCutter<T>::trimTrajectory(trajectory_msgs::JointTrajectory &trajectory_out, 
+                                               const double &segment_start_time, 
+                                               const double &segment_end_time) const
+{
+  int index1;
+  int index2;
+  if(findTrajectoryPointsInInterval(trajectory_out,segment_start_time,segment_end_time,index1,index2))
+  {
+    ROS_DEBUG("Trimming trajectory between segments: %d and %d",index1,index2);
+    std::vector<trajectory_msgs::JointTrajectoryPoint>::iterator remove_start = trajectory_out.points.begin() + index1;
+    std::vector<trajectory_msgs::JointTrajectoryPoint>::iterator remove_end;
+    if(index2 >= trajectory_out.points.size())
+      remove_end = trajectory_out.points.end();
+    else
+      remove_end = trajectory_out.points.begin()+index2;
+      
+
+    if(remove_start != remove_end)
+      trajectory_out.points.erase(remove_start,remove_end);
+    else
+      trajectory_out.points.erase(remove_start);
+  }
+  else
+    return false;
+  return true;
+}
+
+template <typename T>
+bool CubicSplineShortCutter<T>::findTrajectoryPointsInInterval(const trajectory_msgs::JointTrajectory &trajectory,
+                                                               const double &segment_start_time, 
+                                                               const double &segment_end_time,
+                                                               int &index_1,
+                                                               int &index_2) const
+{
+  index_1 = -1;
+  index_2 = -1;
+  if(segment_start_time > segment_end_time)
+    return false;
+  for(unsigned int i=0; i < trajectory.points.size(); i++)
+    if(trajectory.points[i].time_from_start.toSec() >= segment_start_time)
+    {
+      index_1 = i;
+      break;
+    }
+  ROS_DEBUG("First trim index: %d",index_1);
+  if(index_1>=0)
+    for(unsigned int i=index_1; i < trajectory.points.size(); i++)
+    {
+      if(trajectory.points[i].time_from_start.toSec() > segment_end_time)
+      {
+        index_2 = i;
+        break;
+      }
+      if(trajectory.points[i].time_from_start.toSec() == segment_end_time)
+      {
+        index_2 = i+1;
+        break;
+      }
+    }
+  ROS_DEBUG("Second trim index: %d",index_2);
+  if(index_1 >= index_2 || index_1 < 0 || index_2 < 0)
+    return false;
+  return true;
+}
+
+template <typename T>
+bool CubicSplineShortCutter<T>::getWaypoints(const spline_smoother::SplineTrajectory &spline, 
+                                             trajectory_msgs::JointTrajectory &joint_trajectory) const
+{
+  std::vector<double> waypoint_times_vector;
+  double waypoint_time = 0.0;
+  waypoint_times_vector.push_back(waypoint_time);
+  for(unsigned int i=0; i < spline.segments.size(); i++)
+  {
+    waypoint_time = waypoint_time + spline.segments[i].duration.toSec();
+    waypoint_times_vector.push_back(waypoint_time);
+    ROS_DEBUG("Spline segment time: %f",spline.segments[i].duration.toSec());
+  }
+  if(!spline_smoother::sampleSplineTrajectory(spline,waypoint_times_vector,joint_trajectory))
+    return false;
+  return true;
+}
+
+template <typename T>
+bool CubicSplineShortCutter<T>::addToTrajectory(trajectory_msgs::JointTrajectory &trajectory_out, 
+                                                const trajectory_msgs::JointTrajectoryPoint &trajectory_point,
+                                                const ros::Duration &delta_time) const
+{
+
+  ROS_DEBUG("Inserting point at time: %f",trajectory_point.time_from_start.toSec());
+  ROS_DEBUG("Old trajectory has %d points",trajectory_out.points.size());
+
+  if(trajectory_out.points.empty())
+  {
+    trajectory_out.points.push_back(trajectory_point);
+    return true;
+  }
+
+  unsigned int counter = 0;
+  unsigned int old_size = trajectory_out.points.size();
+  for(std::vector<trajectory_msgs::JointTrajectoryPoint>::iterator iter = trajectory_out.points.begin(); 
+      iter != trajectory_out.points.end() ; iter++)
+  {   
+    if(iter->time_from_start >= trajectory_point.time_from_start)
+    {
+      trajectory_out.points.insert(iter,trajectory_point);
+      break;
+    }
+    counter++;
+  }
+
+  if(delta_time == ros::Duration(0.0))
+    return true;
+
+  if(counter == old_size)
+    trajectory_out.points.push_back(trajectory_point);
+  else
+    if(counter+1 < trajectory_out.points.size())
+      for(unsigned int i= counter+1; i < trajectory_out.points.size(); i++)
+      {
+        trajectory_out.points[i].time_from_start += delta_time;
+      } 
+  return true;
 }
 
 template <typename T>
