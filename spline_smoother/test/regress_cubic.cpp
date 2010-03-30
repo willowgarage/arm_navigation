@@ -38,6 +38,12 @@
 #include <motion_planning_msgs/JointTrajectoryWithLimits.h>
 #include <spline_smoother/cubic_trajectory.h>
 
+double gen_rand(double min, double max)
+{
+  int rand_num = rand()%100+1;
+  double result = min + (double)((max-min)*rand_num)/101.0;
+  return result;
+}
 
 TEST(TestCubicTrajectory, TestCubicTrajectoryWithWrapAround)
 {
@@ -56,8 +62,8 @@ TEST(TestCubicTrajectory, TestCubicTrajectoryWithWrapAround)
   wpt.limits[0].max_velocity = 0.5;
   wpt.limits[0].has_velocity_limits = 1;
 
-  wpt.limits[1].max_velocity = 0.25;
-  wpt.limits[1].has_velocity_limits = 1;
+  //  wpt.limits[1].max_velocity = 0.25;
+  //  wpt.limits[1].has_velocity_limits = 1;
 
   for (int i=0; i<length; i++)
   {
@@ -202,7 +208,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits1)
   double total_time;
   bool ss = spline_smoother::getTotalTime(spline,total_time);
   EXPECT_TRUE(ss);
-  EXPECT_NEAR(total_time,7.745967,1e-5);
+  EXPECT_NEAR(total_time,7.5,1e-5);
 
   trajectory_msgs::JointTrajectory wpt_out;
   std::vector<double> times_out;
@@ -216,6 +222,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits1)
 TEST(TestCubicTrajectory, TestWithAccelerationLimits2)
 {
   spline_smoother::CubicTrajectory traj;
+  srand ( time(NULL) ); // initialize random seed: 
 
   // create the input:
   int length = 2;
@@ -251,13 +258,13 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits2)
   EXPECT_TRUE(ss);
   EXPECT_NEAR(total_time,12.717798,1e-5);
 
-
+  ROS_INFO("Next test");
   wpt.trajectory.points[1].velocities[0] = 0.2;
   success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
   EXPECT_TRUE(success);
   ss = spline_smoother::getTotalTime(spline,total_time);
   EXPECT_TRUE(ss);
-  EXPECT_NEAR(total_time,10.6066,1e-5);
+  EXPECT_NEAR(total_time,7.5,1e-5);
 
   trajectory_msgs::JointTrajectory wpt_out;
   std::vector<double> times_out;
@@ -266,6 +273,69 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits2)
 
   EXPECT_NEAR(wpt.trajectory.points[1].positions[0],wpt_out.points[0].positions[0],1e-5);
   EXPECT_NEAR(wpt.trajectory.points[1].velocities[0],wpt_out.points[0].velocities[0],1e-5);
+
+  wpt.trajectory.points[0].positions[0] = -0.000720;
+  wpt.trajectory.points[1].positions[0] = -0.0000080;
+  wpt.trajectory.points[0].velocities[0] = .000028;
+  wpt.trajectory.points[1].velocities[0] = 0.000034;
+  wpt.limits[0].max_velocity = 1.0;
+  wpt.limits[0].max_acceleration = 0.5;
+
+  success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
+  EXPECT_TRUE(success);
+  ss = spline_smoother::getTotalTime(spline,total_time);
+  EXPECT_TRUE(ss);
+  EXPECT_NEAR(total_time,0.092254,1e-3);
+
+    double eps = 1e-2;
+  for(unsigned int i=0; i < 10000; i++)
+  {
+    wpt.trajectory.points[0].positions[0] = gen_rand(-100.0,100.0);
+    wpt.trajectory.points[1].positions[0] = gen_rand(-100.0,100.0);
+    wpt.limits[0].max_velocity = fabs(gen_rand(-100.0,100.0));
+    wpt.limits[0].max_acceleration = fabs(gen_rand(-100.0,100.0));
+    wpt.trajectory.points[0].velocities[0] = gen_rand(-wpt.limits[0].max_velocity,wpt.limits[0].max_velocity);
+    wpt.trajectory.points[1].velocities[0] = gen_rand(-wpt.limits[0].max_velocity,wpt.limits[0].max_velocity);
+    if(wpt.trajectory.points[0].positions[0] == wpt.trajectory.points[1].positions[0])
+      continue;
+    success = traj.parameterize(wpt.trajectory,wpt.limits,spline);
+    EXPECT_TRUE(success);
+    ss = spline_smoother::getTotalTime(spline,total_time);
+    std::vector<double> test_times;
+    double dT = 0.0;
+    while(dT < total_time)
+    {
+      test_times.push_back(dT);
+      dT += 0.01;
+    }
+    test_times.push_back(total_time);
+    trajectory_msgs::JointTrajectory test_trajectory;
+    spline_smoother::sampleSplineTrajectory(spline,test_times,test_trajectory);
+    for(unsigned int i=0; i < test_trajectory.points.size(); i++)
+    {
+      double vel_error = fabs(test_trajectory.points[i].velocities[0]) - wpt.limits[0].max_velocity;
+      double acc_error = fabs(test_trajectory.points[i].accelerations[0]) - wpt.limits[0].max_acceleration;
+      if(!(vel_error <= eps) || isnan(vel_error))
+      {
+        ROS_INFO("error: %f %f",vel_error,acc_error);      
+        ROS_INFO("%f, %f, %f, %f",wpt.trajectory.points[0].positions[0],
+                 wpt.trajectory.points[1].positions[0],
+                 wpt.trajectory.points[0].velocities[0],
+                 wpt.trajectory.points[1].velocities[0]);
+        ROS_INFO("Limits: %f, %f",wpt.limits[0].max_velocity,wpt.limits[0].max_acceleration);
+      }
+      if(!(acc_error <= eps))
+        ROS_INFO("error: %f %f",vel_error,acc_error);      
+
+      EXPECT_TRUE(vel_error <= eps);
+      EXPECT_TRUE(acc_error <= eps);      
+      if(vel_error > eps)
+        ROS_INFO("error: %f %f",vel_error,acc_error);      
+      if(acc_error > eps)
+        ROS_INFO("error: %f %f",vel_error,acc_error);      
+    }
+  }
+  
 }
 
 

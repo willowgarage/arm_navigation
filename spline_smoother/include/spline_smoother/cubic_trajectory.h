@@ -69,6 +69,18 @@ namespace spline_smoother
                                 const std::vector<motion_planning_msgs::JointLimits> &limits);
 
     bool quadSolve(const double &a, const double &b, const double &c, double &solution);
+    bool quadSolve(const double &a, 
+                   const double &b, 
+                   const double &c, 
+                   std::vector<double> &solution);
+
+    bool validSolution(const double &q0, 
+                       const double &q1,
+                       const double &v0,
+                       const double &v1,
+                       const double &dT,
+                       const double &vmax,
+                       const double &amax);
 
     bool apply_limits_;
   };
