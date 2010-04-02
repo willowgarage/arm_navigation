@@ -736,16 +736,41 @@ private:
     controller_goal_handle_.cancel();
     return true;
   }
-  bool sendTrajectory(trajectory_msgs::JointTrajectory current_trajectory)
+  bool sendTrajectory(const trajectory_msgs::JointTrajectory &current_trajectory)
   {
     pr2_controllers_msgs::JointTrajectoryGoal goal;  
     goal.trajectory = current_trajectory;
-    goal.trajectory.header.stamp = ros::Time::now();
+    goal.trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
+
+    ROS_INFO("Sending trajectory with %d points and timestamp: %f",goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
+    for(unsigned int i=0; i < goal.trajectory.joint_names.size(); i++)
+      ROS_INFO("Joint: %d name: %s",i,goal.trajectory.joint_names[i].c_str());
+
+    /*    for(unsigned int i = 0; i < goal.trajectory.points.size(); i++)
+      {
+	ROS_INFO("%f: %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+		  goal.trajectory.points[i].time_from_start.toSec(),
+		  goal.trajectory.points[i].positions[0],
+		  goal.trajectory.points[i].positions[1],
+		  goal.trajectory.points[i].positions[2],
+		  goal.trajectory.points[i].positions[3],
+		  goal.trajectory.points[i].positions[4],
+		  goal.trajectory.points[i].positions[5],
+		  goal.trajectory.points[i].positions[6],
+		  goal.trajectory.points[i].velocities[0],
+		  goal.trajectory.points[i].velocities[1],
+		  goal.trajectory.points[i].velocities[2],
+		  goal.trajectory.points[i].velocities[3],
+		  goal.trajectory.points[i].velocities[4],
+		  goal.trajectory.points[i].velocities[5],
+		  goal.trajectory.points[i].velocities[6]);
+		  }*/
     controller_goal_handle_ = controller_action_client_->sendGoal(goal,boost::bind(&MoveArm::controllerTransitionCallback, this, _1));    
     controller_status_ = QUEUED;
-    ROS_DEBUG("Send trajectory");
+    //    printTrajectory(goal.trajectory);
     return true;
   }
+
   void controllerTransitionCallback(JointExecutorActionClient::GoalHandle gh) 
   {   
     if(gh != controller_goal_handle_)
@@ -771,11 +796,18 @@ private:
         case actionlib::TerminalState::PREEMPTED:
         case actionlib::TerminalState::ABORTED:
         case actionlib::TerminalState::LOST:
-          controller_status_ = FAILED;
-          return;
+	  {
+	    ROS_INFO("Trajectory controller status came back as failed");
+	    controller_status_ = FAILED;
+	    controller_goal_handle_.reset();
+	    return;
+	  }
         case actionlib::TerminalState::SUCCEEDED:
-          controller_status_ = SUCCESS;
-          return;
+	  {
+	    controller_goal_handle_.reset();
+	    controller_status_ = SUCCESS;	  
+	    return;
+	  }
         default:
           ROS_ERROR("Unknown terminal state [%u]. This is a bug in ActionClient", gh.getTerminalState().state_);
         }
@@ -873,7 +905,8 @@ private:
         if(isStateValidAtGoal(current_state.joint_state))
         {
           resetStateMachine();
-          action_server_->setSucceeded();
+	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
+	  action_server_->setSucceeded(move_arm_action_result_);
           ROS_INFO("Reached goal");
           return true;
         }
@@ -952,7 +985,7 @@ private:
           {
             resetStateMachine();
             move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
-            action_server_->setSucceeded();
+            action_server_->setSucceeded(move_arm_action_result_);
             ROS_INFO("Reached goal");
             return true;
           }
@@ -992,6 +1025,7 @@ private:
     motion_planning_msgs::GetMotionPlan::Request req;	    
     moveArmGoalToPlannerRequest(goal,req);	    
     original_request_ = req;
+    ROS_INFO("Received new goal: 1");
     ros::Rate move_arm_rate(move_arm_frequency_);
     move_arm_action_result_.contacts.clear();
     move_arm_action_result_.error_code.val = 0;
@@ -1004,6 +1038,7 @@ private:
           move_arm_action_result_.contacts.clear();
           move_arm_action_result_.error_code.val = 0;
           moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
+	  ROS_INFO("Received new goal: 2");
           original_request_ = req;
           stopTrajectory();
           state_ = PLANNING;
