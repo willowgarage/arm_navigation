@@ -121,10 +121,10 @@ namespace ompl_ros
 	
     };
     
-  class GoalToMultipleConstraints : public ompl::kinematic::GoalRegionKinematic
+  class GoalToMultipleConstraints : public ompl::base::GoalSampleableRegion
     {
     public:
-    GoalToMultipleConstraints(ModelBase *model, const motion_planning_msgs::Constraints &kc) : GoalRegionKinematic(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(model->si)), sCore_(model->si),
+    GoalToMultipleConstraints(ModelBase *model, const motion_planning_msgs::Constraints &kc) : ompl::base::GoalSampleableRegion(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(model->si)), sCore_(model->si),
         gp_(model, kc.position_constraints,kc.orientation_constraints), gs_(model, kc.joint_constraints)
         {
           threshold = gp_.threshold + gs_.threshold;
@@ -140,9 +140,10 @@ namespace ompl_ros
 	
       virtual double distanceGoal(const ompl::base::State *s) const;
       virtual bool isSatisfied(const ompl::base::State *state, double *dist = NULL) const;
-      virtual void sampleNearGoal(ompl::base::State *s) const;
+      virtual void sampleGoal(ompl::base::State *s) const;
       virtual void print(std::ostream &out = std::cout) const;
-	
+      virtual unsigned int maxSampleCount() const;      
+
     protected:
 	
       mutable ompl::base::StateSamplerInstance sCore_;
