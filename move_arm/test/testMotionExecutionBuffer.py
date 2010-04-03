@@ -68,7 +68,8 @@ class TestMotionExecutionBuffer(unittest.TestCase):
         global padd_name
         global extra_buffer
         
-        allow_padd = rospy.get_param(padd_name)
+        #too much trouble to read for now
+        allow_padd = .05#rospy.get_param(padd_name)
         
 
         joint_names = ['%s_%s' % ('r', j) for j in ['shoulder_pan_joint', 'shoulder_lift_joint', 'upper_arm_roll_joint', 'elbow_flex_joint', 'forearm_roll_joint', 'wrist_flex_joint', 'wrist_roll_joint']]
@@ -89,10 +90,10 @@ class TestMotionExecutionBuffer(unittest.TestCase):
             goal.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.08
             goal.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.08
 
-        min_dist = 1000
-
         for z in range(10):
 
+            min_dist = 1000
+            
             if(z%2 == 0):
                 goal.motion_plan_request.goal_constraints.joint_constraints[0].position = -2.0
                 goal.motion_plan_request.goal_constraints.joint_constraints[3].position = -0.2
@@ -124,12 +125,13 @@ class TestMotionExecutionBuffer(unittest.TestCase):
                     finger_point.point.z = 0
                     finger_point_base = self.tf.transformPoint("base_link",finger_point)
 
-                    distance = math.sqrt(math.pow(finger_point_base.point.x-.6,2)+math.pow(finger_point_base.point.y-.6,2))
+                    distance = math.sqrt(math.pow(finger_point_base.point.x-.6,2)+math.pow(finger_point_base.point.y+.6,2))
 
                     # pole is .1 in diameter
                     distance -= .1
 
                     if distance < min_dist:
+                        rospy.loginfo("X: %g Y: %g Dist: %g",finger_point_base.point.x,finger_point_base.point.y, distance)  
                         min_dist = distance
 
                 end_state = self.move_arm_action_client.get_state()
