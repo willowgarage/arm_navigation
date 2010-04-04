@@ -95,6 +95,17 @@ private:
 
   void printTrajectory(const trajectory_msgs::JointTrajectory &joint_trajectory) const;
 
+  void discretizeAndAppendSegment(const spline_smoother::SplineTrajectorySegment &spline_segment,
+                                  const double &discretization,
+                                  trajectory_msgs::JointTrajectory &joint_trajectory,
+                                  const ros::Duration &segment_start_time,
+                                  const bool &include_segment_end) const;
+
+  double maxLInfDistance(const trajectory_msgs::JointTrajectoryPoint &start, 
+                         const trajectory_msgs::JointTrajectoryPoint &end) const;
+
+  void refineTrajectory(T &trajectory) const;
+
 };
 
 template <typename T>
@@ -270,7 +281,14 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     trajectory_out.trajectory.points[i].accelerations.clear();
   }
   printTrajectory(trajectory_out.trajectory);
+  refineTrajectory(trajectory_out);
+  if(!trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline))
+    return false;
+  if(!getWaypoints(spline,trajectory_out.trajectory))
+    return false;
   discretizeTrajectory(spline,discretization,trajectory_out.trajectory);
+  trajectory_out.limits = trajectory_in.limits;
+
   printTrajectory(trajectory_out.trajectory);
   planning_monitor_->clearAllowedContacts();
   planning_monitor_->clearConstraints();
@@ -280,12 +298,41 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 	planning_monitor_->getKinematicModel()->unlock();
 	planning_monitor_->getEnvironmentModel()->unlock();
 	
-  ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),trajectory_out.trajectory.points.back().time_from_start.toSec());
+  ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),
+            trajectory_out.trajectory.points.back().time_from_start.toSec());
   //  planning_monitor_->getEnvironmentModel()->unlock();
   //  planning_monitor_->getKinematicModel()->unlock();
   return success;
 }
 
+template <typename T>
+void CubicSplineShortCutter<T>::refineTrajectory(T &trajectory) const
+{
+  if(trajectory.trajectory.points.size() < 3)
+    return;
+
+  for(unsigned int i=1; i < trajectory.trajectory.points.size()-1; i++)
+  {
+    for(unsigned int j=0; j < trajectory.trajectory.points[i].positions.size(); j++)
+    {
+      double dq_first = trajectory.trajectory.points[i].positions[j] - trajectory.trajectory.points[i-1].positions[j];
+      double dq_second = trajectory.trajectory.points[i+1].positions[j] - trajectory.trajectory.points[i].positions[j];
+      double dq_dot = trajectory.trajectory.points[i].velocities[j];
+      double dt_first = (trajectory.trajectory.points[i].time_from_start - trajectory.trajectory.points[i-1].time_from_start).toSec();
+      double dt_second = (trajectory.trajectory.points[i+1].time_from_start - trajectory.trajectory.points[i].time_from_start).toSec();
+      if( (dq_first > 0 && dq_second > 0) || (dq_first < 0 && dq_second < 0)) 
+      {       
+        if(trajectory.trajectory.points[i].velocities[j] == 0.0)
+        {
+          trajectory.trajectory.points[i].velocities[j] = 0.5*(dq_first/dt_first + dq_second/dt_second);
+          trajectory.trajectory.points[i].velocities[j] = std::max(std::min(trajectory.trajectory.points[i].velocities[j],
+                                                                            trajectory.limits[j].max_velocity),
+                                                                   -trajectory.limits[j].max_velocity);
+        }
+      }
+    }
+  }
+}
 
 template <typename T>
 void CubicSplineShortCutter<T>::printTrajectory(const trajectory_msgs::JointTrajectory &trajectory) const
@@ -312,7 +359,7 @@ void CubicSplineShortCutter<T>::printTrajectory(const trajectory_msgs::JointTraj
   ROS_DEBUG(" ");
 }
 
-template <typename T>
+/*template <typename T>
 void CubicSplineShortCutter<T>::discretizeTrajectory(const spline_smoother::SplineTrajectory &spline, 
                                                      const double &discretization,
                                                      trajectory_msgs::JointTrajectory &joint_trajectory) const
@@ -329,6 +376,87 @@ void CubicSplineShortCutter<T>::discretizeTrajectory(const spline_smoother::Spli
   times.push_back(total_time);  
   spline_smoother::sampleSplineTrajectory(spline,times,joint_trajectory);
 }
+*/
+
+template <typename T>
+void CubicSplineShortCutter<T>::discretizeTrajectory(const spline_smoother::SplineTrajectory &spline, 
+                                                     const double &discretization,
+                                                     trajectory_msgs::JointTrajectory &joint_trajectory) const
+{
+  if(spline.segments.empty())
+    return;
+  joint_trajectory.points.clear();
+  ros::Duration segment_start_time(0.0);
+  for(unsigned int i=0; i < spline.segments.size(); i++)
+  {
+    if(i == spline.segments.size()-1)
+      discretizeAndAppendSegment(spline.segments[i],discretization,joint_trajectory,segment_start_time,true);
+    else
+      discretizeAndAppendSegment(spline.segments[i],discretization,joint_trajectory,segment_start_time,false);
+    segment_start_time += spline.segments[i].duration;
+    ROS_DEBUG("Discretizing and appending segment %d",i);
+  }
+}
+
+template <typename T>
+void CubicSplineShortCutter<T>::discretizeAndAppendSegment(const spline_smoother::SplineTrajectorySegment &spline_segment,
+                                                           const double &discretization,
+                                                           trajectory_msgs::JointTrajectory &joint_trajectory,
+                                                           const ros::Duration &segment_start_time,
+                                                           const bool &include_segment_end) const
+{
+  ros::Duration time_from_start = segment_start_time;
+  double total_time = spline_segment.duration.toSec();
+  double sample_time = 0.0;
+  trajectory_msgs::JointTrajectoryPoint start,end;
+  spline_smoother::sampleSplineTrajectory(spline_segment,0.0,start);
+  if(joint_trajectory.points.empty())
+  {
+    start.time_from_start = ros::Duration(0.0);
+    joint_trajectory.points.push_back(start);
+    sample_time += 0.01;
+  }
+  start = joint_trajectory.points.back();
+  while(sample_time < total_time)
+  {
+     ROS_DEBUG("Sample time is %f",sample_time);
+     spline_smoother::sampleSplineTrajectory(spline_segment,sample_time,end);
+     double max_diff = maxLInfDistance(start,end);
+     if(sample_time > 0 && max_diff < discretization)
+     {
+       ROS_DEBUG("Max diff is %f. Skipping",max_diff);
+       sample_time += 0.01;
+       continue;
+     }
+     end.time_from_start = time_from_start + ros::Duration(sample_time);
+     joint_trajectory.points.push_back(end);
+     ROS_DEBUG("Pushing back point with time: %f",end.time_from_start.toSec());
+     sample_time += 0.01;
+     start = end;
+  }
+  if(include_segment_end)
+  {
+    spline_smoother::sampleSplineTrajectory(spline_segment,total_time,end);
+    end.time_from_start = time_from_start + ros::Duration(total_time);
+    joint_trajectory.points.push_back(end);
+  }    
+}
+
+template <typename T>
+double CubicSplineShortCutter<T>::maxLInfDistance(const trajectory_msgs::JointTrajectoryPoint &start, 
+                                                  const trajectory_msgs::JointTrajectoryPoint &end) const
+{
+  double max_diff = 0.0;
+  for(unsigned int i=0; i< start.positions.size(); i++)
+  {
+    double diff = fabs(end.positions[i]-start.positions[i]);
+    if(diff > max_diff)
+      max_diff = diff;
+  }
+  return max_diff;
+}
+      
+
 
 template <typename T>
 bool CubicSplineShortCutter<T>::trimTrajectory(trajectory_msgs::JointTrajectory &trajectory_out, 
