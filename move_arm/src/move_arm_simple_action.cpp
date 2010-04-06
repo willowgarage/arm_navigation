@@ -281,6 +281,7 @@ private:
     request.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     request.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
     request.constraints = original_request_.motion_plan_request.goal_constraints;
+    request.link_padding = original_request_.motion_plan_request.link_padding;
     if (ik_client_.call(request, response))
     {
       move_arm_action_result_.error_code = response.error_code;
@@ -359,6 +360,7 @@ private:
     req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
+    req.link_padding = original_request_.motion_plan_request.link_padding;
     req.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
     if(filter_trajectory_client_.call(req,res))
     {
@@ -439,7 +441,7 @@ private:
     req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
- 
+    req.link_padding = original_request_.motion_plan_request.link_padding;
     if(check_plan_validity_client_.call(req,res))
     {
       if(res.error_code.val == res.error_code.SUCCESS)
@@ -472,6 +474,7 @@ private:
     req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
+    req.link_padding = original_request_.motion_plan_request.link_padding;
     if(check_execution_safe_client_.call(req,res))
     {
       if(res.error_code.val == res.error_code.SUCCESS)
@@ -502,6 +505,7 @@ private:
     req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
+    req.link_padding = original_request_.motion_plan_request.link_padding;
     if(check_state_validity_client_.call(req,res))
     {
       if(res.error_code.val == res.error_code.SUCCESS)
@@ -528,6 +532,7 @@ private:
     req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
+    req.link_padding = original_request_.motion_plan_request.link_padding;
     if(check_state_validity_client_.call(req,res))
     {
       if(res.error_code.val == res.error_code.SUCCESS)
