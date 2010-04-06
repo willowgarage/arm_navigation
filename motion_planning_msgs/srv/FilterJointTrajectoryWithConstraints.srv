@@ -17,6 +17,10 @@ AllowedContactSpecification[] allowed_contacts
 # namespaces in the collision space
 OrderedCollisionOperations ordered_collision_operations
 
+# Specifies a set of links and paddings to change from the default
+# specified in the yaml file
+motion_planning_msgs/LinkPadding[] link_padding
+
 # A set of path constraints on the trajectory
 Constraints path_constraints
 

@@ -17,7 +17,7 @@ motion_planning_msgs/Constraints goal_constraints
 motion_planning_msgs/Constraints path_constraints
 
 # A specification for regions where contact is 
-# allowed upto a certain depth
+# allowed up to a certain depth
 # Any collision within this set of regions with a link 
 # specified in the message will be allowed if
 # it is less than the penetration depth specified in the message
@@ -27,6 +27,10 @@ AllowedContactSpecification[] allowed_contacts
 # these are applied to all links, objects, 
 # namespaces in the collision space
 OrderedCollisionOperations ordered_collision_operations
+
+# Specifies a set of links and paddings to change from the default
+# specified in the yaml file
+motion_planning_msgs/LinkPadding[] link_padding
 
 # The name of the motion planner to use. If no name is specified,
 # a default motion planner will be used
