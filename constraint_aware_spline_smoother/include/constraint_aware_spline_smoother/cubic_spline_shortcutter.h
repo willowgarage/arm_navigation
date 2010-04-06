@@ -192,6 +192,8 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   planning_monitor_->getChildLinks(trajectory_in.trajectory.joint_names, child_links);
   planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
   planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
+  planning_monitor_->applyLinkPaddingToCollisionSpace(trajectory_in.link_padding);
+  
   planning_monitor_->setAllowedContacts(trajectory_in.allowed_contacts);
   planning_monitor_->setPathConstraints(trajectory_in.path_constraints,error_code);
   if(error_code.val != error_code.SUCCESS)
@@ -247,7 +249,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
         continue;
       if(!trimTrajectory(trajectory_out.trajectory,segment_start_time,segment_end_time))
         continue;
-      ROS_DEBUG("Trimmed trajectory has %d points",trajectory_out.trajectory.points.size());
+      ROS_DEBUG("Trimmed trajectory has %u points",trajectory_out.trajectory.points.size());
 
       ROS_DEBUG("Shortcut reduced duration from: %f to %f",
                 segment_end_time-segment_start_time,
@@ -292,11 +294,12 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   printTrajectory(trajectory_out.trajectory);
   planning_monitor_->clearAllowedContacts();
   planning_monitor_->clearConstraints();
-	planning_monitor_->getKinematicModel()->lock();
-	planning_monitor_->getEnvironmentModel()->lock();
-	planning_monitor_->revertAllowedCollisionToDefault();
-	planning_monitor_->getKinematicModel()->unlock();
-	planning_monitor_->getEnvironmentModel()->unlock();
+  planning_monitor_->getKinematicModel()->lock();
+  planning_monitor_->getEnvironmentModel()->lock();
+  planning_monitor_->revertAllowedCollisionToDefault();
+  planning_monitor_->revertCollisionSpacePaddingToDefault();
+  planning_monitor_->getKinematicModel()->unlock();
+  planning_monitor_->getEnvironmentModel()->unlock();
 	
   ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),
             trajectory_out.trajectory.points.back().time_from_start.toSec());
@@ -470,7 +473,7 @@ bool CubicSplineShortCutter<T>::trimTrajectory(trajectory_msgs::JointTrajectory 
     ROS_DEBUG("Trimming trajectory between segments: %d and %d",index1,index2);
     std::vector<trajectory_msgs::JointTrajectoryPoint>::iterator remove_start = trajectory_out.points.begin() + index1;
     std::vector<trajectory_msgs::JointTrajectoryPoint>::iterator remove_end;
-    if(index2 >= trajectory_out.points.size())
+    if((unsigned int) index2 >= trajectory_out.points.size())
       remove_end = trajectory_out.points.end();
     else
       remove_end = trajectory_out.points.begin()+index2;
@@ -549,7 +552,7 @@ bool CubicSplineShortCutter<T>::addToTrajectory(trajectory_msgs::JointTrajectory
 {
 
   ROS_DEBUG("Inserting point at time: %f",trajectory_point.time_from_start.toSec());
-  ROS_DEBUG("Old trajectory has %d points",trajectory_out.points.size());
+  ROS_DEBUG("Old trajectory has %u points",trajectory_out.points.size());
 
   if(trajectory_out.points.empty())
   {

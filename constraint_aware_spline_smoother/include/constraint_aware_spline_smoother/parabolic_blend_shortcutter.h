@@ -44,6 +44,8 @@
 #include <planning_environment/monitors/planning_monitor.h>
 #include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <motion_planning_msgs/LinkPadding.h>
+
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 
 #include <constraint_aware_spline_smoother/Math.h>
@@ -62,6 +64,7 @@ public:
   bool setInitial(const trajectory_msgs::JointTrajectory &trajectory,
                   const motion_planning_msgs::OrderedCollisionOperations &ordered_collision_operations,
                   const std::vector<motion_planning_msgs::AllowedContactSpecification> &allowed_contact_regions,
+                  const std::vector<motion_planning_msgs::LinkPadding> &link_padding,
                   const motion_planning_msgs::Constraints &path_constraints);
   void resetRequest();
   bool isActive();
@@ -106,6 +109,7 @@ void FeasibilityChecker::initialize()
 bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &trajectory,
                                     const motion_planning_msgs::OrderedCollisionOperations &ordered_collision_operations,
                                     const std::vector<motion_planning_msgs::AllowedContactSpecification> &allowed_contact_regions,
+                                    const std::vector<motion_planning_msgs::LinkPadding> &link_padding,
                                     const motion_planning_msgs::Constraints &path_constraints)
 {
   std::vector<std::string> child_links;
@@ -118,6 +122,7 @@ bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &traj
   planning_monitor_->getChildLinks(trajectory.joint_names, child_links);
   planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
   planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
+  planning_monitor_->applyLinkPaddingToCollisionSpace(link_padding);
   planning_monitor_->setAllowedContacts(allowed_contact_regions);
   planning_monitor_->setPathConstraints(path_constraints,error_code);
   if(error_code.val != error_code.SUCCESS)
@@ -131,13 +136,14 @@ bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &traj
 void FeasibilityChecker::resetRequest()
 {
   planning_monitor_->revertAllowedCollisionToDefault();
+  planning_monitor_->revertCollisionSpacePaddingToDefault();
   planning_monitor_->clearAllowedContacts();
   planning_monitor_->clearConstraints();
-	planning_monitor_->getKinematicModel()->lock();
-	planning_monitor_->getEnvironmentModel()->lock();
-	planning_monitor_->revertAllowedCollisionToDefault();
-	planning_monitor_->getKinematicModel()->unlock();
-	planning_monitor_->getEnvironmentModel()->unlock();
+  planning_monitor_->getKinematicModel()->lock();
+  planning_monitor_->getEnvironmentModel()->lock();
+  planning_monitor_->revertAllowedCollisionToDefault();
+  planning_monitor_->getKinematicModel()->unlock();
+  planning_monitor_->getEnvironmentModel()->unlock();
 }
 
 bool FeasibilityChecker::setupCollisionEnvironment()
@@ -295,9 +301,10 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
   }
   
   feasibility_checker_->setInitial(trajectory_in.trajectory,
-                                  trajectory_in.ordered_collision_operations,
-                                  trajectory_in.allowed_contacts,
-                                  trajectory_in.path_constraints);
+                                   trajectory_in.ordered_collision_operations,
+                                   trajectory_in.allowed_contacts,
+                                   trajectory_in.link_padding,
+                                   trajectory_in.path_constraints);
   std::vector<Vector> path;        //the sequence of milestones
   Vector vmax,amax;           //velocity and acceleration bounds, respectively
   int numIters=1000;          //some number of shortcutting iterations
