@@ -191,8 +191,8 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   std::vector<std::string> child_links;
   planning_monitor_->getChildLinks(trajectory_in.trajectory.joint_names, child_links);
   planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
-  planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
   planning_monitor_->applyLinkPaddingToCollisionSpace(trajectory_in.link_padding);
+  planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
   
   planning_monitor_->setAllowedContacts(trajectory_in.allowed_contacts);
   planning_monitor_->setPathConstraints(trajectory_in.path_constraints,error_code);
