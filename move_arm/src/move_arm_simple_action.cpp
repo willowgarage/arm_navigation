@@ -738,7 +738,10 @@ private:
   }
   bool stopTrajectory()
   {
-    controller_goal_handle_.cancel();
+    if (controller_goal_handle_.isExpired())
+      ROS_ERROR("Expired goal handle.  controller_status = %d", controller_status_);
+    else
+      controller_goal_handle_.cancel();
     return true;
   }
   bool sendTrajectory(const trajectory_msgs::JointTrajectory &current_trajectory)
@@ -770,7 +773,8 @@ private:
 		  goal.trajectory.points[i].velocities[5],
 		  goal.trajectory.points[i].velocities[6]);
 		  }*/
-    controller_goal_handle_ = controller_action_client_->sendGoal(goal,boost::bind(&MoveArm::controllerTransitionCallback, this, _1));    
+    controller_goal_handle_ = controller_action_client_->sendGoal(goal,boost::bind(&MoveArm::controllerTransitionCallback, this, _1));
+
     controller_status_ = QUEUED;
     //    printTrajectory(goal.trajectory);
     return true;
@@ -1045,13 +1049,15 @@ private:
           moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
 	  ROS_INFO("Received new goal: 2");
           original_request_ = req;
-          stopTrajectory();
+	  if (state_ == QUEUED || state_ == ACTIVE)
+	    stopTrajectory();
           state_ = PLANNING;
         }
         else               //if we've been preempted explicitly we need to shut things down
         {
           ROS_INFO("The move arm action was preempted by the action client. Preempting this goal.");
-          stopTrajectory();
+	  if (state_ == QUEUED || state_ == ACTIVE)
+	    stopTrajectory();
           resetStateMachine();
           action_server_->setPreempted();
           return;
