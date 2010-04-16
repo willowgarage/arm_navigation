@@ -190,6 +190,9 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     psetup->ompl_model->si->clearGoal();           // goal definitions
     psetup->ompl_model->si->clearStartStates();    // start states
     
+    // Clear allowed contact regions
+    psetup->ompl_model->planningMonitor->clearAllowedContacts();
+
     // clear clones of environments 
     psetup->ompl_model->clearEnvironmentDescriptions();
 
@@ -216,6 +219,9 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     
     psetup->ompl_model->si->addStartState(start);
     
+    /* add allowed contacts */
+    psetup->ompl_model->planningMonitor->setAllowedContacts(req.motion_plan_request.allowed_contacts);
+
     /* add goal state */
     psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
     psetup->ompl_model->si->setGoal(computeGoalFromConstraints(psetup->ompl_model, req.motion_plan_request.goal_constraints));
