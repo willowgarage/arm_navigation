@@ -44,6 +44,9 @@
 #include "ompl_ros/kinematic/SpaceInformation.h"
 
 #include "motion_planning_msgs/Constraints.h"
+#include "planning_models/kinematic_state.h"
+
+#include "motion_planning_msgs/ArmNavigationErrorCodes.h"
 
 #include <iostream>
 
@@ -56,10 +59,12 @@ namespace ompl_ros
         ROSStateValidityPredicateKinematic(ROSSpaceInformationKinematic *si, ModelBase *model) : ompl::base::StateValidityChecker(si)
 	{
 	    model_ = model;
+      kinematic_state_ = new planning_models::KinematicState(model->planningMonitor->getKinematicModel());
 	}
 	
 	virtual ~ROSStateValidityPredicateKinematic(void)
 	{
+    delete kinematic_state_;
 	}
 	
 	virtual bool operator()(const ompl::base::State *s) const;
@@ -79,8 +84,10 @@ namespace ompl_ros
 		   const planning_environment::KinematicConstraintEvaluatorSet *kce) const;
 	
 	ModelBase *model_;
+  planning_models::KinematicState *kinematic_state_;
     };
     
+
 } // ompl_ros
 
 #endif

@@ -38,6 +38,7 @@
 #include <ros/console.h>
 #include <sstream>
 #include <cstdlib>
+#include <motion_planning_msgs/convert_messages.h>
 
 void ompl_planning::RequestHandler::setOnFinishPlan(const boost::function<void(PlannerSetup*)> &onFinishPlan)
 {
@@ -189,9 +190,12 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     /* clear memory */
     psetup->ompl_model->si->clearGoal();           // goal definitions
     psetup->ompl_model->si->clearStartStates();    // start states
-    
     // Clear allowed contact regions
     psetup->ompl_model->planningMonitor->clearAllowedContacts();
+    psetup->ompl_model->planningMonitor->revertAllowedCollisionToDefault();
+    psetup->ompl_model->planningMonitor->revertCollisionSpacePaddingToDefault();
+    psetup->ompl_model->planningMonitor->clearAllowedContacts();
+    psetup->ompl_model->planningMonitor->clearConstraints();
 
     // clear clones of environments 
     psetup->ompl_model->clearEnvironmentDescriptions();
@@ -220,7 +224,14 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     psetup->ompl_model->si->addStartState(start);
     
     /* add allowed contacts */
-    psetup->ompl_model->planningMonitor->setAllowedContacts(req.motion_plan_request.allowed_contacts);
+    motion_planning_msgs::OrderedCollisionOperations operations;
+    std::vector<std::string> child_links;
+    sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
+    psetup->ompl_model->planningMonitor->setAllowedContacts(req.motion_plan_request.allowed_contacts);    
+    psetup->ompl_model->planningMonitor->getChildLinks(joint_state.name, child_links);
+    psetup->ompl_model->planningMonitor->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,req.motion_plan_request.ordered_collision_operations,operations);
+    psetup->ompl_model->planningMonitor->applyLinkPaddingToCollisionSpace(req.motion_plan_request.link_padding);
+    psetup->ompl_model->planningMonitor->applyOrderedCollisionOperationsToCollisionSpace(operations);
 
     /* add goal state */
     psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
