@@ -188,7 +188,7 @@ namespace bodies
 	{
 	}
 	
-	virtual bool containsPoint(const btVector3 &p, bool verbose=false) const;
+	virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
 	virtual double computeVolume(void) const;
 	virtual void computeBoundingSphere(BoundingSphere &sphere) const;
 	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
@@ -223,7 +223,7 @@ namespace bodies
 	{
 	}
 	
-	virtual bool containsPoint(const btVector3 &p, bool verbose=false) const;
+	virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
 	virtual double computeVolume(void) const;
 	virtual void computeBoundingSphere(BoundingSphere &sphere) const;
 	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;

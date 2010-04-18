@@ -8,6 +8,8 @@
   <url>http://ros.org/wiki/geometric_shapes</url>
 
   <depend package="bullet" />
+  <depend package="assimp" />
+  <depend package="rosconsole" />
 
   <export>
     <cpp cflags="-I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lgeometric_shapes"/>

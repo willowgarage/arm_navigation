@@ -38,7 +38,9 @@
 #include <set>
 #include "geometric_shapes/shapes.h"
 
-// \author Ioan Sucan ;  based on stl_to_mesh 
+#include <ros/console.h>
+
+// \author Ioan Sucan  
 
 namespace shapes
 {
@@ -78,6 +80,7 @@ namespace shapes
 		return p1.index < p2.index;
 	    }
 	};
+
     }
     
     shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, const std::vector<unsigned int> &triangles)
@@ -187,6 +190,64 @@ namespace shapes
 	
 	return mesh;
     }
+
+    shapes::Mesh* createMeshFromAsset(const aiMesh* a)
+    {
+	if (!a->HasFaces())
+	{
+	    ROS_ERROR("Mesh asset has no faces");
+	    return NULL;
+	}
+	
+	if (!a->HasPositions())
+	{
+	    ROS_ERROR("Mesh asset has no positions");
+	    return NULL;
+	}
+	
+	for (unsigned int i = 0 ; i < a->mNumFaces ; ++i)
+	    if (a->mFaces[i].mNumIndices != 3)
+	    {
+		ROS_ERROR("Asset is not a triangle mesh");
+		return NULL;
+	    }
+	
+	
+	shapes::Mesh *mesh = new shapes::Mesh(a->mNumVertices, a->mNumFaces);
+
+	// copy vertices
+	for (unsigned int i = 0 ; i < a->mNumVertices ; ++i)
+	{
+	    mesh->vertices[3 * i    ] = a->mVertices[i].x;
+	    mesh->vertices[3 * i + 1] = a->mVertices[i].y;
+	    mesh->vertices[3 * i + 2] = a->mVertices[i].z;
+	}
+	
+	// copy triangles
+	for (unsigned int i = 0 ; i < a->mNumFaces ; ++i)
+	{
+	    mesh->triangles[3 * i    ] = a->mFaces[i].mIndices[0];
+	    mesh->triangles[3 * i + 1] = a->mFaces[i].mIndices[1];
+	    mesh->triangles[3 * i + 2] = a->mFaces[i].mIndices[2];
+	}
+	
+	// compute normals
+	for (unsigned int i = 0 ; i < a->mNumFaces ; ++i)
+	{
+	    aiVector3D as1 = a->mVertices[a->mFaces[i].mIndices[0]] - a->mVertices[a->mFaces[i].mIndices[1]];
+	    aiVector3D as2 = a->mVertices[a->mFaces[i].mIndices[1]] - a->mVertices[a->mFaces[i].mIndices[2]];
+	    btVector3   s1(as1.x, as1.y, as1.z);
+	    btVector3   s2(as2.x, as2.y, as2.z);
+	    btVector3 normal = s1.cross(s2);
+	    normal.normalize();
+	    mesh->normals[3 * i    ] = normal.getX();
+	    mesh->normals[3 * i + 1] = normal.getY();
+	    mesh->normals[3 * i + 2] = normal.getZ();
+	}
+	
+	return mesh;
+    }
+
 
     shapes::Mesh* createMeshFromBinaryStlData(const char *data, unsigned int size)
     {

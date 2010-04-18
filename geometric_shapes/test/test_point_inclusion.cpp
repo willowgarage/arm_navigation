@@ -187,8 +187,8 @@ TEST(BoxRayIntersection, SimpleRay1)
     
     bool intersect = box->intersectsRay(ray_o, ray_d, &p);
     
-    for (unsigned int i = 0; i < p.size() ; ++i)
-	printf("intersection at %f, %f, %f\n", p[i].x(), p[i].y(), p[i].z());
+    //    for (unsigned int i = 0; i < p.size() ; ++i)
+    //	printf("intersection at %f, %f, %f\n", p[i].x(), p[i].y(), p[i].z());
     
     delete box;
     EXPECT_TRUE(intersect);

@@ -40,6 +40,7 @@
 #include <cstdlib>
 #include <vector>
 #include <LinearMath/btVector3.h>
+#include <assimp/aiMesh.h>
 
 /** Definition of various shapes. No properties such as position are
     included. These are simply the descriptions and dimensions of
@@ -51,6 +52,7 @@ namespace shapes
     /** \brief A list of known shape types */
     enum ShapeType { UNKNOWN_SHAPE, SPHERE, CYLINDER, BOX, MESH };
 
+    /** \brief A list of known static shape types */
     enum StaticShapeType { UNKNOWN_STATIC_SHAPE, PLANE };
     
     
@@ -147,7 +149,7 @@ namespace shapes
 	double size[3]; 
     };
     
-    /** \brief Definition of a mesh */
+    /** \brief Definition of a triangle mesh */
     class Mesh : public Shape
     {
     public:
@@ -181,22 +183,22 @@ namespace shapes
 		delete[] normals;
 	}
 	
-	/** \brief the number of available vertices */
+	/** \brief The number of available vertices */
 	unsigned int  vertexCount;       
 
-	/** \brief the position for each vertex vertex k has values at
+	/** \brief The position for each vertex vertex k has values at
 	 * index (3k, 3k+1, 3k+2) = (x,y,z) */
 	double       *vertices;          
 
-	/** \brief the number of triangles formed with the vertices */
+	/** \brief The number of triangles formed with the vertices */
 	unsigned int  triangleCount;     
 
-	/** \brief the vertex indices for each triangle
+	/** \brief The vertex indices for each triangle
 	 * triangle k has vertices at index (3k, 3k+1, 3k+2) = (v1, v2, v3) */
 	unsigned int *triangles;
 	
-	/** \brief the normal to each triangle unit vector represented
-	    as (x,y,z)  */
+	/** \brief The normal to each triangle; unit vector represented
+	    as (x,y,z); If missing from the mesh, these vectors are computed  */
 	double       *normals;       
     };
 
@@ -232,14 +234,17 @@ namespace shapes
 	and the set of triangle indices is constructed. The normal at
 	each triangle is also computed */
     Mesh* createMeshFromVertices(const std::vector<btVector3> &source);
-
+    
+    /** \brief Load a mesh from an assimp datastructure */
+    Mesh* createMeshFromAsset(const aiMesh* a);
+    
     /** \brief Load a mesh from a binary STL file. Normals are
 	recomputed and repeating vertices are identified. */
-    Mesh* createMeshFromBinaryStl(const char *filename);
+    __attribute__((deprecated)) Mesh* createMeshFromBinaryStl(const char *filename);
 
     /** \brief Load a mesh from a binary STL stream. Normals are
 	recomputed and repeating vertices are identified. */
-    Mesh* createMeshFromBinaryStlData(const char *data, unsigned int size);
+    __attribute__((deprecated)) Mesh* createMeshFromBinaryStlData(const char *data, unsigned int size);
 
     /** \brief Create a copy of a shape */
     Shape* cloneShape(const Shape *shape);

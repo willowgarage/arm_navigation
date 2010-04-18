@@ -35,6 +35,8 @@
 /** \author Ioan Sucan */
 
 #include "geometric_shapes/bodies.h"
+
+#include <ros/console.h>
 #include <LinearMath/btConvexHull.h>
 // #include <BulletCollision/CollisionShapes/btTriangleShape.h>
 #include <algorithm>
@@ -61,7 +63,7 @@ bodies::Body* bodies::createBodyFromShape(const shapes::Shape *shape)
 	    body = new bodies::ConvexMesh(shape);
 	    break;
 	default:
-	    std::cerr << "Creating body from shape: Unknown shape type" << shape->type << std::endl;
+	    ROS_ERROR("Creating body from shape: Unknown shape type %d", (int)shape->type);
 	    break;
 	}
     
@@ -818,8 +820,8 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
 		    }
 		}
 		
-		//		if (behindPlane > 0)
-		//		    std::cerr << "Approximate plane: " << behindPlane << " of " << m_vertices.size() << " points are behind the plane" << std::endl;
+		if (behindPlane > 0)
+		    ROS_WARN("Approximate plane: %d of %d points are behind the plane", behindPlane, (int)m_vertices.size());
 		
 		m_planes.push_back(planeEquation);
 
@@ -830,7 +832,7 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
 	}
     }
     else
-    	std::cerr << "Unable to compute convex hull.";
+    	ROS_ERROR("Unable to compute convex hull.");
     
     hl.ReleaseResult(hr);    
     delete[] vertices;
