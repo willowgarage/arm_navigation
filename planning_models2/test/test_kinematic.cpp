@@ -127,6 +127,7 @@ TEST(LoadingAndFK, SimpleRobot)
 	"</robot>";
     
     static const std::string MODEL1_INFO = 
+	"Model one_robot connecting to the world using connection type 1\n"
 	"Complete model state dimension = 3\n"
 	"State bounds: [0.00000, 0.00000] [0.00000, 0.00000] [-3.14159, 3.14159] \n"
 	"Available groups: base \n"

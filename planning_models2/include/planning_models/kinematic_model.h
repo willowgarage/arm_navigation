@@ -181,7 +181,7 @@ namespace planning_models
 	public:
 
 	    /** \brief The name used for world joints */
-	    static const std::string NAME = "world";
+	    static const std::string NAME;
 	    
 	    WorldJoint(KinematicModel *owner) : Joint(owner)
 	    {

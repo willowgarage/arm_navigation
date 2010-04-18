@@ -46,6 +46,7 @@
 #include <cmath>
 
 /* ------------------------ KinematicModel ------------------------ */
+
 planning_models::KinematicModel::KinematicModel(const KinematicModel &source)
 {
   dimension_ = 0;
@@ -874,6 +875,8 @@ void planning_models::KinematicModel::RevoluteJoint::updateVariableTransform(con
 {
   varTrans.setRotation(btQuaternion(axis, params[0]));
 }
+
+const std::string planning_models::KinematicModel::WorldJoint::NAME = "world";
 
 void planning_models::KinematicModel::WorldJoint::updateVariableTransform(const double *params)
 {
