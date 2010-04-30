@@ -329,18 +329,26 @@ void planning_models::KinematicState::resetGroup(const KinematicModel::JointGrou
 
 bool planning_models::KinematicState::seenAll(bool print_errors) const
 {
-    std::vector<std::string> names;
-    if (print_errors)
-      owner_->getJointNames(names);
-    const unsigned int dim = owner_->getDimension();
-    ROS_DEBUG("model dimension: %d",dim);
-    for (unsigned int i = 0 ; i < dim ; ++i)
-        if (!seen_[i] && !isFixedJoint(i)) {
-	    if (print_errors)
-	        ROS_INFO("Error: no joint %d: %s", i, names.at(i).c_str());
-	    return false;
-        }
-    return true;
+  //print(std::cout);
+  //std::vector<std::string> names;
+  std::vector<const KinematicModel::Joint*> joints;
+  //owner_->getJointNames(names);
+  owner_->getJoints(joints);
+
+  const unsigned int dim = owner_->getDimension();
+  ROS_DEBUG("model dimension: %d",dim);
+  for (unsigned int i = 0 ; i < joints.size() ; ++i)
+  {
+    for (unsigned int j = 0 ; j < joints[i]->usedParams ; ++j) {
+      unsigned int ind = joints[i]->stateIndex + j;
+      if(!seen_[ind] && !isFixedJoint(ind)) {
+        ROS_INFO_STREAM("Error: haven't seen joint " << joints[i]->name);
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 bool planning_models::KinematicState::seenAllGroup(const std::string &group) const
