@@ -56,7 +56,7 @@ planning_models::KinematicModel::KinematicModel(const KinematicModel &source)
   
   if (source.root_)
   {
-    root_ = copyRecursive(NULL, source.root_->after);
+    root_ = copyRecursive(NULL, source.root_->child_link);
     stateBounds_ = source.stateBounds_;
 	
     std::vector<const JointGroup*> groups;
@@ -160,8 +160,8 @@ void planning_models::KinematicModel::buildConvenientDatastructures(void)
 {
   if (root_)
   {
-      updatedLinks_.push_back(root_->after);
-      getChildLinks(root_->after, updatedLinks_);      
+      updatedLinks_.push_back(root_->child_link);
+      getChildLinks(root_->child_link, updatedLinks_);      
   }
 }
 
@@ -200,15 +200,15 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::buildRe
   jointList_.push_back(joint);
   jointIndex_.push_back(dimension_);
   dimension_ += joint->usedParams;
-  joint->before = parent;
-  joint->after = constructLink(link);
+  joint->parent_link = parent;
+  joint->child_link = constructLink(link);
   if (parent == NULL)
-    joint->after->constTrans.setIdentity();
-  linkMap_[joint->after->name] = joint->after;
-  joint->after->before = joint;
+    joint->child_link->joint_origin_transform.setIdentity();
+  linkMap_[joint->child_link->name] = joint->child_link;
+  joint->child_link->parent_joint = joint;
     
   for (unsigned int i = 0 ; i < link->child_links.size() ; ++i)
-    joint->after->after.push_back(buildRecursive(joint->after, link->child_links[i].get()));
+    joint->child_link->child_joint.push_back(buildRecursive(joint->child_link, link->child_links[i].get()));
     
   return joint;
 }
@@ -323,14 +323,14 @@ planning_models::KinematicModel::Link* planning_models::KinematicModel::construc
   result->name = urdfLink->name;
 
   if(urdfLink->collision)
-      result->constGeomTrans = urdfPose2btTransform(urdfLink->collision->origin);
+      result->collision_origin_transform = urdfPose2btTransform(urdfLink->collision->origin);
   else
-      result->constGeomTrans.setIdentity();
+      result->collision_origin_transform.setIdentity();
   
   if (urdfLink->parent_joint.get())
-      result->constTrans = urdfPose2btTransform(urdfLink->parent_joint->parent_to_joint_origin_transform);
+      result->joint_origin_transform = urdfPose2btTransform(urdfLink->parent_joint->parent_to_joint_origin_transform);
   else
-      result->constTrans.setIdentity();
+      result->joint_origin_transform.setIdentity();
   
   if (urdfLink->collision)
       result->shape = constructShape(urdfLink->collision->geometry.get());
@@ -535,11 +535,11 @@ namespace planning_models
 		const KinematicModel::Link* t = q.front();
 		q.pop();
 		
-		for (unsigned int i = 0 ; i < t->after.size() ; ++i)
-		    if (t->after[i]->after)
+		for (unsigned int i = 0 ; i < t->child_joint.size() ; ++i)
+		    if (t->child_joint[i]->child_link)
 		    {
-			links.push_back(t->after[i]->after);
-			q.push(t->after[i]->after);
+			links.push_back(t->child_joint[i]->child_link);
+			q.push(t->child_joint[i]->child_link);
 		    }
 	    }
 	}
@@ -554,12 +554,12 @@ namespace planning_models
 		const KinematicModel::Joint* t = q.front();
 		q.pop();
 		
-		if (t->after)
-		    for (unsigned int i = 0 ; i < t->after->after.size() ; ++i)
-			if (t->after->after[i])
+		if (t->child_link)
+		    for (unsigned int i = 0 ; i < t->child_link->child_joint.size() ; ++i)
+			if (t->child_link->child_joint[i])
 			{
-			    joints.push_back(t->after->after[i]);
-			    q.push(t->after->after[i]);
+			    joints.push_back(t->child_link->child_joint[i]);
+			    q.push(t->child_link->child_joint[i]);
 			}
 	    }
 	}
@@ -687,19 +687,19 @@ void planning_models::KinematicModel::getAttachedBodies(std::vector<const Attach
 
 planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyRecursive(Link *parent, const Link *link)
 {
-  Joint *joint = copyJoint(link->before);
+  Joint *joint = copyJoint(link->parent_joint);
   joint->stateIndex = dimension_;
   jointMap_[joint->name] = joint;
   jointList_.push_back(joint);
   jointIndex_.push_back(dimension_);
   dimension_ += joint->usedParams;
-  joint->before = parent;
-  joint->after = copyLink(link);
-  linkMap_[joint->after->name] = joint->after;
-  joint->after->before = joint;
+  joint->parent_link = parent;
+  joint->child_link = copyLink(link);
+  linkMap_[joint->child_link->name] = joint->child_link;
+  joint->child_link->parent_joint = joint;
     
-  for (unsigned int i = 0 ; i < link->after.size() ; ++i)
-    joint->after->after.push_back(copyRecursive(joint->after, link->after[i]->after));
+  for (unsigned int i = 0 ; i < link->child_joint.size() ; ++i)
+    joint->child_link->child_joint.push_back(copyRecursive(joint->child_link, link->child_joint[i]->child_link));
     
   return joint;
 }
@@ -709,10 +709,10 @@ planning_models::KinematicModel::Link* planning_models::KinematicModel::copyLink
   Link *newLink = new Link(this);
     
   newLink->name = link->name;
-  newLink->constTrans = link->constTrans;
-  newLink->constGeomTrans = link->constGeomTrans;
-  newLink->globalTransFwd = link->globalTransFwd;
-  newLink->globalTrans = link->globalTrans;
+  newLink->joint_origin_transform = link->joint_origin_transform;
+  newLink->collision_origin_transform = link->collision_origin_transform;
+  newLink->global_link_transform = link->global_link_transform;
+  newLink->global_collision_body_transform = link->global_collision_body_transform;
   newLink->shape = shapes::cloneShape(link->shape);
     
   for (unsigned int i = 0 ; i < link->attachedBodies.size() ; ++i)
@@ -722,7 +722,7 @@ planning_models::KinematicModel::Link* planning_models::KinematicModel::copyLink
       ab->shapes.push_back(shapes::cloneShape(link->attachedBodies[i]->shapes[j]));
     }
     ab->attachTrans = link->attachedBodies[i]->attachTrans;
-    ab->globalTrans = link->attachedBodies[i]->globalTrans;
+    ab->global_collision_body_transform = link->attachedBodies[i]->global_collision_body_transform;
     ab->touchLinks = link->attachedBodies[i]->touchLinks;
     newLink->attachedBodies.push_back(ab);
   }
@@ -843,22 +843,22 @@ void planning_models::KinematicModel::printTransforms(std::ostream &out) const
   getLinks(links);
   for (unsigned int i = 0 ; i < links.size() ; ++i)
   {
-      detail::printTransform(links[i]->name, links[i]->globalTrans, out);
+      detail::printTransform(links[i]->name, links[i]->global_collision_body_transform, out);
       out << std::endl;	
   }    
 }
 
 /* ------------------------ Joint ------------------------ */
 
-planning_models::KinematicModel::Joint::Joint(KinematicModel *model) : owner(model), usedParams(0), stateIndex(0), before(NULL), after(NULL)
+planning_models::KinematicModel::Joint::Joint(KinematicModel *model) : owner(model), usedParams(0), stateIndex(0), parent_link(NULL), child_link(NULL)
 {
   varTrans.setIdentity();
 }
 
 planning_models::KinematicModel::Joint::~Joint(void)
 {
-  if (after)
-    delete after;
+  if (child_link)
+    delete child_link;
 }
 
 void planning_models::KinematicModel::FixedJoint::updateVariableTransform(const double *params)
@@ -897,29 +897,29 @@ void planning_models::KinematicModel::WorldJoint::updateVariableTransform(const 
 
 /* ------------------------ Link ------------------------ */
 
-planning_models::KinematicModel::Link::Link(KinematicModel *model) : owner(model), before(NULL), shape(NULL)
+planning_models::KinematicModel::Link::Link(KinematicModel *model) : owner(model), parent_joint(NULL), shape(NULL)
 {
-  constTrans.setIdentity();
-  constGeomTrans.setIdentity();
-  globalTransFwd.setIdentity();
-  globalTrans.setIdentity();		
+  joint_origin_transform.setIdentity();
+  collision_origin_transform.setIdentity();
+  global_link_transform.setIdentity();
+  global_collision_body_transform.setIdentity();		
 }
 
 planning_models::KinematicModel::Link::~Link(void)
 {
   if (shape)
     delete shape;
-  for (unsigned int i = 0 ; i < after.size() ; ++i)
-    delete after[i];
+  for (unsigned int i = 0 ; i < child_joint.size() ; ++i)
+    delete child_joint[i];
   for (unsigned int i = 0 ; i < attachedBodies.size() ; ++i)
     delete attachedBodies[i];
 }
 
 void planning_models::KinematicModel::Link::computeTransform(void)
 {
-  globalTransFwd.mult(before->before ? before->before->globalTransFwd : owner->getRootTransform(), constTrans);
-  globalTransFwd *= before->varTrans;    
-  globalTrans.mult(globalTransFwd, constGeomTrans);
+  global_link_transform.mult(parent_joint->parent_link ? parent_joint->parent_link->global_link_transform : owner->getRootTransform(), joint_origin_transform);
+  global_link_transform *= parent_joint->varTrans;    
+  global_collision_body_transform.mult(global_link_transform, collision_origin_transform);
 
   for (unsigned int i = 0 ; i < attachedBodies.size() ; ++i)
     attachedBodies[i]->computeTransform();
@@ -928,8 +928,8 @@ void planning_models::KinematicModel::Link::computeTransform(void)
 void planning_models::KinematicModel::updateTransformsWithLinkAt(Link *link, const btTransform &transform)
 {
     // update the link at the new position
-    link->globalTransFwd = transform;
-    link->globalTrans.mult(link->globalTransFwd, link->constGeomTrans);
+    link->global_link_transform = transform;
+    link->global_collision_body_transform.mult(link->global_link_transform, link->collision_origin_transform);
     for (unsigned int i = 0 ; i < link->attachedBodies.size() ; ++i)
 	link->attachedBodies[i]->computeTransform();
     
@@ -953,8 +953,8 @@ planning_models::KinematicModel::AttachedBody::~AttachedBody(void)
 
 void planning_models::KinematicModel::AttachedBody::computeTransform(void)
 {
-  for (unsigned int i = 0 ; i < globalTrans.size(); ++i)
-      globalTrans[i] = owner->globalTransFwd * attachTrans[i];
+  for (unsigned int i = 0 ; i < global_collision_body_transform.size(); ++i)
+      global_collision_body_transform[i] = owner->global_link_transform * attachTrans[i];
 }
 
 /* ------------------------ JointGroup ------------------------ */
@@ -990,9 +990,9 @@ planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, c
   {
     bool found = false;
     Joint *joint = joints[i];
-    while (joint->before)
+    while (joint->parent_link)
     {
-	    joint = joint->before->before;
+	    joint = joint->parent_link->parent_joint;
 	    if (hasJoint(joint->name))
 	    {
         found = true;
@@ -1006,8 +1006,8 @@ planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, c
 
   for (unsigned int i = 0 ; i < jointRoots.size() ; ++i)
   {
-    updatedLinks.push_back(jointRoots[i]->after);
-    owner->getChildLinks(jointRoots[i]->after, updatedLinks);
+    updatedLinks.push_back(jointRoots[i]->child_link);
+    owner->getChildLinks(jointRoots[i]->child_link, updatedLinks);
   }
 }
 

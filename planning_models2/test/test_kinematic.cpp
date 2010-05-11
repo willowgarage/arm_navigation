@@ -162,13 +162,13 @@ TEST(LoadingAndFK, SimpleRobot)
     model->computeTransforms(param);
     if (model->hasLink("base_link"))
     {
-	EXPECT_NEAR(9.9, model->getLink("base_link")->globalTrans.getOrigin().x(), 1e-5);
-	EXPECT_NEAR(8.0, model->getLink("base_link")->globalTrans.getOrigin().y(), 1e-5);
-	EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getOrigin().z(), 1e-5);
-	EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().x(), 1e-5);
-	EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().y(), 1e-5);
-	EXPECT_NEAR(-0.479426, model->getLink("base_link")->globalTrans.getRotation().z(), 1e-5);
-	EXPECT_NEAR(0.877583, model->getLink("base_link")->globalTrans.getRotation().w(), 1e-5);
+	EXPECT_NEAR(9.9, model->getLink("base_link")->global_collision_body_transform.getOrigin().x(), 1e-5);
+	EXPECT_NEAR(8.0, model->getLink("base_link")->global_collision_body_transform.getOrigin().y(), 1e-5);
+	EXPECT_NEAR(0.0, model->getLink("base_link")->global_collision_body_transform.getOrigin().z(), 1e-5);
+	EXPECT_NEAR(0.0, model->getLink("base_link")->global_collision_body_transform.getRotation().x(), 1e-5);
+	EXPECT_NEAR(0.0, model->getLink("base_link")->global_collision_body_transform.getRotation().y(), 1e-5);
+	EXPECT_NEAR(-0.479426, model->getLink("base_link")->global_collision_body_transform.getRotation().z(), 1e-5);
+	EXPECT_NEAR(0.877583, model->getLink("base_link")->global_collision_body_transform.getRotation().w(), 1e-5);
     }
     
     delete model;    
@@ -317,37 +317,37 @@ TEST(FK, OneRobot)
     
     EXPECT_EQ(ss1.str(), ss2.str());
     
-    EXPECT_NEAR(1.0, model->getLink("base_link")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("base_link")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.247404, model->getLink("base_link")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(0.968912, model->getLink("base_link")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("base_link")->global_collision_body_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("base_link")->global_collision_body_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("base_link")->global_collision_body_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("base_link")->global_collision_body_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("base_link")->global_collision_body_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.247404, model->getLink("base_link")->global_collision_body_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(0.968912, model->getLink("base_link")->global_collision_body_transform.getRotation().w(), 1e-5);
 
-    EXPECT_NEAR(1.0, model->getLink("link_a")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("link_a")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("link_a")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_a")->global_collision_body_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_a")->global_collision_body_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_collision_body_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_collision_body_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_collision_body_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_collision_body_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_a")->global_collision_body_transform.getRotation().w(), 1e-5);
 
-    EXPECT_NEAR(1.0, model->getLink("link_b")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.5, model->getLink("link_b")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_b")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_b")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(-0.20846, model->getLink("link_b")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_b")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(0.978031, model->getLink("link_b")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_b")->global_collision_body_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.5, model->getLink("link_b")->global_collision_body_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_b")->global_collision_body_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_b")->global_collision_body_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(-0.20846, model->getLink("link_b")->global_collision_body_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_b")->global_collision_body_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(0.978031, model->getLink("link_b")->global_collision_body_transform.getRotation().w(), 1e-5);
 
-    EXPECT_NEAR(1.1, model->getLink("link_c")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.4, model->getLink("link_c")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("link_c")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.1, model->getLink("link_c")->global_collision_body_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.4, model->getLink("link_c")->global_collision_body_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_collision_body_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_collision_body_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_collision_body_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_collision_body_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_c")->global_collision_body_transform.getRotation().w(), 1e-5);
 
     planning_models::KinematicState *sp = new planning_models::KinematicState(model);
     EXPECT_FALSE(sp->seenAll());

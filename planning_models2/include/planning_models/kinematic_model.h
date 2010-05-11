@@ -109,10 +109,10 @@ namespace planning_models
 	    unsigned int      stateIndex;
 	    
 	    /** \brief The link before this joint */
-	    Link             *before;
+	    Link             *parent_link;
 
 	    /** \brief The link after this joint */
-	    Link             *after;
+	    Link             *child_link;
 
 	    /** \brief the local transform (computed by forward kinematics) */
 	    btTransform       varTrans;
@@ -225,16 +225,16 @@ namespace planning_models
 	    KinematicModel            *owner;
 
 	    /** \brief Joint that connects this link to the parent link */
-	    Joint                     *before;
+	    Joint                     *parent_joint;
 	    
 	    /** \brief List of descending joints (each connects to a child link) */
-	    std::vector<Joint*>        after;
+	    std::vector<Joint*>        child_joint;
 	    
 	    /** \brief The constant transform applied to the link (local) */
-	    btTransform                constTrans;
+	    btTransform                joint_origin_transform;
 	    
 	    /** \brief The constant transform applied to the collision geometry of the link (local) */
-	    btTransform                constGeomTrans;
+	    btTransform                collision_origin_transform;
 	    
 	    /** \brief The geometry of the link */
 	    shapes::Shape             *shape;
@@ -243,15 +243,15 @@ namespace planning_models
 	    std::vector<AttachedBody*> attachedBodies;	    
 	    
 	    /** \brief The global transform this link forwards (computed by forward kinematics) */
-	    btTransform                globalTransFwd;
+	    btTransform                global_link_transform;
 
 	    /** \brief The global transform for this link (computed by forward kinematics) */
-	    btTransform                globalTrans;
+	    btTransform                global_collision_body_transform;
 
-	    /** \brief Recompute globalTrans and globalTransFwd */
+	    /** \brief Recompute global_collision_body_transform and global_link_transform */
 	    void computeTransform(void);
 
-	    /** \brief Recompute globalTrans and globalTransFwd starting from a specific transform */
+	    /** \brief Recompute global_collision_body_transform and global_link_transform starting from a specific transform */
 	    //	    void setTransform(const btTransform &t);
 	};
 	
@@ -271,11 +271,11 @@ namespace planning_models
           /** \brief The geometry of the attached body */
           std::vector<shapes::Shape*>            shapes;
           
-          /** \brief The constant transform applied to the link (needs to be specified by user) */
+          /** \brief The constant transforms applied to the link (needs to be specified by user) */
           std::vector<btTransform>               attachTrans;
           
-          /** \brief The global transform for this link (computed by forward kinematics) */
-          std::vector<btTransform>               globalTrans;
+          /** \brief The global transforms for these attached bodies (computed by forward kinematics) */
+          std::vector<btTransform>               global_collision_body_transform;
 	    
           /** \brief The set of links this body is allowed to touch */
           std::vector<std::string>               touchLinks;
@@ -283,7 +283,7 @@ namespace planning_models
           /** string id for reference */
           std::string                            id;
 
-          /** \brief Recompute globalTrans */
+          /** \brief Recompute global_collision_body_transform */
           void computeTransform(void);
 	};
 

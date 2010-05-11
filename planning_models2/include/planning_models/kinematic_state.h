@@ -231,7 +231,9 @@ namespace planning_models
 	
 	const KinematicModel *owner_;
 	double               *params_;
-	std::vector<bool>     seen_;
+
+	/** \brief Marks the dimensions of the state that have been updated */
+	std::vector<bool>     updated_;
     };
     
 }

@@ -44,7 +44,7 @@
 planning_models::KinematicState::KinematicState(const KinematicModel *model) : owner_(model)
 {
     params_ = model->getDimension() > 0 ? new double[model->getDimension()] : NULL;
-    seen_.resize(model->getDimension(), false);
+    updated_.resize(model->getDimension(), false);
     defaultState();
     reset();
 }
@@ -88,7 +88,7 @@ void planning_models::KinematicState::copyFrom(const KinematicState &sp)
     if (params_)
 	for (unsigned int i = 0 ; i < dim ; ++i)
 	    params_[i] = sp.params_[i];
-    seen_ = sp.seen_;
+    updated_ = sp.updated_;
 }
 
 unsigned int planning_models::KinematicState::getDimension(void) const
@@ -108,7 +108,7 @@ void planning_models::KinematicState::defaultState(void)
 	    params_[i] = 0.0;
 	else
 	    params_[i] = (bounds[i2] + bounds[i2 + 1]) / 2.0;
-	seen_[i] = true;
+	updated_[i] = true;
     }
 }
 
@@ -125,7 +125,7 @@ void planning_models::KinematicState::randomStateGroup(const KinematicModel::Joi
 	const unsigned int j  = group->stateIndex[i];
 	const unsigned int j2 = j << 1;
 	params_[j] = (bounds[j2 + 1] - bounds[j2]) * ((double)rand() / (RAND_MAX + 1.0)) +  bounds[j2];
-	seen_[j] = true;
+	updated_[j] = true;
     }
 }
     
@@ -137,7 +137,7 @@ void planning_models::KinematicState::randomState(void)
     {
 	const unsigned int i2 = i << 1;
 	params_[i] = (bounds[i2 + 1] - bounds[i2]) * ((double)rand() / (RAND_MAX + 1.0)) + bounds[i2];
-	seen_[i] = true;
+	updated_[i] = true;
     }
 }
 
@@ -268,7 +268,7 @@ void planning_models::KinematicState::reset(void)
 {
     const unsigned int dim = owner_->getDimension();
     for (unsigned int i = 0 ; i < dim ; ++i)
-	seen_[i] = false;
+	updated_[i] = false;
 }
 
 void planning_models::KinematicState::resetGroup(const std::string &group)
@@ -279,14 +279,14 @@ void planning_models::KinematicState::resetGroup(const std::string &group)
 void planning_models::KinematicState::resetGroup(const KinematicModel::JointGroup *group)
 {
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
-	seen_[group->stateIndex[i]] = false;
+	updated_[group->stateIndex[i]] = false;
 }
 
 bool planning_models::KinematicState::seenAll(void) const
 {
     const unsigned int dim = owner_->getDimension();
     for (unsigned int i = 0 ; i < dim ; ++i)
-        if (!seen_[i])
+        if (!updated_[i])
 	    return false;
     return true;
 }
@@ -299,7 +299,7 @@ bool planning_models::KinematicState::seenAllGroup(const std::string &group) con
 bool planning_models::KinematicState::seenAllGroup(const KinematicModel::JointGroup *group) const
 {    
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
-	if (!seen_[group->stateIndex[i]])
+	if (!updated_[group->stateIndex[i]])
 	    return false;
     return true;
 }
@@ -308,7 +308,7 @@ bool planning_models::KinematicState::seenJoint(const std::string &name) const
 {
     const KinematicModel::Joint *joint = owner_->getJoint(name);
     for (unsigned int i = 0 ; i < joint->usedParams ; ++i)
-	if (!seen_[joint->stateIndex + i])
+	if (!updated_[joint->stateIndex + i])
 	    return false;
     return true;
 }
@@ -317,7 +317,7 @@ void planning_models::KinematicState::missing(std::ostream &out)
 {
     const unsigned int dim = owner_->getDimension();
     for (unsigned int i = 0 ; i < dim ; ++i)
-	if (!seen_[i])
+	if (!updated_[i])
 	    out << i << " ";
 }
 
@@ -360,10 +360,10 @@ bool planning_models::KinematicState::setParamsJoint(const double *params, const
     for (unsigned int i = 0 ; i < joint->usedParams ; ++i)
     {
 	unsigned int pos_i = joint->stateIndex + i;
-	if (params_[pos_i] != params[i] || !seen_[pos_i])
+	if (params_[pos_i] != params[i] || !updated_[pos_i])
 	{
 	    params_[pos_i] = params[i];
-	    seen_[pos_i] = true;
+	    updated_[pos_i] = true;
 	    result = true;
 	}
     }
@@ -381,10 +381,10 @@ bool planning_models::KinematicState::setParams(const double *params)
     const unsigned int dim = owner_->getDimension();
     bool result = false;
     for (unsigned int i = 0 ; i < dim ; ++i)
-	if (params_[i] != params[i] || !seen_[i])
+	if (params_[i] != params[i] || !updated_[i])
 	{
 	    params_[i] = params[i];
-	    seen_[i] = true;
+	    updated_[i] = true;
 	    result = true;
 	}
     return result;
@@ -411,10 +411,10 @@ bool planning_models::KinematicState::setParamsGroup(const double *params, const
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
     {
 	unsigned int j = group->stateIndex[i];
-	if (params_[j] != params[i] || !seen_[j])
+	if (params_[j] != params[i] || !updated_[j])
 	{
 	    params_[j] = params[i];
-	    seen_[j] = true;
+	    updated_[j] = true;
 	    result = true;
 	}
     }
@@ -432,7 +432,7 @@ void planning_models::KinematicState::setAllInGroup(const double value, const Ki
     {
 	unsigned int j = group->stateIndex[i];
 	params_[j] = value;
-	seen_[j] = true;
+	updated_[j] = true;
     }	
 }
 
@@ -442,7 +442,7 @@ void planning_models::KinematicState::setAll(const double value)
     for (unsigned int i = 0 ; i < dim ; ++i)
     {
 	params_[i] = value;
-	seen_[i] = true;
+	updated_[i] = true;
     }
 }
 
