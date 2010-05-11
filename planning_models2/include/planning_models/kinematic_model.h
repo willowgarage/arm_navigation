@@ -240,7 +240,7 @@ namespace planning_models
 	    shapes::Shape             *shape;
 	    
 	    /** \brief Attached bodies */
-	    std::vector<AttachedBody*> attachedBodies;	    
+	    std::vector<AttachedBody*> attached_bodies;	    
 	    
 	    /** \brief The global transform this link forwards (computed by forward kinematics) */
 	    btTransform                global_link_transform;
@@ -251,8 +251,6 @@ namespace planning_models
 	    /** \brief Recompute global_collision_body_transform and global_link_transform */
 	    void computeTransform(void);
 
-	    /** \brief Recompute global_collision_body_transform and global_link_transform starting from a specific transform */
-	    //	    void setTransform(const btTransform &t);
 	};
 	
 	/** \brief Class defining bodies that can be attached to robot
@@ -262,32 +260,32 @@ namespace planning_models
 	{
 	public:
 	    
-          AttachedBody(Link *link, const std::string& id);
-          ~AttachedBody(void);
-	  
-          /** \brief The link that owns this attached body */
-          Link                                  *owner;
-          
-          /** \brief The geometry of the attached body */
-          std::vector<shapes::Shape*>            shapes;
-          
-          /** \brief The constant transforms applied to the link (needs to be specified by user) */
-          std::vector<btTransform>               attachTrans;
-          
-          /** \brief The global transforms for these attached bodies (computed by forward kinematics) */
-          std::vector<btTransform>               global_collision_body_transform;
+	    AttachedBody(Link *link, const std::string& id);
+	    ~AttachedBody(void);
 	    
-          /** \brief The set of links this body is allowed to touch */
-          std::vector<std::string>               touchLinks;
-          
-          /** string id for reference */
-          std::string                            id;
-
-          /** \brief Recompute global_collision_body_transform */
-          void computeTransform(void);
+	    /** \brief The link that owns this attached body */
+	    Link                                  *owner;
+	    
+	    /** \brief The geometries of the attached body */
+	    std::vector<shapes::Shape*>            shapes;
+	    
+	    /** \brief The constant transforms applied to the link (need to be specified by user) */
+	    std::vector<btTransform>               attach_trans;
+	    
+	    /** \brief The global transforms for these attached bodies (computed by forward kinematics) */
+	    std::vector<btTransform>               global_collision_body_transform;
+	    
+	    /** \brief The set of links this body is allowed to touch */
+	    std::vector<std::string>               touch_links;
+	    
+	    /** string id for reference */
+	    std::string                            id;
+	    
+	    /** \brief Recompute global_collision_body_transform */
+	    void computeTransform(void);
 	};
-
-
+	
+	
 	class JointGroup
 	{
 	public:
@@ -436,10 +434,10 @@ namespace planning_models
 	void getChildJoints(const Joint* parent, std::vector<const Joint*> &joints) const;
 	
 	/** \brief Get the list of attached bodies */
-	void getAttachedBodies(std::vector<AttachedBody*> &attachedBodies);
+	void getAttachedBodies(std::vector<AttachedBody*> &attached_bodies);
 
 	/** \brief Get the list of attached bodies */
-	void getAttachedBodies(std::vector<const AttachedBody*> &attachedBodies) const; 
+	void getAttachedBodies(std::vector<const AttachedBody*> &attached_bodies) const; 
 
 	/** \brief Get the dimension of the entire model */
 	unsigned int getDimension(void) const;

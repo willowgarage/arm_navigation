@@ -128,7 +128,7 @@ void planning_models::KinematicState::randomStateGroup(const KinematicModel::Joi
 	updated_[j] = true;
     }
 }
-    
+
 void planning_models::KinematicState::randomState(void)
 {   
     const std::vector<double> &bounds = owner_->getStateBounds();
@@ -338,7 +338,7 @@ bool planning_models::KinematicState::setParamsJoints(const double *params, cons
 	u += joint->usedParams;
 	change = change || ch;
     }
-
+    
     return change;
 }
 
