@@ -103,10 +103,10 @@ namespace planning_models
 	    /** \brief The range of indices in the parameter vector that
 		needed to access information about the position of this
 		joint */
-	    unsigned int      usedParams;
+	    unsigned int      used_params;
 
 	    /** \brief The index where this joint starts reading params in the global state vector */
-	    unsigned int      stateIndex;
+	    unsigned int      state_index;
 	    
 	    /** \brief The link before this joint */
 	    Link             *parent_link;
@@ -115,9 +115,9 @@ namespace planning_models
 	    Link             *child_link;
 
 	    /** \brief the local transform (computed by forward kinematics) */
-	    btTransform       varTrans;
+	    btTransform       variable_transform;
 
-	    /** \brief Update the value of varTrans using the information from params */
+	    /** \brief Update the value of variable_transform using the information from params */
 	    virtual void updateVariableTransform(const double *params) = 0;
 
 	};
@@ -131,7 +131,7 @@ namespace planning_models
 	    {
 	    }
 	    
-	    /** \brief Update the value of varTrans using the information from params */
+	    /** \brief Update the value of variable_transform using the information from params */
 	    virtual void updateVariableTransform(const double *params);
 	};
 
@@ -140,16 +140,16 @@ namespace planning_models
 	{
 	public:
 	    
-	    PrismaticJoint(KinematicModel *owner) : Joint(owner), axis(0.0, 0.0, 0.0), lowLimit(0.0), hiLimit(0.0)
+	    PrismaticJoint(KinematicModel *owner) : Joint(owner), axis(0.0, 0.0, 0.0), low_limit(0.0), hi_limit(0.0)
 	    {
-		usedParams = 1;
+		used_params = 1;
 	    }
 	    
 	    btVector3 axis;
-	    double    lowLimit;
-	    double    hiLimit;
+	    double    low_limit;
+	    double    hi_limit;
 	    
-	    /** \brief Update the value of varTrans using the information from params */
+	    /** \brief Update the value of variable_transform using the information from params */
 	    virtual void updateVariableTransform(const double *params);
 	    
 	};
@@ -160,17 +160,17 @@ namespace planning_models
 	public:
 	    
 	    RevoluteJoint(KinematicModel *owner) : Joint(owner), axis(0.0, 0.0, 0.0),
-						   lowLimit(0.0), hiLimit(0.0), continuous(false)
+						   low_limit(0.0), hi_limit(0.0), continuous(false)
 	    {
-		usedParams = 1;
+		used_params = 1;
 	    }
 	    	    
 	    btVector3 axis;
-	    double    lowLimit;
-	    double    hiLimit;
+	    double    low_limit;
+	    double    hi_limit;
 	    bool      continuous;
 
-	    /** \brief Update the value of varTrans using the information from params */
+	    /** \brief Update the value of variable_transform using the information from params */
 	    virtual void updateVariableTransform(const double *params);
 
 	};
@@ -193,10 +193,10 @@ namespace planning_models
 		case CONNECT_FIXED:
 		    break;
 		case CONNECT_XY_YAW:
-		    usedParams = 3;
+		    used_params = 3;
 		    break;
 		case CONNECT_XYZ_QUAT:
-		    usedParams = 7;
+		    used_params = 7;
 		    break;
 		default:
 		    break;
@@ -206,7 +206,7 @@ namespace planning_models
 	    /** \brief The type of connection this joint realizes */
 	    WorldJointType type;
 	    
-	    /** \brief Update the value of varTrans using the information from params */
+	    /** \brief Update the value of variable_transform using the information from params */
 	    virtual void updateVariableTransform(const double *params);
 	};	
 	
@@ -318,7 +318,7 @@ namespace planning_models
 	    std::vector<double>                 stateBounds;
 	    
 	    /** \brief An array containing the index in the global state for each dimension of the state of the group */
-	    std::vector<unsigned int>           stateIndex;
+	    std::vector<unsigned int>           state_index;
 	    
 	    /** \brief The list of joints that are roots in this group */
 	    std::vector<Joint*>                 jointRoots;

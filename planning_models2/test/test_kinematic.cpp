@@ -150,7 +150,7 @@ TEST(LoadingAndFK, SimpleRobot)
     model->getJoints(joints);
     EXPECT_EQ((unsigned int)1, joints.size());
     if (joints.size() > 0)
-	EXPECT_EQ((unsigned int)3, joints[0]->usedParams);
+	EXPECT_EQ((unsigned int)3, joints[0]->used_params);
 
     EXPECT_TRUE(dynamic_cast<planning_models::KinematicModel::WorldJoint*>(model->getRoot()) != NULL);
 

@@ -195,11 +195,11 @@ void planning_models::KinematicModel::buildGroups(const std::map< std::string, s
 planning_models::KinematicModel::Joint* planning_models::KinematicModel::buildRecursive(Link *parent, const urdf::Link *link)
 {
     Joint *joint = constructJoint(link->parent_joint.get(), stateBounds_);
-    joint->stateIndex = dimension_;
+    joint->state_index = dimension_;
     jointMap_[joint->name] = joint;
     jointList_.push_back(joint);
     jointIndex_.push_back(dimension_);
-    dimension_ += joint->usedParams;
+    dimension_ += joint->used_params;
     joint->parent_link = parent;
     joint->child_link = constructLink(link);
     if (parent == NULL)
@@ -227,30 +227,30 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::constru
 		RevoluteJoint *j = new RevoluteJoint(this);
 		if(urdfJoint->safety)
 		{
-		    j->hiLimit = urdfJoint->safety->soft_upper_limit;
-		    j->lowLimit = urdfJoint->safety->soft_lower_limit;
+		    j->hi_limit = urdfJoint->safety->soft_upper_limit;
+		    j->low_limit = urdfJoint->safety->soft_lower_limit;
 		}
 		else
 		{
-		    j->hiLimit = urdfJoint->limits->upper;
-		    j->lowLimit = urdfJoint->limits->lower;
+		    j->hi_limit = urdfJoint->limits->upper;
+		    j->low_limit = urdfJoint->limits->lower;
 		}
 		j->continuous = false;
 		j->axis.setValue(urdfJoint->axis.x, urdfJoint->axis.y, urdfJoint->axis.z);
-		bounds.push_back(j->lowLimit);
-		bounds.push_back(j->hiLimit);
+		bounds.push_back(j->low_limit);
+		bounds.push_back(j->hi_limit);
 		result = j;
 	    }
 	    break;
 	case urdf::Joint::CONTINUOUS:
 	    {
 		RevoluteJoint *j = new RevoluteJoint(this);
-		j->hiLimit = M_PI;
-		j->lowLimit = -M_PI;
+		j->hi_limit = M_PI;
+		j->low_limit = -M_PI;
 		j->continuous = true;
 		j->axis.setValue(urdfJoint->axis.x, urdfJoint->axis.y, urdfJoint->axis.z);
-		bounds.push_back(j->lowLimit);
-		bounds.push_back(j->hiLimit);
+		bounds.push_back(j->low_limit);
+		bounds.push_back(j->hi_limit);
 		result = j;
 	    }
 	    break;
@@ -259,17 +259,17 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::constru
 		PrismaticJoint *j = new PrismaticJoint(this);
 		if(urdfJoint->safety)
 		{
-		    j->hiLimit = urdfJoint->safety->soft_upper_limit;
-		    j->lowLimit = urdfJoint->safety->soft_lower_limit;
+		    j->hi_limit = urdfJoint->safety->soft_upper_limit;
+		    j->low_limit = urdfJoint->safety->soft_lower_limit;
 		}
 		else
 		{
-		    j->hiLimit = urdfJoint->limits->upper;
-		    j->lowLimit = urdfJoint->limits->lower;
+		    j->hi_limit = urdfJoint->limits->upper;
+		    j->low_limit = urdfJoint->limits->lower;
 		}
 		j->axis.setValue(urdfJoint->axis.x, urdfJoint->axis.y, urdfJoint->axis.z);
-		bounds.push_back(j->lowLimit);
-		bounds.push_back(j->hiLimit);
+		bounds.push_back(j->low_limit);
+		bounds.push_back(j->hi_limit);
 		result = j;
 	    }
 	    break;
@@ -688,11 +688,11 @@ void planning_models::KinematicModel::getAttachedBodies(std::vector<const Attach
 planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyRecursive(Link *parent, const Link *link)
 {
     Joint *joint = copyJoint(link->parent_joint);
-    joint->stateIndex = dimension_;
+    joint->state_index = dimension_;
     jointMap_[joint->name] = joint;
     jointList_.push_back(joint);
     jointIndex_.push_back(dimension_);
-    dimension_ += joint->usedParams;
+    dimension_ += joint->used_params;
     joint->parent_link = parent;
     joint->child_link = copyLink(link);
     linkMap_[joint->child_link->name] = joint->child_link;
@@ -744,8 +744,8 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyJoi
 	    PrismaticJoint *pj = new PrismaticJoint(this);
 	    const PrismaticJoint *src = static_cast<const PrismaticJoint*>(joint);
 	    pj->axis = src->axis;
-	    pj->hiLimit = src->hiLimit;
-	    pj->lowLimit = src->lowLimit;
+	    pj->hi_limit = src->hi_limit;
+	    pj->low_limit = src->low_limit;
 	    newJoint = pj;
 	}
         else
@@ -755,8 +755,8 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyJoi
 		const RevoluteJoint *src = static_cast<const RevoluteJoint*>(joint);
 		pj->axis = src->axis;
 		pj->continuous = src->continuous;
-		pj->hiLimit = src->hiLimit;
-		pj->lowLimit = src->lowLimit;
+		pj->hi_limit = src->hi_limit;
+		pj->low_limit = src->low_limit;
 		newJoint = pj;
 	    }
 	    else
@@ -768,7 +768,7 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyJoi
     if (newJoint)
     {
 	newJoint->name = joint->name;
-	newJoint->varTrans = joint->varTrans;
+	newJoint->variable_transform = joint->variable_transform;
     }
     
     return newJoint;
@@ -806,8 +806,8 @@ void planning_models::KinematicModel::printModelInfo(std::ostream &out) const
 	    out << g->jointRoots[j]->name << " ";
 	out << std::endl;
 	out << "The state components for this group are: ";
-	for (unsigned int j = 0 ; j < g->stateIndex.size() ; ++j)
-	    out << g->stateIndex[j] << " ";
+	for (unsigned int j = 0 ; j < g->state_index.size() ; ++j)
+	    out << g->state_index[j] << " ";
 	out << std::endl;
     }
 }
@@ -835,7 +835,7 @@ void planning_models::KinematicModel::printTransforms(std::ostream &out) const
     getJoints(joints);
     for (unsigned int i = 0 ; i < joints.size() ; ++i)
     {
-	detail::printTransform(joints[i]->name, joints[i]->varTrans, out);
+	detail::printTransform(joints[i]->name, joints[i]->variable_transform, out);
 	out << std::endl;	
     }
     out << "Link poses:" << std::endl;
@@ -850,9 +850,9 @@ void planning_models::KinematicModel::printTransforms(std::ostream &out) const
 
 /* ------------------------ Joint ------------------------ */
 
-planning_models::KinematicModel::Joint::Joint(KinematicModel *model) : owner(model), usedParams(0), stateIndex(0), parent_link(NULL), child_link(NULL)
+planning_models::KinematicModel::Joint::Joint(KinematicModel *model) : owner(model), used_params(0), state_index(0), parent_link(NULL), child_link(NULL)
 {
-    varTrans.setIdentity();
+    variable_transform.setIdentity();
 }
 
 planning_models::KinematicModel::Joint::~Joint(void)
@@ -868,12 +868,12 @@ void planning_models::KinematicModel::FixedJoint::updateVariableTransform(const 
 
 void planning_models::KinematicModel::PrismaticJoint::updateVariableTransform(const double *params)
 {
-    varTrans.setOrigin(axis * params[0]);
+    variable_transform.setOrigin(axis * params[0]);
 }
 
 void planning_models::KinematicModel::RevoluteJoint::updateVariableTransform(const double *params)
 {
-    varTrans.setRotation(btQuaternion(axis, params[0]));
+    variable_transform.setRotation(btQuaternion(axis, params[0]));
 }
 
 const std::string planning_models::KinematicModel::WorldJoint::NAME = "world";
@@ -883,12 +883,12 @@ void planning_models::KinematicModel::WorldJoint::updateVariableTransform(const 
     switch (type)
     {
     case CONNECT_XY_YAW:
-	varTrans.setOrigin(btVector3(params[0], params[1], 0.0));
-	varTrans.setRotation(btQuaternion(btVector3(0.0, 0.0, 1.0), params[2]));
+	variable_transform.setOrigin(btVector3(params[0], params[1], 0.0));
+	variable_transform.setRotation(btQuaternion(btVector3(0.0, 0.0, 1.0), params[2]));
 	break;
     case CONNECT_XYZ_QUAT:
-	varTrans.setOrigin(btVector3(params[0], params[1], params[2]));	
-	varTrans.setRotation(btQuaternion(params[3], params[4], params[5], params[6]));
+	variable_transform.setOrigin(btVector3(params[0], params[1], params[2]));	
+	variable_transform.setRotation(btQuaternion(params[3], params[4], params[5], params[6]));
 	break;
     default:
 	break;
@@ -918,7 +918,7 @@ planning_models::KinematicModel::Link::~Link(void)
 void planning_models::KinematicModel::Link::computeTransform(void)
 {
     global_link_transform.mult(parent_joint->parent_link ? parent_joint->parent_link->global_link_transform : owner->getRootTransform(), joint_origin_transform);
-    global_link_transform *= parent_joint->varTrans;    
+    global_link_transform *= parent_joint->variable_transform;    
     global_collision_body_transform.mult(global_link_transform, collision_origin_transform);
     
     for (unsigned int i = 0 ; i < attached_bodies.size() ; ++i)
@@ -974,13 +974,13 @@ planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, c
     {
 	jointNames[i] = joints[i]->name;
 	jointIndex[i] = dimension;
-	dimension += joints[i]->usedParams;
+	dimension += joints[i]->used_params;
 	jointMap[jointNames[i]] = i;
 	
-	for (unsigned int k = 0 ; k < joints[i]->usedParams ; ++k)
+	for (unsigned int k = 0 ; k < joints[i]->used_params ; ++k)
 	{
-	    const unsigned int si = joints[i]->stateIndex + k;
-	    stateIndex.push_back(si);
+	    const unsigned int si = joints[i]->state_index + k;
+	    state_index.push_back(si);
 	    stateBounds.push_back(allBounds[2 * si]);
 	    stateBounds.push_back(allBounds[2 * si + 1]);
 	}

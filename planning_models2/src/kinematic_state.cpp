@@ -122,7 +122,7 @@ void planning_models::KinematicState::randomStateGroup(const KinematicModel::Joi
     const std::vector<double> &bounds = owner_->getStateBounds();
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
     {
-	const unsigned int j  = group->stateIndex[i];
+	const unsigned int j  = group->state_index[i];
 	const unsigned int j2 = j << 1;
 	params_[j] = (bounds[j2 + 1] - bounds[j2]) * ((double)rand() / (RAND_MAX + 1.0)) +  bounds[j2];
 	updated_[j] = true;
@@ -151,7 +151,7 @@ void planning_models::KinematicState::perturbStateGroup(double factor, const Kin
     const std::vector<double> &bounds = owner_->getStateBounds();
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
     {
-	const unsigned int j  = group->stateIndex[i];
+	const unsigned int j  = group->state_index[i];
 	const unsigned int j2 = j << 1;
 	params_[j] += factor * (bounds[j2 + 1] - bounds[j2]) * (2.0 * ((double)rand() / (RAND_MAX + 1.0)) - 1.0);
     }
@@ -180,7 +180,7 @@ void planning_models::KinematicState::enforceBoundsGroup(const KinematicModel::J
     const std::vector<double> &bounds = owner_->getStateBounds();
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
     {
-	const unsigned int j  = group->stateIndex[i];
+	const unsigned int j  = group->state_index[i];
 	const unsigned int j2 = j << 1;
 	if (params_[j] > bounds[j2 + 1])
 	    params_[j] = bounds[j2 + 1];
@@ -215,7 +215,7 @@ bool planning_models::KinematicState::checkBoundsGroup(const KinematicModel::Joi
     const std::vector<double> &bounds = owner_->getStateBounds();
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
     {
-	const unsigned int j  = group->stateIndex[i];
+	const unsigned int j  = group->state_index[i];
 	const unsigned int j2 = j << 1;
 	if (params_[j] > bounds[j2 + 1])
 	    return false;
@@ -244,8 +244,8 @@ bool planning_models::KinematicState::checkBoundsJoint(const std::string &name) 
 {
     const std::vector<double> &bounds = owner_->getStateBounds();
     const KinematicModel::Joint *joint = owner_->getJoint(name);
-    const unsigned int p = joint->stateIndex + joint->usedParams;
-    for (unsigned int i = joint->stateIndex; i < p ; ++i)
+    const unsigned int p = joint->state_index + joint->used_params;
+    for (unsigned int i = joint->state_index; i < p ; ++i)
     {
 	const unsigned int i2 = i << 1;
 	if (params_[i] > bounds[i2 + 1])
@@ -279,7 +279,7 @@ void planning_models::KinematicState::resetGroup(const std::string &group)
 void planning_models::KinematicState::resetGroup(const KinematicModel::JointGroup *group)
 {
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
-	updated_[group->stateIndex[i]] = false;
+	updated_[group->state_index[i]] = false;
 }
 
 bool planning_models::KinematicState::seenAll(void) const
@@ -299,7 +299,7 @@ bool planning_models::KinematicState::seenAllGroup(const std::string &group) con
 bool planning_models::KinematicState::seenAllGroup(const KinematicModel::JointGroup *group) const
 {    
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
-	if (!updated_[group->stateIndex[i]])
+	if (!updated_[group->state_index[i]])
 	    return false;
     return true;
 }
@@ -307,8 +307,8 @@ bool planning_models::KinematicState::seenAllGroup(const KinematicModel::JointGr
 bool planning_models::KinematicState::seenJoint(const std::string &name) const
 {
     const KinematicModel::Joint *joint = owner_->getJoint(name);
-    for (unsigned int i = 0 ; i < joint->usedParams ; ++i)
-	if (!updated_[joint->stateIndex + i])
+    for (unsigned int i = 0 ; i < joint->used_params ; ++i)
+	if (!updated_[joint->state_index + i])
 	    return false;
     return true;
 }
@@ -324,7 +324,7 @@ void planning_models::KinematicState::missing(std::ostream &out)
 const double* planning_models::KinematicState::getParamsJoint(const std::string &name) const
 {
     const KinematicModel::Joint *joint = owner_->getJoint(name);
-    return params_ + joint->stateIndex;
+    return params_ + joint->state_index;
 }
 
 bool planning_models::KinematicState::setParamsJoints(const double *params, const std::vector<std::string> &names)
@@ -335,7 +335,7 @@ bool planning_models::KinematicState::setParamsJoints(const double *params, cons
     {
 	const KinematicModel::Joint *joint = owner_->getJoint(names[i]);
 	bool ch = setParamsJoint(params + u, names[i]);
-	u += joint->usedParams;
+	u += joint->used_params;
 	change = change || ch;
     }
     
@@ -357,9 +357,9 @@ bool planning_models::KinematicState::setParamsJoint(const double *params, const
     bool result = false;
     const KinematicModel::Joint *joint = owner_->getJoint(name);
     
-    for (unsigned int i = 0 ; i < joint->usedParams ; ++i)
+    for (unsigned int i = 0 ; i < joint->used_params ; ++i)
     {
-	unsigned int pos_i = joint->stateIndex + i;
+	unsigned int pos_i = joint->state_index + i;
 	if (params_[pos_i] != params[i] || !updated_[pos_i])
 	{
 	    params_[pos_i] = params[i];
@@ -410,7 +410,7 @@ bool planning_models::KinematicState::setParamsGroup(const double *params, const
     bool result = false;
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
     {
-	unsigned int j = group->stateIndex[i];
+	unsigned int j = group->state_index[i];
 	if (params_[j] != params[i] || !updated_[j])
 	{
 	    params_[j] = params[i];
@@ -430,7 +430,7 @@ void planning_models::KinematicState::setAllInGroup(const double value, const Ki
 {
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
     {
-	unsigned int j = group->stateIndex[i];
+	unsigned int j = group->state_index[i];
 	params_[j] = value;
 	updated_[j] = true;
     }	
@@ -454,14 +454,14 @@ const double* planning_models::KinematicState::getParams(void) const
 void planning_models::KinematicState::copyParamsJoint(double *params, const std::string &name) const
 {
     const KinematicModel::Joint *joint = owner_->getJoint(name);
-    std::copy(params_ + joint->stateIndex, params_ + joint->stateIndex + joint->usedParams, params);
+    std::copy(params_ + joint->state_index, params_ + joint->state_index + joint->used_params, params);
 }
 
 void planning_models::KinematicState::copyParamsJoint(std::vector<double> &params, const std::string &name) const
 {
     const KinematicModel::Joint *joint = owner_->getJoint(name);
-    params.resize(joint->usedParams);
-    std::copy(params_ + joint->stateIndex, params_ + joint->stateIndex + joint->usedParams, params.begin());
+    params.resize(joint->used_params);
+    std::copy(params_ + joint->state_index, params_ + joint->state_index + joint->used_params, params.begin());
 }
 
 void planning_models::KinematicState::copyParams(double *params) const
@@ -481,8 +481,8 @@ void planning_models::KinematicState::copyParamsJoints(double *params, const std
     for (unsigned int j = 0 ; j < names.size() ; ++j)
     {
 	const KinematicModel::Joint *joint = owner_->getJoint(names[j]);
-	std::copy(params_ + joint->stateIndex, params_ + joint->stateIndex + joint->usedParams, dest);
-	dest += joint->usedParams;
+	std::copy(params_ + joint->state_index, params_ + joint->state_index + joint->used_params, dest);
+	dest += joint->used_params;
     }
 }
 
@@ -518,7 +518,7 @@ void planning_models::KinematicState::copyParamsGroup(std::vector<double> &param
 void planning_models::KinematicState::copyParamsGroup(double *params, const KinematicModel::JointGroup *group) const
 {   
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
-	params[i] = params_[group->stateIndex[i]];
+	params[i] = params_[group->state_index[i]];
 }
 
 void planning_models::KinematicState::print(std::ostream &out) const
@@ -533,8 +533,8 @@ void planning_models::KinematicState::print(std::ostream &out) const
 	if (!seenJoint(joints[i]->name))
 	    out << "[ *** UNSEEN *** ]";
 	out << ": ";
-	for (unsigned int j = 0 ; j < joints[i]->usedParams ; ++j)
-	    out << params_[joints[i]->stateIndex + j] << std::endl;
+	for (unsigned int j = 0 ; j < joints[i]->used_params ; ++j)
+	    out << params_[joints[i]->state_index + j] << std::endl;
     }
     out << std::endl;
     for (unsigned int i = 0; i < owner_->getDimension() ; ++i)
