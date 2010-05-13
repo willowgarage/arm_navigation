@@ -1,0 +1,55 @@
+1,8d0
+< cmake_minimum_required(VERSION 2.6)
+< project(ompl CXX C)
+< 
+< set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
+< 
+< set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+< set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+< #set(CMAKE_BUILD_TYPE Debug)
+11,12d2
+< find_package(Boost COMPONENTS date_time thread REQUIRED)
+< 
+15c5
+< add_definitions(-W -Wall -Wextra)
+---
+> rosbuild_add_boost_directories()
+17c7
+< add_library(ompl SHARED ${OMPL_CODE}/ompl/util/src/RandomNumbers.cpp 
+---
+> rosbuild_add_library(ompl ${OMPL_CODE}/ompl/util/src/RandomNumbers.cpp 
+55,58c45,46
+< target_link_libraries(ompl
+<   ${Boost_THREAD_LIBRARY}
+<   ${Boost_DATE_TIME_LIBRARY}
+< )
+---
+> rosbuild_add_compile_flags(ompl -Wextra)
+> rosbuild_link_boost(ompl thread date_time)
+60d47
+< ### Tests
+62,63c49
+< find_package(GTest)
+< option(BUILD_TESTS "Build ompl tests" ${GTEST_FOUND})
+---
+> ### Tests
+65,69d50
+< if(BUILD_TESTS)
+<   enable_testing()
+< 	
+<   include_directories(${GTEST_INCLUDE_DIRS})
+<   
+71,76c52,54
+<     add_executable(${ARGV})
+<     target_link_libraries(${test_name} 
+<                           ompl
+< 			  ${Boost_THREAD_LIBRARY}
+< 			  ${Boost_DATE_TIME_LIBRARY} ${GTEST_LIBRARIES})
+<     add_test(${test_name} ${EXECUTABLE_OUTPUT_PATH}/${test_name})
+---
+>     rosbuild_add_gtest(${ARGV})
+>     target_link_libraries(${test_name} ompl)
+>     rosbuild_link_boost(test_2dmap_kinematic thread date_time)			
+97,98d74
+< 
+< endif(BUILD_TESTS)

@@ -1,0 +1,32 @@
+all: installed
+
+# We build from a tarball of an svn export of ompl at revision 266.  To
+# get the original code (e.g., to make a new patch):
+#  svn co -r 266 https://rice-ros-pkg.svn.sourceforge.net/svnroot/rice-ros-pkg/ompl ompl-svn
+FILENAME = ompl_r266.tar.gz
+TARBALL = build/$(FILENAME)
+#TARBALL_URL = http://pr.willowgarage.com/downloads/$(FILENAME)
+
+# temp
+TARBALL_URL = http://sia.cs.rice.edu/ompl_r266.tar.gz
+
+SOURCE_DIR = build/ompl
+UNPACK_CMD = tar xzf
+MD5SUM_FILE = $(FILENAME).md5sum
+include $(shell rospack find mk)/download_unpack_build.mk
+
+installed: wiped $(SOURCE_DIR)/unpacked
+	   patch $(SOURCE_DIR)/CMakeLists.txt < build-r266.patch
+	   touch installed
+
+wipe: clean
+	rm -rf build
+
+wiped: Makefile.ompl
+	make -f Makefile.ompl wipe
+	touch wiped
+
+clean:
+	-cd $(SOURCE_DIR) && make clean
+	rm -rf installed
+
