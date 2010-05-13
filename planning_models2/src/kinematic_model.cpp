@@ -1042,3 +1042,16 @@ void planning_models::KinematicModel::JointGroup::computeTransforms(const double
     for (unsigned int i = 0 ; i < ls ; ++i)
 	updated_links[i]->computeTransform();
 }
+
+void planning_models::KinematicModel::JointGroup::defaultState(void)
+{
+    double params[dimension];
+    for (unsigned int i = 0 ; i < dimension ; ++i)
+    {
+	if (state_bounds[2 * i] <= 0.0 && state_bounds[2 * i + 1] >= 0.0)
+	    params[i] = 0.0;
+	else
+	    params[i] = (state_bounds[2 * i] + state_bounds[2 * i + 1]) / 2.0;
+    }
+    computeTransforms(params);
+}

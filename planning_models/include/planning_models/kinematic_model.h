@@ -321,6 +321,11 @@ namespace planning_models
 	    /** \brief Get the position of a joint inside this group */
 	    int  getJointPosition(const std::string &joint) const;
 	    
+	    /** \brief Bring the group to a default state. All joints are
+		at 0. If 0 is not within the bounds of the joint, the
+		middle of the bounds is used. */
+	    void defaultState(void);
+	    
 	};
 	
 	/** \brief Construct a kinematic model from another one */

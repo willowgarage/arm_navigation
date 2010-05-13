@@ -214,11 +214,19 @@ void planning_models::KinematicModel::buildGroups(const std::map< std::string, s
 	    else
         jointv.push_back(p->second);
     }
+    // hack
+    
+    if (jointv.empty() && it->first == "base")
+    {
+	jointv.push_back(jointMap_["base_joint"]);
+    }
+    
+	
     if (jointv.empty())
-	    ROS_DEBUG("Skipping group '%s'", it->first.c_str());
+	    ROS_ERROR("Skipping group '%s'", it->first.c_str());
     else
     {
-	    ROS_DEBUG("Adding group '%s'", it->first.c_str());
+	    ROS_ERROR("Adding group '%s'", it->first.c_str());
 	    groupMap_[it->first] = new JointGroup(this, it->first, jointv);
     }
   }
@@ -992,4 +1000,17 @@ void planning_models::KinematicModel::JointGroup::computeTransforms(const double
   const unsigned int ls = updatedLinks.size();
   for (unsigned int i = 0 ; i < ls ; ++i)
     updatedLinks[i]->computeTransform();
+}
+
+void planning_models::KinematicModel::JointGroup::defaultState(void)
+{
+    double params[dimension];
+    for (unsigned int i = 0 ; i < dimension ; ++i)
+    {
+	if (stateBounds[2 * i] <= 0.0 && stateBounds[2 * i + 1] >= 0.0)
+	    params[i] = 0.0;
+	else
+	    params[i] = (stateBounds[2 * i] + stateBounds[2 * i + 1]) / 2.0;
+    }
+    computeTransforms(params);
 }

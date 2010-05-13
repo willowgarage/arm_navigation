@@ -325,6 +325,11 @@ namespace planning_models
 
 	    /** \brief The list of links that are updated when computeTransforms() is called, in the order they are updated */
 	    std::vector<Link*>                  updated_links;
+
+	    /** \brief Bring the group to a default state. All joints are
+		at 0. If 0 is not within the bounds of the joint, the
+		middle of the bounds is used. */
+	    void defaultState(void);
 	    
 	    /** \brief Perform forward kinematics starting at the roots
 		within a group. Links that are not in the group are also
@@ -349,7 +354,9 @@ namespace planning_models
 	/** \brief Destructor. Clear all memory. */
 	~KinematicModel(void);
 	
-	/** \brief Bring the robot to a default state */
+	/** \brief Bring the robot to a default state. All joints are
+	    at 0. If 0 is not within the bounds of the joint, the
+	    middle of the bounds is used. */
 	void defaultState(void);
 	
 	/** \brief General the model name **/
