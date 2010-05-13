@@ -300,22 +300,22 @@ namespace planning_models
 	    std::string                         name;
 
 	    /** \brief Names of joints in the order they appear in the group state */
-	    std::vector<std::string>            jointNames;
+	    std::vector<std::string>            joint_names;
 
 	    /** \brief Joint instances in the order they appear in the group state */
 	    std::vector<Joint*>                 joints;
 
 	    /** \brief Index where each joint starts within the group state */
-	    std::vector<unsigned int>           jointIndex;
+	    std::vector<unsigned int>           joint_index;
 
 	    /** \brief Easy way of finding the position of a joint in the list of joints contained in the group */
-	    std::map<std::string, unsigned int> jointMap;
+	    std::map<std::string, unsigned int> joint_map;
 
 	    /** \brief The dimension of the group */
 	    unsigned int                        dimension;
 
 	    /** \brief The bounds for the state corresponding to the group */
-	    std::vector<double>                 stateBounds;
+	    std::vector<double>                 state_bounds;
 	    
 	    /** \brief An array containing the index in the global state for each dimension of the state of the group */
 	    std::vector<unsigned int>           state_index;
@@ -324,7 +324,7 @@ namespace planning_models
 	    std::vector<Joint*>                 jointRoots;
 
 	    /** \brief The list of links that are updated when computeTransforms() is called, in the order they are updated */
-	    std::vector<Link*>                  updatedLinks;
+	    std::vector<Link*>                  updated_links;
 	    
 	    /** \brief Perform forward kinematics starting at the roots
 		within a group. Links that are not in the group are also
@@ -474,53 +474,72 @@ namespace planning_models
     private:
 	
 	/** \brief The name of the model */
-	std::string                                       modelName_;	
+	std::string                                       model_name_;	
 	
 	/** \brief The type of connection this model has with respect to the environment */
-	WorldJointType                                    connectType_;
+	WorldJointType                                    connect_type_;
 
 	/** \brief A map from group names to their instances */
-	std::map<std::string, JointGroup*>                groupMap_;	
+	std::map<std::string, JointGroup*>                group_map_;	
 
 	/** \brief A map from link names to their instances */
-	std::map<std::string, Link*>                      linkMap_;
+	std::map<std::string, Link*>                      link_map_;
 
 	/** \brief A map from joint names to their instances */
-	std::map<std::string, Joint*>                     jointMap_;
+	std::map<std::string, Joint*>                     joint_map_;
 
 	/** \brief The list of joints in the model, in the order they appear in the state vector */
-	std::vector<Joint*>                               jointList_;
+	std::vector<Joint*>                               joint_list_;
 	
 	/** \brief The index at which a joint starts reading values in the state vector */
-	std::vector<unsigned int>                         jointIndex_;
+	std::vector<unsigned int>                         joint_index_;
 	
 	/** \brief The list of links that are updated when computeTransforms() is called, in the order they are updated */
-	std::vector<Link*>                                updatedLinks_;	
+	std::vector<Link*>                                updated_links_;	
 	
 	/** \brief The root joint */
 	Joint                                            *root_;
 	
 	/** \brief The bounds in the form (min, max) for every component of the state */
-	std::vector<double>                               stateBounds_;
+	std::vector<double>                               state_bounds_;
 	
 	/** \brief The dimension of the model */
 	unsigned int                                      dimension_;
 	
 	/** \brief Additional transform to be applied to the tree of links */
-	btTransform                                       rootTransform_;
+	btTransform                                       root_transform_;
 	
+	/** \brief A lock for the instance of this kinematic model */
 	boost::mutex                                      lock_;
 
-
+	/** \brief Compute additional information that is useful in the computation of this model */
 	void buildConvenientDatastructures(void);	
+	
+	/** \brief Allocate the requested groups of joints */
 	void buildGroups(const std::map< std::string, std::vector<std::string> > &groups);
+
+	/** \brief Recursively build the set of joints and links that
+	    make up the kinematic model, using parsed data */
 	Joint* buildRecursive(Link *parent, const urdf::Link *link);
+
+	/** \brief Instantiate a joint based on parsed model information */
 	Joint* constructJoint(const urdf::Joint *urdfJoint, std::vector<double> &bounds);
+
+	/** \brief Instantiate a link based on parsed model information */
 	Link* constructLink(const urdf::Link *urdfLink);
+
+	/** \brief Instantiate the correct shape from the geometry
+	    specified in the parsed model. This will retrieve
+	    resources if necessary. */
 	shapes::Shape* constructShape(const urdf::Geometry *geom);
 
+	/** \brief Clone a joint */
 	Joint* copyJoint(const Joint *joint);
+
+	/** \brief Clone a link */
 	Link* copyLink(const Link *link);
+
+	/** \brief Perform a copy of the links and joints starting at a specified link */
 	Joint* copyRecursive(Link *parent, const Link *link);
     
     };

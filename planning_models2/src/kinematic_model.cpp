@@ -50,20 +50,20 @@
 planning_models::KinematicModel::KinematicModel(const KinematicModel &source)
 {
     dimension_ = 0;
-    modelName_ = source.modelName_;
-    rootTransform_ = source.rootTransform_;
-    connectType_ = source.connectType_;
+    model_name_ = source.model_name_;
+    root_transform_ = source.root_transform_;
+    connect_type_ = source.connect_type_;
     
     if (source.root_)
     {
 	root_ = copyRecursive(NULL, source.root_->child_link);
-	stateBounds_ = source.stateBounds_;
+	state_bounds_ = source.state_bounds_;
 	
 	std::vector<const JointGroup*> groups;
 	source.getGroups(groups);
 	std::map< std::string, std::vector<std::string> > groupContent;
 	for (unsigned int i = 0 ; i < groups.size() ; ++i)
-	    groupContent[groups[i]->name] = groups[i]->jointNames;
+	    groupContent[groups[i]->name] = groups[i]->joint_names;
 	buildGroups(groupContent);
 	buildConvenientDatastructures();
     }
@@ -74,9 +74,9 @@ planning_models::KinematicModel::KinematicModel(const KinematicModel &source)
 planning_models::KinematicModel::KinematicModel(const urdf::Model &model, const std::map< std::string, std::vector<std::string> > &groups, WorldJointType wjt)
 {    
     dimension_ = 0;
-    modelName_ = model.getName();
-    rootTransform_.setIdentity();
-    connectType_ = wjt;
+    model_name_ = model.getName();
+    root_transform_.setIdentity();
+    connect_type_ = wjt;
     
     if (model.getRoot())
     {
@@ -94,7 +94,7 @@ planning_models::KinematicModel::KinematicModel(const urdf::Model &model, const 
 
 planning_models::KinematicModel::~KinematicModel(void)
 {
-    for (std::map<std::string, JointGroup*>::iterator it = groupMap_.begin() ; it != groupMap_.end() ; ++it)
+    for (std::map<std::string, JointGroup*>::iterator it = group_map_.begin() ; it != group_map_.end() ; ++it)
 	delete it->second;
     if (root_)
 	delete root_;
@@ -102,12 +102,12 @@ planning_models::KinematicModel::~KinematicModel(void)
 
 const std::string& planning_models::KinematicModel::getName(void) const
 {
-    return modelName_;
+    return model_name_;
 }
 
 planning_models::KinematicModel::WorldJointType planning_models::KinematicModel::getWorldJointType(void) const
 {
-    return connectType_;
+    return connect_type_;
 }
 
 unsigned int planning_models::KinematicModel::getDimension(void) const
@@ -117,17 +117,17 @@ unsigned int planning_models::KinematicModel::getDimension(void) const
 
 const std::vector<double> &planning_models::KinematicModel::getStateBounds(void) const
 {
-    return stateBounds_;
+    return state_bounds_;
 }
 
 const btTransform& planning_models::KinematicModel::getRootTransform(void) const
 {
-    return rootTransform_;
+    return root_transform_;
 }
 
 void planning_models::KinematicModel::setRootTransform(const btTransform &transform)
 {
-    rootTransform_ = transform;
+    root_transform_ = transform;
 }
 
 void planning_models::KinematicModel::lock(void)
@@ -148,10 +148,10 @@ void planning_models::KinematicModel::defaultState(void)
     double params[dimension_];
     for (unsigned int i = 0 ; i < dimension_ ; ++i)
     {
-	if (stateBounds_[2 * i] <= 0.0 && stateBounds_[2 * i + 1] >= 0.0)
+	if (state_bounds_[2 * i] <= 0.0 && state_bounds_[2 * i + 1] >= 0.0)
 	    params[i] = 0.0;
 	else
-	    params[i] = (stateBounds_[2 * i] + stateBounds_[2 * i + 1]) / 2.0;
+	    params[i] = (state_bounds_[2 * i] + state_bounds_[2 * i + 1]) / 2.0;
     }
     computeTransforms(params);
 }
@@ -160,8 +160,8 @@ void planning_models::KinematicModel::buildConvenientDatastructures(void)
 {
     if (root_)
     {
-	updatedLinks_.push_back(root_->child_link);
-	getChildLinks(root_->child_link, updatedLinks_);      
+	updated_links_.push_back(root_->child_link);
+	getChildLinks(root_->child_link, updated_links_);      
     }
 }
 
@@ -172,8 +172,8 @@ void planning_models::KinematicModel::buildGroups(const std::map< std::string, s
 	std::vector<Joint*> jointv;
 	for (unsigned int i = 0 ; i < it->second.size() ; ++i)
 	{
-	    std::map<std::string, Joint*>::iterator p = jointMap_.find(it->second[i]);
-	    if (p == jointMap_.end())
+	    std::map<std::string, Joint*>::iterator p = joint_map_.find(it->second[i]);
+	    if (p == joint_map_.end())
 	    {
 		ROS_ERROR("Unknown joint '%s'. Not adding to group '%s'", it->second[i].c_str(), it->first.c_str());
 		jointv.clear();
@@ -187,24 +187,24 @@ void planning_models::KinematicModel::buildGroups(const std::map< std::string, s
 	else
 	{
 	    ROS_DEBUG("Adding group '%s'", it->first.c_str());
-	    groupMap_[it->first] = new JointGroup(this, it->first, jointv);
+	    group_map_[it->first] = new JointGroup(this, it->first, jointv);
 	}
     }
 }
 
 planning_models::KinematicModel::Joint* planning_models::KinematicModel::buildRecursive(Link *parent, const urdf::Link *link)
 {
-    Joint *joint = constructJoint(link->parent_joint.get(), stateBounds_);
+    Joint *joint = constructJoint(link->parent_joint.get(), state_bounds_);
     joint->state_index = dimension_;
-    jointMap_[joint->name] = joint;
-    jointList_.push_back(joint);
-    jointIndex_.push_back(dimension_);
+    joint_map_[joint->name] = joint;
+    joint_list_.push_back(joint);
+    joint_index_.push_back(dimension_);
     dimension_ += joint->used_params;
     joint->parent_link = parent;
     joint->child_link = constructLink(link);
     if (parent == NULL)
 	joint->child_link->joint_origin_transform.setIdentity();
-    linkMap_[joint->child_link->name] = joint->child_link;
+    link_map_[joint->child_link->name] = joint->child_link;
     joint->child_link->parent_joint = joint;
     
     for (unsigned int i = 0 ; i < link->child_links.size() ; ++i)
@@ -288,7 +288,7 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::constru
     {
 	// we had no joint, so this must be connecting to the world;
 	result = new WorldJoint(this);
-	switch (connectType_)
+	switch (connect_type_)
 	{
 	case CONNECT_XYZ_QUAT:
 	    bounds.insert(bounds.end(), 14, 0.0);
@@ -423,13 +423,13 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
 
 void planning_models::KinematicModel::computeTransforms(const double *params)
 {
-    const unsigned int js = jointList_.size();
+    const unsigned int js = joint_list_.size();
     for (unsigned int i = 0  ; i < js ; ++i)
-	jointList_[i]->updateVariableTransform(params + jointIndex_[i]);
+	joint_list_[i]->updateVariableTransform(params + joint_index_[i]);
     
-    const unsigned int ls = updatedLinks_.size();
+    const unsigned int ls = updated_links_.size();
     for (unsigned int i = 0 ; i < ls ; ++i)
-	updatedLinks_[i]->computeTransform();
+	updated_links_[i]->computeTransform();
 }
 
 const planning_models::KinematicModel::Joint* planning_models::KinematicModel::getRoot(void) const
@@ -444,17 +444,17 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::getRoot
 
 bool planning_models::KinematicModel::hasJoint(const std::string &name) const
 {
-    return jointMap_.find(name) != jointMap_.end();
+    return joint_map_.find(name) != joint_map_.end();
 }
 
 bool planning_models::KinematicModel::hasLink(const std::string &name) const
 {
-    return linkMap_.find(name) != linkMap_.end();
+    return link_map_.find(name) != link_map_.end();
 }
 
 bool planning_models::KinematicModel::hasGroup(const std::string &name) const
 {
-    return groupMap_.find(name) != groupMap_.end();
+    return group_map_.find(name) != group_map_.end();
 }
 
 namespace planning_models
@@ -463,10 +463,10 @@ namespace planning_models
     {
 	
 	template<typename T>
-	T getJoint(const std::map<std::string, KinematicModel::Joint*> &jointMap, const std::string &name)
+	T getJoint(const std::map<std::string, KinematicModel::Joint*> &joint_map, const std::string &name)
 	{
-	    std::map<std::string, KinematicModel::Joint*>::const_iterator it = jointMap.find(name);
-	    if (it == jointMap.end())
+	    std::map<std::string, KinematicModel::Joint*>::const_iterator it = joint_map.find(name);
+	    if (it == joint_map.end())
 	    {
 		ROS_ERROR("Joint '%s' not found", name.c_str());
 		return NULL;
@@ -476,10 +476,10 @@ namespace planning_models
 	}	
 	
 	template<typename T>
-	T getLink(const std::map<std::string, KinematicModel::Link*> &linkMap, const std::string &name)
+	T getLink(const std::map<std::string, KinematicModel::Link*> &link_map, const std::string &name)
 	{
-	    std::map<std::string, KinematicModel::Link*>::const_iterator it = linkMap.find(name);
-	    if (it == linkMap.end())
+	    std::map<std::string, KinematicModel::Link*>::const_iterator it = link_map.find(name);
+	    if (it == link_map.end())
 	    {
 		ROS_ERROR("Link '%s' not found", name.c_str());
 		return NULL;
@@ -489,10 +489,10 @@ namespace planning_models
 	}
 	
 	template<typename T>
-	T getGroup(const std::map<std::string, KinematicModel::JointGroup*> &groupMap, const std::string &name)
+	T getGroup(const std::map<std::string, KinematicModel::JointGroup*> &group_map, const std::string &name)
 	{
-	    std::map<std::string, KinematicModel::JointGroup*>::const_iterator it = groupMap.find(name);
-	    if (it == groupMap.end())
+	    std::map<std::string, KinematicModel::JointGroup*>::const_iterator it = group_map.find(name);
+	    if (it == group_map.end())
 	    {
 		ROS_ERROR("Joint group '%s' not found", name.c_str());
 		return NULL;
@@ -502,26 +502,26 @@ namespace planning_models
 	}
 	
 	template<typename T>
-	void getJoints(const std::vector<KinematicModel::Joint*> &jointList, std::vector<T> &joints)
+	void getJoints(const std::vector<KinematicModel::Joint*> &joint_list, std::vector<T> &joints)
 	{
-	    joints.reserve(jointList.size());
-	    for (unsigned int i = 0 ; i < jointList.size() ; ++i)
-		joints.push_back(jointList[i]);
+	    joints.reserve(joint_list.size());
+	    for (unsigned int i = 0 ; i < joint_list.size() ; ++i)
+		joints.push_back(joint_list[i]);
 	}
 	
 	template<typename T>
-	void getLinks(const std::map<std::string, KinematicModel::Link*> &linkMap, std::vector<T> &links)
+	void getLinks(const std::map<std::string, KinematicModel::Link*> &link_map, std::vector<T> &links)
 	{
-	    links.reserve(linkMap.size());
-	    for (std::map<std::string, KinematicModel::Link*>::const_iterator it = linkMap.begin() ; it != linkMap.end() ; ++it)
+	    links.reserve(link_map.size());
+	    for (std::map<std::string, KinematicModel::Link*>::const_iterator it = link_map.begin() ; it != link_map.end() ; ++it)
 		links.push_back(it->second);
 	}
 	
 	template<typename T>
-	void getGroups(const std::map<std::string, KinematicModel::JointGroup*> &groupMap, std::vector<T> &groups)
+	void getGroups(const std::map<std::string, KinematicModel::JointGroup*> &group_map, std::vector<T> &groups)
 	{
-	    groups.reserve(groupMap.size());
-	    for (std::map<std::string, KinematicModel::JointGroup*>::const_iterator it = groupMap.begin() ; it != groupMap.end() ; ++it)
+	    groups.reserve(group_map.size());
+	    for (std::map<std::string, KinematicModel::JointGroup*>::const_iterator it = group_map.begin() ; it != group_map.end() ; ++it)
 		groups.push_back(it->second);
 	}
 	
@@ -565,9 +565,9 @@ namespace planning_models
 	}
 	
 	template<typename T>
-	void getAttachedBodies(const std::map<std::string, KinematicModel::Link*> &linkMap, std::vector<T> &attached_bodies)
+	void getAttachedBodies(const std::map<std::string, KinematicModel::Link*> &link_map, std::vector<T> &attached_bodies)
 	{
-	    for (std::map<std::string, KinematicModel::Link*>::const_iterator it = linkMap.begin() ; it != linkMap.end() ; ++it)
+	    for (std::map<std::string, KinematicModel::Link*>::const_iterator it = link_map.begin() ; it != link_map.end() ; ++it)
 		attached_bodies.insert(attached_bodies.end(), it->second->attached_bodies.begin(), it->second->attached_bodies.end());
 	}
 	
@@ -576,65 +576,65 @@ namespace planning_models
 
 planning_models::KinematicModel::Joint* planning_models::KinematicModel::getJoint(const std::string &name)
 {
-    return detail::getJoint<Joint*>(jointMap_, name);
+    return detail::getJoint<Joint*>(joint_map_, name);
 }
 
 const planning_models::KinematicModel::Joint* planning_models::KinematicModel::getJoint(const std::string &name) const
 {
-    return detail::getJoint<const Joint*>(jointMap_, name);
+    return detail::getJoint<const Joint*>(joint_map_, name);
 }
 
 planning_models::KinematicModel::Link* planning_models::KinematicModel::getLink(const std::string &name)
 {
-    return detail::getLink<Link*>(linkMap_, name);
+    return detail::getLink<Link*>(link_map_, name);
 }
 
 const planning_models::KinematicModel::Link* planning_models::KinematicModel::getLink(const std::string &name) const
 {
-    return detail::getLink<const Link*>(linkMap_, name);
+    return detail::getLink<const Link*>(link_map_, name);
 }
 
 planning_models::KinematicModel::JointGroup* planning_models::KinematicModel::getGroup(const std::string &name)
 {
-    return detail::getGroup<JointGroup*>(groupMap_, name);
+    return detail::getGroup<JointGroup*>(group_map_, name);
 }
 
 const planning_models::KinematicModel::JointGroup* planning_models::KinematicModel::getGroup(const std::string &name) const
 {
-    return detail::getGroup<const JointGroup*>(groupMap_, name);
+    return detail::getGroup<const JointGroup*>(group_map_, name);
 }
 
 void planning_models::KinematicModel::getGroups(std::vector<JointGroup*> &groups)
 {
-    detail::getGroups<JointGroup*>(groupMap_, groups);
+    detail::getGroups<JointGroup*>(group_map_, groups);
 }
 
 void planning_models::KinematicModel::getGroups(std::vector<const JointGroup*> &groups) const
 {
-    detail::getGroups<const JointGroup*>(groupMap_, groups);
+    detail::getGroups<const JointGroup*>(group_map_, groups);
 }
 
 void planning_models::KinematicModel::getGroupNames(std::vector<std::string> &groups) const
 {
-    groups.reserve(groupMap_.size());
-    for (std::map<std::string, JointGroup*>::const_iterator it = groupMap_.begin() ; it != groupMap_.end() ; ++it)
+    groups.reserve(group_map_.size());
+    for (std::map<std::string, JointGroup*>::const_iterator it = group_map_.begin() ; it != group_map_.end() ; ++it)
 	groups.push_back(it->second->name);
 }
 
 void planning_models::KinematicModel::getLinks(std::vector<Link*> &links)
 {
-    detail::getLinks<Link*>(linkMap_, links);
+    detail::getLinks<Link*>(link_map_, links);
 }
 
 void planning_models::KinematicModel::getLinks(std::vector<const Link*> &links) const
 {
-    detail::getLinks<const Link*>(linkMap_, links);
+    detail::getLinks<const Link*>(link_map_, links);
 }
 
 void planning_models::KinematicModel::getLinkNames(std::vector<std::string> &links) const
 {
-    links.reserve(linkMap_.size());
-    for (std::map<std::string, Link*>::const_iterator it = linkMap_.begin() ; it != linkMap_.end() ; ++it)
+    links.reserve(link_map_.size());
+    for (std::map<std::string, Link*>::const_iterator it = link_map_.begin() ; it != link_map_.end() ; ++it)
 	links.push_back(it->second->name);
 }
 
@@ -650,19 +650,19 @@ void planning_models::KinematicModel::getChildLinks(const Link* parent, std::vec
 
 void planning_models::KinematicModel::getJoints(std::vector<Joint*> &joints)
 {
-    detail::getJoints<Joint*>(jointList_, joints);
+    detail::getJoints<Joint*>(joint_list_, joints);
 }
 
 void planning_models::KinematicModel::getJoints(std::vector<const Joint*> &joints) const
 {
-    detail::getJoints<const Joint*>(jointList_, joints);
+    detail::getJoints<const Joint*>(joint_list_, joints);
 }
 
 void planning_models::KinematicModel::getJointNames(std::vector<std::string> &joints) const
 {
-    joints.reserve(jointList_.size());
-    for (unsigned int i = 0 ; i < jointList_.size() ; ++i)
-	joints.push_back(jointList_[i]->name);
+    joints.reserve(joint_list_.size());
+    for (unsigned int i = 0 ; i < joint_list_.size() ; ++i)
+	joints.push_back(joint_list_[i]->name);
 }
 
 void planning_models::KinematicModel::getChildJoints(const Joint* parent, std::vector<Joint*> &joints)
@@ -677,25 +677,25 @@ void planning_models::KinematicModel::getChildJoints(const Joint* parent, std::v
 
 void planning_models::KinematicModel::getAttachedBodies(std::vector<AttachedBody*> &attached_bodies)
 {
-    detail::getAttachedBodies<AttachedBody*>(linkMap_, attached_bodies);
+    detail::getAttachedBodies<AttachedBody*>(link_map_, attached_bodies);
 }
 
 void planning_models::KinematicModel::getAttachedBodies(std::vector<const AttachedBody*> &attached_bodies) const
 {
-    detail::getAttachedBodies<const AttachedBody*>(linkMap_, attached_bodies);
+    detail::getAttachedBodies<const AttachedBody*>(link_map_, attached_bodies);
 }
 
 planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyRecursive(Link *parent, const Link *link)
 {
     Joint *joint = copyJoint(link->parent_joint);
     joint->state_index = dimension_;
-    jointMap_[joint->name] = joint;
-    jointList_.push_back(joint);
-    jointIndex_.push_back(dimension_);
+    joint_map_[joint->name] = joint;
+    joint_list_.push_back(joint);
+    joint_index_.push_back(dimension_);
     dimension_ += joint->used_params;
     joint->parent_link = parent;
     joint->child_link = copyLink(link);
-    linkMap_[joint->child_link->name] = joint->child_link;
+    link_map_[joint->child_link->name] = joint->child_link;
     joint->child_link->parent_joint = joint;
     
     for (unsigned int i = 0 ; i < link->child_joint.size() ; ++i)
@@ -776,7 +776,7 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyJoi
 
 void planning_models::KinematicModel::printModelInfo(std::ostream &out) const
 {
-    out << "Model " << modelName_ << " connecting to the world using connection type " << connectType_ << std::endl;
+    out << "Model " << model_name_ << " connecting to the world using connection type " << connect_type_ << std::endl;
     
     out << "Complete model state dimension = " << dimension_ << std::endl;
     
@@ -786,7 +786,7 @@ void planning_models::KinematicModel::printModelInfo(std::ostream &out) const
     out.precision(5);
     out << "State bounds: ";
     for (unsigned int i = 0 ; i < dimension_ ; ++i)
-	out << "[" << stateBounds_[2 * i] << ", " << stateBounds_[2 * i + 1] << "] ";
+	out << "[" << state_bounds_[2 * i] << ", " << state_bounds_[2 * i + 1] << "] ";
     out << std::endl;
     out.precision(old_prec);    
     out.flags(old_flags);
@@ -964,25 +964,25 @@ planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, c
 {
     name = groupName;
     joints = groupJoints;
-    jointNames.resize(joints.size());
-    jointIndex.resize(joints.size());
+    joint_names.resize(joints.size());
+    joint_index.resize(joints.size());
     dimension = 0;
     
     const std::vector<double> &allBounds = owner->getStateBounds();
     
     for (unsigned int i = 0 ; i < joints.size() ; ++i)
     {
-	jointNames[i] = joints[i]->name;
-	jointIndex[i] = dimension;
+	joint_names[i] = joints[i]->name;
+	joint_index[i] = dimension;
 	dimension += joints[i]->used_params;
-	jointMap[jointNames[i]] = i;
+	joint_map[joint_names[i]] = i;
 	
 	for (unsigned int k = 0 ; k < joints[i]->used_params ; ++k)
 	{
 	    const unsigned int si = joints[i]->state_index + k;
 	    state_index.push_back(si);
-	    stateBounds.push_back(allBounds[2 * si]);
-	    stateBounds.push_back(allBounds[2 * si + 1]);
+	    state_bounds.push_back(allBounds[2 * si]);
+	    state_bounds.push_back(allBounds[2 * si + 1]);
 	}
     }
     
@@ -1006,8 +1006,8 @@ planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, c
     
     for (unsigned int i = 0 ; i < jointRoots.size() ; ++i)
     {
-	updatedLinks.push_back(jointRoots[i]->child_link);
-	owner->getChildLinks(jointRoots[i]->child_link, updatedLinks);
+	updated_links.push_back(jointRoots[i]->child_link);
+	owner->getChildLinks(jointRoots[i]->child_link, updated_links);
     }
 }
 
@@ -1017,13 +1017,13 @@ planning_models::KinematicModel::JointGroup::~JointGroup(void)
 
 bool planning_models::KinematicModel::JointGroup::hasJoint(const std::string &joint) const
 {
-    return jointMap.find(joint) != jointMap.end();
+    return joint_map.find(joint) != joint_map.end();
 }
 
 int planning_models::KinematicModel::JointGroup::getJointPosition(const std::string &joint) const
 {
-    std::map<std::string, unsigned int>::const_iterator it = jointMap.find(joint);
-    if (it != jointMap.end())
+    std::map<std::string, unsigned int>::const_iterator it = joint_map.find(joint);
+    if (it != joint_map.end())
 	return it->second;
     else
     {
@@ -1036,9 +1036,9 @@ void planning_models::KinematicModel::JointGroup::computeTransforms(const double
 {
     const unsigned int js = joints.size();
     for (unsigned int i = 0  ; i < js ; ++i)
-	joints[i]->updateVariableTransform(params + jointIndex[i]);
+	joints[i]->updateVariableTransform(params + joint_index[i]);
     
-    const unsigned int ls = updatedLinks.size();
+    const unsigned int ls = updated_links.size();
     for (unsigned int i = 0 ; i < ls ; ++i)
-	updatedLinks[i]->computeTransform();
+	updated_links[i]->computeTransform();
 }
