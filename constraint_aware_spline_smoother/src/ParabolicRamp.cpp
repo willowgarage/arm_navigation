@@ -325,7 +325,7 @@ Real PPRamp::CalcMinAccel(Real endTime,Real sign,Real& switchTime) const
     //else if(sign < 0.0 && x1 < x0+dx0*endTime) return -1;
     switchTime = 0;
     Real a=(dx1-dx0)/endTime;
-    if(sign > 0.0 == a >= 0.0) return -1;
+    if((sign > 0.0) == (a >= 0.0)) return -1;
     else return Abs(a);
   }
 
@@ -773,11 +773,11 @@ bool ParabolicRampND::SolveMinTimeLinear(const Vector& amax,const Vector& vmax)
     ramps[i].dx1=dx1[i];
     if(vmax[i]==0 || amax[i]==0) {
       if(!FuzzyEquals(x0[i],x1[i],EpsilonX)) {
-	printf("index %d vmax = %g, amax = %g, X0 != X1 (%g != %g)\n",i,vmax[i],amax[i],x0[i],x1[i]);
+        printf("index %d vmax = %g, amax = %g, X0 != X1 (%g != %g)\n",(int) i,vmax[i],amax[i],x0[i],x1[i]);
 	return false;
       }
       if(!FuzzyEquals(dx0[i],dx1[i],EpsilonV)) {
-	printf("index %d vmax = %g, amax = %g, DX0 != DX1 (%g != %g)\n",i,vmax[i],amax[i],dx0[i],dx1[i]);
+        printf("index %d vmax = %g, amax = %g, DX0 != DX1 (%g != %g)\n",(int) i,vmax[i],amax[i],dx0[i],dx1[i]);
 	return false;
       }
       ramps[i].tswitch1=ramps[i].tswitch2=ramps[i].ttotal=0;
@@ -829,11 +829,11 @@ bool ParabolicRampND::SolveMinTime(const Vector& amax,const Vector& vmax)
     ramps[i].dx1=dx1[i];
     if(vmax[i]==0 || amax[i]==0) {
       if(!FuzzyEquals(x0[i],x1[i],EpsilonX)) {
-	printf("index %d vmax = %g, amax = %g, X0 != X1 (%g != %g)\n",i,vmax[i],amax[i],x0[i],x1[i]);
+        printf("index %d vmax = %g, amax = %g, X0 != X1 (%g != %g)\n",(int)i,vmax[i],amax[i],x0[i],x1[i]);
 	return false;
       }
       if(!FuzzyEquals(dx0[i],dx1[i],EpsilonV)) {
-	printf("index %d vmax = %g, amax = %g, DX0 != DX1 (%g != %g)\n",i,vmax[i],amax[i],dx0[i],dx1[i]);
+        printf("index %d vmax = %g, amax = %g, DX0 != DX1 (%g != %g)\n",(int)i,vmax[i],amax[i],dx0[i],dx1[i]);
 	return false;
       }
       ramps[i].tswitch1=ramps[i].tswitch2=ramps[i].ttotal=0;
@@ -849,7 +849,7 @@ bool ParabolicRampND::SolveMinTime(const Vector& amax,const Vector& vmax)
 	ramps[i].ttotal = endTime;
       }
       else if(!ramps[i].SolveMinAccel(endTime,vmax[i])) {
-	printf("Failed solving min accel for joint %d\n",i);
+        printf("Failed solving min accel for joint %d\n",(int)i);
 	ramps[i].SolveMinTime(amax[i],vmax[i]);
 	printf("its min time is %g\n",ramps[i].ttotal);
 	if(ramps[i].tswitch1==ramps[i].tswitch2)

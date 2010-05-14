@@ -540,6 +540,7 @@ bool DynamicPath::TryShortcut(Real t1,Real t2,FeasibilityCheckerBase* feas,Dista
     assert(ramps[i].x1 == ramps[i+1].x0);
     assert(ramps[i].dx1 == ramps[i+1].dx0);
   }
+  return true;
 }
 
 int DynamicPath::Shortcut(int numIters,FeasibilityCheckerBase* space,Real tol)

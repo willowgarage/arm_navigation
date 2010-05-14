@@ -273,7 +273,7 @@ bool ParabolicBlendShortCutter<T>::configure()
   }
   ROS_INFO("Configuring parabolic blend short cutter");
   ROS_INFO("Using a discretization value of %f",discretization_);
-  ROS_INFO("Using num_iterations value of %f",num_iterations_);
+  ROS_INFO("Using num_iterations value of %d",(int)num_iterations_);
   feasibility_checker_.reset(new constraint_aware_spline_smoother::FeasibilityChecker());
   return true;
 };
@@ -307,7 +307,6 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
                                    trajectory_in.path_constraints);
   std::vector<Vector> path;        //the sequence of milestones
   Vector vmax,amax;           //velocity and acceleration bounds, respectively
-  int numIters=1000;          //some number of shortcutting iterations
   Real tol=1e-4;              //if a point is feasible, any point within tol is considered acceptable
   //TODO: compute milestones, velocity and acceleration bounds
 
@@ -331,7 +330,6 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
   ROS_DEBUG("Initial path duration: %g\n",(double)traj.GetTotalTime());
   int res=traj.Shortcut(num_iterations_,feasibility_checker_.get(),tol);
   ROS_DEBUG("After shortcutting: duration %g\n",(double)traj.GetTotalTime());
-  double discretization_ = 0.01;
   unsigned int num_points = (unsigned int)(traj.GetTotalTime()/discretization_+0.5) + 1;
   double totalTime = (double) traj.GetTotalTime();
   for(unsigned int i=0; i < num_points; i++)
