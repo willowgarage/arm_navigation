@@ -10,4 +10,6 @@ endif(_make_failed)
 
 set(PROJECT_SOURCE_DIR ${PROJECT_SOURCE_DIR}/build/ompl)
 
+option(ROS "Build against ROS" TRUE)
+
 add_subdirectory(build/ompl)

@@ -8,10 +8,8 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/ompl</url>
   
-  <depend package="rosconsole"/>
-  
   <export>
-    <cpp cflags="-I${prefix}/build/ompl/code `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lompl `rosboost-cfg --lflags date_time` `rosboost-cfg --lflags thread`"/>
+    <cpp cflags="-I${prefix}/build/ompl/code `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lompl `rosboost-cfg --lflags date_time,thread`"/>
   </export>
   
 </package>
