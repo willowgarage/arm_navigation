@@ -36,13 +36,16 @@
 
 #include <planning_models/kinematic_state.h>
 #include <ros/console.h>
+#include <ros/time.h>
 #include <algorithm>
 #include <sstream>
 #include <cmath>
 #include <cstdlib>
+#include <climits>
 
 planning_models::KinematicState::KinematicState(const KinematicModel *model) : owner_(model)
 {
+    randSeed_ = ros::WallTime::now().toNSec() % UINT_MAX;
     params_ = model->getDimension() > 0 ? new double[model->getDimension()] : NULL;
     updated_.resize(model->getDimension(), false);
     defaultState();
@@ -50,7 +53,8 @@ planning_models::KinematicState::KinematicState(const KinematicModel *model) : o
 }
 
 planning_models::KinematicState::KinematicState(const KinematicState &sp) : owner_(sp.owner_), params_(NULL)
-{
+{   
+    randSeed_ = ros::WallTime::now().toNSec() % UINT_MAX;
     copyFrom(sp);
 }
 
@@ -124,7 +128,7 @@ void planning_models::KinematicState::randomStateGroup(const KinematicModel::Joi
     {
 	const unsigned int j  = group->state_index[i];
 	const unsigned int j2 = j << 1;
-	params_[j] = (bounds[j2 + 1] - bounds[j2]) * ((double)rand() / (RAND_MAX + 1.0)) +  bounds[j2];
+	params_[j] = (bounds[j2 + 1] - bounds[j2]) * ((double)rand_r(&randSeed_) / (RAND_MAX + 1.0)) +  bounds[j2];
 	updated_[j] = true;
     }
 }
@@ -136,7 +140,7 @@ void planning_models::KinematicState::randomState(void)
     for (unsigned int i = 0 ; i < dim ; ++i)
     {
 	const unsigned int i2 = i << 1;
-	params_[i] = (bounds[i2 + 1] - bounds[i2]) * ((double)rand() / (RAND_MAX + 1.0)) + bounds[i2];
+	params_[i] = (bounds[i2 + 1] - bounds[i2]) * ((double)rand_r(&randSeed_) / (RAND_MAX + 1.0)) + bounds[i2];
 	updated_[i] = true;
     }
 }
@@ -153,7 +157,7 @@ void planning_models::KinematicState::perturbStateGroup(double factor, const Kin
     {
 	const unsigned int j  = group->state_index[i];
 	const unsigned int j2 = j << 1;
-	params_[j] += factor * (bounds[j2 + 1] - bounds[j2]) * (2.0 * ((double)rand() / (RAND_MAX + 1.0)) - 1.0);
+	params_[j] += factor * (bounds[j2 + 1] - bounds[j2]) * (2.0 * ((double)rand_r(&randSeed_) / (RAND_MAX + 1.0)) - 1.0);
     }
     enforceBoundsGroup(group);
 }
@@ -165,7 +169,7 @@ void planning_models::KinematicState::perturbState(double factor)
     for (unsigned int i = 0 ; i < dim ; ++i)
     {
 	const unsigned int i2 = i << 1;
-	params_[i] += factor * (bounds[i2 + 1] - bounds[i2]) * (2.0 * ((double)rand() / (RAND_MAX + 1.0)) - 1.0);
+	params_[i] += factor * (bounds[i2 + 1] - bounds[i2]) * (2.0 * ((double)rand_r(&randSeed_) / (RAND_MAX + 1.0)) - 1.0);
     }
     enforceBounds();
 }

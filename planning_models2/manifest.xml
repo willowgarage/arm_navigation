@@ -8,6 +8,7 @@
   <url>http://www.ros.org/wiki/urdf</url>
 
   <depend package="urdf"/>
+  <depend package="roslib" />
   <depend package="rosconsole" />
   <depend package="geometric_shapes"/>
   <depend package="bullet"/>

@@ -228,10 +228,16 @@ namespace planning_models
 	
 	/** \brief Copy data from another instance of this class */
 	void copyFrom(const KinematicState &sp);
-	
+
+	/** \brief The kinematic model this state corresponds to */
 	const KinematicModel *owner_;
+
+	/** \brief The set of joint values making up the state of the model. This can be used to perform FK with the kinematic model */
 	double               *params_;
 
+	/** \brief A random seed */
+	unsigned int          randSeed_;
+	
 	/** \brief Marks the dimensions of the state that have been updated */
 	std::vector<bool>     updated_;
     };
