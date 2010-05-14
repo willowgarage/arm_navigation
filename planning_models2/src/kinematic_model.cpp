@@ -1032,6 +1032,24 @@ int planning_models::KinematicModel::JointGroup::getJointPosition(const std::str
     }
 }
 
+planning_models::KinematicModel::JointGroup* planning_models::KinematicModel::JointGroup::addGroup(const JointGroup *group) const
+{
+    std::vector<Joint*> gjoints = joints;
+    for (unsigned int j = 0 ; j < group->joints.size() ; ++j)
+	if (!hasJoint(group->joints[j]->name))
+	    gjoints.push_back(group->joints[j]);
+    return new JointGroup(owner, name + "+" + group->name, gjoints);
+}
+
+planning_models::KinematicModel::JointGroup* planning_models::KinematicModel::JointGroup::removeGroup(const JointGroup *group) const
+{ 
+    std::vector<Joint*> gjoints;
+    for (unsigned int j = 0 ; j < joints.size() ; ++j)
+	if (!group->hasJoint(joints[j]->name))
+	    gjoints.push_back(joints[j]);
+    return new JointGroup(owner, name + "-" + group->name, gjoints);
+}
+
 void planning_models::KinematicModel::JointGroup::computeTransforms(const double *params)
 {
     const unsigned int js = joints.size();

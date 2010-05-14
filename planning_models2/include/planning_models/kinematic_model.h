@@ -308,9 +308,6 @@ namespace planning_models
 	    /** \brief Index where each joint starts within the group state */
 	    std::vector<unsigned int>           joint_index;
 
-	    /** \brief Easy way of finding the position of a joint in the list of joints contained in the group */
-	    std::map<std::string, unsigned int> joint_map;
-
 	    /** \brief The dimension of the group */
 	    unsigned int                        dimension;
 
@@ -343,6 +340,17 @@ namespace planning_models
 	    /** \brief Get the position of a joint inside this group */
 	    int  getJointPosition(const std::string &joint) const;
 	    
+	    /** \brief Construct a group that consists of the union of joints of this group and the argument group */
+	    JointGroup* addGroup(const JointGroup *group) const;
+
+	    /** \brief Construct a group that consists of the joints of this group that are not joints in the argument group */
+	    JointGroup* removeGroup(const JointGroup *group) const;
+	    
+	private:
+	    
+	    /** \brief Easy way of finding the position of a joint in the list of joints contained in the group */
+	    std::map<std::string, unsigned int> joint_map;
+
 	};
 	
 	/** \brief Construct a kinematic model from another one */
