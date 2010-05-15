@@ -48,7 +48,7 @@ planning_models::KinematicState::KinematicState(const KinematicModel *model) : o
     randSeed_ = ros::WallTime::now().toNSec() % UINT_MAX;
     params_ = model->getDimension() > 0 ? new double[model->getDimension()] : NULL;
     updated_.resize(model->getDimension(), false);
-    defaultState();
+    defaultParams();
     reset();
 }
 
@@ -100,7 +100,7 @@ unsigned int planning_models::KinematicState::getDimension(void) const
     return owner_->getDimension();
 }
 
-void planning_models::KinematicState::defaultState(void)
+void planning_models::KinematicState::defaultParams(void)
 {
     const unsigned int dim = owner_->getDimension();
     const std::vector<double> &bounds = owner_->getStateBounds();
@@ -116,12 +116,12 @@ void planning_models::KinematicState::defaultState(void)
     }
 }
 
-void planning_models::KinematicState::randomStateGroup(const std::string &group)
+void planning_models::KinematicState::randomParamsGroup(const std::string &group)
 {
-    randomStateGroup(owner_->getGroup(group));
+    randomParamsGroup(owner_->getGroup(group));
 }
 
-void planning_models::KinematicState::randomStateGroup(const KinematicModel::JointGroup *group)
+void planning_models::KinematicState::randomParamsGroup(const KinematicModel::JointGroup *group)
 {
     const std::vector<double> &bounds = owner_->getStateBounds();
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
@@ -133,7 +133,7 @@ void planning_models::KinematicState::randomStateGroup(const KinematicModel::Joi
     }
 }
 
-void planning_models::KinematicState::randomState(void)
+void planning_models::KinematicState::randomParams(void)
 {   
     const std::vector<double> &bounds = owner_->getStateBounds();
     const unsigned int dim = owner_->getDimension();
@@ -145,12 +145,12 @@ void planning_models::KinematicState::randomState(void)
     }
 }
 
-void planning_models::KinematicState::perturbStateGroup(double factor, const std::string &group)    
+void planning_models::KinematicState::perturbParamsGroup(double factor, const std::string &group)    
 {   
-    perturbStateGroup(factor, owner_->getGroup(group));
+    perturbParamsGroup(factor, owner_->getGroup(group));
 }
 
-void planning_models::KinematicState::perturbStateGroup(double factor, const KinematicModel::JointGroup *group)
+void planning_models::KinematicState::perturbParamsGroup(double factor, const KinematicModel::JointGroup *group)
 {   
     const std::vector<double> &bounds = owner_->getStateBounds();
     for (unsigned int i = 0 ; i < group->dimension ; ++i)
@@ -162,7 +162,7 @@ void planning_models::KinematicState::perturbStateGroup(double factor, const Kin
     enforceBoundsGroup(group);
 }
 
-void planning_models::KinematicState::perturbState(double factor)
+void planning_models::KinematicState::perturbParams(double factor)
 {   
     const std::vector<double> &bounds = owner_->getStateBounds();
     const unsigned int dim = owner_->getDimension();

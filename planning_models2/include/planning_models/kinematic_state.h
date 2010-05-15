@@ -61,25 +61,25 @@ namespace planning_models
 	
 	/** \brief Construct a default state: each value at 0.0, if
 	    within bounds. Otherwise, select middle point. */
-	void defaultState(void);
+	void defaultParams(void);
 	
 	/** \brief Construct a random state (within bounds) */
-	void randomState(void);
+	void randomParams(void);
 
 	/** \brief Construct a random state for a group */
-	void randomStateGroup(const std::string &group);
+	void randomParamsGroup(const std::string &group);
 
 	/** \brief Construct a random state for a group */
-	void randomStateGroup(const KinematicModel::JointGroup *group);
+	void randomParamsGroup(const KinematicModel::JointGroup *group);
 
 	/** \brief Perturb state. Each dimension is perturbed by a factor of its range */
-	void perturbState(double factor);
+	void perturbParams(double factor);
 
 	/** \brief Perturb state of a group. Each dimension is perturbed by a factor of its range */
-	void perturbStateGroup(double factor, const std::string &group);
+	void perturbParamsGroup(double factor, const std::string &group);
 
 	/** \brief Perturb state of a group. Each dimension is perturbed by a factor of its range */
-	void perturbStateGroup(double factor, const KinematicModel::JointGroup *group);
+	void perturbParamsGroup(double factor, const KinematicModel::JointGroup *group);
 	
 	/** \brief Update parameters so that they are within the specified bounds */
 	void enforceBounds(void);
