@@ -908,6 +908,31 @@ void planning_models::KinematicModel::AttachedBody::computeTransform(void)
 }
 
 /* ------------------------ JointGroup ------------------------ */
+bool planning_models::KinematicModel::JointGroup::containsGroup(const JointGroup *group) const
+{
+    for (unsigned int i = 0 ; i < group->jointNames.size() ; ++i)
+        if (!hasJoint(group->jointNames[i]))
+	    return false;
+    return true;
+}
+
+planning_models::KinematicModel::JointGroup* planning_models::KinematicModel::JointGroup::addGroup(const JointGroup *group) const
+{
+    std::vector<Joint*> gjoints = joints;
+    for (unsigned int j = 0 ; j < group->joints.size() ; ++j)
+	if (!hasJoint(group->joints[j]->name))
+	    gjoints.push_back(group->joints[j]);
+    return new JointGroup(owner, name + "+" + group->name, gjoints);
+}
+
+planning_models::KinematicModel::JointGroup* planning_models::KinematicModel::JointGroup::removeGroup(const JointGroup *group) const
+{ 
+    std::vector<Joint*> gjoints;
+    for (unsigned int j = 0 ; j < joints.size() ; ++j)
+	if (!group->hasJoint(joints[j]->name))
+	    gjoints.push_back(joints[j]);
+    return new JointGroup(owner, name + "-" + group->name, gjoints);
+}
 
 planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, const std::string& groupName,
                                                         const std::vector<Joint*> &groupJoints) : owner(model)

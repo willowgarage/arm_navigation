@@ -339,6 +339,9 @@ namespace planning_models
 	    
 	    /** \brief Get the position of a joint inside this group */
 	    int  getJointPosition(const std::string &joint) const;
+
+	    /** \brief Check if this group contains the joints from another group */
+	    bool containsGroup(const JointGroup *group) const;
 	    
 	    /** \brief Construct a group that consists of the union of joints of this group and the argument group */
 	    JointGroup* addGroup(const JointGroup *group) const;

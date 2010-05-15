@@ -326,6 +326,15 @@ namespace planning_models
 		middle of the bounds is used. */
 	    void defaultState(void);
 	    
+	    /** \brief Check if this group contains the joints from another group */
+	    bool containsGroup(const JointGroup *group) const;
+
+	    /** \brief Construct a group that consists of the union of joints of this group and the argument group */
+	    JointGroup* addGroup(const JointGroup *group) const;
+
+	    /** \brief Construct a group that consists of the joints of this group that are not joints in the argument group */
+	    JointGroup* removeGroup(const JointGroup *group) const;
+
 	};
 	
 	/** \brief Construct a kinematic model from another one */
