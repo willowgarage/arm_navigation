@@ -143,9 +143,12 @@ namespace spline_smoother
         valid_durations.push_back(positive_durations[i]);        
     }
 
-    ROS_DEBUG("valid size: %d",valid_durations.size());       
+    ROS_DEBUG("valid size: %d",(int)valid_durations.size());       
     std::sort(valid_durations.begin(),valid_durations.end());
-    solution = valid_durations.front();
+    if(!valid_durations.empty())
+      solution = valid_durations.front();
+    else
+      solution = 0.025;
 
     ROS_DEBUG(" ");
     ROS_DEBUG(" ");
@@ -163,7 +166,7 @@ bool CubicTrajectory::validSolution(const double &q0,
 {
   if (dT == 0.0)
     return false;
-  double a0 = q0;
+  //  double a0 = q0;
   double a1 = v0;
   double a2 = (3*(q1-q0)-(2*v0+v1)*dT)/(dT*dT);
   double a3 = (2*(q0-q1)+(v0+v1)*dT)/(dT*dT*dT);
@@ -249,7 +252,7 @@ bool CubicTrajectory::quadSolve(const double &a,
                                 double &solution)
 {
   double t1(0.0), t2(0.0);
-  double eps = 2.2e-16;
+  //  double eps = 2.2e-16;
   if (fabs(a) > 0.0)
   {
     double discriminant = b*b-4*a*c;
