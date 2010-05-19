@@ -34,4 +34,7 @@ The move_arm package provides an implementation of a action (see the <a href="ht
     <cpp cflags="-I${prefix}/msg/cpp" />
   </export>  
   
+  <platform os="ubuntu" version="9.04"/>
+  <platform os="ubuntu" version="9.10"/>
+  <platform os="ubuntu" version="10.04"/>
 </package>
