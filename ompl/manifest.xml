@@ -17,4 +17,7 @@
     <cpp cflags="-I${prefix}/code `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lompl `rosboost-cfg --lflags thread`"/>
   </export>
   
+  <platform os="ubuntu" version="9.04"/>
+  <platform os="ubuntu" version="9.10"/>
+  <platform os="ubuntu" version="10.04"/>
 </package>
