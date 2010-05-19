@@ -20,6 +20,9 @@ This package defines a set of general-purpose messages and services for motion p
     <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/srv/cpp -I${prefix}/include"/>
   </export>
 
+  <platform os="ubuntu" version="9.04"/>
+  <platform os="ubuntu" version="9.10"/>
+  <platform os="ubuntu" version="10.04"/>
 </package>
 
 
