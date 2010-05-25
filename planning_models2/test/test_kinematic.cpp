@@ -313,7 +313,10 @@ TEST(FK, OneRobot)
     
     std::stringstream ss2;
     model->printModelInfo(ss2);
-    model->printTransforms(ss2);
+
+    // make sure copying of data is accurate
+    planning_models::KinematicModel tempModel = *model;
+    tempModel.printTransforms(ss2);
     
     EXPECT_EQ(ss1.str(), ss2.str());
     
@@ -374,7 +377,10 @@ TEST(FK, OneRobot)
     
     planning_models::KinematicState sp_copy = *sp;
     EXPECT_TRUE(sp_copy == *sp);
-    
+
+    planning_models::KinematicModel m_copy = *model;
+    EXPECT_TRUE(m_copy == *model);
+
     delete sp;
     delete model;
 }

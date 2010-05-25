@@ -43,7 +43,10 @@
 namespace planning_models
 {
     
-    /** \brief A class that can hold the named parameters of this planning model */
+    /** \brief A class that can hold the named parameters of a
+	kinematic model. When setting parameters, the functions that
+	take std::vector<double> as arguments are safer, as the number
+	of parameters is checked. */
     class KinematicState
     {
     public:
@@ -52,9 +55,14 @@ namespace planning_models
 
 	~KinematicState(void);
 	
+	/** \brief Assignment operator */
 	KinematicState &operator=(const KinematicState &rhs);
 	
+	/** \brief Equality operator */
 	bool operator==(const KinematicState &rhs) const;
+
+	/** \brief Not equality operator */
+	bool operator!=(const KinematicState &rhs) const;
 
 	/** \brief Get the dimension of a state */
 	unsigned int getDimension(void) const;
@@ -63,6 +71,16 @@ namespace planning_models
 	    within bounds. Otherwise, select middle point. */
 	void defaultParams(void);
 	
+	/** \brief Construct a default state for a group: each value
+	    at 0.0, if within bounds. Otherwise, select middle
+	    point. */
+	void defaultParamsGroup(const std::string &group);
+
+	/** \brief Construct a default state for a group: each value
+	    at 0.0, if within bounds. Otherwise, select middle
+	    point. */
+	void defaultParamsGroup(const KinematicModel::JointGroup *group);
+
 	/** \brief Construct a random state (within bounds) */
 	void randomParams(void);
 
@@ -123,10 +141,10 @@ namespace planning_models
 	/** \brief Set all the parameters from a group to a given value */
 	void setAllInGroup(const double value, const KinematicModel::JointGroup *group);
 	
-	/** \brief Set the parameters for the complete robot. */
+	/** \brief Set the parameters for the complete robot. Returns true if the state was altereded by this call. */
 	bool setParams(const std::vector<double> &params);
 	
-	/** \brief Set the parameters for the complete robot. */
+	/** \brief Set the parameters for the complete robot. Returns true if the state was altereded by this call.  */
 	bool setParams(const double *params);
 	
 	/** \brief Set the parameters for a given group. Return true if

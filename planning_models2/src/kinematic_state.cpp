@@ -82,6 +82,11 @@ bool planning_models::KinematicState::operator==(const KinematicState &rhs) cons
     return true;
 }
 
+bool planning_models::KinematicState::operator!=(const KinematicState &rhs) const
+{
+    return !(*this == rhs);
+}
+
 void planning_models::KinematicState::copyFrom(const KinematicState &sp)
 {
     owner_ = sp.owner_;
@@ -113,6 +118,26 @@ void planning_models::KinematicState::defaultParams(void)
 	else
 	    params_[i] = (bounds[i2] + bounds[i2 + 1]) / 2.0;
 	updated_[i] = true;
+    }
+}
+
+void planning_models::KinematicState::defaultParamsGroup(const std::string &group)
+{
+    defaultParamsGroup(owner_->getGroup(group));
+}
+
+void planning_models::KinematicState::defaultParamsGroup(const KinematicModel::JointGroup *group)
+{
+    const std::vector<double> &bounds = owner_->getStateBounds();
+    for (unsigned int i = 0 ; i < group->dimension ; ++i)
+    {
+	const unsigned int j  = group->state_index[i];
+	const unsigned int j2 = j << 1;
+
+	if (bounds[j2] <= 0.0 && bounds[j2 + 1] >= 0.0)
+	    params_[j] = 0.0;
+	else
+	    params_[j] = (bounds[j2] + bounds[j2 + 1]) / 2.0;
     }
 }
 
@@ -348,11 +373,24 @@ bool planning_models::KinematicState::setParamsJoints(const double *params, cons
 
 bool planning_models::KinematicState::setParamsJoints(const std::vector<double> &params, const std::vector<std::string> &names)
 {
-    return setParamsJoints(&params[0], names);
+    bool change = false;
+    int u = 0;
+    for (unsigned int i = 0 ; i < names.size() ; ++i)
+    {
+	const KinematicModel::Joint *joint = owner_->getJoint(names[i]);
+	int u2 = u + joint->used_params;
+	ROS_ASSERT(u2 <= (int)params.size());
+	bool ch = setParamsJoint(&params[0] + u, names[i]);
+	u = u2;
+	change = change || ch;
+    }
+    
+    return change;
 }
 
 bool planning_models::KinematicState::setParamsJoint(const std::vector<double> &params, const std::string &name)
 {
+    ROS_ASSERT(params.size() == owner_->getJoint(name)->used_params);
     return setParamsJoint(&params[0], name);
 }
 
@@ -376,7 +414,8 @@ bool planning_models::KinematicState::setParamsJoint(const double *params, const
 }
 
 bool planning_models::KinematicState::setParams(const std::vector<double> &params)
-{ 
+{
+    ROS_ASSERT(params.size() == owner_->getDimension());
     return setParams(&params[0]);
 }
 
@@ -396,11 +435,14 @@ bool planning_models::KinematicState::setParams(const double *params)
 
 bool planning_models::KinematicState::setParamsGroup(const std::vector<double> &params, const std::string &group)
 {
-    return setParamsGroup(&params[0], owner_->getGroup(group));
+    const KinematicModel::JointGroup *jg = owner_->getGroup(group);
+    ROS_ASSERT(params.size() == jg->dimension);
+    return setParamsGroup(&params[0], jg);
 }
 
 bool planning_models::KinematicState::setParamsGroup(const std::vector<double> &params, const KinematicModel::JointGroup *group)
 {
+    ROS_ASSERT(params.size() == group->dimension);
     return setParamsGroup(&params[0], group);
 }
 

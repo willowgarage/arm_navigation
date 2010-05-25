@@ -53,8 +53,11 @@
 namespace planning_models
 {
  
-    /** \brief Definition of a kinematic model. This class is not thread
-	safe, however multiple instances can be created */
+    /** \brief Definition of a kinematic model. Const members of this
+	class are thread safe. Note: if using instances of nested
+	classes (such as JointGroup) make sure that operations
+	involving such instances are in the context of the same
+	kinematic model. */
     class KinematicModel
     {
     public:
@@ -365,6 +368,14 @@ namespace planning_models
 	/** \brief Destructor. Clear all memory. */
 	~KinematicModel(void);
 	
+	/** \brief Assignment operator */
+	KinematicModel& operator=(const KinematicModel &rhs);
+
+	/** \brief Equality operator. Two models are considered equal
+	    if they have the same name, the same connection to the
+	    world and the same set of joint groups */
+	bool operator==(const KinematicModel &rhs) const;
+	
 	/** \brief Bring the robot to a default state. All joints are
 	    at 0. If 0 is not within the bounds of the joint, the
 	    middle of the bounds is used. */
@@ -529,7 +540,10 @@ namespace planning_models
 	
 	/** \brief A lock for the instance of this kinematic model */
 	boost::mutex                                      lock_;
-
+	
+	/** \brief Copy the data of this model from another instance to this one */
+	void copyFrom(const KinematicModel &source);
+	
 	/** \brief Compute additional information that is useful in the computation of this model */
 	void buildConvenientDatastructures(void);	
 	

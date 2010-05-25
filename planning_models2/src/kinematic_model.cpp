@@ -36,6 +36,7 @@
 
 #include "planning_models/kinematic_model.h"
 
+#include <geometric_shapes/shape_operations.h>
 #include <resource_retriever/retriever.h>
 #include <assimp/assimp.hpp>     
 #include <assimp/aiScene.h>      
@@ -46,30 +47,6 @@
 #include <cmath>
 
 /* ------------------------ KinematicModel ------------------------ */
-
-planning_models::KinematicModel::KinematicModel(const KinematicModel &source)
-{
-    dimension_ = 0;
-    model_name_ = source.model_name_;
-    root_transform_ = source.root_transform_;
-    connect_type_ = source.connect_type_;
-    
-    if (source.root_)
-    {
-	root_ = copyRecursive(NULL, source.root_->child_link);
-	state_bounds_ = source.state_bounds_;
-	
-	std::vector<const JointGroup*> groups;
-	source.getGroups(groups);
-	std::map< std::string, std::vector<std::string> > groupContent;
-	for (unsigned int i = 0 ; i < groups.size() ; ++i)
-	    groupContent[groups[i]->name] = groups[i]->joint_names;
-	buildGroups(groupContent);
-	buildConvenientDatastructures();
-    }
-    else
-	root_ = NULL;
-}
 
 planning_models::KinematicModel::KinematicModel(const urdf::Model &model, const std::map< std::string, std::vector<std::string> > &groups, WorldJointType wjt)
 {    
@@ -92,12 +69,64 @@ planning_models::KinematicModel::KinematicModel(const urdf::Model &model, const 
     }
 }
 
+planning_models::KinematicModel::KinematicModel(const KinematicModel &source)
+{
+    copyFrom(source);
+}
+
 planning_models::KinematicModel::~KinematicModel(void)
 {
     for (std::map<std::string, JointGroup*>::iterator it = group_map_.begin() ; it != group_map_.end() ; ++it)
 	delete it->second;
     if (root_)
 	delete root_;
+}
+
+planning_models::KinematicModel& planning_models::KinematicModel::operator=(const KinematicModel &rhs)
+{
+    if (this != &rhs)
+	copyFrom(rhs);
+    return *this;
+}
+
+bool planning_models::KinematicModel::operator==(const KinematicModel &rhs) const
+{
+    if (model_name_ == rhs.model_name_ && connect_type_ == rhs.connect_type_)
+    {
+	std::vector<std::string> g1;
+	getGroupNames(g1);
+	std::vector<std::string> g2;
+	rhs.getGroupNames(g2);
+	std::sort(g1.begin(), g1.end());
+	std::sort(g2.begin(), g2.end());
+	return g1 == g2;
+    }
+    else
+	return false;
+}
+
+void planning_models::KinematicModel::copyFrom(const KinematicModel &source)
+{
+    dimension_ = 0;
+    model_name_ = source.model_name_;
+    root_transform_ = source.root_transform_;
+    connect_type_ = source.connect_type_;
+    
+    if (source.root_)
+    {
+	root_ = copyRecursive(NULL, source.root_->child_link);
+	state_bounds_ = source.state_bounds_;
+	
+	std::vector<const JointGroup*> groups;
+	source.getGroups(groups);
+	std::map< std::string, std::vector<std::string> > groupContent;
+	for (unsigned int i = 0 ; i < groups.size() ; ++i)
+	    groupContent[groups[i]->name] = groups[i]->joint_names;
+	buildGroups(groupContent);
+	buildConvenientDatastructures();
+    }
+    else
+	root_ = NULL;
 }
 
 const std::string& planning_models::KinematicModel::getName(void) const
@@ -386,11 +415,23 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
 			// Create an instance of the Importer class
 			Assimp::Importer importer;
 			
+			// try to get a file extension
+			std::string hint;
+			std::size_t pos = mesh->filename.find_last_of(".");
+			if (pos != std::string::npos)
+			{
+			    hint = mesh->filename.substr(pos + 1);
+			    
+			    // temp hack until everything is stl not stlb
+			    if (hint.find("stl") != std::string::npos)
+				hint = "stl";
+			}
+			
 			// And have it read the given file with some postprocessing
 			const aiScene* scene = importer.ReadFileFromMemory(reinterpret_cast<void*>(res.data.get()), res.size,
 									   aiProcess_Triangulate            |
 									   aiProcess_JoinIdenticalVertices  |
-									   aiProcess_SortByPType);
+									   aiProcess_SortByPType, hint.c_str());
 			if (scene)
 			{
 			    if (scene->HasMeshes())
@@ -402,9 +443,17 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
 			    else
 				ROS_ERROR("There is no mesh specified in the indicated resource");
 			}
+			else
+			{
+			    std::string ext;
+			    importer.GetExtensionList(ext);
+			    ROS_ERROR("Failed to import scene containing mesh: %s. Supported extensions are: %s", importer.GetErrorString(), ext.c_str());
+			}
 			
 			if (result == NULL)
 			    ROS_ERROR("Failed to load mesh '%s'", mesh->filename.c_str());
+			else
+			    ROS_DEBUG("Loaded mesh '%s' consisting of %d triangles", mesh->filename.c_str(), static_cast<shapes::Mesh*>(result)->triangleCount);			
 		    }
 		}
 	    }
