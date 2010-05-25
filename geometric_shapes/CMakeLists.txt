@@ -18,8 +18,7 @@ set(ROS_BUILD_TYPE Release)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 
-rosbuild_add_library(${PROJECT_NAME} src/load_mesh.cpp
-				     src/shapes.cpp
+rosbuild_add_library(${PROJECT_NAME} src/shape_operations.cpp
 				     src/bodies.cpp)
 
 

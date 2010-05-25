@@ -32,19 +32,75 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
+/** \author Ioan Sucan */
+
+#include "geometric_shapes/shape_operations.h"
+
 #include <cstdio>
 #include <cmath>
 #include <algorithm>
 #include <set>
-#include "geometric_shapes/shapes.h"
 
 #include <ros/console.h>
 
-// \author Ioan Sucan  
-
 namespace shapes
 {
-
+  
+    Shape* cloneShape(const Shape *shape)
+    {
+	Shape *result = NULL;
+	if (shape)
+	    switch (shape->type)
+	    {
+	    case SPHERE:
+		result = new Sphere(static_cast<const Sphere*>(shape)->radius);
+		break;
+	    case CYLINDER:
+		result = new Cylinder(static_cast<const Cylinder*>(shape)->radius, static_cast<const Cylinder*>(shape)->length);
+		break;
+	    case BOX:
+		result = new Box(static_cast<const Box*>(shape)->size[0], static_cast<const Box*>(shape)->size[1], static_cast<const Box*>(shape)->size[2]);
+		break;
+	    case MESH:
+		{
+		    const Mesh *src = static_cast<const Mesh*>(shape);
+		    Mesh *dest = new Mesh(src->vertexCount, src->triangleCount);
+		    unsigned int n = 3 * src->vertexCount;
+		    for (unsigned int i = 0 ; i < n ; ++i)
+			dest->vertices[i] = src->vertices[i];
+		    n = 3 * src->triangleCount;
+		    for (unsigned int i = 0 ; i < n ; ++i)
+		    {
+			dest->triangles[i] = src->triangles[i];
+			dest->normals[i] = src->normals[i];
+		    }
+		    result = dest;
+		}
+		break;
+	    default:
+		break;
+	    }
+	return result;
+    }
+    
+    StaticShape* cloneShape(const StaticShape *shape)
+    {
+	StaticShape *result = NULL;
+	if (shape)
+	    switch (shape->type)
+	    {
+	    case PLANE:
+		result = new Plane(static_cast<const Plane*>(shape)->a, static_cast<const Plane*>(shape)->b, 
+				   static_cast<const Plane*>(shape)->c, static_cast<const Plane*>(shape)->d);
+		break;
+	    default:
+		break;
+	    }
+	
+	return result;
+    }
+    
+    
     namespace detail
     {
 	struct myVertex
@@ -331,5 +387,4 @@ namespace shapes
 	
 	return result;
     }
-    
 }
