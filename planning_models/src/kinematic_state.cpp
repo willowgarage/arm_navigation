@@ -440,12 +440,31 @@ bool planning_models::KinematicState::setParamsJoint(const double *params, const
     for (unsigned int i = 0 ; i < joint->usedParams ; ++i)
     {
 	unsigned int pos_i = joint->stateIndex + i;
-	if (params_[pos_i] != params[i] || !seen_[pos_i])
-	{
+        if(pos_i >= seen_.size()) {
+          ROS_INFO_STREAM("For joint " << name << " state index " << joint->stateIndex
+                          << " entry " << i << " pos " << pos_i << " seen isn't big enough " 
+                          << seen_.size());
+        }
+        if((double(sizeof(params))/double(sizeof(double))) <= i) {
+          //ROS_INFO_STREAM("Joint " << name << " params not big enough");
+          if (params_[pos_i] != params[0] || !seen_[pos_i])
+          {
+	    params_[pos_i] = params[0];
+	    seen_[pos_i] = true;
+	    result = true;
+          }
+        } else {
+          //if(seen_.size() <= pos_i) {
+          //  ROS_INFO_STREAM("Joint " << name << " params_ not big enough");
+          //}
+          
+          if (params_[pos_i] != params[i] || !seen_[pos_i])
+          {
 	    params_[pos_i] = params[i];
 	    seen_[pos_i] = true;
 	    result = true;
-	}
+          }
+        }
     }
     
     return result;

@@ -223,10 +223,10 @@ void planning_models::KinematicModel::buildGroups(const std::map< std::string, s
     
 	
     if (jointv.empty())
-	    ROS_ERROR("Skipping group '%s'", it->first.c_str());
+	    ROS_DEBUG("Skipping group '%s'", it->first.c_str());
     else
     {
-	    ROS_ERROR("Adding group '%s'", it->first.c_str());
+	    ROS_DEBUG("Adding group '%s'", it->first.c_str());
 	    groupMap_[it->first] = new JointGroup(this, it->first, jointv);
     }
   }
