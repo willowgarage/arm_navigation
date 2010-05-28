@@ -922,6 +922,7 @@ private:
 
         if(createPlan(req,res))
         {
+          visualizePlan();
           ROS_DEBUG("createPlan succeeded");
           if(!isTrajectoryValid(res.trajectory.joint_trajectory))
           {
@@ -936,7 +937,6 @@ private:
           }
           current_trajectory_ = res.trajectory.joint_trajectory;
           //          printTrajectory(current_trajectory_);
-          visualizePlan();
           state_ = START_CONTROL;
           ROS_INFO("Done planning. Transitioning to control");
         }
@@ -1034,7 +1034,7 @@ private:
     motion_planning_msgs::GetMotionPlan::Request req;	    
     moveArmGoalToPlannerRequest(goal,req);	    
     original_request_ = req;
-    ROS_INFO("Received new goal: 1");
+    ROS_INFO("Received new goal");
     ros::Rate move_arm_rate(move_arm_frequency_);
     move_arm_action_result_.contacts.clear();
     move_arm_action_result_.error_code.val = 0;
@@ -1047,7 +1047,7 @@ private:
           move_arm_action_result_.contacts.clear();
           move_arm_action_result_.error_code.val = 0;
           moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
-	  ROS_INFO("Received new goal: 2");
+	  ROS_INFO("Received new goal, will preempt previous goal");
           original_request_ = req;
 	  if (state_ == QUEUED || state_ == ACTIVE)
 	    stopTrajectory();
