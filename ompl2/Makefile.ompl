@@ -5,10 +5,10 @@ all: installed
 #  svn co -r 267 https://rice-ros-pkg.svn.sourceforge.net/svnroot/rice-ros-pkg/ompl ompl-svn
 FILENAME = ompl_r267.tar.gz
 TARBALL = build/$(FILENAME)
-#TARBALL_URL = http://pr.willowgarage.com/downloads/$(FILENAME)
+TARBALL_URL = http://pr.willowgarage.com/downloads/$(FILENAME)
 
 # temp
-TARBALL_URL = http://sia.cs.rice.edu/$(FILENAME)
+#TARBALL_URL = http://sia.cs.rice.edu/$(FILENAME)
 
 SOURCE_DIR = build/ompl
 UNPACK_CMD = tar xzf
