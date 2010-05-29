@@ -1,0 +1,20 @@
+<package>
+  <description brief="robot_state_conversions">
+
+    robot_state_conversions
+
+  </description>
+  <author>Ioan Sucan</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/planning_msg_conversions</url>
+
+  <depend package="planning_models2" />
+  <depend package="motion_planning_msgs" />
+
+  <export>
+    <cpp cflags="-I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lrobot_state_conversions"/>
+  </export>
+  
+</package>
+

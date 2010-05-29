@@ -308,6 +308,12 @@ namespace planning_models
 	    /** \brief Joint instances in the order they appear in the group state */
 	    std::vector<Joint*>                 joints;
 
+	    /** \brief Joint instances that have a single DOF */
+	    std::vector<Joint*>                 joints_single_dof;
+
+	    /** \brief Joint instances that have multiple DOF */
+	    std::vector<Joint*>                 joints_multi_dof;
+
 	    /** \brief Index where each joint starts within the group state */
 	    std::vector<unsigned int>           joint_index;
 
@@ -456,6 +462,18 @@ namespace planning_models
 	    in the robot state. */
 	void getJoints(std::vector<const Joint*> &joints) const;	
 
+	/** \brief Get the joints that require a single parameter to describe. */
+	void getSingleDOFJoints(std::vector<Joint*> &joints);
+	
+	/** \brief Get the joints that require a single parameter to describe. */
+	void getSingleDOFJoints(std::vector<const Joint*> &joints) const;
+
+	/** \brief Get the joints that require a multiple parameters to describe. */
+	void getMultiDOFJoints(std::vector<Joint*> &joints);
+
+	/** \brief Get the joints that require a multiple parameters to describe. */
+	void getMultiDOFJoints(std::vector<const Joint*> &joints) const;
+
 	/** \brief Get the set of joints that follow a parent joint in the kinematic chain */
 	void getChildJoints(const Joint* parent, std::vector<Joint*> &joints);
 
@@ -519,6 +537,12 @@ namespace planning_models
 
 	/** \brief The list of joints in the model, in the order they appear in the state vector */
 	std::vector<Joint*>                               joint_list_;
+
+	/** \brief The joints in the model that have a single DOF. This is a subset of joint_list_ */
+	std::vector<Joint*>                               joint_single_dof_;
+	
+	/** \brief The joints in the model that have multiple DOF. This is a subset of joint_list_ */
+	std::vector<Joint*>                               joint_multi_dof_;
 	
 	/** \brief The index at which a joint starts reading values in the state vector */
 	std::vector<unsigned int>                         joint_index_;

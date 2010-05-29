@@ -192,6 +192,14 @@ void planning_models::KinematicModel::buildConvenientDatastructures(void)
 	updated_links_.push_back(root_->child_link);
 	getChildLinks(root_->child_link, updated_links_);      
     }
+    for (unsigned int i = 0 ; i < joint_list_.size() ; ++i)
+    {
+	if (joint_list_[i]->used_params == 1)
+	    joint_single_dof_.push_back(joint_list_[i]);
+	else
+	    if (joint_list_[i]->used_params > 1)
+		joint_multi_dof_.push_back(joint_list_[i]);
+    }
 }
 
 void planning_models::KinematicModel::buildGroups(const std::map< std::string, std::vector<std::string> > &groups)
@@ -707,6 +715,26 @@ void planning_models::KinematicModel::getJoints(std::vector<const Joint*> &joint
     detail::getJoints<const Joint*>(joint_list_, joints);
 }
 
+void planning_models::KinematicModel::getSingleDOFJoints(std::vector<const Joint*> &joints) const
+{
+    detail::getJoints<const Joint*>(joint_single_dof_, joints);
+}
+
+void planning_models::KinematicModel::getSingleDOFJoints(std::vector<Joint*> &joints)
+{
+    detail::getJoints<Joint*>(joint_single_dof_, joints);
+}
+
+void planning_models::KinematicModel::getMultiDOFJoints(std::vector<const Joint*> &joints) const
+{
+    detail::getJoints<const Joint*>(joint_multi_dof_, joints);
+}
+
+void planning_models::KinematicModel::getMultiDOFJoints(std::vector<Joint*> &joints)
+{
+    detail::getJoints<Joint*>(joint_multi_dof_, joints);
+}
+
 void planning_models::KinematicModel::getJointNames(std::vector<std::string> &joints) const
 {
     joints.reserve(joint_list_.size());
@@ -1033,6 +1061,12 @@ planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, c
 	    state_bounds.push_back(allBounds[2 * si]);
 	    state_bounds.push_back(allBounds[2 * si + 1]);
 	}
+
+	if (joints[i]->used_params == 1)
+	    joints_single_dof.push_back(joints[i]);
+	else
+	    if (joints[i]->used_params > 1)
+		joints_multi_dof.push_back(joints[i]);
     }
     
     for (unsigned int i = 0 ; i < joints.size() ; ++i)

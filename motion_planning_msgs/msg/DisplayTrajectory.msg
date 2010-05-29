@@ -1,5 +1,7 @@
-# The model id for which this path has been generated
+# The model id for which this path has been generated (the name of the
+#  robot in its description)
 string model_id
+
 # The representation of the path contains position values for all the joints that are moving along the path
 motion_planning_msgs/RobotTrajectory trajectory
 # The robot state is used to obtain positions for all/some of the joints of the robot. 

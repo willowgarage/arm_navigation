@@ -81,13 +81,13 @@ namespace planning_models
 	    point. */
 	void defaultParamsGroup(const KinematicModel::JointGroup *group);
 
-	/** \brief Construct a random state (within bounds) */
+	/** \brief Construct a random state (within bounds). Topology is ignored. */
 	void randomParams(void);
 
-	/** \brief Construct a random state for a group */
+	/** \brief Construct a random state for a group.  Topology is ignored. */
 	void randomParamsGroup(const std::string &group);
 
-	/** \brief Construct a random state for a group */
+	/** \brief Construct a random state for a group.  Topology is ignored. */
 	void randomParamsGroup(const KinematicModel::JointGroup *group);
 
 	/** \brief Perturb state. Each dimension is perturbed by a factor of its range */

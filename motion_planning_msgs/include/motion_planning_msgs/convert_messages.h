@@ -40,7 +40,6 @@
 #include <trajectory_msgs/JointTrajectory.h>
 #include <sensor_msgs/JointState.h>
 #include <motion_planning_msgs/JointConstraint.h>
-#include <motion_planning_msgs/JointPath.h>
 
 #include <motion_planning_msgs/OrientationConstraint.h>
 #include <motion_planning_msgs/SimplePoseConstraint.h>
@@ -48,50 +47,6 @@
 
 namespace motion_planning_msgs
 {
-
-  /**
-     @brief Convert a joint path message to a joint trajectory message
-     @param A reference to the input joint path message
-     @return The joint trajectory message that incorporates the joint path information with zero segment durations, velocities and accelerations.
-   */
-inline  trajectory_msgs::JointTrajectory jointPathToJointTrajectory(const motion_planning_msgs::JointPath &path)
-  {
-    trajectory_msgs::JointTrajectory trajectory;
-    trajectory.header = path.header;
-    trajectory.joint_names = path.joint_names;
-    trajectory.points.resize(path.points.size());
-    for(unsigned int i=0; i< path.points.size(); i++)
-      trajectory.points[i].positions = path.points[i].positions;
-    return trajectory;
-  }
-
-  /**
-     @brief Convert a joint trajectory message to a joint path message (this conversion will cause loss of velocity and acceleration information)
-     @param The input trajectory
-     @return The joint path that contains only the position information from the joint trajectory.
-   */
-inline  motion_planning_msgs::JointPath jointTrajectoryToJointPath(const trajectory_msgs::JointTrajectory &trajectory)
-  {
-    motion_planning_msgs::JointPath path;   
-    path.header = trajectory.header;
-    path.joint_names = trajectory.joint_names;
-    path.points.resize(trajectory.points.size());
-    for(unsigned int i=0; i< trajectory.points.size(); i++)
-      path.points[i].positions = trajectory.points[i].positions;
-    return path;
-  }
-
-  /**
-     @brief Convert a joint state to a joint path point message
-     @param The input joint state message
-     @return The output joint path point message
-  */
-inline  motion_planning_msgs::JointPathPoint jointStateToJointPathPoint(const sensor_msgs::JointState &state)
-  {
-    motion_planning_msgs::JointPathPoint point;
-    point.positions = state.position;
-    return point;
-  }
 
   /**
      @brief Convert a joint state to a joint trajectory point message
@@ -121,24 +76,6 @@ inline  sensor_msgs::JointState jointConstraintsToJointState(const std::vector<m
       state.position[i] = constraints[i].position;
     }
     return state;
-  }
-
-  /**
-     @brief Extract joint position information from a set of joint constraints into a joint state message
-     @param The input vector of joint constraints
-     @return The nominal joint positions from the joint constraints are encoded into the joint state message.
-   */
-inline  motion_planning_msgs::JointPath jointConstraintsToJointPath(const std::vector<motion_planning_msgs::JointConstraint> &constraints)
-  {
-    motion_planning_msgs::JointPath path;
-    if(constraints.empty())
-      return path;
-    sensor_msgs::JointState state = jointConstraintsToJointState(constraints);
-    motion_planning_msgs::JointPathPoint point = jointStateToJointPathPoint(state);
-    //    path.header = constraints[0].header;
-    path.points.push_back(point);
-    path.joint_names = state.name;
-    return path;
   }
 
   /**

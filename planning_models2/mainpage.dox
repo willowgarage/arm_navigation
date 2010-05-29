@@ -10,7 +10,7 @@
 
 \section codeapi Code API
 - see the planning_models::KinematicModel class
-- see the planning_models::StateParams class
+- see the planning_models::KinematicState class
 
 
 */
