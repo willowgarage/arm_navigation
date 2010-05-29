@@ -158,8 +158,17 @@ public:
 
     action_server_.reset(new actionlib::SimpleActionServer<move_arm_msgs::MoveArmAction>(root_handle_, "move_" + group_name, boost::bind(&MoveArm::execute, this, _1)));
 
-    display_path_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_PATH_PUB_TOPIC, 1);
+    display_path_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_PATH_PUB_TOPIC, 1, true);
     display_joint_goal_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_JOINT_GOAL_PUB_TOPIC, 1, true);
+
+    motion_planning_msgs::RobotState robot_state;
+    trajectory_msgs::JointTrajectory joint_traj;
+    getRobotState(robot_state);
+    joint_traj.points.push_back(motion_planning_msgs::jointStateToJointTrajectoryPoint(robot_state.joint_state));
+    joint_traj.joint_names = robot_state.joint_state.name;
+
+    visualizePlan(joint_traj);
+    visualizeJointGoal(joint_traj);
     //        fk_client_ = root_handle_.serviceClient<kinematics_msgs::FKService>(ARM_FK_NAME);
   }	
   virtual ~MoveArm()
@@ -922,7 +931,6 @@ private:
 
         if(createPlan(req,res))
         {
-          visualizePlan();
           ROS_DEBUG("createPlan succeeded");
           if(!isTrajectoryValid(res.trajectory.joint_trajectory))
           {
@@ -936,7 +944,8 @@ private:
             ROS_DEBUG("Trajectory validity check was successful");
           }
           current_trajectory_ = res.trajectory.joint_trajectory;
-          //          printTrajectory(current_trajectory_);
+          visualizePlan(current_trajectory_);
+ //          printTrajectory(current_trajectory_);
           state_ = START_CONTROL;
           ROS_INFO("Done planning. Transitioning to control");
         }
@@ -1122,13 +1131,29 @@ private:
       ROS_INFO("Displaying move arm joint goal.");
     }
   }
-  void visualizePlan()
+  void visualizeJointGoal(const trajectory_msgs::JointTrajectory &trajectory)
+  {
+    ROS_DEBUG("Displaying joint goal");
+    motion_planning_msgs::DisplayTrajectory d_path;
+    d_path.trajectory.joint_trajectory = trajectory;
+    if(!getRobotState(d_path.robot_state))
+    {
+      ROS_ERROR("Could not get robot state");
+    }
+    else
+    {
+      display_joint_goal_publisher_.publish(d_path);
+      ROS_INFO("Displaying move arm joint goal.");
+    }
+  }
+  void visualizePlan(const trajectory_msgs::JointTrajectory &trajectory)
   {
     move_arm_action_feedback_.state = "visualizing plan";
-    action_server_->publishFeedback(move_arm_action_feedback_);
+    if(action_server_->isActive())
+      action_server_->publishFeedback(move_arm_action_feedback_);
     motion_planning_msgs::DisplayTrajectory d_path;
     d_path.model_id = original_request_.motion_plan_request.group_name;
-    d_path.trajectory.joint_trajectory = current_trajectory_;
+    d_path.trajectory.joint_trajectory = trajectory;
     if(!getRobotState(d_path.robot_state))
       ROS_ERROR("Could not get robot state");
     else
