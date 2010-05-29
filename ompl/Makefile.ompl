@@ -7,9 +7,6 @@ FILENAME = ompl_r267.tar.gz
 TARBALL = build/$(FILENAME)
 TARBALL_URL = http://pr.willowgarage.com/downloads/$(FILENAME)
 
-# temp
-#TARBALL_URL = http://sia.cs.rice.edu/$(FILENAME)
-
 SOURCE_DIR = build/ompl
 UNPACK_CMD = tar xzf
 MD5SUM_FILE = $(FILENAME).md5sum
@@ -27,5 +24,5 @@ wiped: Makefile.ompl
 	touch wiped
 
 clean:
-	-cd $(SOURCE_DIR) && make clean
+	-if test -d $(SOURCE_DIR); then cd $(SOURCE_DIR) && make clean ; fi
 	rm -rf installed
