@@ -38,6 +38,7 @@
 #define CHOMP_COLLISION_SPACE_H_
 
 #include <mapping_msgs/CollisionMap.h>
+#include <mapping_msgs/CollisionObject.h>
 
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
@@ -50,6 +51,8 @@
 #include <distance_field/distance_field.h>
 #include <distance_field/propagation_distance_field.h>
 #include <distance_field/pf_distance_field.h>
+#include <planning_environment/models/collision_models.h>
+#include <planning_environment/monitors/kinematic_model_state_monitor.h>
 
 namespace chomp
 {
@@ -65,12 +68,14 @@ public:
    */
   void collisionMapCallback(const mapping_msgs::CollisionMapConstPtr& collision_map);
 
+  void collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collisionObject);
+
   /**
    * \brief Initializes the collision space, listens for messages, etc
    *
    * \return false if not successful
    */
-  bool init(double max_radius_clearance);
+  bool init(planning_environment::CollisionModels* cm, double max_radius_clearance);
 
   /**
    * \brief Lock the collision space from updating/reading
@@ -85,11 +90,27 @@ public:
   double getDistanceGradient(double x, double y, double z,
       double& gradient_x, double& gradient_y, double& gradient_z) const;
 
+  inline void worldToGrid(btVector3 origin, double wx, double wy, double wz, int &gx, int &gy, int &gz) const;
+
+  inline void gridToWorld(btVector3 origin, int gx, int gy, int gz, double &wx, double &wy, double &wz) const;
+
   template<typename Derived, typename DerivedOther>
   bool getCollisionPointPotentialGradient(const ChompCollisionPoint& collision_point, const Eigen::MatrixBase<Derived>& collision_point_pos,
       double& potential, Eigen::MatrixBase<DerivedOther>& gradient) const;
 
 private:
+
+  std::vector<btVector3> interpolateTriangle(btVector3 v0, 
+                                             btVector3 v1, 
+                                             btVector3 v2, double min_res);
+ 
+  double dist(const btVector3 &v0, const btVector3 &v1)
+  {
+    return sqrt( (v1.x()-v0.x())*(v1.x()-v0.x()) + 
+                 (v1.y()-v0.y())*(v1.y()-v0.y()) +  
+                 (v1.z()-v0.z())*(v1.z()-v0.z()) );
+  }
+ 
   ros::NodeHandle node_handle_, root_handle_;
   distance_field::PropagationDistanceField* distance_field_;
   tf::TransformListener tf_;
@@ -97,6 +118,9 @@ private:
   message_filters::Subscriber<mapping_msgs::CollisionMap> collision_map_subscriber_;
   tf::MessageFilter<mapping_msgs::CollisionMap> *collision_map_filter_;
   //tf::MessageNotifier<mapping_msgs::CollisionMap> *collision_map_update_notifier_;
+  message_filters::Subscriber<mapping_msgs::CollisionObject>         *collision_object_subscriber_;
+  tf::MessageFilter<mapping_msgs::CollisionObject>                   *collision_object_filter_;
+
   std::string reference_frame_;
   boost::mutex mutex_;
   std::vector<btVector3> cuboid_points_;
@@ -107,8 +131,20 @@ private:
   double field_bias_y_;
   double field_bias_z_;
 
+  planning_environment::KinematicModelStateMonitor *monitor_;
+  std::map<std::string, std::vector<std::string> > planning_group_link_names_;
+  std::map<std::string, std::vector<bodies::Body *> > planning_group_bodies_;
+
   void initCollisionCuboids();
   void addCollisionCuboid(const std::string param_name);
+
+  planning_environment::CollisionModels* collision_models_;
+
+  void loadRobotBodies();
+  void updateBodiesPoses();
+  void addBodiesInGroupToDistanceField(const std::string& group);
+  void getVoxelsInBody(const bodies::Body &body, std::vector<btVector3> &voxels);
+  
 };
 
 ///////////////////////////// inline functions follow ///////////////////////////////////
@@ -164,6 +200,19 @@ bool ChompCollisionSpace::getCollisionPointPotentialGradient(const ChompCollisio
   }
 
   return (field_distance <= collision_point.getRadius()); // true if point is in collision
+}
+
+inline void ChompCollisionSpace::worldToGrid(btVector3 origin, double wx, double wy, double wz, int &gx, int &gy, int &gz) const {
+  gx = (int)((wx - origin.x()) * (1.0 / resolution_));
+  gy = (int)((wy - origin.y()) * (1.0 / resolution_));
+  gz = (int)((wz - origin.z()) * (1.0 / resolution_));
+}
+
+/** \brief Convert from voxel grid coordinates to world coordinates. */
+inline void ChompCollisionSpace::gridToWorld(btVector3 origin, int gx, int gy, int gz, double &wx, double &wy, double &wz) const {
+  wx = gx * resolution_ + origin.x();
+  wy = gy * resolution_ + origin.y();
+  wz = gz * resolution_ + origin.z();
 }
 
 } // namespace chomp

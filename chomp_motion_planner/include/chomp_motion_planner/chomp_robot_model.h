@@ -122,7 +122,7 @@ public:
    *
    * \return true if successful, false if not
    */
-  bool init();
+  bool init(planning_environment::RobotModels * robot_models);
 
   /**
    * \brief Gets the planning group corresponding to the group name

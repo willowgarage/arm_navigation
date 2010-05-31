@@ -63,8 +63,14 @@ bool ChompPlannerNode::init()
   node_handle_.param("trajectory_duration", trajectory_duration_, 3.0);
   node_handle_.param("trajectory_discretization", trajectory_discretization_, 0.03);
 
+  collision_models_ = new planning_environment::CollisionModels("robot_description");
+  if(!collision_models_->loadedModels()) {
+    ROS_ERROR("Collision models could not load models");
+    return false;
+  }
+
   // build the robot model
-  if (!chomp_robot_model_.init())
+  if (!chomp_robot_model_.init(collision_models_))
     return false;
 
   // load chomp parameters:
@@ -73,7 +79,7 @@ bool ChompPlannerNode::init()
   double max_radius_clearance = chomp_robot_model_.getMaxRadiusClearance();
 
   // initialize the collision space
-  if (!chomp_collision_space_.init(max_radius_clearance))
+  if (!chomp_collision_space_.init(collision_models_,max_radius_clearance))
     return false;
 
   // initialize the visualization publisher:
@@ -90,6 +96,7 @@ bool ChompPlannerNode::init()
 
 ChompPlannerNode::~ChompPlannerNode()
 {
+  delete collision_models_;
 }
 
 int ChompPlannerNode::run()

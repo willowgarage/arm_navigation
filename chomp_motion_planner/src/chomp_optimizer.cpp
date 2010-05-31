@@ -257,6 +257,8 @@ void ChompOptimizer::optimize()
     }
     
   }
+  ROS_INFO_STREAM("We think the path is collision free: " << is_collision_free_);
+
   group_trajectory_.getTrajectory() = best_group_trajectory_;
   updateFullTrajectory();
   ROS_INFO("Terminated after %d iterations, using path from iteration %d", iteration_, last_improvement_iteration_);
@@ -661,7 +663,7 @@ void ChompOptimizer::animatePath()
   {
     visualizeState(i);
     //ros::WallDuration(group_trajectory_.getDiscretization()).sleep();
-    ros::WallDuration(0.01).sleep();
+    ros::WallDuration(.05).sleep();
   }
 }
 

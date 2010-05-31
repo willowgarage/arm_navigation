@@ -57,7 +57,7 @@ ChompRobotModel::~ChompRobotModel()
     delete robot_models_;
 }
 
-bool ChompRobotModel::init()
+bool ChompRobotModel::init(planning_environment::RobotModels * robot_models)
 {
   node_handle_.param("reference_frame", reference_frame_, std::string("base_link"));
 
@@ -67,13 +67,7 @@ bool ChompRobotModel::init()
   max_radius_clearance_ = 0.0;
 
   // create the robot model
-  robot_models_ = new planning_environment::RobotModels("robot_description");
-
-  if (!robot_models_->loadedModels())
-  {
-    ROS_ERROR("Could not load robot models.");
-    return false;
-  }
+  robot_models_ = robot_models;
 
   // get the urdf as a string:
   string urdf_string;

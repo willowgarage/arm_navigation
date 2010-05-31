@@ -53,7 +53,7 @@ rosbuild_add_executable(chomp_planner_node
 )
 target_link_libraries(chomp_planner_node chomp)
 
-rosbuild_add_executable(chomp_cost_server
-	src/chomp_cost_server.cpp
-)
-target_link_libraries(chomp_cost_server chomp)
+#rosbuild_add_executable(chomp_cost_server
+#	src/chomp_cost_server.cpp
+#)
+#target_link_libraries(chomp_cost_server chomp)

@@ -90,6 +90,8 @@ private:
   ros::NodeHandle node_handle_, root_handle_;                         /**< ROS Node handle */
   ros::ServiceServer plan_kinematic_path_service_;      /**< The planning service */
 
+  planning_environment::CollisionModels* collision_models_;
+
   ChompRobotModel chomp_robot_model_;                   /**< Chomp Robot Model */
   ChompParameters chomp_parameters_;                    /**< Chomp Parameters */
   ChompCollisionSpace chomp_collision_space_;           /**< Chomp Collision space */
