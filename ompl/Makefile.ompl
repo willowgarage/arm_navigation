@@ -17,7 +17,7 @@ installed: wiped $(SOURCE_DIR)/unpacked
 	   touch installed
 
 wipe: clean
-	rm -rf build
+	rm -rf $(SOURCE_DIR)/build
 
 wiped: Makefile.ompl
 	make -f Makefile.ompl wipe
