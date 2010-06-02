@@ -143,6 +143,9 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
   // set the start state:
   chomp_robot_model_.jointStateToArray(req.motion_plan_request.start_state.joint_state, trajectory.getTrajectoryPoint(0));
 
+  //configure the distance field for the start state
+  chomp_collision_space_.setStartState(*group, req.motion_plan_request.start_state);
+
   // set the goal state equal to start state, and override the joints specified in the goal
   // joint constraints
   int goal_index = trajectory.getNumPoints()-1;

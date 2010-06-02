@@ -383,7 +383,7 @@ void ChompRobotModel::generateCollisionPoints()
       }
 
     }
-    ROS_INFO("Group %s has %d collision points", group_it->second.name_.c_str(), group_it->second.collision_points_.size());
+    ROS_INFO("Group %s has %u collision points", group_it->second.name_.c_str(), (unsigned int)group_it->second.collision_points_.size());
   }
 
 }

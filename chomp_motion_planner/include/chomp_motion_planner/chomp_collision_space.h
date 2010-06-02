@@ -39,6 +39,7 @@
 
 #include <mapping_msgs/CollisionMap.h>
 #include <mapping_msgs/CollisionObject.h>
+#include <motion_planning_msgs/RobotState.h>
 
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
@@ -47,18 +48,43 @@
 #include <ros/ros.h>
 #include <boost/thread/mutex.hpp>
 #include <chomp_motion_planner/chomp_collision_point.h>
+#include <chomp_motion_planner/chomp_robot_model.h>
 #include <Eigen/Core>
 #include <distance_field/distance_field.h>
 #include <distance_field/propagation_distance_field.h>
 #include <distance_field/pf_distance_field.h>
 #include <planning_environment/models/collision_models.h>
-#include <planning_environment/monitors/kinematic_model_state_monitor.h>
+#include <planning_environment/monitors/collision_space_monitor.h>
 
 namespace chomp
 {
 
 class ChompCollisionSpace
 {
+
+// public:
+
+//   struct KnownObject {
+
+//     KnownObject(void) 
+//     {
+//     }
+
+//     ~KnownObject() {
+//     }
+    
+//     void deleteBodies() {
+//       for(unsigned int i = 0; i < bodies_.size(); i++) {
+//         delete bodies_[i];
+//       }
+//       bodies_.clear();
+//     }
+
+//     std::vector<bodies::Body*> bodies_;
+//     std::vector<btVector3> voxels_;
+
+//   };
+
 public:
   ChompCollisionSpace();
   virtual ~ChompCollisionSpace();
@@ -66,9 +92,9 @@ public:
   /**
    * \brief Callback for CollisionMap messages
    */
-  void collisionMapCallback(const mapping_msgs::CollisionMapConstPtr& collision_map);
+  //void collisionMapCallback(const mapping_msgs::CollisionMapConstPtr& collision_map);
 
-  void collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collisionObject);
+  //void collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collisionObject);
 
   /**
    * \brief Initializes the collision space, listens for messages, etc
@@ -89,6 +115,8 @@ public:
 
   double getDistanceGradient(double x, double y, double z,
       double& gradient_x, double& gradient_y, double& gradient_z) const;
+
+  void setStartState(const ChompRobotModel::ChompPlanningGroup& planning_group, const motion_planning_msgs::RobotState& robot_state);
 
   inline void worldToGrid(btVector3 origin, double wx, double wy, double wz, int &gx, int &gy, int &gz) const;
 
@@ -131,7 +159,7 @@ private:
   double field_bias_y_;
   double field_bias_z_;
 
-  planning_environment::KinematicModelStateMonitor *monitor_;
+  planning_environment::CollisionSpaceMonitor *monitor_;
   std::map<std::string, std::vector<std::string> > planning_group_link_names_;
   std::map<std::string, std::vector<bodies::Body *> > planning_group_bodies_;
 
@@ -141,10 +169,12 @@ private:
   planning_environment::CollisionModels* collision_models_;
 
   void loadRobotBodies();
-  void updateBodiesPoses();
-  void addBodiesInGroupToDistanceField(const std::string& group);
+  void updateRobotBodiesPoses();
   void getVoxelsInBody(const bodies::Body &body, std::vector<btVector3> &voxels);
-  
+  void addCollisionObjectsToPoints(std::vector<btVector3>& points);
+  void addBodiesInGroupToPoints(const std::string& group, std::vector<btVector3> &voxels);
+  void addAllBodiesButGroupsToPoints(const std::vector<std::string>& groups, std::vector<btVector3>& body_points);  
+
 };
 
 ///////////////////////////// inline functions follow ///////////////////////////////////

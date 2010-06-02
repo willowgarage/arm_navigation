@@ -35,23 +35,28 @@
 /** \author Mrinal Kalakrishnan */
 
 #include <chomp_motion_planner/chomp_collision_space.h>
+#include <planning_environment/util/construct_object.h>
 #include <sstream>
 
 namespace chomp
 {
 
 ChompCollisionSpace::ChompCollisionSpace():
-  node_handle_("~"),distance_field_(NULL),collision_map_subscriber_(root_handle_,"collision_map_occ",1)
+  node_handle_("~"),distance_field_(NULL),monitor_(NULL),collision_map_subscriber_(root_handle_,"collision_map_occ",1)
 {
 }
 
 ChompCollisionSpace::~ChompCollisionSpace()
 {
-  delete distance_field_;
-  delete collision_map_filter_;
-  delete collision_object_filter_;
-  delete collision_object_subscriber_;
-  delete monitor_;
+  if(distance_field_) {
+    delete distance_field_;
+  }
+  //delete collision_map_filter_;
+  //delete collision_object_filter_;
+  //delete collision_object_subscriber_;
+  if(monitor_) {
+    delete monitor_;
+  }
 }
 
 bool ChompCollisionSpace::init(planning_environment::CollisionModels* collision_models, double max_radius_clearance)
@@ -80,65 +85,103 @@ bool ChompCollisionSpace::init(planning_environment::CollisionModels* collision_
 
   distance_field_ = new distance_field::PropagationDistanceField(size_x, size_y, size_z, resolution, origin_x, origin_y, origin_z, max_expansion_);
 
-  monitor_ = new planning_environment::KinematicModelStateMonitor(collision_models, &tf_, reference_frame_);
+  monitor_ = new planning_environment::CollisionSpaceMonitor(collision_models, &tf_, reference_frame_);
   //now setting up robot bodies for potential inclusion in the distance field
   loadRobotBodies();
 
-  updateBodiesPoses();
+ //  collision_map_filter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(collision_map_subscriber_,tf_,reference_frame_,1);
+//   collision_map_filter_->registerCallback(boost::bind(&ChompCollisionSpace::collisionMapCallback, this, _1));
 
-  addBodiesInGroupToDistanceField("right_arm");
-
-  collision_map_filter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(collision_map_subscriber_,tf_,reference_frame_,1);
-  collision_map_filter_->registerCallback(boost::bind(&ChompCollisionSpace::collisionMapCallback, this, _1));
-
-  collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
-  collision_object_filter_ = new tf::MessageFilter<mapping_msgs::CollisionObject>(*collision_object_subscriber_, tf_, reference_frame_, 1024);
-  collision_object_filter_->registerCallback(boost::bind(&ChompCollisionSpace::collisionObjectCallback, this, _1));
+//   collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
+//   collision_object_filter_ = new tf::MessageFilter<mapping_msgs::CollisionObject>(*collision_object_subscriber_, tf_, reference_frame_, 1024);
+//   collision_object_filter_->registerCallback(boost::bind(&ChompCollisionSpace::collisionObjectCallback, this, _1));
 
 
   ROS_INFO("Initialized chomp collision space in %s reference frame with %f expansion radius.", reference_frame_.c_str(), max_expansion_);
   return true;
 }
 
-void ChompCollisionSpace::collisionMapCallback(const mapping_msgs::CollisionMapConstPtr& collision_map)
-{
-  return;
+void ChompCollisionSpace::setStartState(const ChompRobotModel::ChompPlanningGroup& planning_group, const motion_planning_msgs::RobotState& robot_state) {
 
-  // @TODO transform the collision map to the required frame!!
-  if (mutex_.try_lock())
+  ros::WallTime start = ros::WallTime::now();
+
+  monitor_->waitForState();
+
+  distance_field_->reset();
+
+  std::vector<btVector3> all_points;
+
+  monitor_->getEnvironmentModel()->lock();
+  monitor_->getKinematicModel()->lock();
+
+  planning_models::KinematicState *state = new planning_models::KinematicState(*(monitor_->getRobotState()));
+
+  std::vector<double> tmp;
+  tmp.resize(1);
+  for (unsigned int i = 0 ; i < robot_state.joint_state.position.size() ; ++i)
   {
-    ros::WallTime start = ros::WallTime::now();
-    distance_field_->reset();
-    ROS_INFO("Reset prop distance_field in %f sec", (ros::WallTime::now() - start).toSec());
-    start = ros::WallTime::now();
-    distance_field_->addPointsToField(cuboid_points_);
-    distance_field_->addCollisionMapToField(*collision_map);
-    mutex_.unlock();
-    ROS_INFO("Updated prop distance_field in %f sec", (ros::WallTime::now() - start).toSec());
-
-    distance_field_->visualize(0.895*max_expansion_, 0.9*max_expansion_, collision_map->header.frame_id, collision_map->header.stamp);
-
+    tmp[0] = robot_state.joint_state.position[i];
+    state->setParamsJoint(tmp, robot_state.joint_state.name[i]);
   }
-  else
-  {
-    ROS_INFO("Skipped collision map update because planning is in progress.");
-  }
+
+  // figure out the poses of the robot model
+  monitor_->getKinematicModel()->computeTransforms(state->getParams());
+  // update the collision space
+  monitor_->getEnvironmentModel()->updateRobotModel();
+
+  updateRobotBodiesPoses();
+
+  std::vector<std::string> exclude;
+  exclude.push_back(planning_group.name_);
+  exclude.push_back("r_end_effector");
+
+  addAllBodiesButGroupsToPoints(exclude,all_points);
+  addCollisionObjectsToPoints(all_points);
+  
+  distance_field_->addPointsToField(all_points);
+  distance_field_->visualize(0.0*max_expansion_, 0.01*max_expansion_, reference_frame_, ros::Time::now());
+
+  monitor_->getKinematicModel()->unlock();
+  monitor_->getEnvironmentModel()->unlock();  
+
+  ros::WallDuration t_diff = ros::WallTime::now() - start;
+  ROS_INFO_STREAM("Took " << t_diff.toSec() << " to set distance field");
 }
 
-void ChompCollisionSpace::collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collisionObject) {
-  if (collisionObject->operation.operation == mapping_msgs::CollisionObjectOperation::ADD)
+void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& points) {  
+  const collision_space::EnvironmentObjects *eo = monitor_->getEnvironmentModel()->getObjects();
+  std::vector<std::string> ns = eo->getNamespaces();
+  for (unsigned int i = 0 ; i < ns.size() ; ++i)
   {
-    if (mutex_.try_lock())
-    {
-      std::vector<btVector3> points;
-      for (size_t i=0; i<collisionObject->shapes.size(); ++i)
+    const collision_space::EnvironmentObjects::NamespaceObjects &no = eo->getObjects(ns[i]);
+    const unsigned int n = no.shape.size();
+    
+    //special case for collision map points
+    if(ns[i] == "points") {
+      points.reserve(points.size()+n);
+      for(unsigned int j = 0; j < n;  ++j) 
       {
-        const geometric_shapes_msgs::Shape& object = collisionObject->shapes[i];
-        const geometry_msgs::Pose& pose = collisionObject->poses[i];
+        points.push_back(no.shapePose[j].getOrigin());
+      }
+      continue;
+    }
+    for(unsigned int j = 0; j < n; j++) {
+      if (no.shape[j]->type == shapes::MESH) {
+        bodies::Body *body = bodies::createBodyFromShape(no.shape[j]);
+        body->setPose(no.shapePose[j]);
+        std::vector<btVector3> body_points;
+        getVoxelsInBody(*body, body_points);
+        points.insert(points.end(), body_points.begin(), body_points.end());
+      } else {
+        geometric_shapes_msgs::Shape object;
+        if(!planning_environment::constructObjectMsg(no.shape[j], object)) {
+          ROS_WARN("Shap cannot be converted");
+          continue;
+        }
+        geometry_msgs::Pose pose;
+        tf::poseTFToMsg(no.shapePose[j], pose);
         if (object.type == geometric_shapes_msgs::Shape::CYLINDER)
         {
-          ROS_INFO("Got cylinder");
-
           if (object.dimensions.size() != 2) {
             ROS_INFO_STREAM("Cylinder must have exactly 2 dimensions, not " 
                             << object.dimensions.size()); 
@@ -152,151 +195,202 @@ void ChompCollisionSpace::collisionObjectCallback(const mapping_msgs::CollisionO
           KDL::Frame f(rotation, position);
           // generate points:
           double radius = object.dimensions[0];
-          double length = object.dimensions[1];
-          KDL::Vector p(0,0,0);
-          KDL::Vector p2;
-          double xdiv = object.dimensions[0]/resolution_;
-          double ydiv = object.dimensions[0]/resolution_;
-          double zdiv = object.dimensions[1]/resolution_;
-
           //ROS_INFO_STREAM("Divs " << xdiv << " " << ydiv << " " << zdiv);
-
-          double xlow = pose.position.x - object.dimensions[0]/2.0;
-          double ylow = pose.position.y - object.dimensions[0]/2.0;
+          
+          double xlow = pose.position.x - object.dimensions[0];
+          double ylow = pose.position.y - object.dimensions[0];
           double zlow = pose.position.z - object.dimensions[1]/2.0;
 
-          for(double x = xlow; x <= xlow+object.dimensions[0]+resolution_; x += resolution_) {
-            for(double y = ylow; y <= ylow+object.dimensions[0]+resolution_; y += resolution_) {
+          //ROS_INFO("pose " << pose.position.x << " " << pose.position.y);
+          
+          for(double x = xlow; x <= xlow+object.dimensions[0]*2.0+resolution_; x += resolution_) {
+            for(double y = ylow; y <= ylow+object.dimensions[0]*2.0+resolution_; y += resolution_) {
               for(double z = zlow; z <= zlow+object.dimensions[1]+resolution_; z += resolution_) {
                 double xdist = fabs(pose.position.x-x);
                 double ydist = fabs(pose.position.y-y);
-                if(sqrt(xdist*xdist+ydist*ydist) < radius) {
-                  points.push_back(btVector3(x,y,z));
+                //if(pose.position.z-z == 0.0) {
+                //  ROS_INFO_STREAM("X " << x << " Y " << y << " Dists " << xdist << " " << ydist << " Rad " << sqrt(xdist*xdist+ydist*ydist));
+                // }
+                if(sqrt(xdist*xdist+ydist*ydist) <= radius) {
+                  KDL::Vector p(pose.position.x-x,pose.position.y-y,pose.position.z-z);                  
+                  KDL::Vector p2;
+                  p2 = f*p;
+                  points.push_back(btVector3(p2(0),p2(1),p2(2)));
                 }
               }
             }
           }
-          //double spacing = resolution_;//radius/2.0;
-          //int num_points = ceil(length/spacing)+1;
-          //spacing = length/(num_points-1.0);
-          //for (int i=0; i<num_points; ++i)
-          //{
-          //  p(2) = -length/2.0 + i*spacing;
-          //  p2 = f*p;
-          //  points.push_back(btVector3(p2(0), p2(1), p2(2)));
-          //}
         } else if (object.type == geometric_shapes_msgs::Shape::BOX) {
           if(object.dimensions.size() != 3) {
             ROS_INFO_STREAM("Box must have exactly 3 dimensions, not " 
                             << object.dimensions.size());
             continue;
           }
-          
-          double xdiv = object.dimensions[0]/resolution_;
-          double ydiv = object.dimensions[1]/resolution_;
-          double zdiv = object.dimensions[2]/resolution_;
-
-          ROS_INFO_STREAM("Divs " << xdiv << " " << ydiv << " " << zdiv);
-
+              
           double xlow = pose.position.x - object.dimensions[0]/2.0;
           double ylow = pose.position.y - object.dimensions[1]/2.0;
           double zlow = pose.position.z - object.dimensions[2]/2.0;
-
+          
           for(double x = xlow; x <= xlow+object.dimensions[0]+resolution_; x += resolution_) {
             for(double y = ylow; y <= ylow+object.dimensions[1]+resolution_; y += resolution_) {
               for(double z = zlow; z <= zlow+object.dimensions[2]+resolution_; z += resolution_) {
-                points.push_back(btVector3(x,y,z));
+                KDL::Vector p(pose.position.x-x,pose.position.y-y,pose.position.z-z);                  
+                KDL::Vector p2;
+                p2 = f*p;
+                points.push_back(btVector3(p2(0),p2(1),p2(2)));
               }
             }
           }
-        } else if (object.type == geometric_shapes_msgs::Shape::MESH) {
-          // //adding the vertices themselves
-          // for(std::vector<geometry_msgs::Point>::const_iterator it = object.vertices.begin();
-          //     it != object.vertices.end();
-          //     it++) {
-          //   points.push_back(btVector3(it->x, it->y, it->z));
-          // }
-          // //now interpolating for big triangles
-          // for (size_t i=0; i<object.triangles.size(); i+=3)
-          // {
-          //   btVector3 v0( object.vertices.at( object.triangles.at(i+0) ).x,
-          //                 object.vertices.at( object.triangles.at(i+0) ).y,
-          //                 object.vertices.at( object.triangles.at(i+0) ).z);
-          //   btVector3 v1( object.vertices.at( object.triangles.at(i+1) ).x,
-          //                 object.vertices.at( object.triangles.at(i+1) ).y,
-          //                 object.vertices.at( object.triangles.at(i+1) ).z);
-          //   btVector3 v2( object.vertices.at( object.triangles.at(i+2) ).x,
-          //                 object.vertices.at( object.triangles.at(i+2) ).y,
-          //                 object.vertices.at( object.triangles.at(i+2) ).z);
-          //   std::vector<btVector3> triangleVectors = interpolateTriangle(v0, v1, v2, resolution_);
-          //   points.insert(points.end(), triangleVectors.begin(), triangleVectors.end());
-          // }
-        } else {
-          ROS_WARN("Attaching objects of non-cylinder types is not supported yet!");
-        }
+        } 
       }
-      ROS_INFO_STREAM("Trying to add " << points.size() << " to distance field");  
-      distance_field_->reset();
-      distance_field_->addPointsToField(cuboid_points_);
-      distance_field_->addPointsToField(points);
-      mutex_.unlock();
-      
-      distance_field_->visualize(0.895*max_expansion_, 0.9*max_expansion_, collisionObject->header.frame_id, collisionObject->header.stamp);
     }
   }
 }
 
-// std::vector<btVector3> ChompCollisionSpace::interpolateTriangle(btVector3 v0, 
-//                                                                   btVector3 v1, 
-//                                                                   btVector3 v2, double min_res)
+// void ChompCollisionSpace::collisionMapCallback(const mapping_msgs::CollisionMapConstPtr& collision_map)
 // {
-//   std::vector<btVector3> vectors;
+//   return;
 
-//   //find out the interpolation resolution for the first coordinate
-//   //based on the size of the 0-1 and 0-2 edges
-//   double d01 = dist(v0, v1);
-//   double d02 = dist(v0, v2);
-//   double res_0 = min_res / std::max(d01, d02);
-
-//   //perform the first interpolation
-//   //we do not want the vertices themselves, so we don't start at 0 
-//   double t0=res_0;
-//   bool done = false;
-//   while (!done)
+//   // @TODO transform the collision map to the required frame!!
+//   if (mutex_.try_lock())
 //   {
-//     if (t0 >= 1.0)
-//     {
-//       t0 = 1.0;
-//       done = true;
-//     }
-//     //compute the resolution for the second interpolation
-//     btVector3 p1 = t0*v0 + (1-t0) * v1;
-//     btVector3 p2 = t0*v0 + (1-t0) * v2;
-//     double d12 = dist(p1, p2);
-//     double res_12 = min_res / d12;
+//     ros::WallTime start = ros::WallTime::now();
+//     distance_field_->reset();
+//     ROS_INFO("Reset prop distance_field in %f sec", (ros::WallTime::now() - start).toSec());
+//     start = ros::WallTime::now();
+//     distance_field_->addPointsToField(cuboid_points_);
+//     distance_field_->addCollisionMapToField(*collision_map);
+//     mutex_.unlock();
+//     ROS_INFO("Updated prop distance_field in %f sec", (ros::WallTime::now() - start).toSec());
 
-//     //perform the second interpolation
-//     double t12 = 0;
-//     bool done12 = false;
-//     while (!done12)
-//     {
-//       if (t12 >= 1.0)
-//       {
-// 	t12 = 1.0;
-// 	done12 = true;
-//       }
-//       //actual point insertion
-//       //do not insert the vertices themselves
-//       if (t0!=1.0 || (t12!=0.0 && t12!=1.0))
-//       {
-// 	vectors.push_back( t12*p1 + (1.0 - t12)*p2 );
-//       }
-//       t12 += res_12;
-//     }
-    
-//     t0 += res_0;
+//     distance_field_->visualize(0.895*max_expansion_, 0.9*max_expansion_, collision_map->header.frame_id, collision_map->header.stamp);
+
 //   }
-//   return vectors;
+//   else
+//   {
+//     ROS_INFO("Skipped collision map update because planning is in progress.");
+//   }
+// }
+
+// void ChompCollisionSpace::collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collisionObject) {
+//   if (collisionObject->operation.operation == mapping_msgs::CollisionObjectOperation::ADD)
+//   {
+//     if (mutex_.try_lock())
+//     {
+//       std::vector<btVector3> points;
+//       for (size_t i=0; i<collisionObject->shapes.size(); ++i)
+//       {
+//         const geometric_shapes_msgs::Shape& object = collisionObject->shapes[i];
+//         const geometry_msgs::Pose& pose = collisionObject->poses[i];
+//         if (object.type == geometric_shapes_msgs::Shape::CYLINDER)
+//         {
+//           ROS_INFO("Got cylinder");
+
+//           if (object.dimensions.size() != 2) {
+//             ROS_INFO_STREAM("Cylinder must have exactly 2 dimensions, not " 
+//                             << object.dimensions.size()); 
+//             continue;
+//           }
+//           KDL::Rotation rotation = KDL::Rotation::Quaternion(pose.orientation.x,
+//                                                              pose.orientation.y,
+//                                                              pose.orientation.z,
+//                                                              pose.orientation.w);
+//           KDL::Vector position(pose.position.x, pose.position.y, pose.position.z);
+//           KDL::Frame f(rotation, position);
+//           // generate points:
+//           double radius = object.dimensions[0];
+//           double length = object.dimensions[1];
+//           KDL::Vector p(0,0,0);
+//           KDL::Vector p2;
+//           double xdiv = object.dimensions[0]/resolution_;
+//           double ydiv = object.dimensions[0]/resolution_;
+//           double zdiv = object.dimensions[1]/resolution_;
+
+//           //ROS_INFO_STREAM("Divs " << xdiv << " " << ydiv << " " << zdiv);
+
+//           double xlow = pose.position.x - object.dimensions[0]/2.0;
+//           double ylow = pose.position.y - object.dimensions[0]/2.0;
+//           double zlow = pose.position.z - object.dimensions[1]/2.0;
+
+//           for(double x = xlow; x <= xlow+object.dimensions[0]+resolution_; x += resolution_) {
+//             for(double y = ylow; y <= ylow+object.dimensions[0]+resolution_; y += resolution_) {
+//               for(double z = zlow; z <= zlow+object.dimensions[1]+resolution_; z += resolution_) {
+//                 double xdist = fabs(pose.position.x-x);
+//                 double ydist = fabs(pose.position.y-y);
+//                 if(sqrt(xdist*xdist+ydist*ydist) < radius) {
+//                   points.push_back(btVector3(x,y,z));
+//                 }
+//               }
+//             }
+//           }
+//           //double spacing = resolution_;//radius/2.0;
+//           //int num_points = ceil(length/spacing)+1;
+//           //spacing = length/(num_points-1.0);
+//           //for (int i=0; i<num_points; ++i)
+//           //{
+//           //  p(2) = -length/2.0 + i*spacing;
+//           //  p2 = f*p;
+//           //  points.push_back(btVector3(p2(0), p2(1), p2(2)));
+//           //}
+//         } else if (object.type == geometric_shapes_msgs::Shape::BOX) {
+//           if(object.dimensions.size() != 3) {
+//             ROS_INFO_STREAM("Box must have exactly 3 dimensions, not " 
+//                             << object.dimensions.size());
+//             continue;
+//           }
+          
+//           double xdiv = object.dimensions[0]/resolution_;
+//           double ydiv = object.dimensions[1]/resolution_;
+//           double zdiv = object.dimensions[2]/resolution_;
+
+//           ROS_INFO_STREAM("Divs " << xdiv << " " << ydiv << " " << zdiv);
+
+//           double xlow = pose.position.x - object.dimensions[0]/2.0;
+//           double ylow = pose.position.y - object.dimensions[1]/2.0;
+//           double zlow = pose.position.z - object.dimensions[2]/2.0;
+
+//           for(double x = xlow; x <= xlow+object.dimensions[0]+resolution_; x += resolution_) {
+//             for(double y = ylow; y <= ylow+object.dimensions[1]+resolution_; y += resolution_) {
+//               for(double z = zlow; z <= zlow+object.dimensions[2]+resolution_; z += resolution_) {
+//                 points.push_back(btVector3(x,y,z));
+//               }
+//             }
+//           }
+//         } else if (object.type == geometric_shapes_msgs::Shape::MESH) {
+//           // //adding the vertices themselves
+//           // for(std::vector<geometry_msgs::Point>::const_iterator it = object.vertices.begin();
+//           //     it != object.vertices.end();
+//           //     it++) {
+//           //   points.push_back(btVector3(it->x, it->y, it->z));
+//           // }
+//           // //now interpolating for big triangles
+//           // for (size_t i=0; i<object.triangles.size(); i+=3)
+//           // {
+//           //   btVector3 v0( object.vertices.at( object.triangles.at(i+0) ).x,
+//           //                 object.vertices.at( object.triangles.at(i+0) ).y,
+//           //                 object.vertices.at( object.triangles.at(i+0) ).z);
+//           //   btVector3 v1( object.vertices.at( object.triangles.at(i+1) ).x,
+//           //                 object.vertices.at( object.triangles.at(i+1) ).y,
+//           //                 object.vertices.at( object.triangles.at(i+1) ).z);
+//           //   btVector3 v2( object.vertices.at( object.triangles.at(i+2) ).x,
+//           //                 object.vertices.at( object.triangles.at(i+2) ).y,
+//           //                 object.vertices.at( object.triangles.at(i+2) ).z);
+//           //   std::vector<btVector3> triangleVectors = interpolateTriangle(v0, v1, v2, resolution_);
+//           //   points.insert(points.end(), triangleVectors.begin(), triangleVectors.end());
+//           // }
+//         } else {
+//           ROS_WARN("Attaching objects of non-cylinder types is not supported yet!");
+//         }
+//       }
+//       ROS_INFO_STREAM("Trying to add " << points.size() << " to distance field");  
+//       distance_field_->reset();
+//       distance_field_->addPointsToField(cuboid_points_);
+//       distance_field_->addPointsToField(points);
+//       mutex_.unlock();
+      
+//       distance_field_->visualize(0.895*max_expansion_, 0.9*max_expansion_, collisionObject->header.frame_id, collisionObject->header.stamp);
+//     }
+//   }
 // }
 
 static std::string intToString(int i)
@@ -376,8 +470,7 @@ void ChompCollisionSpace::loadRobotBodies() {
   }
 }
 
-void ChompCollisionSpace::updateBodiesPoses() {
-  monitor_->getKinematicModel()->lock();
+void ChompCollisionSpace::updateRobotBodiesPoses() {
   monitor_->getKinematicModel()->computeTransforms(monitor_->getRobotState()->getParams());
 
   for(std::map<std::string, std::vector<bodies::Body *> >::iterator it1 = planning_group_bodies_.begin();
@@ -386,14 +479,12 @@ void ChompCollisionSpace::updateBodiesPoses() {
     std::vector<std::string>& v = planning_group_link_names_[it1->first];
     for(unsigned int i = 0; i < it1->second.size(); i++) {
       const planning_models::KinematicModel::Link* link = monitor_->getKinematicModel()->getLink(v[i]);
-      (it1->second)[i]->setPose(link->globalTrans);
+      (it1->second)[i]->setPose(link->globalTransFwd);
     }
   }
 }
 
-void ChompCollisionSpace::addBodiesInGroupToDistanceField(const std::string& group) {
-  
-  std::vector<btVector3> body_points;
+void ChompCollisionSpace::addBodiesInGroupToPoints(const std::string& group, std::vector<btVector3>& body_points) {
   
   if(group == std::string("all")) {
     for(std::map<std::string, std::vector<bodies::Body *> >::iterator it1 = planning_group_bodies_.begin();
@@ -419,12 +510,35 @@ void ChompCollisionSpace::addBodiesInGroupToDistanceField(const std::string& gro
       ROS_WARN_STREAM("Group " << group << " not found in planning groups");
     }
   }
-  
-  ROS_INFO_STREAM("Adding points for robot's body that number " << body_points.size());
-  distance_field_->reset();
-  distance_field_->addPointsToField(body_points);
-  distance_field_->visualize(0.895*max_expansion_, 0.9*max_expansion_, "base_footprint", ros::Time::now());
+}
 
+void ChompCollisionSpace::addAllBodiesButGroupsToPoints(const std::vector<std::string>& groups, std::vector<btVector3>& body_points) {
+
+  std::vector<std::string> exclude_links;
+
+  for(unsigned int i = 0; i < groups.size(); i++) {
+    if(planning_group_link_names_.find(groups[i]) == planning_group_link_names_.end()) {
+      ROS_WARN_STREAM("No group " << groups[i]);
+      return;
+    }
+    exclude_links.insert(exclude_links.end(), planning_group_link_names_.find(groups[i])->second.begin(),
+                         planning_group_link_names_.find(groups[i])->second.end());
+  }
+  exclude_links.push_back("torso_lift_link");
+
+  for(std::map<std::string, std::vector<bodies::Body *> >::iterator it1 = planning_group_bodies_.begin();
+      it1 != planning_group_bodies_.end();
+      it1++) {
+    std::vector<std::string>& group_link_names = planning_group_link_names_[it1->first];
+    for(unsigned int i = 0; i < it1->second.size(); i++) {
+      if(find(exclude_links.begin(), exclude_links.end(),group_link_names[i]) == exclude_links.end()) {
+        std::vector<btVector3> single_body_points;
+        getVoxelsInBody((*it1->second[i]), single_body_points);
+        //ROS_INFO_STREAM("Group " << it1->first << " link " << group_link_names[i] << " points " << single_body_points.size());
+        body_points.insert(body_points.end(), single_body_points.begin(), single_body_points.end());
+      }
+    }
+  }
 }
 
 void ChompCollisionSpace::getVoxelsInBody(const bodies::Body &body, std::vector<btVector3> &voxels)
