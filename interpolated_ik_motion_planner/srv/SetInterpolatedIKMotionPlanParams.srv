@@ -1,0 +1,11 @@
+int32 num_steps
+float64 consistent_angle
+int32 collision_check_resolution
+int32 steps_before_abort
+float64 pos_spacing
+float64 rot_spacing
+byte collision_aware
+byte start_from_end
+float64[] max_joint_vels
+float64[] max_joint_accs
+---
