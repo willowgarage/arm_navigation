@@ -42,7 +42,8 @@ namespace chomp
 {
 
 ChompCollisionSpace::ChompCollisionSpace():
-  node_handle_("~"),distance_field_(NULL),monitor_(NULL),collision_map_subscriber_(root_handle_,"collision_map_occ",1)
+  node_handle_("~"),distance_field_(NULL),monitor_(NULL)
+  //,collision_map_subscriber_(root_handle_,"collision_map_occ",1)
 {
 }
 
@@ -180,6 +181,12 @@ void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& po
         }
         geometry_msgs::Pose pose;
         tf::poseTFToMsg(no.shapePose[j], pose);
+        KDL::Rotation rotation = KDL::Rotation::Quaternion(pose.orientation.x,
+                                                           pose.orientation.y,
+                                                           pose.orientation.z,
+                                                           pose.orientation.w);
+        KDL::Vector position(pose.position.x, pose.position.y, pose.position.z);
+        KDL::Frame f(rotation, position);
         if (object.type == geometric_shapes_msgs::Shape::CYLINDER)
         {
           if (object.dimensions.size() != 2) {
@@ -187,12 +194,6 @@ void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& po
                             << object.dimensions.size()); 
             continue;
           }
-          KDL::Rotation rotation = KDL::Rotation::Quaternion(pose.orientation.x,
-                                                             pose.orientation.y,
-                                                             pose.orientation.z,
-                                                             pose.orientation.w);
-          KDL::Vector position(pose.position.x, pose.position.y, pose.position.z);
-          KDL::Frame f(rotation, position);
           // generate points:
           double radius = object.dimensions[0];
           //ROS_INFO_STREAM("Divs " << xdiv << " " << ydiv << " " << zdiv);

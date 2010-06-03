@@ -143,11 +143,11 @@ private:
   distance_field::PropagationDistanceField* distance_field_;
   tf::TransformListener tf_;
   //  tf::MessageNotifier<mapping_msgs::CollisionMap> *collision_map_notifier_;
-  message_filters::Subscriber<mapping_msgs::CollisionMap> collision_map_subscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionMap> *collision_map_filter_;
+  //message_filters::Subscriber<mapping_msgs::CollisionMap> collision_map_subscriber_;
+  //tf::MessageFilter<mapping_msgs::CollisionMap> *collision_map_filter_;
   //tf::MessageNotifier<mapping_msgs::CollisionMap> *collision_map_update_notifier_;
-  message_filters::Subscriber<mapping_msgs::CollisionObject>         *collision_object_subscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionObject>                   *collision_object_filter_;
+  //message_filters::Subscriber<mapping_msgs::CollisionObject>         *collision_object_subscriber_;
+  //tf::MessageFilter<mapping_msgs::CollisionObject>                   *collision_object_filter_;
 
   std::string reference_frame_;
   boost::mutex mutex_;
