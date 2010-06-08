@@ -12,6 +12,7 @@
   <depend package="motion_planning_msgs" />
   <depend package="spline_smoother" />
   <depend package="joint_normalization_filters" />
+  <depend package="urdf" />
   <export>
     <cpp cflags="-I${prefix}/include"/>
   </export>

@@ -44,6 +44,7 @@ TrajectoryFilterServer::TrajectoryFilterServer() : private_handle_("~"),
 {
   std::string service_type_string;
   private_handle_.param<std::string>("service_type",service_type_string,"FilterJointTrajectory");
+  private_handle_.param<bool>("use_safety_limits",use_safety_limits_,true);
 
   if(service_type_string == std::string("FilterJointTrajectory"))
     service_type_ = FILTER_JOINT_TRAJECTORY;
@@ -73,6 +74,9 @@ bool TrajectoryFilterServer::init()
   if(service_type_ == FILTER_JOINT_TRAJECTORY_WITH_CONSTRAINTS)
     if (!filter_constraints_chain_.configure("filter_chain",private_handle_))
       return false;
+
+  if(!loadURDF())
+    return false;
 
   return true;
 }
@@ -122,20 +126,53 @@ void TrajectoryFilterServer::getLimits(const trajectory_msgs::JointTrajectory& t
   {
     std::map<std::string, motion_planning_msgs::JointLimits>::const_iterator limit_it = joint_limits_.find(trajectory.joint_names[i]);
     motion_planning_msgs::JointLimits limits;
+
     if (limit_it == joint_limits_.end())
     {
-      // load the limits from the param server
-      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/min_position", limits.min_position, -std::numeric_limits<double>::max());
-      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/max_position", limits.max_position, std::numeric_limits<double>::max());
-      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/max_velocity", limits.max_velocity, std::numeric_limits<double>::max());
-      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/max_acceleration", limits.max_acceleration, std::numeric_limits<double>::max());
+      limits.has_position_limits = false;
+      limits.has_velocity_limits = false;
+      limits.has_acceleration_limits = false;
+      // First load the limits from the urdf
+      std::map<std::string, boost::shared_ptr<urdf::Joint> >::const_iterator urdf_joint_iterator = urdf_model_.joints_.find(trajectory.joint_names[i]);
+      if(urdf_joint_iterator != urdf_model_.joints_.end())
+      {
+        boost::shared_ptr<urdf::Joint> urdf_joint = urdf_joint_iterator->second;
+        if(use_safety_limits_ && urdf_joint->safety)
+        {
+          limits.min_position = urdf_joint->safety->soft_lower_limit;
+          limits.max_position = urdf_joint->safety->soft_upper_limit;
+        }
+        else
+        {
+          limits.min_position = urdf_joint->limits->lower;
+          limits.max_position = urdf_joint->limits->upper;          
+        }
+        limits.max_velocity = urdf_joint->limits->velocity;
+        limits.has_velocity_limits = true;
+
+        if(urdf_joint->type == urdf::Joint::CONTINUOUS)
+          limits.has_position_limits = false;
+        else
+          limits.has_position_limits = true;
+
+        limits.has_acceleration_limits = false;
+      }
+          
+      // Now, try to load the limits from the param server if they exist
+      private_handle_.getParam("joint_limits/"+trajectory.joint_names[i]+"/min_position",limits.min_position);
+      private_handle_.getParam("joint_limits/"+trajectory.joint_names[i]+"/max_position",limits.max_position);
+      private_handle_.getParam("joint_limits/"+trajectory.joint_names[i]+"/max_velocity",limits.max_velocity);
+      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/max_acceleration", 
+                            limits.max_acceleration, 
+                            std::numeric_limits<double>::max());
       bool boolean;
-      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/has_position_limits", boolean, false);
-      limits.has_position_limits = boolean?1:0;
-      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/has_velocity_limits", boolean, false);
-      limits.has_velocity_limits = boolean?1:0;
-      private_handle_.param("joint_limits/"+trajectory.joint_names[i]+"/has_acceleration_limits", boolean, false);
-      limits.has_acceleration_limits = boolean?1:0;
+      if(private_handle_.getParam("joint_limits/"+trajectory.joint_names[i]+"/has_position_limits", boolean))
+        limits.has_position_limits = boolean?1:0;
+      if(private_handle_.getParam("joint_limits/"+trajectory.joint_names[i]+"/has_velocity_limits", boolean))
+        limits.has_velocity_limits = boolean?1:0;
+      if(private_handle_.getParam("joint_limits/"+trajectory.joint_names[i]+"/has_acceleration_limits", boolean))
+        limits.has_acceleration_limits = boolean?1:0;
+
       joint_limits_.insert(make_pair(trajectory.joint_names[i], limits));
     }
     else
@@ -145,6 +182,19 @@ void TrajectoryFilterServer::getLimits(const trajectory_msgs::JointTrajectory& t
     limits_out[i] = limits;
   }
 }
+
+bool TrajectoryFilterServer::loadURDF()
+{
+  std::string robot_desc_string;
+  root_handle_.param("robot_description", robot_desc_string, std::string());  
+  if (!urdf_model_.initString(robot_desc_string)){
+    ROS_ERROR("Failed to parse urdf string");
+    return false;
+  }
+  ROS_INFO("Successfully parsed urdf file");
+  return true;
+}
+
 }
 
 int main(int argc, char** argv)

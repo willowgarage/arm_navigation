@@ -41,6 +41,7 @@
 #include <filters/filter_chain.h>
 #include <motion_planning_msgs/FilterJointTrajectory.h>
 #include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
+#include <urdf/model.h>
 
 namespace trajectory_filter_server
 {
@@ -78,6 +79,10 @@ private:
   filters::FilterChain<motion_planning_msgs::FilterJointTrajectory::Request> filter_chain_;
   filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request> filter_constraints_chain_;
 
+  urdf::Model urdf_model_;
+
+  bool loadURDF();
+  bool use_safety_limits_;
 
 };
 
