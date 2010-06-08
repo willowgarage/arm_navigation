@@ -147,7 +147,8 @@ public:
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
     filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
 
-    ros::service::waitForService(ARM_IK_NAME);
+    //    ros::service::waitForService(ARM_IK_NAME);
+    arm_ik_initialized_ = false;
     ros::service::waitForService("get_trajectory_validity");
     ros::service::waitForService("get_environment_safety");
     ros::service::waitForService("get_state_validity");
@@ -229,6 +230,20 @@ private:
   /// 
   bool convertPoseGoalToJointGoal(motion_planning_msgs::GetMotionPlan::Request &req)
   {
+    if(!arm_ik_initialized_)
+    {
+      if(!ros::service::waitForService(ARM_IK_NAME,ros::Duration(1.0)))
+      {
+        ROS_WARN("Inverse kinematics service is unavailable");
+        return false;
+      }
+      else
+      {
+        arm_ik_initialized_ = true;
+      }
+    }
+
+
     ROS_DEBUG("Acting on goal to pose ...");// we do IK to find corresponding states
     ROS_DEBUG("Position constraint: %f %f %f",
              req.motion_plan_request.goal_constraints.position_constraints[0].position.x,
@@ -632,7 +647,7 @@ private:
     move_arm_parameters_.allowed_planning_time = goal->motion_plan_request.allowed_planning_time.toSec();
     move_arm_parameters_.planner_service_name = goal->planner_service_name;
     visualizeAllowedContactRegions(req.motion_plan_request.allowed_contacts);
-    ROS_INFO("Move arm: %d allowed contact regions",req.motion_plan_request.allowed_contacts.size());
+    ROS_INFO("Move arm: %d allowed contact regions",(int)req.motion_plan_request.allowed_contacts.size());
     for(unsigned int i=0; i < req.motion_plan_request.allowed_contacts.size(); i++)
     {
       ROS_INFO("Position                    : (%f,%f,%f)",req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.x,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.y,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.z);
@@ -759,7 +774,7 @@ private:
     goal.trajectory = current_trajectory;
     goal.trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
 
-    ROS_INFO("Sending trajectory with %d points and timestamp: %f",goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
+    ROS_INFO("Sending trajectory with %d points and timestamp: %f",(int)goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
     for(unsigned int i=0; i < goal.trajectory.joint_names.size(); i++)
       ROS_INFO("Joint: %d name: %s",i,goal.trajectory.joint_names[i].c_str());
 
@@ -1056,17 +1071,17 @@ private:
           move_arm_action_result_.contacts.clear();
           move_arm_action_result_.error_code.val = 0;
           moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
-	  ROS_INFO("Received new goal, will preempt previous goal");
+          ROS_INFO("Received new goal, will preempt previous goal");
           original_request_ = req;
-	  if (state_ == QUEUED || state_ == ACTIVE)
-	    stopTrajectory();
+          if (controller_status_ == QUEUED || controller_status_ == ACTIVE)
+            stopTrajectory();
           state_ = PLANNING;
         }
         else               //if we've been preempted explicitly we need to shut things down
         {
           ROS_INFO("The move arm action was preempted by the action client. Preempting this goal.");
-	  if (state_ == QUEUED || state_ == ACTIVE)
-	    stopTrajectory();
+          if (controller_status_ == QUEUED || controller_status_ == ACTIVE)
+            stopTrajectory();
           resetStateMachine();
           action_server_->setPreempted();
           return;
@@ -1271,6 +1286,8 @@ private:
   JointExecutorActionClient::GoalHandle controller_goal_handle_;
 
   double trajectory_filter_allowed_time_, ik_allowed_time_;
+  bool arm_ik_initialized_;
+
 };
 }
 
