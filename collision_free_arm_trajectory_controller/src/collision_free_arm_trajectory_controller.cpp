@@ -74,9 +74,9 @@ public:
     ros::service::waitForService("filter_trajectory");
     ros::service::waitForService("get_robot_state");
 
-    check_trajectory_validity_client_ = node_handle_.serviceClient<planning_environment_msgs::GetJointTrajectoryValidity>("get_execution_safety");
-    filter_trajectory_client_ = node_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectory>("filter_trajectory");      
-    get_state_client_ = node_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");
+    check_trajectory_validity_client_ = node_handle_.serviceClient<planning_environment_msgs::GetJointTrajectoryValidity>("get_execution_safety",true);
+    filter_trajectory_client_ = node_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectory>("filter_trajectory",true);      
+    get_state_client_ = node_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state",true);
 
     std::string traj_action_name, group_name;
     private_handle_.param<std::string>("traj_action_name", traj_action_name, "action");
