@@ -120,6 +120,8 @@ static const std::string ARM_FK_NAME             = "arm_fk";
 static const std::string TRAJECTORY_FILTER = "filter_trajectory";
 static const std::string DISPLAY_PATH_PUB_TOPIC  = "display_path";
 static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
+static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
+static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
 
 class MoveArm
 {
@@ -129,12 +131,17 @@ public:
     group_(group_name), 
     private_handle_("~")
   {
+    double trajectory_monitoring_frequency;
     private_handle_.param<double>("move_arm_frequency",move_arm_frequency_, 50.0);
+    private_handle_.param<double>("trajectory_monitoring_frequency",trajectory_monitoring_frequency, 20.0);
     private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
     private_handle_.param<double>("ik_allowed_time",ik_allowed_time_, 2.0);
 
     num_planning_attempts_ = 0;
     state_ = PLANNING;
+    last_monitor_time_ = ros::Time::now();
+    trajectory_monitoring_frequency = std::min<double>(std::max<double>(trajectory_monitoring_frequency,MIN_TRAJECTORY_MONITORING_FREQUENCY),MAX_TRAJECTORY_MONITORING_FREQUENCY);
+    trajectory_monitoring_duration_ = ros::Duration(1.0/trajectory_monitoring_frequency);
 
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
 
@@ -380,6 +387,13 @@ private:
     motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request  req;
     motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response res;
     fillTrajectoryMsg(trajectory_in, req.trajectory);
+
+    if(trajectory_filter_allowed_time_ == 0.0)
+    {
+      trajectory_out = req.trajectory;
+      return true;
+    }
+
     req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
     req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
@@ -1029,8 +1043,13 @@ private:
           }
         }            
         if(!move_arm_parameters_.disable_collision_monitoring && action_server_->isActive())
-        {
+        {          
           ROS_DEBUG("Monitoring trajectory");
+          if(ros::Time::now() - last_monitor_time_ <= trajectory_monitoring_duration_)
+          {
+            break;
+          }
+          last_monitor_time_ = ros::Time::now();
           if(!isExecutionSafe())
           {
             ROS_INFO("Stopping trajectory since it is unsafe");
@@ -1263,6 +1282,8 @@ private:
   tf::TransformListener *tf_;
   MoveArmState state_;
   double move_arm_frequency_;      	
+  ros::Duration trajectory_monitoring_duration_;
+  ros::Time last_monitor_time_;
   trajectory_msgs::JointTrajectory current_trajectory_;
 
   int num_planning_attempts_;
