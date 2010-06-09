@@ -133,6 +133,7 @@ public:
   {
     double trajectory_monitoring_frequency;
     private_handle_.param<double>("move_arm_frequency",move_arm_frequency_, 50.0);
+    private_handle_.param<double>("trajectory_discretization",trajectory_discretization_, 0.03);
     private_handle_.param<double>("trajectory_monitoring_frequency",trajectory_monitoring_frequency, 20.0);
     private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
     private_handle_.param<double>("ik_allowed_time",ik_allowed_time_, 2.0);
@@ -503,7 +504,8 @@ private:
     planning_environment_msgs::GetJointTrajectoryValidity::Request req;
     planning_environment_msgs::GetJointTrajectoryValidity::Response res;
         
-    req.trajectory = current_trajectory_;
+    //    req.trajectory = current_trajectory_;
+    discretizeTrajectory(current_trajectory_,req.trajectory,trajectory_discretization_);
     if(!getRobotState(req.robot_state))
       return false;
     req.check_path_constraints = true;
@@ -587,6 +589,38 @@ private:
       ROS_ERROR("Service call to check state validity failed on %s",check_state_validity_client_.getService().c_str());
       return false;
     }
+  }
+  void discretizeTrajectory(const trajectory_msgs::JointTrajectory &trajectory, 
+                            trajectory_msgs::JointTrajectory &trajectory_out,
+                            const double &trajectory_discretization)
+  {    
+    trajectory_out.joint_names = trajectory.joint_names;
+    for(unsigned int i=1; i < trajectory.points.size(); i++)
+    {
+      double diff = 0.0;      
+      for(unsigned int j=0; j < trajectory.points[i].positions.size(); j++)
+      {
+        double start = trajectory.points[i-1].positions[j];
+        double end   = trajectory.points[i].positions[j];
+        if(fabs(end-start) > diff)
+          diff = fabs(end-start);        
+      }
+      int num_intervals =(int) (diff/trajectory_discretization+1.0);
+      
+      for(unsigned int k=0; k < (unsigned int) num_intervals; k++)
+      {
+        trajectory_msgs::JointTrajectoryPoint point;
+        for(unsigned int j=0; j < trajectory.points[i].positions.size(); j++)
+        {
+          double start = trajectory.points[i-1].positions[j];
+          double end   = trajectory.points[i].positions[j];
+          point.positions.push_back(start + (end-start)*k/num_intervals);
+        }
+        point.time_from_start = ros::Duration(trajectory.points[i].time_from_start.toSec() + k* (trajectory.points[i].time_from_start - trajectory.points[i-1].time_from_start).toSec()/num_intervals);
+        trajectory_out.points.push_back(point);
+      }
+    }
+    trajectory_out.points.push_back(trajectory.points.back());
   }
   ///
   /// State and trajectory validity checks
@@ -1307,6 +1341,7 @@ private:
   JointExecutorActionClient::GoalHandle controller_goal_handle_;
 
   double trajectory_filter_allowed_time_, ik_allowed_time_;
+  double trajectory_discretization_;
   bool arm_ik_initialized_;
 
 };
