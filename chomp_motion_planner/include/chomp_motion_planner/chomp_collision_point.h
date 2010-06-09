@@ -41,6 +41,7 @@
 #include <vector>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
 
 namespace chomp
 {
@@ -61,6 +62,10 @@ public:
   int getSegmentNumber() const;
   const KDL::Vector& getPosition() const;
 
+  const std::vector<int>& getParentJoints() const {
+    return parent_joints_;
+  }
+
   void getTransformedPosition(std::vector<KDL::Frame>& segment_frames, KDL::Vector& position) const;
 
   template<typename Derived>
@@ -79,7 +84,7 @@ private:
 
 inline bool ChompCollisionPoint::isParentJoint(int joint) const
 {
-  return parent_joints_[joint]==1;
+  return(find(parent_joints_.begin(), parent_joints_.end(), joint) != parent_joints_.end());
 }
 
 inline double ChompCollisionPoint::getRadius() const
@@ -116,10 +121,9 @@ template<typename Derived>
 void ChompCollisionPoint::getJacobian(std::vector<Eigen::Map<Eigen::Vector3d> >& joint_pos, std::vector<Eigen::Map<Eigen::Vector3d> >& joint_axis,
     Eigen::Map<Eigen::Vector3d>& collision_point_pos, Eigen::MatrixBase<Derived>& jacobian, const std::vector<int>& group_joint_to_kdl_joint_index) const
 {
-  for (unsigned int joint=0; joint<parent_joints_.size(); joint++)
-  {
-    if (parent_joints_[joint]==0)
-    {
+
+  for(unsigned int joint = 0; joint < group_joint_to_kdl_joint_index.size(); joint++) {
+    if(!isParentJoint(group_joint_to_kdl_joint_index[joint])) {
       // since the joint is not active, fill the jacobian column with zeros
       jacobian.col(joint).setZero();
     }

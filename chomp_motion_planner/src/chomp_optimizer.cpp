@@ -246,11 +246,6 @@ void ChompOptimizer::optimize()
 
     }
 
-    if (parameters_->getAnimatePath() && iteration_%10 == 0)
-    {
-      ROS_INFO("Animating iteration %d", iteration_);
-      animatePath();
-    }
     if (parameters_->getAnimateEndeffector())
     {
       animateEndeffector();
@@ -258,6 +253,11 @@ void ChompOptimizer::optimize()
     
   }
   ROS_INFO_STREAM("We think the path is collision free: " << is_collision_free_);
+
+  if (parameters_->getAnimatePath())
+  {
+    animatePath();
+  }
 
   group_trajectory_.getTrajectory() = best_group_trajectory_;
   updateFullTrajectory();

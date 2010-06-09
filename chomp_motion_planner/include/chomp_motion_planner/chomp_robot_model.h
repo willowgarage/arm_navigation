@@ -42,11 +42,12 @@
 #include <chomp_motion_planner/treefksolverjointposaxis_partial.hpp>
 #include <chomp_motion_planner/chomp_collision_point.h>
 #include <ros/ros.h>
-#include <planning_environment/models/robot_models.h>
+#include <planning_environment/monitors/collision_space_monitor.h>
 #include <kdl/tree.hpp>
 #include <kdl/chain.hpp>
 #include <boost/shared_ptr.hpp>
 #include <mapping_msgs/AttachedCollisionObject.h>
+#include <motion_planning_msgs/RobotState.h>
 
 #include <sensor_msgs/JointState.h>
 
@@ -111,7 +112,7 @@ public:
      * control the collision point in some way. Also converts the ChompCollisionPoint::parent_joints
      * vector into group joint indexes
      */
-    void addCollisionPoint(ChompCollisionPoint& collision_point, ChompRobotModel& robot_model);
+    bool addCollisionPoint(ChompCollisionPoint& collision_point, ChompRobotModel& robot_model);
   };
 
   ChompRobotModel();
@@ -122,7 +123,7 @@ public:
    *
    * \return true if successful, false if not
    */
-  bool init(planning_environment::RobotModels * robot_models);
+  bool init(planning_environment::CollisionSpaceMonitor* monitor_,  std::string& reference_frame);
 
   /**
    * \brief Gets the planning group corresponding to the group name
@@ -200,10 +201,13 @@ public:
    */
   void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object);
 
+  void generateAttachedObjectCollisionPoints(const motion_planning_msgs::RobotState* robot_state);
+  void generateLinkCollisionPoints();
+  void populatePlanningGroupCollisionPoints();
 
 private:
   ros::NodeHandle node_handle_,root_handle_;                                 /**< ROS Node handle */
-  planning_environment::RobotModels *robot_models_;             /**< Robot model */
+  planning_environment::CollisionSpaceMonitor* monitor_;
   ros::Subscriber attached_object_subscriber_;                  /**< Attached object subscriber */
 
   KDL::Tree kdl_tree_;                                          /**< The KDL tree of the entire robot */
@@ -217,12 +221,12 @@ private:
   double collision_clearance_default_;                          /**< Default clearance for all collision links */
   std::string reference_frame_;                                 /**< Reference frame for all kinematics operations */
   std::map<std::string, std::vector<ChompCollisionPoint> > link_collision_points_;    /**< Collision points associated with every link */
+  std::map<std::string, std::vector<ChompCollisionPoint> > link_attached_object_collision_points_;    /**< Collision points associated with the objects attached to every link */
   double max_radius_clearance_;                                 /**< Maximum value of radius + clearance for any of the collision points */
   std::map<std::string, mapping_msgs::AttachedCollisionObject> attached_objects_;        /**< Map of links -> attached objects */
 
-  void generateCollisionPoints();
   void addCollisionPointsFromLinkRadius(std::string link_name, double radius, double clearance, double extension);
-  void addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedCollisionObject& attached_object);
+  //void addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedCollisionObject& attached_object);
   void getLinkInformation(const std::string link_name, std::vector<int>& active_joints, int& segment_number);
 
 //  void getActiveJointsSegmentNumberForLink(std::string link_name, 
@@ -241,7 +245,7 @@ inline const ChompRobotModel::ChompPlanningGroup* ChompRobotModel::getPlanningGr
 
 inline const planning_environment::RobotModels* ChompRobotModel::getRobotModels() const
 {
-  return robot_models_;
+  return monitor_->getCollisionModels();
 }
 
 inline int ChompRobotModel::getNumKDLJoints() const

@@ -101,7 +101,7 @@ public:
    *
    * \return false if not successful
    */
-  bool init(planning_environment::CollisionModels* cm, double max_radius_clearance);
+  bool init(planning_environment::CollisionSpaceMonitor* monitor_, double max_radius_clearance, std::string& reference_frame);
 
   /**
    * \brief Lock the collision space from updating/reading
@@ -141,7 +141,7 @@ private:
  
   ros::NodeHandle node_handle_, root_handle_;
   distance_field::PropagationDistanceField* distance_field_;
-  tf::TransformListener tf_;
+
   //  tf::MessageNotifier<mapping_msgs::CollisionMap> *collision_map_notifier_;
   //message_filters::Subscriber<mapping_msgs::CollisionMap> collision_map_subscriber_;
   //tf::MessageFilter<mapping_msgs::CollisionMap> *collision_map_filter_;
@@ -173,7 +173,9 @@ private:
   void getVoxelsInBody(const bodies::Body &body, std::vector<btVector3> &voxels);
   void addCollisionObjectsToPoints(std::vector<btVector3>& points);
   void addBodiesInGroupToPoints(const std::string& group, std::vector<btVector3> &voxels);
-  void addAllBodiesButGroupsToPoints(const std::vector<std::string>& groups, std::vector<btVector3>& body_points);  
+  void addAllBodiesButExcludeLinksToPoints(std::string group_name, std::vector<btVector3>& body_points);  
+
+  std::map<std::string, std::vector<std::string> > distance_exclude_links_;
 
 };
 

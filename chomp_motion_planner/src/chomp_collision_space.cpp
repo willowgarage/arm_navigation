@@ -55,18 +55,16 @@ ChompCollisionSpace::~ChompCollisionSpace()
   //delete collision_map_filter_;
   //delete collision_object_filter_;
   //delete collision_object_subscriber_;
-  if(monitor_) {
-    delete monitor_;
-  }
 }
 
-bool ChompCollisionSpace::init(planning_environment::CollisionModels* collision_models, double max_radius_clearance)
+bool ChompCollisionSpace::init(planning_environment::CollisionSpaceMonitor* monitor, double max_radius_clearance, std::string& reference_frame)
 {
   double size_x, size_y, size_z;
   double origin_x, origin_y, origin_z;
   double resolution;
 
-  node_handle_.param("reference_frame", reference_frame_, std::string("base_link"));
+  reference_frame_ = reference_frame;
+
   node_handle_.param("collision_space/size_x", size_x, 2.0);
   node_handle_.param("collision_space/size_y", size_y, 3.0);
   node_handle_.param("collision_space/size_z", size_z, 4.0);
@@ -80,15 +78,66 @@ bool ChompCollisionSpace::init(planning_environment::CollisionModels* collision_
   resolution_ = resolution;
   max_expansion_ = max_radius_clearance;
 
-  collision_models_ = collision_models;
-
   //initCollisionCuboids();
 
   distance_field_ = new distance_field::PropagationDistanceField(size_x, size_y, size_z, resolution, origin_x, origin_y, origin_z, max_expansion_);
 
-  monitor_ = new planning_environment::CollisionSpaceMonitor(collision_models, &tf_, reference_frame_);
+  monitor_ = monitor;
   //now setting up robot bodies for potential inclusion in the distance field
   loadRobotBodies();
+
+  XmlRpc::XmlRpcValue coll_ops;
+
+  if(!node_handle_.hasParam("chomp_collision_operations")) {
+    ROS_WARN("No default collision operations specified");
+  } else {
+
+    node_handle_.getParam("chomp_collision_operations", coll_ops);
+    
+    if(coll_ops.getType() != XmlRpc::XmlRpcValue::TypeArray) {
+      ROS_WARN("chomp_collision_operations is not an array");
+    } else {
+      
+      if(coll_ops.size() == 0) {
+        ROS_WARN("No collision operations in chomp collision operations");
+      } else {
+        
+        for(int i = 0; i < coll_ops.size(); i++) {
+          if(!coll_ops[i].hasMember("object1") || !coll_ops[i].hasMember("object2") || !coll_ops[i].hasMember("operation")) {
+            ROS_WARN("All collision operations must have two objects and an operation");
+            continue;
+          }
+          std::string object1 = std::string(coll_ops[i]["object1"]);
+          std::string object2 = std::string(coll_ops[i]["object2"]);
+          std::string operation = std::string(coll_ops[i]["operation"]);
+          if(operation == "enable") {
+            ROS_WARN("Chomp doesn't support enabling collisions");
+          } else if(operation == "disable") {
+            if(planning_group_link_names_.find(object1) == planning_group_link_names_.end()) {
+              ROS_WARN_STREAM("Object 1 must be a recognized planning group and " << object1 << " is not");
+              continue;
+            }
+            if(distance_exclude_links_.find(object1) == distance_exclude_links_.end()) {
+              std::vector<std::string> emp;
+              distance_exclude_links_[object1] = emp;
+            }
+            std::vector<std::string>& exclude_links = distance_exclude_links_[object1];
+            if(planning_group_link_names_.find(object2) == planning_group_link_names_.end()) {
+              exclude_links.push_back(object2);
+              ROS_INFO_STREAM("Link " << object1 << " adding exclude for link " << object2);
+            } else {
+              ROS_INFO_STREAM("Link " << object1 << " adding exclude for group " << object2 << " size " << planning_group_link_names_.find(object2)->second.size() );
+              exclude_links.insert(exclude_links.end(), planning_group_link_names_.find(object2)->second.begin(),
+                                   planning_group_link_names_.find(object2)->second.end());
+            }
+          } else {
+            ROS_WARN_STREAM("Unrecognized collision operation " << operation << ". Must be enable or disable");
+            continue;
+          }
+        }
+      }
+    }
+  }
 
  //  collision_map_filter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(collision_map_subscriber_,tf_,reference_frame_,1);
 //   collision_map_filter_->registerCallback(boost::bind(&ChompCollisionSpace::collisionMapCallback, this, _1));
@@ -132,12 +181,10 @@ void ChompCollisionSpace::setStartState(const ChompRobotModel::ChompPlanningGrou
 
   updateRobotBodiesPoses();
 
-  std::vector<std::string> exclude;
-  exclude.push_back(planning_group.name_);
-  exclude.push_back("r_end_effector");
-
-  addAllBodiesButGroupsToPoints(exclude,all_points);
+  addAllBodiesButExcludeLinksToPoints(planning_group.name_, all_points);
   addCollisionObjectsToPoints(all_points);
+
+  ROS_INFO_STREAM("All points size " << all_points.size());
   
   distance_field_->addPointsToField(all_points);
   distance_field_->visualize(0.0*max_expansion_, 0.01*max_expansion_, reference_frame_, ros::Time::now());
@@ -173,6 +220,7 @@ void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& po
         std::vector<btVector3> body_points;
         getVoxelsInBody(*body, body_points);
         points.insert(points.end(), body_points.begin(), body_points.end());
+        delete body;
       } else {
         geometric_shapes_msgs::Shape object;
         if(!planning_environment::constructObjectMsg(no.shape[j], object)) {
@@ -447,7 +495,7 @@ void ChompCollisionSpace::addCollisionCuboid(const std::string param_name)
 void ChompCollisionSpace::loadRobotBodies() {
   planning_group_link_names_.clear();
 
-  planning_group_link_names_ = collision_models_->getPlanningGroupLinks();
+  planning_group_link_names_ = monitor_->getCollisionModels()->getPlanningGroupLinks();
 
   ROS_INFO_STREAM("Planning group links size " << planning_group_link_names_.size());
 
@@ -460,7 +508,7 @@ void ChompCollisionSpace::loadRobotBodies() {
     for(std::vector<std::string>::iterator it2 = it1->second.begin();
         it2 != it1->second.end();
         it2++) {
-      const planning_models::KinematicModel::Link* link = collision_models_->getKinematicModel()->getLink(*it2);
+      const planning_models::KinematicModel::Link* link = monitor_->getCollisionModels()->getKinematicModel()->getLink(*it2);
       if(link != NULL) {
         planning_group_bodies_[it1->first].push_back(bodies::createBodyFromShape(link->shape));
       } else {
@@ -513,24 +561,19 @@ void ChompCollisionSpace::addBodiesInGroupToPoints(const std::string& group, std
   }
 }
 
-void ChompCollisionSpace::addAllBodiesButGroupsToPoints(const std::vector<std::string>& groups, std::vector<btVector3>& body_points) {
+void ChompCollisionSpace::addAllBodiesButExcludeLinksToPoints(std::string group_name, std::vector<btVector3>& body_points) {
 
   std::vector<std::string> exclude_links;
-
-  for(unsigned int i = 0; i < groups.size(); i++) {
-    if(planning_group_link_names_.find(groups[i]) == planning_group_link_names_.end()) {
-      ROS_WARN_STREAM("No group " << groups[i]);
-      return;
-    }
-    exclude_links.insert(exclude_links.end(), planning_group_link_names_.find(groups[i])->second.begin(),
-                         planning_group_link_names_.find(groups[i])->second.end());
+  if(distance_exclude_links_.find(group_name) != distance_exclude_links_.end()) 
+  {
+    exclude_links = distance_exclude_links_[group_name];
   }
-  exclude_links.push_back("torso_lift_link");
 
   for(std::map<std::string, std::vector<bodies::Body *> >::iterator it1 = planning_group_bodies_.begin();
       it1 != planning_group_bodies_.end();
       it1++) {
     std::vector<std::string>& group_link_names = planning_group_link_names_[it1->first];
+
     for(unsigned int i = 0; i < it1->second.size(); i++) {
       if(find(exclude_links.begin(), exclude_links.end(),group_link_names[i]) == exclude_links.end()) {
         std::vector<btVector3> single_body_points;

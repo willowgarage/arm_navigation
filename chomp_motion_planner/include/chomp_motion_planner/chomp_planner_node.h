@@ -45,6 +45,7 @@
 #include <chomp_motion_planner/chomp_robot_model.h>
 #include <chomp_motion_planner/chomp_parameters.h>
 #include <chomp_motion_planner/chomp_collision_space.h>
+#include <planning_environment/monitors/collision_space_monitor.h>
 #include <map>
 #include <string>
 
@@ -91,6 +92,9 @@ private:
   ros::ServiceServer plan_kinematic_path_service_;      /**< The planning service */
 
   planning_environment::CollisionModels* collision_models_;
+  planning_environment::CollisionSpaceMonitor *monitor_;
+  tf::TransformListener tf_;
+  std::string reference_frame_;
 
   ChompRobotModel chomp_robot_model_;                   /**< Chomp Robot Model */
   ChompParameters chomp_parameters_;                    /**< Chomp Parameters */

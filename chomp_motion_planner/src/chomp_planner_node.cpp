@@ -60,17 +60,21 @@ namespace chomp
 bool ChompPlannerNode::init()
 {
   // load in some default parameters
+  node_handle_.param("reference_frame", reference_frame_, std::string("base_link"));
   node_handle_.param("trajectory_duration", trajectory_duration_, 3.0);
   node_handle_.param("trajectory_discretization", trajectory_discretization_, 0.03);
 
   collision_models_ = new planning_environment::CollisionModels("robot_description");
+
   if(!collision_models_->loadedModels()) {
     ROS_ERROR("Collision models could not load models");
     return false;
   }
 
+  monitor_ = new planning_environment::CollisionSpaceMonitor(collision_models_, &tf_, reference_frame_);
+  
   // build the robot model
-  if (!chomp_robot_model_.init(collision_models_))
+  if (!chomp_robot_model_.init(monitor_, reference_frame_))
     return false;
 
   // load chomp parameters:
@@ -79,7 +83,7 @@ bool ChompPlannerNode::init()
   double max_radius_clearance = chomp_robot_model_.getMaxRadiusClearance();
 
   // initialize the collision space
-  if (!chomp_collision_space_.init(collision_models_,max_radius_clearance))
+  if (!chomp_collision_space_.init(monitor_,max_radius_clearance, reference_frame_))
     return false;
 
   // initialize the visualization publisher:
@@ -97,6 +101,7 @@ bool ChompPlannerNode::init()
 ChompPlannerNode::~ChompPlannerNode()
 {
   delete collision_models_;
+  delete monitor_;
 }
 
 int ChompPlannerNode::run()
@@ -129,6 +134,7 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
 
   ros::WallTime start_time = ros::WallTime::now();
   ROS_INFO("Received planning request...");
+
   // get the planning group:
   const ChompRobotModel::ChompPlanningGroup* group = chomp_robot_model_.getPlanningGroup(req.motion_plan_request.group_name);
 
@@ -145,6 +151,11 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
 
   //configure the distance field for the start state
   chomp_collision_space_.setStartState(*group, req.motion_plan_request.start_state);
+
+  //updating collision points for the potential for new attached objects
+  //note that this assume that setStartState has been run by chomp_collision_space_
+  chomp_robot_model_.generateAttachedObjectCollisionPoints(&(req.motion_plan_request.start_state));
+  chomp_robot_model_.populatePlanningGroupCollisionPoints();
 
   // set the goal state equal to start state, and override the joints specified in the goal
   // joint constraints
