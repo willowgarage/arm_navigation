@@ -13,5 +13,5 @@ geometry_msgs/PoseStamped sensor_pose
 # Constraint error will be measured as the solid angle between the 
 # X axis of the frame defined above and the vector between the origin 
 # of the frame defined above and the target location
-float64 absolute_roll_tolerance
+float64 absolute_tolerance
 
