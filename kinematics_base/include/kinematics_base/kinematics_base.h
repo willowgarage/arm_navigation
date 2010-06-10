@@ -75,6 +75,21 @@ namespace kinematics {
                                      std::vector<double> &solution) = 0;      
 
       /**
+       * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
+       * This particular method is intended for "searching" for a solutions by stepping through the redundancy
+       * (or other numerical routines).
+       * @param ik_pose the desired pose of the link
+       * @param ik_seed_state an initial guess solution for the inverse kinematics
+       * @return True if a valid solution was found, false otherwise
+       */
+       virtual bool searchPositionIK(const geometry_msgs::Pose &ik_pose,
+                                     const std::vector<double> &ik_seed_state,
+                                     const double &timeout,
+                                     std::vector<double> &solution,
+                                     const boost::function<void(const geometry_msgs::Pose &ik_pose,const std::vector<double> &ik_solution,int &error_code)> &desired_pose_callback,
+                                     const boost::function<void(const geometry_msgs::Pose &ik_pose,const std::vector<double> &ik_solution,int &error_code)> &solution_callback) = 0;      
+
+      /**
        * @brief Given a set of joint angles and a set of links, compute their pose
        * @param request  - the request contains the joint angles, set of links for which poses are to be computed and a timeout
        * @param response - the response contains stamped pose information for all the requested links
