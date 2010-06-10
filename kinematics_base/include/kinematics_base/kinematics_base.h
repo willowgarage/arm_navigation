@@ -37,6 +37,9 @@
 #ifndef KINEMATICS_BASE_
 #define KINEMATICS_BASE_
 
+#include <geometry_msgs/PoseStamped.h>
+#include <motion_planning_msgs/RobotState.h>
+
 #include <kinematics_msgs/GetPositionIK.h>
 #include <kinematics_msgs/GetPositionFK.h>
 
@@ -49,12 +52,27 @@ namespace kinematics {
     public:
       /**
        * @brief Given a desired pose of the end-effector, compute the joint angles to reach it
-       * @param request  - the request contains the desired pose, seed angles and a timeout
-       * @param response - the response contains the resulting joint angle positions
+       * @param ik_link_name - the name of the link for which IK is being computed
+       * @param ik_pose the desired pose of the link
+       * @param ik_seed_state an initial guess solution for the inverse kinematics
        * @return True if a valid solution was found, false otherwise
        */
-      virtual bool getPositionIK(kinematics_msgs::GetPositionIK::Request &request, 
-                                 kinematics_msgs::GetPositionIK::Response &response) = 0;      
+       virtual bool getPositionIK(const geometry_msgs::Pose &ik_pose,
+                                  const std::vector<double> &ik_seed_state,
+                                  std::vector<double> &solution) = 0;      
+
+      /**
+       * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
+       * This particular method is intended for "searching" for a solutions by stepping through the redundancy
+       * (or other numerical routines).
+       * @param ik_pose the desired pose of the link
+       * @param ik_seed_state an initial guess solution for the inverse kinematics
+       * @return True if a valid solution was found, false otherwise
+       */
+       virtual bool searchPositionIK(const geometry_msgs::Pose &ik_pose,
+                                     const std::vector<double> &ik_seed_state,
+                                     const double &timeout,
+                                     std::vector<double> &solution) = 0;      
 
       /**
        * @brief Given a set of joint angles and a set of links, compute their pose
@@ -62,14 +80,36 @@ namespace kinematics {
        * @param response - the response contains stamped pose information for all the requested links
        * @return True if a valid solution was found, false otherwise
        */
-      virtual bool getPositionFK(kinematics_msgs::GetPositionFK::Request &request, 
-                                 kinematics_msgs::GetPositionFK::Response &response) = 0;
+       virtual bool getPositionFK(const std::vector<std::string> &link_names,
+                                  const std::vector<double> &joint_angles, 
+                                  std::vector<geometry_msgs::Pose> &poses) = 0;
 
       /**
        * @brief  Initialization function for the kinematics
        * @return True if initialization was successful, false otherwise
        */
       virtual bool initialize(std::string name) = 0;
+
+      /**
+       * @brief  Return the frame in which the kinematics is operating
+       * @return the string name of the frame in which the kinematics is operating
+       */
+      virtual std::string getBaseFrame() = 0;
+
+      /**
+       * @brief  Return the links for which kinematics can be computed
+       */
+      virtual std::string getToolFrame() = 0;
+
+      /**
+       * @brief  Return all the joint names in the order they are used internally
+       */
+      virtual std::vector<std::string> getJointNames() = 0;
+
+      /**
+       * @brief  Return all the link names in the order they are represented internally
+       */
+      virtual std::vector<std::string> getLinkNames() = 0;
 
       /**
        * @brief  Virtual destructor for the interface
