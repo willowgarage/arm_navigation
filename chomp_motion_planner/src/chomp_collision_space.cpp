@@ -206,7 +206,7 @@ void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& po
     
     //special case for collision map points
     if(ns[i] == "points") {
-      points.reserve(points.size()+n);
+      //points.reserve(points.size()+n);
       for(unsigned int j = 0; j < n;  ++j) 
       {
         points.push_back(no.shapePose[j].getOrigin());
@@ -601,7 +601,7 @@ void ChompCollisionSpace::getVoxelsInBody(const bodies::Body &body, std::vector<
 	
   // 	ROS_INFO("xyz_min: %i %i %i xyz_max: %i %i %i",x_min,y_min,z_min,x_max,y_max,z_max);
 	
-  voxels.reserve(30000);
+  //voxels.reserve(30000);
   for(x = x_min; x <= x_max; ++x)
   {
     for(y = y_min; y <= y_max; ++y)

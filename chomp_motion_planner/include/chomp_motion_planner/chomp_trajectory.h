@@ -37,6 +37,8 @@
 #ifndef CHOMP_TRAJECTORY_H_
 #define CHOMP_TRAJECTORY_H_
 
+#include <trajectory_msgs/JointTrajectory.h>
+
 #include <chomp_motion_planner/chomp_robot_model.h>
 #include <chomp_motion_planner/chomp_utils.h>
 
@@ -68,6 +70,10 @@ public:
    * and end if needed, to have enough trajectory points for the differentiation rules
    */
   ChompTrajectory(const ChompTrajectory& source_traj, const ChompRobotModel::ChompPlanningGroup* planning_group, int diff_rule_length);
+
+  ChompTrajectory(const ChompRobotModel* robot_model,
+                  const ChompRobotModel::ChompPlanningGroup* planning_group, 
+                  const trajectory_msgs::JointTrajectory& traj);
 
   /**
    * \brief Destructor

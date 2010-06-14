@@ -42,6 +42,8 @@
 #include <motion_planning_msgs/GetMotionPlan.h>
 #include <motion_planning_msgs/convert_messages.h>
 
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
+
 #include <chomp_motion_planner/chomp_robot_model.h>
 #include <chomp_motion_planner/chomp_parameters.h>
 #include <chomp_motion_planner/chomp_collision_space.h>
@@ -87,9 +89,13 @@ public:
    */
   bool planKinematicPath(motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res);
 
+  bool filterJointTrajectory(motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request &req, motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response &res);
+  
 private:
   ros::NodeHandle node_handle_, root_handle_;                         /**< ROS Node handle */
   ros::ServiceServer plan_kinematic_path_service_;      /**< The planning service */
+
+  ros::ServiceServer filter_joint_trajectory_service_;      /**< The planning service */
 
   planning_environment::CollisionModels* collision_models_;
   planning_environment::CollisionSpaceMonitor *monitor_;

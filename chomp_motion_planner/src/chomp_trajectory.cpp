@@ -107,6 +107,53 @@ ChompTrajectory::ChompTrajectory(const ChompTrajectory& source_traj, const Chomp
   }
 }
 
+ChompTrajectory::ChompTrajectory(const ChompRobotModel* robot_model,
+                                 const ChompRobotModel::ChompPlanningGroup* planning_group, 
+                                 const trajectory_msgs::JointTrajectory& traj) :
+  robot_model_(robot_model),
+  planning_group_(planning_group),
+  num_joints_(robot_model_->getNumKDLJoints())
+{
+  double discretization = (traj.points[1].time_from_start-traj.points[0].time_from_start).toSec();
+
+  double discretization2 = (traj.points[2].time_from_start-traj.points[1].time_from_start).toSec();
+
+  if(fabs(discretization2-discretization) > .001) {
+    ROS_WARN_STREAM("Trajectory Discretization not constant " << discretization << " " << discretization2);
+  }
+  discretization_ = discretization;
+
+  ROS_INFO_STREAM("Num planning joints " << planning_group_->num_joints_ << " num trajectory joints " << traj.joint_names.size());
+  
+  num_points_ = traj.points.size();
+  duration_ = (traj.points.back().time_from_start-traj.points[0].time_from_start).toSec();
+  
+  start_index_ = 1;
+  end_index_ = num_points_-2;
+
+  init();
+
+  std::vector<int> ind;
+  for(unsigned int j = 0; j < traj.joint_names.size(); j++) {
+    int kdl_number = robot_model_->urdfNameToKdlNumber(traj.joint_names[j]);
+    if(kdl_number == 0) {
+      ROS_WARN_STREAM("Can't find kdl index for joint " << traj.joint_names[j]);
+    }
+    ind.push_back(kdl_number);
+    ROS_INFO_STREAM("Name " << traj.joint_names[j] << " ind " << kdl_number);
+  }
+
+  ROS_INFO("Getting ready to assign");
+  
+  for(unsigned int i = 0; i < traj.points.size(); i++) {
+    for(unsigned int j = 0; j < traj.joint_names.size(); j++) {
+      trajectory_(i,ind[j]) = traj.points[i].positions[j];
+    }
+  }
+  
+  ROS_INFO("Done with assignment");
+}
+
 ChompTrajectory::~ChompTrajectory()
 {
 }

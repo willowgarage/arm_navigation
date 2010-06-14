@@ -93,6 +93,8 @@ bool ChompPlannerNode::init()
   // advertise the planning service
   plan_kinematic_path_service_ = root_handle_.advertiseService("chomp_planner_longrange/plan_path", &ChompPlannerNode::planKinematicPath, this);
 
+  filter_joint_trajectory_service_ = root_handle_.advertiseService("chomp_planner_longrange/filter_trajectory", &ChompPlannerNode::filterJointTrajectory, this);
+
   ROS_INFO("Initalized CHOMP planning service...");
 
   return true;
@@ -235,6 +237,110 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
   return true;
 }
 
+bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request &req, motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response &res)
+{
+  if (!(req.goal_constraints.position_constraints.empty() && req.goal_constraints.orientation_constraints.empty()))
+  {
+    ROS_ERROR("CHOMP cannot handle pose contraints yet.");
+    return false;
+  }
+
+  sensor_msgs::JointState joint_goal_chomp = motion_planning_msgs::jointConstraintsToJointState(req.goal_constraints.joint_constraints);
+  ROS_INFO("Chomp filtering goal");
+
+  if(joint_goal_chomp.name.size() != joint_goal_chomp.position.size())
+  {
+    ROS_ERROR("Invalid chomp goal");
+    return false;
+  }
+
+  for(unsigned int i=0; i<joint_goal_chomp.name.size(); i++)
+  {
+    ROS_INFO("%s %f",joint_goal_chomp.name[i].c_str(),joint_goal_chomp.position[i]);
+  }
+
+  ros::WallTime start_time = ros::WallTime::now();
+  ROS_INFO("Received filtering request...");
+
+  // get the filter group - will need to figure out
+  const ChompRobotModel::ChompPlanningGroup* group = chomp_robot_model_.getPlanningGroup("right_arm");
+
+  if (group==NULL)
+  {
+    ROS_ERROR("Could not load planning group %s", "right_arm");
+    return false;
+  }
+
+  ChompTrajectory trajectory(&chomp_robot_model_, group, req.trajectory);
+
+  //configure the distance field - this should just use current state
+  motion_planning_msgs::RobotState robot_state;
+  chomp_collision_space_.setStartState(*group, robot_state);
+
+  //updating collision points for the potential for new attached objects
+  //note that this assume that setStartState has been run by chomp_collision_space_
+
+  chomp_robot_model_.generateAttachedObjectCollisionPoints(&(robot_state));
+  chomp_robot_model_.populatePlanningGroupCollisionPoints();
+
+  // set the max planning time:
+  chomp_parameters_.setPlanningTimeLimit(req.allowed_time.toSec());
+  
+  // optimize!
+  ChompOptimizer optimizer(&trajectory, &chomp_robot_model_, group, &chomp_parameters_,
+      vis_marker_array_publisher_, vis_marker_publisher_, &chomp_collision_space_);
+  optimizer.optimize();
+  
+  // assume that the trajectory is now optimized, fill in the output structure:
+
+  std::vector<double> velocity_limits(group->num_joints_, std::numeric_limits<double>::max());
+
+  // fill in joint names:
+  res.trajectory.joint_names.resize(group->num_joints_);
+  for (int i=0; i<group->num_joints_; i++)
+  {
+    res.trajectory.joint_names[i] = group->chomp_joints_[i].joint_name_;
+    // try to retrieve the joint limits:
+    if (joint_velocity_limits_.find(res.trajectory.joint_names[i])==joint_velocity_limits_.end())
+    {
+      node_handle_.param("joint_velocity_limits/"+res.trajectory.joint_names[i], joint_velocity_limits_[res.trajectory.joint_names[i]], std::numeric_limits<double>::max());
+    }
+    velocity_limits[i] = joint_velocity_limits_[res.trajectory.joint_names[i]];
+  }
+  
+  res.trajectory.header.stamp = ros::Time::now();
+  res.trajectory.header.frame_id = reference_frame_;
+
+  // fill in the entire trajectory
+  res.trajectory.points.resize(trajectory.getNumPoints());
+  for (int i=0; i< trajectory.getNumPoints(); i++)
+  {
+    res.trajectory.points[i].positions.resize(group->num_joints_);
+    for (int j=0; j<group->num_joints_; j++)
+    {
+      int kdl_joint_index = chomp_robot_model_.urdfNameToKdlNumber(res.trajectory.joint_names[j]);
+      res.trajectory.points[i].positions[j] = trajectory(i, kdl_joint_index);
+    }
+    if (i==0)
+      res.trajectory.points[i].time_from_start = ros::Duration(0.0);
+    else
+    {
+      double duration = trajectory.getDiscretization();
+      // check with all the joints if this duration is ok, else push it up
+      for (int j=0; j<group->num_joints_; j++)
+      {
+        double d = fabs(res.trajectory.points[i].positions[j] - res.trajectory.points[i-1].positions[j]) / velocity_limits[j];
+        if (d > duration)
+          duration = d;
+      }
+      res.trajectory.points[i].time_from_start = res.trajectory.points[i-1].time_from_start + ros::Duration(duration);
+    }
+  }
+  
+  ROS_INFO("Serviced filter request in %f wall-seconds, trajectory duration is %f", (ros::WallTime::now() - start_time).toSec(), res.trajectory.points.back().time_from_start.toSec());
+  return true;
+
+}
 
 } // namespace chomp
 

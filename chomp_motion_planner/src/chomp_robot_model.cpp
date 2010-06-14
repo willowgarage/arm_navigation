@@ -248,7 +248,7 @@ void ChompRobotModel::getLinkInformation(const std::string link_name, std::vecto
     }
     segment_iter = segment_iter->second.parent;
   }
-  ROS_DEBUG("");
+  ROS_DEBUG(" ");
 
   segment_number = fk_solver_->segmentNameToIndex(link_name);
 
