@@ -75,6 +75,8 @@ void ChompOptimizer::initialize()
   free_vars_start_ = group_trajectory_.getStartIndex();
   free_vars_end_ = group_trajectory_.getEndIndex();
 
+  //ROS_INFO_STREAM("Setting free vars start to " << free_vars_start_ << " end " << free_vars_end_);
+
   // set up joint index:
   group_joint_to_kdl_joint_index_.resize(num_joints_);
   for (int i=0; i<num_joints_; ++i)
@@ -173,6 +175,8 @@ void ChompOptimizer::optimize()
 {
   collision_space_->lock();
 
+  animatePath();
+
   ros::WallTime start_time = ros::WallTime::now();
   // iterate
   for (iteration_=0; iteration_<parameters_->getMaxIterations(); iteration_++)
@@ -216,7 +220,7 @@ void ChompOptimizer::optimize()
     handleJointLimits();
     updateFullTrajectory();
     if (iteration_%10==0)
-    ROS_INFO("Trajectory cost: %f (s=%f, c=%f)", getTrajectoryCost(), getSmoothnessCost(), getCollisionCost());
+      ROS_DEBUG("Trajectory cost: %f (s=%f, c=%f)", getTrajectoryCost(), getSmoothnessCost(), getCollisionCost());
     if (collision_free_iteration_ >= parameters_->getMaxIterationsAfterCollisionFree())
     {
       iteration_++;
@@ -249,6 +253,11 @@ void ChompOptimizer::optimize()
     if (parameters_->getAnimateEndeffector())
     {
       animateEndeffector();
+    }
+
+    if (parameters_->getAnimatePath() && iteration_%25 == 0)
+    {
+      animatePath();
     }
     
   }
@@ -506,6 +515,11 @@ void ChompOptimizer::performForwardKinematics()
     int full_traj_index = group_trajectory_.getFullTrajectoryIndex(i);
     full_trajectory_->getTrajectoryPointKDL(full_traj_index, kdl_joint_array_);
 
+    //ROS_INFO_STREAM("Trajectory point " << i << " index " << full_traj_index);
+//     for(unsigned int j = 0; j < kdl_joint_array_.rows(); j++) {
+//       ROS_INFO_STREAM(j << " " << kdl_joint_array_(j));
+//     }
+
     if (iteration_==0)
     {
       planning_group_->fk_solver_->JntToCartFull(kdl_joint_array_, joint_pos_[i], joint_axis_[i], segment_frames_[i]);
@@ -514,6 +528,7 @@ void ChompOptimizer::performForwardKinematics()
     {
       planning_group_->fk_solver_->JntToCartPartial(kdl_joint_array_, joint_pos_[i], joint_axis_[i], segment_frames_[i]);
     }
+
     //robot_model_->getForwardKinematicsSolver()->JntToCart(kdl_joint_array_, joint_pos_[i], joint_axis_[i], segment_frames_[i]);
 
     state_is_in_collision_[i] = false;

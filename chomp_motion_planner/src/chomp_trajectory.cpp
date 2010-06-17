@@ -133,6 +133,12 @@ ChompTrajectory::ChompTrajectory(const ChompRobotModel* robot_model,
 
   init();
 
+  for(unsigned int i = 0; i < num_points_; i++) {
+    for(unsigned int j = 0; j < num_joints_; j++) {
+      trajectory_(i,j) = 0.0;
+    }
+  }
+
   std::vector<int> ind;
   for(unsigned int j = 0; j < traj.joint_names.size(); j++) {
     int kdl_number = robot_model_->urdfNameToKdlNumber(traj.joint_names[j]);
@@ -140,18 +146,13 @@ ChompTrajectory::ChompTrajectory(const ChompRobotModel* robot_model,
       ROS_WARN_STREAM("Can't find kdl index for joint " << traj.joint_names[j]);
     }
     ind.push_back(kdl_number);
-    ROS_INFO_STREAM("Name " << traj.joint_names[j] << " ind " << kdl_number);
   }
 
-  ROS_INFO("Getting ready to assign");
-  
   for(unsigned int i = 0; i < traj.points.size(); i++) {
     for(unsigned int j = 0; j < traj.joint_names.size(); j++) {
       trajectory_(i,ind[j]) = traj.points[i].positions[j];
     }
-  }
-  
-  ROS_INFO("Done with assignment");
+  }  
 }
 
 ChompTrajectory::~ChompTrajectory()

@@ -164,18 +164,18 @@ void ChompCollisionSpace::setStartState(const ChompRobotModel::ChompPlanningGrou
   monitor_->getEnvironmentModel()->lock();
   monitor_->getKinematicModel()->lock();
 
-  planning_models::KinematicState *state = new planning_models::KinematicState(*(monitor_->getRobotState()));
+  planning_models::KinematicState state(planning_models::KinematicState(*(monitor_->getRobotState())));
 
   std::vector<double> tmp;
   tmp.resize(1);
   for (unsigned int i = 0 ; i < robot_state.joint_state.position.size() ; ++i)
   {
     tmp[0] = robot_state.joint_state.position[i];
-    state->setParamsJoint(tmp, robot_state.joint_state.name[i]);
+    state.setParamsJoint(tmp, robot_state.joint_state.name[i]);
   }
 
   // figure out the poses of the robot model
-  monitor_->getKinematicModel()->computeTransforms(state->getParams());
+  monitor_->getKinematicModel()->computeTransforms(state.getParams());
   // update the collision space
   monitor_->getEnvironmentModel()->updateRobotModel();
 

@@ -50,6 +50,7 @@
 #include <planning_environment/monitors/collision_space_monitor.h>
 #include <map>
 #include <string>
+#include <filters/filter_chain.h>
 
 namespace chomp
 {
@@ -110,6 +111,13 @@ private:
   ros::Publisher vis_marker_array_publisher_;           /**< Publisher for marker arrays */
   ros::Publisher vis_marker_publisher_;                 /**< Publisher for markers */
   std::map<std::string, double> joint_velocity_limits_; /**< Map of joints to velocity limits */
+
+  std::map<std::string, motion_planning_msgs::JointLimits> joint_limits_;
+  void getLimits(const trajectory_msgs::JointTrajectory& trajectory, 
+                 std::vector<motion_planning_msgs::JointLimits>& limits_out);
+
+  //filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request> filter_constraints_chain_;
+  ros::ServiceClient filter_trajectory_client_;
 
 };
 

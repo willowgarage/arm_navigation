@@ -30,6 +30,8 @@ IEEE International Conference on Robotics and Automation, May 2009.
   <depend package="distance_field" />
   <depend package="sensor_msgs" />
   <depend package="trajectory_msgs" />
+  <depend package="filters" />
+  <depend package="spline_smoother" />
  <export>
     <cpp cflags="-I${prefix}/include -I${prefix}/srv/cpp  -I${prefix}/msg/cpp"/>
   </export>
