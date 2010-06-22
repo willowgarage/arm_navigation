@@ -42,6 +42,7 @@
 #include <urdf/model.h>
 #include <LinearMath/btTransform.h>
 #include <boost/thread/mutex.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include <iostream>
 #include <vector>
@@ -599,7 +600,13 @@ namespace planning_models
 	Joint* copyRecursive(Link *parent, const Link *link);
     
     };
+    
+    /** \brief Define shared pointer type to a kinematic model */
+    typedef boost::shared_ptr<KinematicModel> KinematicModelPtr;
 
+    /** \brief Define shared pointer type to a const kinematic model */
+    typedef boost::shared_ptr<const KinematicModel> KinematicModelConstPtr;
+    
 }
 
 #endif

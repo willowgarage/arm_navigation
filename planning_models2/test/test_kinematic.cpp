@@ -294,8 +294,8 @@ TEST(FK, OneRobot)
     groups["base"].push_back("joint_b");
     groups["base"].push_back("joint_c");
         
-    planning_models::KinematicModel *model = new planning_models::KinematicModel(urdfModel, groups,  planning_models::KinematicModel::CONNECT_XY_YAW);
-
+    planning_models::KinematicModelPtr model(new planning_models::KinematicModel(urdfModel, groups,  planning_models::KinematicModel::CONNECT_XY_YAW));
+    
     
     EXPECT_EQ((unsigned int)5, model->getDimension());
 
@@ -382,7 +382,6 @@ TEST(FK, OneRobot)
     EXPECT_TRUE(m_copy == *model);
 
     delete sp;
-    delete model;
 }
 
 

@@ -43,7 +43,7 @@
 #include <cstdlib>
 #include <climits>
 
-planning_models::KinematicState::KinematicState(const KinematicModel *model) : owner_(model)
+planning_models::KinematicState::KinematicState(const KinematicModelConstPtr &model) : owner_(model)
 {
     randSeed_ = ros::WallTime::now().toNSec() % UINT_MAX;
     params_ = model->getDimension() > 0 ? new double[model->getDimension()] : NULL;

@@ -50,7 +50,7 @@ namespace planning_models
     class KinematicState
     {
     public:
-	KinematicState(const KinematicModel *model);
+	KinematicState(const KinematicModelConstPtr &model);
 	KinematicState(const KinematicState &sp);
 
 	~KinematicState(void);
@@ -248,18 +248,23 @@ namespace planning_models
 	void copyFrom(const KinematicState &sp);
 
 	/** \brief The kinematic model this state corresponds to */
-	const KinematicModel *owner_;
+	KinematicModelConstPtr owner_;
 
 	/** \brief The set of joint values making up the state of the model. This can be used to perform FK with the kinematic model */
-	double               *params_;
+	double                *params_;
 
 	/** \brief A random seed */
-	unsigned int          randSeed_;
+	unsigned int           randSeed_;
 	
 	/** \brief Marks the dimensions of the state that have been updated */
-	std::vector<bool>     updated_;
+	std::vector<bool>      updated_;
     };
     
+    /** \brief Define shared pointer type to a kinematic state */
+    typedef boost::shared_ptr<KinematicState> KinematicStatePtr;
+
+    /** \brief Define shared pointer type to a kinematic state */
+    typedef boost::shared_ptr<const KinematicState> KinematicStateConstPtr;
 }
 
 #endif
