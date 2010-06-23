@@ -69,8 +69,9 @@ namespace ompl_planning
 	bool isRequestValid(ModelMap &models, motion_planning_msgs::GetMotionPlan::Request &req, const std::string &distance_metric);
 
 	/** \brief Check and compute a motion plan. Return true if the plan was succesfully computed */
-	bool computePlan(ModelMap &models, const planning_models::KinematicState *start, double stateDelay,
-                   motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res, const std::string &distance_metric);
+	bool computePlan(ModelMap &models, motion_planning_msgs::RobotState &robot_state, 
+                         const planning_models::KinematicState *start, double stateDelay,
+                         motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res, const std::string &distance_metric);
 
 	/** \brief Enable callback for when a motion plan computation is completed */
 	void setOnFinishPlan(const boost::function<void(PlannerSetup*)> &onFinishPlan);
@@ -88,7 +89,7 @@ namespace ompl_planning
 	void configure(const planning_models::KinematicState *startState, motion_planning_msgs::GetMotionPlan::Request &req, PlannerSetup *psetup, const std::string &distance_metric);
 
 	/** \brief Compute the actual motion plan. Return true if computed plan was trivial (start state already in goal region) */
-	bool callPlanner(PlannerSetup *psetup, int times, double allowed_time, Solution &sol);
+      bool callPlanner(PlannerSetup *psetup, motion_planning_msgs::GetMotionPlan::Request &reqx, int times, double allowed_time, Solution &sol);
 	
 	/** \brief Set the workspace bounds based on the request */
 	void setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &params, ompl_ros::ModelBase *ompl_model);
@@ -96,6 +97,10 @@ namespace ompl_planning
 	/** \brief Fill the response with solution data */
 	void fillResult(PlannerSetup *psetup, const planning_models::KinematicState *start, double stateDelay,
 			motion_planning_msgs::GetMotionPlan::Response &res, const Solution &sol);
+
+        bool checkPathForCollisions(PlannerSetup *psetup,
+                                    motion_planning_msgs::GetMotionPlan::Request &req,
+                                    ompl::kinematic::PathKinematic *kpath);
 
 	/** \brief Fix the input states, if they are not valid */
 	bool fixInputStates(PlannerSetup *psetup, double value, unsigned int count);

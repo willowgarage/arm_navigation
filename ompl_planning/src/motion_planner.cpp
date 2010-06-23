@@ -155,7 +155,19 @@ private:
     delete s;
     return NULL;
   }
-    
+
+  void contactFound(collision_space::EnvironmentModel::Contact &contact)
+  {
+  //   ROS_INFO_STREAM("Contact ");
+//     ROS_INFO_STREAM("First link " << contact.link1->name);
+//     if(contact.link2 != NULL) {
+//       ROS_INFO_STREAM("Second link " << contact.link2->name);
+//     } else if (!contact.object_name.empty()) {
+//       ROS_INFO_STREAM("Object  " << contact.object_name);
+//     }
+//     ROS_INFO_STREAM("Position " << contact.pos.x() << " " << contact.pos.y() << " " << contact.pos.z());
+
+  }  
   bool planToGoal(motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res)
   {
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
@@ -175,10 +187,14 @@ private:
         std::stringstream ss;
         startState->print(ss);
         ROS_DEBUG("Complete starting state:\n%s", ss.str().c_str());
-        st = requestHandler_.computePlan(models_, startState, stateDelay_, req, res, distance_metric_);
-        if (st && !res.trajectory.joint_trajectory.points.empty())
-	        if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory, req.motion_plan_request.start_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes))
+        st = requestHandler_.computePlan(models_, req.motion_plan_request.start_state, startState, stateDelay_, req, res, distance_metric_);
+        if (st && !res.trajectory.joint_trajectory.points.empty()) {
+          planningMonitor_->setOnCollisionContactCallback(boost::bind(&OMPLPlanning::contactFound, this, _1));
+          if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory, req.motion_plan_request.start_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes)) {
+            
             ROS_ERROR("Reported solution appears to have already become invalidated");
+          }
+        }
         delete startState;
       }
     else
