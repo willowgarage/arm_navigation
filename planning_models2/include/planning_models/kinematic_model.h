@@ -90,7 +90,12 @@ namespace planning_models
 	/** \brief Forward definition of a group of joints */
 	class JointGroup;
 	
+	/** \brief Define shared pointer type to a joint group as this is typically used */
+	typedef boost::shared_ptr<JointGroup> JointGroupPtr;
 	
+	/** \brief Define shared pointer type to a const joint group as this is typically used */
+	typedef boost::shared_ptr<const JointGroup> JointGroupConstPtr;
+
 	/** \brief A joint from the robot. Contains the transform applied by the joint type */
 	class Joint
 	{
