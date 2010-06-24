@@ -236,6 +236,9 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     /* add goal state */
     psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
     psetup->ompl_model->si->setGoal(computeGoalFromConstraints(psetup->ompl_model, req.motion_plan_request.goal_constraints));
+    
+    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.path_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
+    psetup->ompl_model->planningMonitor->setPathConstraints(req.motion_plan_request.path_constraints, error_code);
 
     /* fix invalid input states, if we have any */
     fixInputStates(psetup, 0.02, 50);
