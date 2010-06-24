@@ -60,15 +60,15 @@ bool ompl_ros::ROSStateValidityPredicateKinematic::operator()(const ompl::base::
 
 void ompl_ros::ROSStateValidityPredicateKinematic::setConstraints(const motion_planning_msgs::Constraints &kc)
 {
- 
-  //  clearConstraints();
-  //     *kinematic_state_ = *model_->planningMonitor->getRobotState();
-  //     ROS_INFO("ompl planning for group %s",model_->groupName.c_str());
-  //     model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.position_constraints);
-  //     model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.orientation_constraints);
-
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  model_->planningMonitor->setPathConstraints(kc, error_code);
+  
+  clearConstraints();
+  *kinematic_state_ = *model_->planningMonitor->getRobotState();
+  ROS_INFO("ompl planning for group %s",model_->groupName.c_str());
+  model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.position_constraints);
+  model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.orientation_constraints);
+  
+  //motion_planning_msgs::ArmNavigationErrorCodes error_code;
+  //model_->planningMonitor->setPathConstraints(kc, error_code);
   //model_->planningMonitor->setOrientationConstraints(kc.orientation_constraints);
 }
 
