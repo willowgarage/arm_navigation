@@ -281,9 +281,7 @@ bool ompl_planning::RequestHandler::fixInputStates(PlannerSetup *psetup, double 
     return result;
 }
 
-bool ompl_planning::RequestHandler::computePlan(ModelMap &models, motion_planning_msgs::RobotState &robot_state, 
-                                                const planning_models::KinematicState* start, 
-                                                double stateDelay,
+bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning_models::KinematicState *start, double stateDelay,
                                                 motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res, const std::string &distance_metric)
 {
   if (!isRequestValid(models, req, distance_metric))
@@ -308,7 +306,7 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, motion_plannin
   sol.path = NULL;
   sol.difference = 0.0;
   sol.approximate = false;
-  callPlanner(psetup, req, req.motion_plan_request.num_planning_attempts, req.motion_plan_request.allowed_planning_time.toSec(), sol);
+  callPlanner(psetup, req.motion_plan_request.num_planning_attempts, req.motion_plan_request.allowed_planning_time.toSec(), sol);
     
   m->planningMonitor->getEnvironmentModel()->unlock();
   m->planningMonitor->getKinematicModel()->unlock();
@@ -386,7 +384,7 @@ void ompl_planning::RequestHandler::fillResult(PlannerSetup *psetup, const plann
   assert(kpath || dpath);    
 }
 
-bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, motion_planning_msgs::GetMotionPlan::Request &req, int times, double allowed_time, Solution &sol)
+bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, int times, double allowed_time, Solution &sol)
 {
   if (times <= 0)
     {
@@ -432,22 +430,12 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, motion_pla
           ros::WallTime startTime = ros::WallTime::now();
           bool ok = psetup->mp->solve(allowed_time); 
           double tsolve = (ros::WallTime::now() - startTime).toSec();	
-          ROS_INFO("%s Motion planner spent %g seconds", (ok ? "[Success]" : "[Failure]"), tsolve);
+          ROS_DEBUG("%s Motion planner spent %g seconds", (ok ? "[Success]" : "[Failure]"), tsolve);
           totalTime += tsolve;
-
-          bool all_ok = ok;
+	    
 
           if (ok)
             {
-              ompl::kinematic::PathKinematic *path = dynamic_cast<ompl::kinematic::PathKinematic*>(goal->getSolutionPath());
-              
-              ROS_INFO_STREAM("Path out of planner consists of " << path->length() << " states");
-
-              if(!checkPathForCollisions(psetup, req, path)) {
-                ROS_INFO("Path out of planner bad");
-                all_ok = false;
-              }
-
               /* do path smoothing, if we are doing kinematic planning */
               if (psetup->smoother)
                 {
@@ -457,17 +445,8 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, motion_pla
                       ros::WallTime startTime = ros::WallTime::now();
                       psetup->smoother->smoothMax(path);
                       double tsmooth = (ros::WallTime::now() - startTime).toSec();
-                      ROS_INFO("          Smoother spent %g seconds (%g seconds in total)", tsmooth, tsmooth + tsolve);
-                      if(!checkPathForCollisions(psetup, req, path)) {
-                        ROS_INFO("Path out of smoother bad");
-                        all_ok = false;
-                      }
-                      dynamic_cast<ompl_ros::ROSSpaceInformationKinematic*>(psetup->ompl_model->si)->interpolatePath(path, 1.0);
-                      if(!checkPathForCollisions(psetup, req, path)) {
-                        ROS_INFO("Path out of interpolator bad");
-                        all_ok = false;
-                      }
-
+                      ROS_DEBUG("          Smoother spent %g seconds (%g seconds in total)", tsmooth, tsmooth + tsolve);
+                      dynamic_cast<ompl_ros::ROSSpaceInformationKinematic*>(psetup->ompl_model->si)->interpolatePath(path, 0.3);
                     }
                 }
 		
@@ -482,15 +461,7 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, motion_pla
                   goal->forgetSolutionPath();
                   ROS_DEBUG("          Obtained better solution: distance is %f", sol.difference);
                 }
-            } else {
-            ROS_INFO("Something not ok in ompl");
-          }
-
-          if(all_ok) {
-            ROS_INFO("Ompl reports ok");
-          } else {
-            ROS_INFO("Ompl not ok");
-          }
+            }
 
           if (onFinishPlan_)
             onFinishPlan_(psetup);
@@ -503,52 +474,3 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, motion_pla
   return result;
 }
 
-  bool ompl_planning::RequestHandler::checkPathForCollisions(PlannerSetup *psetup,
-                                                             motion_planning_msgs::GetMotionPlan::Request &req,
-                                                             ompl::kinematic::PathKinematic *kpath) {
-
-    motion_planning_msgs::ArmNavigationErrorCodes error_code;
-    std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-
-    if(!psetup->ompl_model->planningMonitor->isStateValid(req.motion_plan_request.start_state, planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST, false, error_code)) {
-      ROS_INFO("Start state already invalid");
-      return false;
-    }
-    
-    std::vector<const planning_models::KinematicModel::Joint*> joints;
-    psetup->ompl_model->planningMonitor->getKinematicModel()->getJoints(joints);
-    trajectory_msgs::JointTrajectory joint_trajectory;
-
-    joint_trajectory.points.resize(kpath->states.size());
-    joint_trajectory.joint_names = psetup->ompl_model->group->jointNames;
-    
-    const unsigned int dim = psetup->ompl_model->si->getStateDimension();
-    for (unsigned int i = 0 ; i < kpath->states.size() ; ++i)
-    {
-      joint_trajectory.points[i].time_from_start = ros::Duration(i * .01);
-      joint_trajectory.points[i].positions.resize(dim);
-      for (unsigned int j = 0 ; j < dim ; ++j)
-        joint_trajectory.points[i].positions[j] = kpath->states[i]->values[j];
-    }
-
-    if(!psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, 
-                                                                         psetup->ompl_model->planningMonitor->getFrameId(), 
-                                                                         error_code)) {
-      ROS_INFO("Problem transforming goal constraints to correct frame");
-    }
-    
-    if(! psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.path_constraints, 
-                                                                          psetup->ompl_model->planningMonitor->getFrameId(),
-                                                                          error_code)) {
-      ROS_INFO("Problem transforming path constraints to correct frame");
-    }
-          
-    psetup->ompl_model->planningMonitor->setPathConstraints(req.motion_plan_request.path_constraints,error_code);
-    psetup->ompl_model->planningMonitor->setGoalConstraints(req.motion_plan_request.goal_constraints,error_code);
-    
-    if (!psetup->ompl_model->planningMonitor->isTrajectoryValid(joint_trajectory, req.motion_plan_request.start_state, planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST, true, error_code, trajectory_error_codes)) {
-      return false;
-    }
-    return true;
-  }
-  
