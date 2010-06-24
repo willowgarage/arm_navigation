@@ -68,7 +68,6 @@ void ompl_ros::ROSStateValidityPredicateKinematic::setConstraints(const motion_p
   //     model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.orientation_constraints);
 
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  model_->planningMonitor->clearConstraints();
   model_->planningMonitor->setPathConstraints(kc, error_code);
   //model_->planningMonitor->setOrientationConstraints(kc.orientation_constraints);
 }
