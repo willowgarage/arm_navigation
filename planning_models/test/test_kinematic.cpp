@@ -71,6 +71,7 @@ TEST(Loading, SimpleRobot)
 	"  <parent link=\"world\"/>"
 	"  <child link=\"base_link\"/>"
 	"</joint>"
+  "<link name=\"world\"/>"
 	"<link name=\"base_link\">"
 	"  <collision name=\"base_collision\">"
         "  <origin rpy=\"0 0 0\" xyz=\"0 0 0.165\"/>"
@@ -115,6 +116,7 @@ TEST(LoadingAndFK, SimpleRobot)
 	"  <child link=\"base_link\"/>"
 	"  <origin rpy=\"1 0 0 \" xyz=\"0 0 0 \"/>"
 	"  </joint>"
+  "<link name=\"world\"/>"
 	"<link name=\"base_link\">"
 	"  <inertial>"
 	"    <mass value=\"2.81\"/>"
@@ -194,6 +196,7 @@ TEST(FK, OneRobot)
 	"  <child link=\"base_link\"/>"
 	"  <origin rpy=\" 0.0 -0.2 0 \" xyz=\"1 0 0 \"/>"
 	"</joint>"
+  "<link name=\"world\"/>"
 	"<link name=\"base_link\">"
 	"  <inertial>"
 	"    <mass value=\"2.81\"/>"
@@ -382,8 +385,8 @@ TEST(FK, OneRobot)
     EXPECT_TRUE(sp->seenAll());
     
     EXPECT_EQ(0.5, sp->getParams()[0]);
-    /*    EXPECT_EQ(0.4, sp->getParams()[1]);
-          EXPECT_EQ(1.1, sp->getParams()[2]);*/
+    //    EXPECT_EQ(0.4, sp->getParams()[1]);
+    //    EXPECT_EQ(1.1, sp->getParams()[2]);
     EXPECT_EQ(0.1, sp->getParams()[3]);
     EXPECT_EQ(-1.0, sp->getParams()[4]);
     
