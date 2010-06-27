@@ -300,6 +300,7 @@ namespace planning_models
 	public:
 	    
 	    JointGroup(KinematicModel *model, const std::string& groupName, const std::vector<Joint*> &groupJoints);
+	    
 	    ~JointGroup(void);
 	    
 	    /** \brief The kinematic model that owns the group */
@@ -358,6 +359,9 @@ namespace planning_models
 	    /** \brief Check if this group contains the joints from another group */
 	    bool containsGroup(const JointGroup *group) const;
 	    
+	    /** \brief Check if this group contains some joints from another group */
+	    bool disjointGroup(const JointGroup *group) const;
+
 	    /** \brief Construct a group that consists of the union of joints of this group and the argument group */
 	    JointGroup* addGroup(const JointGroup *group) const;
 

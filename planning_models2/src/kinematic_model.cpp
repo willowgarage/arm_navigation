@@ -1115,6 +1115,14 @@ int planning_models::KinematicModel::JointGroup::getJointPosition(const std::str
     }
 }
 
+bool planning_models::KinematicModel::JointGroup::disjointGroup(const JointGroup *group) const
+{
+    for (unsigned int i = 0 ; i < group->joint_names.size() ; ++i)
+        if (hasJoint(group->joint_names[i]))
+	    return false;
+    return true;
+}
+
 bool planning_models::KinematicModel::JointGroup::containsGroup(const JointGroup *group) const
 {
     for (unsigned int i = 0 ; i < group->joint_names.size() ; ++i)
