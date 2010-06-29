@@ -575,6 +575,9 @@ void planning_models::KinematicState::print(std::ostream &out) const
     
     for (unsigned int i = 0 ; i < joints.size() ; ++i)
     {
+	if (joints[i]->used_params == 0)
+	    continue;
+	
 	out << joints[i]->name;
 	if (!seenJoint(joints[i]->name))
 	    out << "[ *** UNSEEN *** ]";
