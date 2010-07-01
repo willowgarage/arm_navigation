@@ -260,6 +260,7 @@ bool sampleSplineTrajectory(const spline_smoother::SplineTrajectory& spline,
     point_out.time_from_start = ros::Duration(times[i]);
     traj_out.points[i] = point_out;
   }
+  traj_out.joint_names = spline.names;
   return success;
 }
 
@@ -281,6 +282,7 @@ bool sampleSplineTrajectory(const spline_smoother::LSPBTrajectoryMsg& spline,
     point_out.time_from_start = ros::Duration(times[i]);
     traj_out.points[i] = point_out;
   }
+  traj_out.joint_names = spline.names;
   return success;
 }
 
