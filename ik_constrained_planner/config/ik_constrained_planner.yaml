@@ -1,0 +1,54 @@
+## This file should be loaded under ompl_planning
+x:
+  min: -0.0
+  max: 1.5
+  resolution: 0.03
+y:
+  min: -1.5
+  max: 1.5
+  resolution: 0.03
+z:
+  min: 0.0
+  max: 2.0
+  resolution: 0.03
+
+## the list of groups for which motion planning can be performed
+groups: 
+  - right_arm 
+
+## the planner configurations; each config must have a type, which specifies
+## the planner to be used; other parameters can be specified as well, depending 
+## on the planner
+
+right_arm:
+  planner_configs:
+    - pSBLkConfig1 
+    - LBKPIECEkConfig1
+  kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
+  redundancy:
+    name: r_upper_arm_roll_joint
+  tip_name: r_wrist_roll_link
+  root_name: torso_lift_link
+
+left_arm: 
+  planner_configs:
+    - pSBLkConfig1 
+    - LBKPIECEkConfig1
+  kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
+  redundancy:
+    name: l_upper_arm_roll_joint
+  tip_name: l_wrist_roll_link
+  root_name: torso_lift_link
+
+planner_configs:
+  pSBLkConfig1:
+    type: kinematic::pSBL
+    projection: 0 1
+    celldim: 1 1
+    range: 0.5
+
+  LBKPIECEkConfig1:
+    type: kinematic::LBKPIECE
+    projection: 5 6
+    celldim: 0.1 0.1
+    
