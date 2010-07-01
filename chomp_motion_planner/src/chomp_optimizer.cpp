@@ -173,11 +173,15 @@ ChompOptimizer::~ChompOptimizer()
 
 void ChompOptimizer::optimize()
 {
+  ros::WallTime start_time = ros::WallTime::now();
+
   collision_space_->lock();
 
-  animatePath();
+  if (parameters_->getAnimatePath())
+  {
+    animatePath();
+  }
 
-  ros::WallTime start_time = ros::WallTime::now();
   // iterate
   for (iteration_=0; iteration_<parameters_->getMaxIterations(); iteration_++)
   {
@@ -270,12 +274,13 @@ void ChompOptimizer::optimize()
 
   group_trajectory_.getTrajectory() = best_group_trajectory_;
   updateFullTrajectory();
-  ROS_INFO("Terminated after %d iterations, using path from iteration %d", iteration_, last_improvement_iteration_);
-  ROS_INFO("Optimization core finished in %f sec", (ros::WallTime::now() - start_time).toSec());
 
   collision_space_->unlock();
   if (parameters_->getAnimatePath())
     animatePath();
+
+  ROS_INFO("Terminated after %d iterations, using path from iteration %d", iteration_, last_improvement_iteration_);
+  ROS_INFO("Optimization core finished in %f sec", (ros::WallTime::now() - start_time).toSec());
 }
 
 void ChompOptimizer::calculateSmoothnessIncrements()

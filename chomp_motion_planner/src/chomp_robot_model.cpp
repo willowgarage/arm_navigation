@@ -38,6 +38,8 @@
 #include <kdl_parser/kdl_parser.hpp>
 #include <ros/ros.h>
 #include <cstdio>
+#include <iostream>
+#include <visualization_msgs/MarkerArray.h>
 
 using namespace std;
 using namespace mapping_msgs;
@@ -254,14 +256,33 @@ void ChompRobotModel::getLinkInformation(const std::string link_name, std::vecto
 
 }
 
-void ChompRobotModel::addCollisionPointsFromLinkRadius(std::string link_name, double radius, double clearance, double extension)
+void ChompRobotModel::addCollisionPointsFromLink(std::string link_name, double clearance)
 {
+  planning_models::KinematicModel* kmodel = monitor_->getKinematicModel();
+  planning_models::KinematicModel::Link* link = kmodel->getLink(link_name);
+  if(link == NULL) {
+    ROS_WARN_STREAM("Collision link " << link_name << " not valid");
+    return;
+  }
+
+  bodies::Body* body = bodies::createBodyFromShape(link->shape);
+  body->setPadding(monitor_->getEnvironmentModel()->getCurrentLinkPadding(link->name));
+  body->setPose(link->globalTrans);
+  body->setScale(1.0);
+  bodies::BoundingCylinder cyl;
+  body->computeBoundingCylinder(cyl);
+  delete body;
+
   std::vector<int> active_joints;
   KDL::SegmentMap::const_iterator segment_iter = kdl_tree_.getSegment(link_name);
   int segment_number;
 
+  ROS_DEBUG_STREAM("Link " << link_name << " length " << cyl.length << " radius " << cyl.radius);
+
   getLinkInformation(link_name, active_joints, segment_number);
   std::vector<ChompCollisionPoint>& collision_points_vector = link_collision_points_.find(link_name)->second;
+
+  
 
   int first_child=1;
   // find the child:
@@ -274,9 +295,9 @@ void ChompRobotModel::addCollisionPointsFromLinkRadius(std::string link_name, do
     ROS_DEBUG("joint origin for %s is %f %f %f\n", (*child_iter)->first.c_str(), joint_origin.x(), joint_origin.y(), joint_origin.z());
 
     // generate equidistant collision points for this link:
-    double spacing = radius/2.0;
+    double spacing = cyl.radius;
     double distance = joint_origin.Norm();
-    distance+=extension;
+    distance+=cyl.length;
     int num_points = ceil(distance/spacing)+1;
     spacing = distance/(num_points-1.0);
 
@@ -286,8 +307,11 @@ void ChompRobotModel::addCollisionPointsFromLinkRadius(std::string link_name, do
       if (!first_child && i==0)
         continue;
       point_pos = joint_origin * (double)(i/(num_points-1.0));
-      collision_points_vector.push_back(ChompCollisionPoint(active_joints, radius, clearance, segment_number, point_pos));
+      collision_points_vector.push_back(ChompCollisionPoint(active_joints, cyl.radius, clearance, segment_number, point_pos));
       ROS_DEBUG_STREAM("Point pos is " << point_pos.x() << " " << point_pos.y() << " " << point_pos.z());
+      if(max_radius_clearance_ < cyl.radius) {
+        max_radius_clearance_ = cyl.radius+clearance;
+      }
     }
 
     first_child = 0;
@@ -344,25 +368,29 @@ void ChompRobotModel::generateLinkCollisionPoints()
   // clear out link collision points:
   link_collision_points_.clear();
 
-  // iterate over all collision checking links to add collision points
-  for (vector<string>::const_iterator link_it=monitor_->getCollisionModels()->getGroupLinkUnion().begin();
-      link_it!=monitor_->getCollisionModels()->getGroupLinkUnion().end(); ++link_it)
-  {
-    // get the "radius" of this link from the param server, if any:
-    double link_radius;
-    std::string link_name = *link_it;
-    std::string link_param_root = "collision_links/"+link_name+"/";
-    if (node_handle_.getParam(link_param_root+"link_radius", link_radius))
-    {
-      double clearance;
-      double extension;
-      node_handle_.param(link_param_root+"link_clearance", clearance, collision_clearance_default_);
-      node_handle_.param(link_param_root+"link_extension", extension, 0.0);
-      addCollisionPointsFromLinkRadius(link_name, link_radius, clearance, extension);
-      double new_max_rc = link_radius + clearance;
-      if (max_radius_clearance_ < new_max_rc)
-        max_radius_clearance_ = new_max_rc;
-    }
+  if(!node_handle_.hasParam("collision_links")) {
+    ROS_WARN_STREAM("No collision link param specified");
+    return;
+  } 
+
+  std::string all_links_string;
+
+  node_handle_.getParam("collision_links", all_links_string);
+
+  std::list<std::string> all_links_list;
+
+  std::stringstream link_name_stream(all_links_string);
+  while(link_name_stream.good() && !link_name_stream.eof()){
+    std::string lname;
+    link_name_stream >> lname;
+    if(lname.size() == 0) continue;
+    all_links_list.push_back(lname);
+  }
+
+  for(std::list<std::string>::iterator it = all_links_list.begin();
+      it != all_links_list.end();
+      it++) {
+    addCollisionPointsFromLink(*it, collision_clearance_default_);
   }
 }
 

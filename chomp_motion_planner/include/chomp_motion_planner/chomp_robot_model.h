@@ -205,6 +205,8 @@ public:
   void generateLinkCollisionPoints();
   void populatePlanningGroupCollisionPoints();
 
+  void publishCollisionPoints(ros::Publisher& vis_marker);
+
 private:
   ros::NodeHandle node_handle_,root_handle_;                                 /**< ROS Node handle */
   planning_environment::CollisionSpaceMonitor* monitor_;
@@ -225,7 +227,7 @@ private:
   double max_radius_clearance_;                                 /**< Maximum value of radius + clearance for any of the collision points */
   std::map<std::string, mapping_msgs::AttachedCollisionObject> attached_objects_;        /**< Map of links -> attached objects */
 
-  void addCollisionPointsFromLinkRadius(std::string link_name, double radius, double clearance, double extension);
+  void addCollisionPointsFromLink(std::string link_name, double clearance);
   //void addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedCollisionObject& attached_object);
   void getLinkInformation(const std::string link_name, std::vector<int>& active_joints, int& segment_number);
 

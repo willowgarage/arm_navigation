@@ -80,7 +80,7 @@ bool ChompCollisionSpace::init(planning_environment::CollisionSpaceMonitor* moni
 
   //initCollisionCuboids();
 
-  distance_field_ = new distance_field::PropagationDistanceField(size_x, size_y, size_z, resolution, origin_x, origin_y, origin_z, max_expansion_);
+  distance_field_ = new distance_field::PropagationDistanceField(size_x, size_y, size_z, resolution, origin_x, origin_y, origin_z, max_radius_clearance);
 
   monitor_ = monitor;
   //now setting up robot bodies for potential inclusion in the distance field
@@ -124,9 +124,9 @@ bool ChompCollisionSpace::init(planning_environment::CollisionSpaceMonitor* moni
             std::vector<std::string>& exclude_links = distance_exclude_links_[object1];
             if(planning_group_link_names_.find(object2) == planning_group_link_names_.end()) {
               exclude_links.push_back(object2);
-              ROS_INFO_STREAM("Link " << object1 << " adding exclude for link " << object2);
+              ROS_DEBUG_STREAM("Link " << object1 << " adding exclude for link " << object2);
             } else {
-              ROS_INFO_STREAM("Link " << object1 << " adding exclude for group " << object2 << " size " << planning_group_link_names_.find(object2)->second.size() );
+              ROS_DEBUG_STREAM("Link " << object1 << " adding exclude for group " << object2 << " size " << planning_group_link_names_.find(object2)->second.size() );
               exclude_links.insert(exclude_links.end(), planning_group_link_names_.find(object2)->second.begin(),
                                    planning_group_link_names_.find(object2)->second.end());
             }
@@ -497,13 +497,13 @@ void ChompCollisionSpace::loadRobotBodies() {
 
   planning_group_link_names_ = monitor_->getCollisionModels()->getPlanningGroupLinks();
 
-  ROS_INFO_STREAM("Planning group links size " << planning_group_link_names_.size());
+  ROS_DEBUG_STREAM("Planning group links size " << planning_group_link_names_.size());
 
   for(std::map<std::string, std::vector<std::string> >::iterator it1 = planning_group_link_names_.begin();
       it1 != planning_group_link_names_.end();
       it1++)
   {
-    ROS_INFO_STREAM("Chomp loading group " << it1->first);
+    ROS_DEBUG_STREAM("Chomp loading group " << it1->first);
 
     for(std::vector<std::string>::iterator it2 = it1->second.begin();
         it2 != it1->second.end();
@@ -542,7 +542,7 @@ void ChompCollisionSpace::addBodiesInGroupToPoints(const std::string& group, std
       for(unsigned int i = 0; i < it1->second.size(); i++) {
         std::vector<btVector3> single_body_points;
         getVoxelsInBody((*it1->second[i]), single_body_points);
-        ROS_INFO_STREAM("Group " << it1->first << " link num " << i << " points " << single_body_points.size());
+        ROS_DEBUG_STREAM("Group " << it1->first << " link num " << i << " points " << single_body_points.size());
         body_points.insert(body_points.end(), single_body_points.begin(), single_body_points.end());
       }
     }
@@ -552,7 +552,7 @@ void ChompCollisionSpace::addBodiesInGroupToPoints(const std::string& group, std
       for(unsigned int i = 0; i < bodies.size(); i++) {
         std::vector<btVector3> single_body_points;
         getVoxelsInBody(*(bodies[i]), single_body_points);
-        ROS_INFO_STREAM("Group " << group << " link num " << i << " points " << single_body_points.size());
+        ROS_DEBUG_STREAM("Group " << group << " link num " << i << " points " << single_body_points.size());
         body_points.insert(body_points.end(), single_body_points.begin(), single_body_points.end());
       }
     } else {
@@ -578,7 +578,7 @@ void ChompCollisionSpace::addAllBodiesButExcludeLinksToPoints(std::string group_
       if(find(exclude_links.begin(), exclude_links.end(),group_link_names[i]) == exclude_links.end()) {
         std::vector<btVector3> single_body_points;
         getVoxelsInBody((*it1->second[i]), single_body_points);
-        //ROS_INFO_STREAM("Group " << it1->first << " link " << group_link_names[i] << " points " << single_body_points.size());
+        ROS_DEBUG_STREAM("Group " << it1->first << " link " << group_link_names[i] << " points " << single_body_points.size());
         body_points.insert(body_points.end(), single_body_points.begin(), single_body_points.end());
       }
     }
