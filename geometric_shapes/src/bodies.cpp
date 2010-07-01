@@ -165,6 +165,14 @@ void bodies::Sphere::computeBoundingSphere(BoundingSphere &sphere) const
     sphere.radius = m_radiusU;
 }
 
+void bodies::Sphere::computeBoundingCylinder(BoundingCylinder &cylinder) const 
+{
+  cylinder.pose = m_pose;
+  cylinder.radius = m_radiusU;
+  cylinder.length = m_radiusU;
+
+}
+
 bool bodies::Sphere::intersectsRay(const btVector3& origin, const btVector3& dir, std::vector<btVector3> *intersections, unsigned int count) const
 {
     if (distanceSQR(m_center, origin, dir) > m_radius2) return false;
@@ -275,6 +283,13 @@ void bodies::Cylinder::computeBoundingSphere(BoundingSphere &sphere) const
 {
     sphere.center = m_center;
     sphere.radius = m_radiusB;
+}
+
+void bodies::Cylinder::computeBoundingCylinder(BoundingCylinder &cylinder) const
+{
+  cylinder.pose = m_pose;
+  cylinder.radius = m_radiusU;
+  cylinder.length = m_scale*m_length+m_padding;
 }
 
 bool bodies::Cylinder::intersectsRay(const btVector3& origin, const btVector3& dir, std::vector<btVector3> *intersections, unsigned int count) const
@@ -440,8 +455,35 @@ double bodies::Box::computeVolume(void) const
 
 void bodies::Box::computeBoundingSphere(BoundingSphere &sphere) const
 {
-    sphere.center = m_center;
-    sphere.radius = m_radiusB;
+  sphere.center = m_center;
+  sphere.radius = m_radiusB;
+}
+
+void bodies::Box::computeBoundingCylinder(BoundingCylinder &cylinder) const
+{
+  double a, b;
+  
+  if(m_length2 > m_width2 && m_length2 > m_height2) {
+    cylinder.length = m_length2*2.0;
+    a = m_width2;
+    b = m_height2;
+    btTransform rot(btQuaternion(btVector3(0,1,0),btRadians(90)));
+    cylinder.pose = m_pose*rot;
+  } else if(m_width2 > m_height2) {
+    cylinder.length = m_width2*2.0;
+    a = m_height2;
+    b = m_length2;
+    cylinder.radius = sqrt(m_height2*m_height2+m_length2*m_length2);
+    btTransform rot(btQuaternion(btVector3(1,0,0),btRadians(90)));
+    cylinder.pose = m_pose*rot;
+  } else {
+    cylinder.length = m_height2*2.0;
+    a = m_width2;
+    b = m_length2;
+    cylinder.pose = m_pose;
+  }
+  cylinder.radius = sqrt((a)*(a)+(b)*(b));
+  //cylinder.radius = sqrt(2*(max_rad*max_rad));
 }
 
 bool bodies::Box::intersectsRay(const btVector3& origin, const btVector3& dir, std::vector<btVector3> *intersections, unsigned int count) const
@@ -821,7 +863,7 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
 		}
 		
 		if (behindPlane > 0)
-		    ROS_WARN("Approximate plane: %d of %d points are behind the plane", behindPlane, (int)m_vertices.size());
+		    ROS_DEBUG("Approximate plane: %d of %d points are behind the plane", behindPlane, (int)m_vertices.size());
 		
 		m_planes.push_back(planeEquation);
 
@@ -865,6 +907,11 @@ void bodies::ConvexMesh::computeBoundingSphere(BoundingSphere &sphere) const
 {
     sphere.center = m_center;
     sphere.radius = m_radiusB;
+}
+
+void bodies::ConvexMesh::computeBoundingCylinder(BoundingCylinder &cylinder) const
+{
+  m_boundingBox.computeBoundingCylinder(cylinder);
 }
 
 bool bodies::ConvexMesh::isPointInsidePlanes(const btVector3& point) const

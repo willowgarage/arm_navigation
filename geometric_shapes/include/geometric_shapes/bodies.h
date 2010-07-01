@@ -55,356 +55,372 @@
 namespace bodies
 {
     
-    /** \brief Definition of a sphere that bounds another object */
-    struct BoundingSphere
+/** \brief Definition of a sphere that bounds another object */
+struct BoundingSphere
+{
+  btVector3 center;
+  double    radius;
+};
+
+/** \brief Definition of a cylinder */
+struct BoundingCylinder
+{
+  btTransform pose;
+  double radius;
+  double length;
+};
+  
+/** \brief A body is a shape + its pose. Point inclusion, ray
+    intersection can be tested, volumes and bounding spheres can
+    be computed.*/
+  class Body
+  {
+  public:
+	
+    Body(void)
     {
-	btVector3 center;
-	double    radius;
-    };
-    
-    /** \brief A body is a shape + its pose. Point inclusion, ray
-	intersection can be tested, volumes and bounding spheres can
-	be computed.*/
-    class Body
+      m_scale = 1.0;
+      m_padding = 0.0;
+      m_pose.setIdentity();
+      m_type = shapes::UNKNOWN_SHAPE;
+    }
+	
+    virtual ~Body(void)
     {
-    public:
+    }
 	
-	Body(void)
-	{
-	    m_scale = 1.0;
-	    m_padding = 0.0;
-	    m_pose.setIdentity();
-	    m_type = shapes::UNKNOWN_SHAPE;
-	}
-	
-	virtual ~Body(void)
-	{
-	}
-	
-	/** \brief Get the type of shape this body represents */
-	shapes::ShapeType getType(void) const
-	{
-	    return m_type;
-	}
-	
-	/** \brief If the dimension of the body should be scaled, this
-	    method sets the scale. Default is 1.0 */
-	void setScale(double scale)
-	{
-	    m_scale = scale;
-	    updateInternalData();
-	}
-	
-	/** \brief Retrieve the current scale */
-	double getScale(void) const
-	{
-	    return m_scale;
-	}
-	
-	/** \brief If constant padding should be added to the body, this
-	    method sets the padding. Default is 0.0 */
-	void setPadding(double padd)
-	{
-	    m_padding = padd;
-	    updateInternalData();
-	}
-	
-	/** \brief Retrieve the current padding */
-	double getPadding(void) const
-	{
-	    return m_padding;
-	}
-	
-	/** \brief Set the pose of the body. Default is identity */
-	void setPose(const btTransform &pose)
-	{
-	    m_pose = pose;
-	    updateInternalData();
-	}
-	
-	/** \brief Retrieve the pose of the body */
-	const btTransform& getPose(void) const
-	{
-	    return m_pose;
-	}
-	
-	/** \brief Set the dimensions of the body (from corresponding shape) */
-	void setDimensions(const shapes::Shape *shape)
-	{
-	    useDimensions(shape);
-	    updateInternalData();
-	}
-	
-	/** \brief Check is a point is inside the body */
-	bool containsPoint(double x, double y, double z) const
-	{
-	    return containsPoint(btVector3(btScalar(x), btScalar(y), btScalar(z)));
-	}
-	
-	/** \brief Check is a ray intersects the body, and find the
-	    set of intersections, in order, along the ray. A maximum
-	    number of intersections can be specified as well. If that
-	    number is 0, all intersections are returned */
-	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const = 0;
-	
-	/** \brief Check is a point is inside the body */
-	virtual bool containsPoint(const btVector3 &p, bool verbose = false) const = 0;	
-	
-	/** \brief Compute the volume of the body. This method includes
-	    changes induced by scaling and padding */
-	virtual double computeVolume(void) const = 0;
-	
-	/** \brief Compute the bounding radius for the body, in its current
-	    pose. Scaling and padding are accounted for. */
-	virtual void computeBoundingSphere(BoundingSphere &sphere) const = 0;
-	
-    protected:
-	
-	virtual void updateInternalData(void) = 0;
-	virtual void useDimensions(const shapes::Shape *shape) = 0;
-	
-	shapes::ShapeType m_type;
-	btTransform       m_pose;	
-	double            m_scale;
-	double            m_padding;	
-    };
-    
-    /** \brief Definition of a sphere */
-    class Sphere : public Body
+    /** \brief Get the type of shape this body represents */
+    shapes::ShapeType getType(void) const
     {
-    public:
-	Sphere(void) : Body()
-	{
-	    m_type = shapes::SPHERE;
-	}
+      return m_type;
+    }
 	
-	Sphere(const shapes::Shape *shape) : Body()
-	{
-	    m_type = shapes::SPHERE;
-	    setDimensions(shape);
-	}
-	
-	virtual ~Sphere(void)
-	{
-	}
-	
-	virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
-	virtual double computeVolume(void) const;
-	virtual void computeBoundingSphere(BoundingSphere &sphere) const;
-	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
-
-    protected:
-	
-	virtual void useDimensions(const shapes::Shape *shape);
-	virtual void updateInternalData(void);
-	
-	btVector3 m_center;
-	double    m_radius;	
-	double    m_radiusU;
-	double    m_radius2;		    
-    };
-
-    /** \brief Definition of a cylinder */
-    class Cylinder : public Body
+    /** \brief If the dimension of the body should be scaled, this
+        method sets the scale. Default is 1.0 */
+    void setScale(double scale)
     {
-    public:
-	Cylinder(void) : Body()
-	{
-	    m_type = shapes::CYLINDER;
-	}
+      m_scale = scale;
+      updateInternalData();
+    }
 	
-	Cylinder(const shapes::Shape *shape) : Body()
-	{
-	    m_type = shapes::CYLINDER;
-	    setDimensions(shape);
-	}
-	
-	virtual ~Cylinder(void)
-	{
-	}
-	
-	virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
-	virtual double computeVolume(void) const;
-	virtual void computeBoundingSphere(BoundingSphere &sphere) const;
-	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
-
-    protected:
-	
-	virtual void useDimensions(const shapes::Shape *shape);
-	virtual void updateInternalData(void);
-	
-	btVector3 m_center;
-	btVector3 m_normalH;
-	btVector3 m_normalB1;
-	btVector3 m_normalB2;
-	
-	double    m_length;
-	double    m_length2;	
-	double    m_radius;
-	double    m_radiusU;
-	double    m_radiusB;
-	double    m_radiusBSqr;
-	double    m_radius2;
-	double    m_d1;
-	double    m_d2;
-    };
-    
-    /** \brief Definition of a box */
-    class Box : public Body
+    /** \brief Retrieve the current scale */
+    double getScale(void) const
     {
-    public: 
-	Box(void) : Body()
-	{
-	    m_type = shapes::BOX;
-	}
+      return m_scale;
+    }
 	
-	Box(const shapes::Shape *shape) : Body()
-	{
-	    m_type = shapes::BOX;
-	    setDimensions(shape);
-	}
-	
-	virtual ~Box(void)
-	{
-	}
-	
-	virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
-	virtual double computeVolume(void) const;
-	virtual void computeBoundingSphere(BoundingSphere &sphere) const;
-	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
-
-    protected:
-	
-	virtual void useDimensions(const shapes::Shape *shape); // (x, y, z) = (length, width, height)	    
-	virtual void updateInternalData(void);
-	
-	btVector3 m_center;
-	btVector3 m_normalL;
-	btVector3 m_normalW;
-	btVector3 m_normalH;
-	
-	btVector3 m_corner1;
-	btVector3 m_corner2;
-
-	double    m_length;
-	double    m_width;
-	double    m_height;	
-	double    m_length2;
-	double    m_width2;
-	double    m_height2;	
-	double    m_radiusB;
-	double    m_radius2;
-    };
-
-    /*
-    class Mesh : public Body
-    {	
-    public:
-	/// \todo When this class is tested, make ConvexMesh depend on it and use the ray intersection function
-	Mesh(void) : Body()
-	{
-	    m_type = shapes::MESH;
-	    m_btMeshShape = NULL;
-	    m_btMesh = NULL;
-	}
-	
-	Mesh(const shapes::Shape *shape) : Body()
-	{
-	    m_type = shapes::MESH;	
-	    m_btMeshShape = NULL;
-	    m_btMesh = NULL;
-	    setDimensions(shape);
-	}
-	
-	virtual ~Mesh(void)
-	{
-	    if (m_btMeshShape)
-		delete m_btMeshShape;
-	    if (m_btMesh)
-		delete m_btMesh;
-	}
-	
-	\\\ \brief The mesh is considered to be concave, so this function is implemented with raycasting. This is a bit slow and not so accurate for very small triangles.
-	virtual bool containsPoint(const btVector3 &p) const;
-
-	\\\ \brief This function is approximate. It returns the volume of the AABB enclosing the shape 
-	virtual double computeVolume(void) const;
-	virtual void computeBoundingSphere(BoundingSphere &sphere) const;
-	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
-	
-    protected:
-
-	virtual void useDimensions(const shapes::Shape *shape);
-	virtual void updateInternalData(void);
-	
-	btBvhTriangleMeshShape  *m_btMeshShape;
-	btTriangleMesh          *m_btMesh;
-	btTransform              m_iPose;
-	btVector3                m_center;
-	btVector3                m_aabbMin;
-	btVector3                m_aabbMax;
-	double                   m_radiusB;
-	double                   m_radiusBSqr;
-	
-    };
-    */
-    
-    /** \brief Definition of a convex mesh. Convex hull is computed for a given shape::Mesh */
-    class ConvexMesh : public Body
+    /** \brief If constant padding should be added to the body, this
+        method sets the padding. Default is 0.0 */
+    void setPadding(double padd)
     {
-    public:
+      m_padding = padd;
+      updateInternalData();
+    }
 	
-	ConvexMesh(void) : Body()
-	{	    
-	    m_type = shapes::MESH;
-	}
+    /** \brief Retrieve the current padding */
+    double getPadding(void) const
+    {
+      return m_padding;
+    }
 	
-	ConvexMesh(const shapes::Shape *shape) : Body()
-	{	  
-	    m_type = shapes::MESH;
-	    setDimensions(shape);
-	}
+    /** \brief Set the pose of the body. Default is identity */
+    void setPose(const btTransform &pose)
+    {
+      m_pose = pose;
+      updateInternalData();
+    }
 	
-	virtual ~ConvexMesh(void)
-	{
-	}	
+    /** \brief Retrieve the pose of the body */
+    const btTransform& getPose(void) const
+    {
+      return m_pose;
+    }
+	
+    /** \brief Set the dimensions of the body (from corresponding shape) */
+    void setDimensions(const shapes::Shape *shape)
+    {
+      useDimensions(shape);
+      updateInternalData();
+    }
+	
+    /** \brief Check is a point is inside the body */
+    bool containsPoint(double x, double y, double z) const
+    {
+      return containsPoint(btVector3(btScalar(x), btScalar(y), btScalar(z)));
+    }
+	
+    /** \brief Check is a ray intersects the body, and find the
+        set of intersections, in order, along the ray. A maximum
+        number of intersections can be specified as well. If that
+        number is 0, all intersections are returned */
+    virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const = 0;
+	
+    /** \brief Check is a point is inside the body */
+    virtual bool containsPoint(const btVector3 &p, bool verbose = false) const = 0;	
+	
+    /** \brief Compute the volume of the body. This method includes
+        changes induced by scaling and padding */
+    virtual double computeVolume(void) const = 0;
+	
+    /** \brief Compute the bounding radius for the body, in its current
+        pose. Scaling and padding are accounted for. */
+    virtual void computeBoundingSphere(BoundingSphere &sphere) const = 0;
 
-	virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
-	virtual double computeVolume(void) const;
+    /** \brief Compute the bounding cylinder for the body, in its current
+        pose. Scaling and padding are accounted for. */
+    virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const = 0;
 	
-	virtual void computeBoundingSphere(BoundingSphere &sphere) const;
-	virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+  protected:
+	
+    virtual void updateInternalData(void) = 0;
+    virtual void useDimensions(const shapes::Shape *shape) = 0;
+	
+    shapes::ShapeType m_type;
+    btTransform       m_pose;	
+    double            m_scale;
+    double            m_padding;	
+  };
+    
+/** \brief Definition of a sphere */
+class Sphere : public Body
+{
+public:
+  Sphere(void) : Body()
+  {
+    m_type = shapes::SPHERE;
+  }
+	
+  Sphere(const shapes::Shape *shape) : Body()
+  {
+    m_type = shapes::SPHERE;
+    setDimensions(shape);
+  }
+	
+  virtual ~Sphere(void)
+  {
+  }
+	
+  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual double computeVolume(void) const;
+  virtual void computeBoundingSphere(BoundingSphere &sphere) const;
+  virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
+  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
 
-    protected:
+protected:
 	
-	virtual void useDimensions(const shapes::Shape *shape);
-	virtual void updateInternalData(void);
+  virtual void useDimensions(const shapes::Shape *shape);
+  virtual void updateInternalData(void);
 	
-	unsigned int countVerticesBehindPlane(const btVector4& planeNormal) const;
-	bool isPointInsidePlanes(const btVector3& point) const;
+  btVector3 m_center;
+  double    m_radius;	
+  double    m_radiusU;
+  double    m_radius2;		    
+};
+
+/** \brief Definition of a cylinder */
+class Cylinder : public Body
+{
+public:
+  Cylinder(void) : Body()
+  {
+    m_type = shapes::CYLINDER;
+  }
 	
-	std::vector<btVector4>    m_planes;
-	std::vector<btVector3>    m_vertices;
-	std::vector<btVector3>    m_scaledVertices;
-	std::vector<unsigned int> m_triangles;
-	btTransform               m_iPose;
+  Cylinder(const shapes::Shape *shape) : Body()
+  {
+    m_type = shapes::CYLINDER;
+    setDimensions(shape);
+  }
 	
-	btVector3                 m_center;
-	btVector3                 m_meshCenter;
-	double                    m_radiusB;
-	double                    m_radiusBSqr;
-	double                    m_meshRadiusB;
+  virtual ~Cylinder(void)
+  {
+  }
 	
-	btVector3                 m_boxOffset;
-	Box                       m_boundingBox;
-    };
+  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual double computeVolume(void) const;
+  virtual void computeBoundingSphere(BoundingSphere &sphere) const;
+  virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
+  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+
+protected:
+	
+  virtual void useDimensions(const shapes::Shape *shape);
+  virtual void updateInternalData(void);
+	
+  btVector3 m_center;
+  btVector3 m_normalH;
+  btVector3 m_normalB1;
+  btVector3 m_normalB2;
+	
+  double    m_length;
+  double    m_length2;	
+  double    m_radius;
+  double    m_radiusU;
+  double    m_radiusB;
+  double    m_radiusBSqr;
+  double    m_radius2;
+  double    m_d1;
+  double    m_d2;
+};
+    
+/** \brief Definition of a box */
+class Box : public Body
+{
+public: 
+  Box(void) : Body()
+  {
+    m_type = shapes::BOX;
+  }
+	
+  Box(const shapes::Shape *shape) : Body()
+  {
+    m_type = shapes::BOX;
+    setDimensions(shape);
+  }
+	
+  virtual ~Box(void)
+  {
+  }
+	
+  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual double computeVolume(void) const;
+  virtual void computeBoundingSphere(BoundingSphere &sphere) const;
+  virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
+  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+
+protected:
+	
+  virtual void useDimensions(const shapes::Shape *shape); // (x, y, z) = (length, width, height)	    
+  virtual void updateInternalData(void);
+	
+  btVector3 m_center;
+  btVector3 m_normalL;
+  btVector3 m_normalW;
+  btVector3 m_normalH;
+	
+  btVector3 m_corner1;
+  btVector3 m_corner2;
+
+  double    m_length;
+  double    m_width;
+  double    m_height;	
+  double    m_length2;
+  double    m_width2;
+  double    m_height2;	
+  double    m_radiusB;
+  double    m_radius2;
+};
+
+/*
+  class Mesh : public Body
+  {	
+  public:
+  /// \todo When this class is tested, make ConvexMesh depend on it and use the ray intersection function
+  Mesh(void) : Body()
+  {
+  m_type = shapes::MESH;
+  m_btMeshShape = NULL;
+  m_btMesh = NULL;
+  }
+	
+  Mesh(const shapes::Shape *shape) : Body()
+  {
+  m_type = shapes::MESH;	
+  m_btMeshShape = NULL;
+  m_btMesh = NULL;
+  setDimensions(shape);
+  }
+	
+  virtual ~Mesh(void)
+  {
+  if (m_btMeshShape)
+  delete m_btMeshShape;
+  if (m_btMesh)
+  delete m_btMesh;
+  }
+	
+  \\\ \brief The mesh is considered to be concave, so this function is implemented with raycasting. This is a bit slow and not so accurate for very small triangles.
+  virtual bool containsPoint(const btVector3 &p) const;
+
+  \\\ \brief This function is approximate. It returns the volume of the AABB enclosing the shape 
+  virtual double computeVolume(void) const;
+  virtual void computeBoundingSphere(BoundingSphere &sphere) const;
+  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+	
+  protected:
+
+  virtual void useDimensions(const shapes::Shape *shape);
+  virtual void updateInternalData(void);
+	
+  btBvhTriangleMeshShape  *m_btMeshShape;
+  btTriangleMesh          *m_btMesh;
+  btTransform              m_iPose;
+  btVector3                m_center;
+  btVector3                m_aabbMin;
+  btVector3                m_aabbMax;
+  double                   m_radiusB;
+  double                   m_radiusBSqr;
+	
+  };
+*/
+    
+/** \brief Definition of a convex mesh. Convex hull is computed for a given shape::Mesh */
+class ConvexMesh : public Body
+{
+public:
+	
+  ConvexMesh(void) : Body()
+  {	    
+    m_type = shapes::MESH;
+  }
+	
+  ConvexMesh(const shapes::Shape *shape) : Body()
+  {	  
+    m_type = shapes::MESH;
+    setDimensions(shape);
+  }
+	
+  virtual ~ConvexMesh(void)
+  {
+  }	
+
+  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual double computeVolume(void) const;
+	
+  virtual void computeBoundingSphere(BoundingSphere &sphere) const;
+  virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
+  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+
+protected:
+	
+  virtual void useDimensions(const shapes::Shape *shape);
+  virtual void updateInternalData(void);
+	
+  unsigned int countVerticesBehindPlane(const btVector4& planeNormal) const;
+  bool isPointInsidePlanes(const btVector3& point) const;
+	
+  std::vector<btVector4>    m_planes;
+  std::vector<btVector3>    m_vertices;
+  std::vector<btVector3>    m_scaledVertices;
+  std::vector<unsigned int> m_triangles;
+  btTransform               m_iPose;
+	
+  btVector3                 m_center;
+  btVector3                 m_meshCenter;
+  double                    m_radiusB;
+  double                    m_radiusBSqr;
+  double                    m_meshRadiusB;
+	
+  btVector3                 m_boxOffset;
+  Box                       m_boundingBox;
+};
     
     
-    /** \brief Create a body from a given shape */
-    Body* createBodyFromShape(const shapes::Shape *shape);
+/** \brief Create a body from a given shape */
+Body* createBodyFromShape(const shapes::Shape *shape);
     
-    /** \brief Compute a bounding sphere to enclose a set of bounding spheres */
-    void mergeBoundingSpheres(const std::vector<BoundingSphere> &spheres, BoundingSphere &mergedSphere);
+/** \brief Compute a bounding sphere to enclose a set of bounding spheres */
+void mergeBoundingSpheres(const std::vector<BoundingSphere> &spheres, BoundingSphere &mergedSphere);
     
 }
 
