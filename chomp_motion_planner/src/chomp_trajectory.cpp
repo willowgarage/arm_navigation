@@ -138,7 +138,14 @@ ChompTrajectory::ChompTrajectory(const ChompRobotModel* robot_model,
       trajectory_(i,j) = 0.0;
     }
   }
+  overwriteTrajectory(traj);
+}
 
+ChompTrajectory::~ChompTrajectory()
+{
+}
+
+void ChompTrajectory::overwriteTrajectory(const trajectory_msgs::JointTrajectory& traj) {
   std::vector<int> ind;
   for(unsigned int j = 0; j < traj.joint_names.size(); j++) {
     int kdl_number = robot_model_->urdfNameToKdlNumber(traj.joint_names[j]);
@@ -153,10 +160,6 @@ ChompTrajectory::ChompTrajectory(const ChompRobotModel* robot_model,
       trajectory_(i,ind[j]) = traj.points[i].positions[j];
     }
   }  
-}
-
-ChompTrajectory::~ChompTrajectory()
-{
 }
 
 void ChompTrajectory::init()

@@ -176,6 +176,8 @@ bool ChompPlannerNode::planKinematicPath(motion_planning_msgs::GetMotionPlan::Re
   // set the start state:
   chomp_robot_model_.jointStateToArray(req.motion_plan_request.start_state.joint_state, trajectory.getTrajectoryPoint(0));
 
+  ROS_INFO_STREAM("Joint state has " << req.motion_plan_request.start_state.joint_state.name.size() << " joints");
+
   //configure the distance field for the start state
   chomp_collision_space_.setStartState(*group, req.motion_plan_request.start_state);
 
@@ -329,7 +331,9 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   // fill in robot state with current one
   std::vector<const planning_models::KinematicModel::Joint*> joints;
   monitor_->getKinematicModel()->getJoints(joints);
-	    
+	
+  ROS_INFO_STREAM("Number of joints is " << joints.size());
+    
   robot_state.joint_state.name.resize(joints.size());
   robot_state.joint_state.position.resize(joints.size());
   robot_state.joint_state.header.frame_id = reference_frame_;
@@ -340,8 +344,9 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
     robot_state.joint_state.name[i] = joints[i]->name;
     std::vector<double> tmp;
     sp.copyParamsJoint(tmp, joints[i]->name);
-    if(!tmp.empty())
+    if(!tmp.empty()) {
       robot_state.joint_state.position[i] = tmp[0];
+    }
   }
 
   // set the start state:
@@ -375,7 +380,11 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
       trajectory(goal_index, kdl_index) = start + angles::shortest_angular_distance(start, end);
     }
   }
-
+  
+  //sets other joints
+  trajectory.fillInMinJerk();
+  trajectory.overwriteTrajectory(jtraj);
+  
   // set the max planning time:
   chomp_parameters_.setPlanningTimeLimit(req.allowed_time.toSec());
   

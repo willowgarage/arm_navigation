@@ -90,6 +90,8 @@ public:
 
   Eigen::MatrixXd::ColXpr getJointTrajectory(int joint);
 
+  void overwriteTrajectory(const trajectory_msgs::JointTrajectory& traj);
+
   /**
    * \brief Gets the number of points in the trajectory
    */
