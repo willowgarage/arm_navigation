@@ -456,12 +456,28 @@ void ChompRobotModel::generateAttachedObjectCollisionPoints(const motion_plannin
 
             body->setPose(pose);
             ROS_INFO_STREAM("Should have a padding of " << monitor_->getEnvironmentModel()->getCurrentLinkPadding("attached"));
-            bodies::BoundingSphere bounding_sphere;
-            body->computeBoundingSphere(bounding_sphere);
-            KDL::Vector position(bounding_sphere.center.x(),bounding_sphere.center.y(),bounding_sphere.center.z());
-            ROS_INFO_STREAM("Setting position " << bounding_sphere.center.x() << " " << bounding_sphere.center.y() << " " << bounding_sphere.center.z());
-            ROS_INFO_STREAM("Adding bounding sphere of radius " << bounding_sphere.radius << " to link " << link_name);
-            collision_points_vector.push_back(ChompCollisionPoint(active_joints, bounding_sphere.radius, collision_clearance_default_, segment_number, position));
+            bodies::BoundingCylinder bounding_cylinder;
+            body->computeBoundingCylinder(bounding_cylinder);
+
+	    KDL::Rotation rotation = KDL::Rotation::Quaternion(pose_link.pose.orientation.x,
+							       pose_link.pose.orientation.y,
+							       pose_link.pose.orientation.z,
+							       pose_link.pose.orientation.w);
+	    KDL::Vector position(pose_link.pose.position.x, pose_link.pose.position.y, pose_link.pose.position.z);
+	    KDL::Frame f(rotation, position);    
+	    // generate points:
+	    double radius = bounding_cylinder.radius;
+	    double length = bounding_cylinder.length;
+	    KDL::Vector p(0,0,0);
+	    KDL::Vector p2;
+	    double spacing = radius/2.0;
+	    int num_points = ceil(length/spacing)+1;
+	    spacing = length/(num_points-1.0);
+	    for (int i=0; i<num_points; ++i) {
+	      p(2) = -length/2.0 + i*spacing;
+	      p2 = f*p;
+	      collision_points_vector.push_back(ChompCollisionPoint(active_joints, radius, collision_clearance_default_, segment_number, p2));
+	    }
             delete body;
           }
         }
