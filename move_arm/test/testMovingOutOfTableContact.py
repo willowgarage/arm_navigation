@@ -21,9 +21,6 @@ from move_arm_msgs.msg import MoveArmGoal, MoveArmAction
 from tf import TransformListener
 from motion_planning_msgs.msg import JointConstraint
 
-padd_name = "ompl_planning/robot_padd"
-extra_buffer = .1
-
 class TestMotionExecutionBuffer(unittest.TestCase):
 
     def setUp(self):
@@ -38,30 +35,45 @@ class TestMotionExecutionBuffer(unittest.TestCase):
         
         #let everything settle down
         rospy.sleep(20.)
-      
+        
         obj1 = CollisionObject()
     
         obj1.header.stamp = rospy.Time.now()
-        obj1.header.frame_id = "base_link"
-        obj1.id = "obj1";
+        obj1.header.frame_id = "r_gripper_palm_link"
+        obj1.id = "obj2";
         obj1.operation.operation = mapping_msgs.msg.CollisionObjectOperation.ADD
-        obj1.shapes = [Shape() for _ in range(1)]
-        obj1.shapes[0].type = Shape.CYLINDER
-        obj1.shapes[0].dimensions = [float() for _ in range(2)]
-        obj1.shapes[0].dimensions[0] = .1
-        obj1.shapes[0].dimensions[1] = 1.5
-        obj1.poses = [Pose() for _ in range(1)]
-        obj1.poses[0].position.x = .6
-        obj1.poses[0].position.y = -.6
-        obj1.poses[0].position.z = .75
+        obj1.shapes = [Shape() for _ in range(2)]
+        obj1.shapes[0].type = Shape.BOX
+        obj1.shapes[0].dimensions = [float() for _ in range(3)]
+        obj1.shapes[0].dimensions[0] = .3
+        obj1.shapes[0].dimensions[1] = .3
+        obj1.shapes[0].dimensions[2] = .2
+        obj1.poses = [Pose() for _ in range(2)]
+        obj1.poses[0].position.x = 0
+        obj1.poses[0].position.y = 0
+        obj1.poses[0].position.z = -.1
         obj1.poses[0].orientation.x = 0
         obj1.poses[0].orientation.y = 0
         obj1.poses[0].orientation.z = 0
         obj1.poses[0].orientation.w = 1
+
+        obj1.shapes[1].type = Shape.BOX
+        obj1.shapes[1].dimensions = [float() for _ in range(3)]
+        obj1.shapes[1].dimensions[0] = .3
+        obj1.shapes[1].dimensions[1] = .3
+        obj1.shapes[1].dimensions[2] = .2
+        obj1.poses[1].position.x = 0
+        obj1.poses[1].position.y = 0
+        obj1.poses[1].position.z = .225
+        obj1.poses[1].orientation.x = 0
+        obj1.poses[1].orientation.y = 0
+        obj1.poses[1].orientation.z = 0
+        obj1.poses[1].orientation.w = 1
+
         
         obj_pub.publish(obj1)
 
-        rospy.sleep(1.0)
+        rospy.sleep(5.0)
 
     def testMotionExecutionBuffer(self):
         
@@ -81,7 +93,8 @@ class TestMotionExecutionBuffer(unittest.TestCase):
         goal.motion_plan_request.num_planning_attempts = 1
         goal.motion_plan_request.allowed_planning_time = rospy.Duration(5.)
         goal.motion_plan_request.planner_id = ""
-        goal.planner_service_name = "ompl_planning/plan_kinematic_path"
+        goal.planner_service_name = "chomp_planner_longrange/plan_path"
+        goal.disable_collision_monitoring = True;
 
         goal.motion_plan_request.goal_constraints.joint_constraints = [JointConstraint() for i in range(len(joint_names))]
         for i in range(len(joint_names)):
@@ -90,12 +103,8 @@ class TestMotionExecutionBuffer(unittest.TestCase):
             goal.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.08
             goal.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.08
 
-        for z in range(2):
-
-            min_dist = 1000
-            
-            if(z%2 == 0):
-                goal.motion_plan_request.goal_constraints.joint_constraints[0].position = -2.0
+            if(False):
+                goal.motion_plan_request.goal_constraints.joint_constraints[0].position = -1.0
                 goal.motion_plan_request.goal_constraints.joint_constraints[3].position = -0.2
                 goal.motion_plan_request.goal_constraints.joint_constraints[5].position = -0.2
             else:
@@ -103,51 +112,26 @@ class TestMotionExecutionBuffer(unittest.TestCase):
                 goal.motion_plan_request.goal_constraints.joint_constraints[3].position = -0.2
                 goal.motion_plan_request.goal_constraints.joint_constraints[5].position = -0.2
 
-            for x in range(3):
+        for x in range(3):
 
-                self.move_arm_action_client.send_goal(goal)
+            self.move_arm_action_client.send_goal(goal)
+            
+            r = rospy.Rate(10)
+            
+            while True:
+                cur_state = self.move_arm_action_client.get_state()
+                if(cur_state != actionlib_msgs.msg.GoalStatus.ACTIVE and
+                   cur_state != actionlib_msgs.msg.GoalStatus.PENDING):
+                    break
+                r.sleep()
+                
+            end_state = self.move_arm_action_client.get_state()
+                
+            if(end_state == actionlib_msgs.msg.GoalStatus.SUCCEEDED): break
+                
+        final_state = self.move_arm_action_client.get_state()
 
-                r = rospy.Rate(10)
-
-                while True:
-                    cur_state = self.move_arm_action_client.get_state()
-                    if(cur_state != actionlib_msgs.msg.GoalStatus.ACTIVE and
-                       cur_state != actionlib_msgs.msg.GoalStatus.PENDING):
-                        break
-
-                    #getting right finger tip link in base_link frame
-                    t = self.tf.getLatestCommonTime("/base_link", "/r_gripper_r_finger_tip_link") 
-                    finger_point = PointStamped()
-                    finger_point.header.frame_id = "/r_gripper_r_finger_tip_link"
-                    finger_point.header.stamp = t
-                    finger_point.point.x = 0
-                    finger_point.point.y = 0
-                    finger_point.point.z = 0
-                    finger_point_base = self.tf.transformPoint("base_link",finger_point)
-
-                    distance = math.sqrt(math.pow(finger_point_base.point.x-.6,2)+math.pow(finger_point_base.point.y+.6,2))
-
-                    # pole is .1 in diameter
-                    distance -= .1
-
-                    if distance < min_dist:
-                        rospy.loginfo("X: %g Y: %g Dist: %g",finger_point_base.point.x,finger_point_base.point.y, distance)  
-                        min_dist = distance
-                        
-                    r.sleep()
-
-                end_state = self.move_arm_action_client.get_state()
-
-                if(end_state == actionlib_msgs.msg.GoalStatus.SUCCEEDED): break
-
-            rospy.loginfo("Min dist %d is %g",z,min_dist)
-
-            #should be a .5 buffer, allowing .1 buffer
-            self.failIf(min_dist < (allow_padd-extra_buffer))
-
-            final_state = self.move_arm_action_client.get_state()
-
-            self.assertEqual(final_state,  actionlib_msgs.msg.GoalStatus.SUCCEEDED)
+        self.assertEqual(final_state,  actionlib_msgs.msg.GoalStatus.SUCCEEDED)
 
 if __name__ == '__main__':
 

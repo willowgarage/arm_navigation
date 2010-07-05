@@ -48,10 +48,11 @@
 #include <gtest/gtest.h>
 #include <mapping_msgs/CollisionObject.h>
 #include <geometric_shapes_msgs/Shape.h>
+#include <collision_environment_msgs/MakeStaticCollisionMapAction.h>
 
 typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
 
-unsigned int REPS_TO_TRY = 3;
+unsigned int REPS_TO_TRY = 10;
 
 
 void spinThread()
@@ -69,10 +70,13 @@ TEST(MoveArm, goToPoseGoal)
   object_in_map_pub_  = nh.advertise<mapping_msgs::CollisionObject>("collision_object", 10);
 
   actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<collision_environment_msgs::MakeStaticCollisionMapAction> make_static_map(nh, "make_static_collision_map");
+
   boost::thread spin_thread(&spinThread);
   
   move_arm.waitForServer();
-  ROS_INFO("Connected to server");
+  make_static_map.waitForServer();
+  ROS_INFO("Connected to servers");
 
   //push the table and legs into the collision space
   mapping_msgs::CollisionObject table_object;
@@ -99,32 +103,36 @@ TEST(MoveArm, goToPoseGoal)
   table_object.id = "table";
   object_in_map_pub_.publish(table_object);
 
- //  mapping_msgs::ObjectInMap leg_object;
-//   leg_object.action = mapping_msgs::ObjectInMap::ADD;
-//   leg_object.header.frame_id = "base_link";
-//   leg_object.header.stamp = ros::Time::now();
-//   leg_object.object.type = geometric_shapes_msgs::Shape::BOX;
-//   leg_object.object.dimensions.resize(3);
-//   leg_object.object.dimensions[0] = 0.02;
-//   leg_object.object.dimensions[1] = 0.02;
-//   leg_object.object.dimensions[2] = .5;
-//   leg_object.pose.position.x = .5;
-//   leg_object.pose.position.y = .5;
-//   leg_object.pose.position.z = .25;
-//   leg_object.pose.orientation.x = 0;
-//   leg_object.pose.orientation.y = 0;
-//   leg_object.pose.orientation.z = 0;
-//   leg_object.pose.orientation.w = 1;
-  
-//   leg_object.id = "leg1";
-//   object_in_map_pub_.publish(leg_object);
+  mapping_msgs::CollisionObject leg_object;
+  leg_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  leg_object.header.frame_id = "base_link";
+  leg_object.header.stamp = ros::Time::now();
+  geometric_shapes_msgs::Shape l_object;
+  l_object.type = geometric_shapes_msgs::Shape::BOX;
+  l_object.dimensions.resize(3);
+  l_object.dimensions[0] = 0.05;
+  l_object.dimensions[1] = 0.05;
+  l_object.dimensions[2] = 0.5;
+  geometry_msgs::Pose l_pose;
+  l_pose.position.x = .5;
+  l_pose.position.y = .5;
+  l_pose.position.z = .25;
+  l_pose.orientation.x = 0;
+  l_pose.orientation.y = 0;
+  l_pose.orientation.z = 0;
+  l_pose.orientation.w = 1;
+  leg_object.shapes.push_back(l_object);
+  leg_object.poses.push_back(l_pose);
+  l_pose.position.x = .5;
+  l_pose.position.y = -.5;
+  l_pose.position.z = .25;
+  leg_object.shapes.push_back(l_object);
+  leg_object.poses.push_back(l_pose);
+  leg_object.id = "legs";
+  object_in_map_pub_.publish(leg_object);
 
-//   leg_object.id = "leg2";
-//   leg_object.pose.position.x = .5;
-//   leg_object.pose.position.y = -.5;
-//   leg_object.pose.position.z = .25;
-//   object_in_map_pub_.publish(leg_object);
-  
+  ros::Duration(10.0).sleep();
+
   std::vector<std::string> names(7);
   names[0] = "r_shoulder_pan_joint";
   names[1] = "r_shoulder_lift_joint";
@@ -153,9 +161,35 @@ TEST(MoveArm, goToPoseGoal)
     goalB.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.1;
   }
     
+// Joint r_shoulder_pan_joint val -0.453899
+// [ INFO] [61.024000000]: Joint r_shoulder_lift_joint val 0.31966
+// [ INFO] [61.024000000]: Joint r_upper_arm_roll_joint val -0.142258
+// [ INFO] [61.024000000]: Joint r_elbow_flex_joint val -0.563305
+// [ INFO] [61.024000000]: Joint r_forearm_roll_joint val -0.00941518
+// [ INFO] [61.024000000]: Joint r_wrist_flex_joint val -0.744197
+// [ INFO] [61.024000000]: Joint r_wrist_roll_joint val 0.410848
+
+
   goalB.motion_plan_request.goal_constraints.joint_constraints[0].position = -1.5;
   goalB.motion_plan_request.goal_constraints.joint_constraints[3].position = -0.2;
   goalB.motion_plan_request.goal_constraints.joint_constraints[5].position = -0.20;
+
+//   goalB.motion_plan_request.goal_constraints.joint_constraints[0].position = -.453899;
+//   goalB.motion_plan_request.goal_constraints.joint_constraints[1].position = .31966;
+//   goalB.motion_plan_request.goal_constraints.joint_constraints[2].position = -0.142258;
+//   goalB.motion_plan_request.goal_constraints.joint_constraints[3].position = -0.563305;
+//   goalB.motion_plan_request.goal_constraints.joint_constraints[4].position = -0.00941518;
+//   goalB.motion_plan_request.goal_constraints.joint_constraints[5].position = -0.744197;
+//   goalB.motion_plan_request.goal_constraints.joint_constraints[6].position = .410848;
+
+  goalB.motion_plan_request.goal_constraints.joint_constraints[0].position = -1.05023;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[1].position = -0.0454;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[2].position = -2.81824;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[3].position = -1.50497;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[4].position = 1.40266;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[5].position = -0.476981;
+  goalB.motion_plan_request.goal_constraints.joint_constraints[6].position = .477598;
+
 
   goalA.motion_plan_request.planner_id = "";
   goalA.planner_service_name ="ompl_planning/plan_kinematic_path"; 
@@ -163,7 +197,7 @@ TEST(MoveArm, goToPoseGoal)
   goalA.motion_plan_request.group_name = "right_arm";
   goalA.motion_plan_request.num_planning_attempts = 1;
   goalA.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
-  goalA.motion_plan_request.goal_constraints.set_position_constraints_size(1);
+  goalA.motion_plan_request.goal_constraints.position_constraints.resize(1);
   goalA.motion_plan_request.goal_constraints.position_constraints[0].header.stamp = ros::Time::now();
   goalA.motion_plan_request.goal_constraints.position_constraints[0].header.frame_id = "base_link";
     
@@ -181,7 +215,7 @@ TEST(MoveArm, goToPoseGoal)
 
   goalA.motion_plan_request.goal_constraints.position_constraints[0].weight = 1.0;
 
-  goalA.motion_plan_request.goal_constraints.set_orientation_constraints_size(1);
+  goalA.motion_plan_request.goal_constraints.orientation_constraints.resize(1);
   goalA.motion_plan_request.goal_constraints.orientation_constraints[0].header.stamp = ros::Time::now();
   goalA.motion_plan_request.goal_constraints.orientation_constraints[0].header.frame_id = "base_link";    
   goalA.motion_plan_request.goal_constraints.orientation_constraints[0].link_name = "r_wrist_roll_link";
@@ -190,9 +224,9 @@ TEST(MoveArm, goToPoseGoal)
   goalA.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.z = 0.0;
   goalA.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.w = 1.0;
 
-  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_roll_tolerance = 0.04;
-  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_pitch_tolerance = 0.04;
-  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_yaw_tolerance = 0.04;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_roll_tolerance = 3.14;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_pitch_tolerance = 3.14;
+  goalA.motion_plan_request.goal_constraints.orientation_constraints[0].absolute_yaw_tolerance = 3.14;
     
   goalA.motion_plan_request.goal_constraints.orientation_constraints[0].weight = 1.0;
 
@@ -213,11 +247,22 @@ TEST(MoveArm, goToPoseGoal)
       {
         actionlib::SimpleClientGoalState state = move_arm.getState();
         bool success = (state == actionlib::SimpleClientGoalState::SUCCEEDED);
-        EXPECT_TRUE(success);
+        ASSERT_TRUE(success);
         ROS_INFO("Action finished: %s",state.toString().c_str());
-        EXPECT_TRUE(state == actionlib::SimpleClientGoalState::SUCCEEDED);
+        ASSERT_TRUE(state == actionlib::SimpleClientGoalState::SUCCEEDED);
       }
     }
+
+  //   collision_environment_msgs::MakeStaticCollisionMapGoal static_map_goal;
+    
+//     static_map_goal.cloud_source = "full_cloud_filtered";
+//     static_map_goal.number_of_clouds = 2;
+
+//     make_static_map.sendGoal(static_map_goal);
+
+//     make_static_map.waitForResult(ros::Duration(10.0));
+
+//     ROS_INFO("Should have static map");
 
     if (nh.ok())
     {
@@ -234,9 +279,9 @@ TEST(MoveArm, goToPoseGoal)
       {
         actionlib::SimpleClientGoalState state = move_arm.getState();
         bool success = (state == actionlib::SimpleClientGoalState::SUCCEEDED);
-        EXPECT_TRUE(success);
+        ASSERT_TRUE(success);
         ROS_INFO("Action finished: %s",state.toString().c_str());
-        EXPECT_TRUE(state == actionlib::SimpleClientGoalState::SUCCEEDED);
+        ASSERT_TRUE(state == actionlib::SimpleClientGoalState::SUCCEEDED);
       }
     }
   }
