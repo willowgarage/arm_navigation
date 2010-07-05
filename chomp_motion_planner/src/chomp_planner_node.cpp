@@ -43,6 +43,7 @@
 #include <angles/angles.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <spline_smoother/cubic_trajectory.h>
+#include <motion_planning_msgs/FilterJointTrajectory.h>
 
 #include <map>
 #include <vector>
@@ -116,7 +117,7 @@ bool ChompPlannerNode::init()
 
   filter_joint_trajectory_service_ = root_handle_.advertiseService("chomp_planner_longrange/filter_trajectory", &ChompPlannerNode::filterJointTrajectory, this);
 
-  filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("trajectory_filter/filter_trajectory_with_constraints");    
+  filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectory>("trajectory_filter/filter_trajectory");    
   
   ros::service::waitForService("trajectory_filter/filter_trajectory_with_constraints");
 
@@ -437,12 +438,12 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
     }
   }
 
-  motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request  next_req;
-  motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response next_res;
-  
-  next_req = req;
+  motion_planning_msgs::FilterJointTrajectory::Request  next_req;
+  motion_planning_msgs::FilterJointTrajectory::Response next_res;
+
+  next_req.trajectory = res.trajectory;  
+  next_req.limits = req.limits;
   next_req.allowed_time=ros::Duration(.1);
-  next_req.trajectory = res.trajectory;
   
   ROS_INFO("Trying to make call");
 
@@ -452,7 +453,10 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
     ROS_INFO("Filter call not ok");
   }
 
-  res = next_res;
+  res.trajectory = next_res.trajectory;
+  res.error_code = next_res.error_code;
+  res.trajectory.header.stamp = ros::Time::now();
+  res.trajectory.header.frame_id = reference_frame_;
 
   // for every point in time:
   for (unsigned int i=1; i<res.trajectory.points.size()-1; ++i)
