@@ -13,7 +13,7 @@ import math
 
 import sensor_msgs.msg
 import mapping_msgs.msg
-from mapping_msgs.msg import CollisionObject
+from mapping_msgs.msg import CollisionObject, AttachedCollisionObject
 from motion_planning_msgs.msg import CollisionOperation
 from geometric_shapes_msgs.msg import Shape
 from geometry_msgs.msg import Pose, PointStamped
@@ -29,6 +29,9 @@ class TestMotionExecutionBuffer(unittest.TestCase):
         
         self.move_arm_action_client = actionlib.SimpleActionClient("move_right_arm", MoveArmAction)
 
+
+
+        att_pub = rospy.Publisher('attached_collision_object', AttachedCollisionObject)
         obj_pub = rospy.Publisher('collision_object',CollisionObject)
         
         rospy.init_node('test_motion_execution_buffer')
@@ -42,8 +45,8 @@ class TestMotionExecutionBuffer(unittest.TestCase):
         obj1.header.frame_id = "base_footprint"
         obj1.id = "obj2";
         obj1.operation.operation = mapping_msgs.msg.CollisionObjectOperation.ADD
-        obj1.shapes = [Shape() for _ in range(4)]
-        obj1.poses = [Pose() for _ in range(4)]
+        obj1.shapes = [Shape() for _ in range(3)]
+        obj1.poses = [Pose() for _ in range(3)]
 
         obj1.shapes[0].type = Shape.BOX
         obj1.shapes[0].dimensions = [float() for _ in range(3)]
@@ -58,47 +61,61 @@ class TestMotionExecutionBuffer(unittest.TestCase):
         obj1.poses[0].orientation.z = 0
         obj1.poses[0].orientation.w = 1
 
-        obj1.shapes[1].type = Shape.BOX
-        obj1.shapes[1].dimensions = [float() for _ in range(3)]
-        obj1.shapes[1].dimensions[0] = .5
-        obj1.shapes[1].dimensions[1] = 1.0
-        obj1.shapes[1].dimensions[2] = .2
-        obj1.poses[1].position.x = .95
-        obj1.poses[1].position.y = -.25
-        obj1.poses[1].position.z = .92
-        obj1.poses[1].orientation.x = 0
-        obj1.poses[1].orientation.y = 0
-        obj1.poses[1].orientation.z = 0
-        obj1.poses[1].orientation.w = 1
-
         obj1.shapes[2].type = Shape.BOX
         obj1.shapes[2].dimensions = [float() for _ in range(3)]
-        obj1.shapes[2].dimensions[0] = .2
+        obj1.shapes[2].dimensions[0] = .5
         obj1.shapes[2].dimensions[1] = .1
-        obj1.shapes[2].dimensions[2] = .2
-        obj1.poses[2].position.x = .8
-        obj1.poses[2].position.y = -.5
-        obj1.poses[2].position.z = .78
+        obj1.shapes[2].dimensions[2] = 1.0
+        obj1.poses[2].position.x = .95
+        obj1.poses[2].position.y = -.14
+        obj1.poses[2].position.z = 1.2
         obj1.poses[2].orientation.x = 0
         obj1.poses[2].orientation.y = 0
         obj1.poses[2].orientation.z = 0
         obj1.poses[2].orientation.w = 1
 
-        obj1.shapes[3].type = Shape.BOX
-        obj1.shapes[3].dimensions = [float() for _ in range(3)]
-        obj1.shapes[3].dimensions[0] = .2
-        obj1.shapes[3].dimensions[1] = .1
-        obj1.shapes[3].dimensions[2] = .2
-        obj1.poses[3].position.x = .8
-        obj1.poses[3].position.y = .18
-        obj1.poses[3].position.z = .78
-        obj1.poses[3].orientation.x = 0
-        obj1.poses[3].orientation.y = 0
-        obj1.poses[3].orientation.z = 0
-        obj1.poses[3].orientation.w = 1
+        obj1.shapes[1].type = Shape.BOX
+        obj1.shapes[1].dimensions = [float() for _ in range(3)]
+        obj1.shapes[1].dimensions[0] = .5
+        obj1.shapes[1].dimensions[1] = .1
+        obj1.shapes[1].dimensions[2] = 1.0
+        obj1.poses[1].position.x = .95
+        obj1.poses[1].position.y = .12
+        obj1.poses[1].position.z = 1.2
+        obj1.poses[1].orientation.x = 0
+        obj1.poses[1].orientation.y = 0
+        obj1.poses[1].orientation.z = 0
+        obj1.poses[1].orientation.w = 1
+        
         obj_pub.publish(obj1)
 
-        rospy.sleep(5.0)
+        att_object = AttachedCollisionObject()
+        att_object.object.header.stamp = rospy.Time.now()
+        att_object.object.header.frame_id = "r_gripper_r_finger_tip_link"
+        att_object.link_name = "r_gripper_r_finger_tip_link"
+        att_object.object.operation.operation = mapping_msgs.msg.CollisionObjectOperation.ADD
+        att_object.object = CollisionObject();
+
+        att_object.object.header.stamp = rospy.Time.now()
+        att_object.object.header.frame_id = "r_gripper_r_finger_tip_link"
+        att_object.object.id = "pole"
+        att_object.object.shapes = [Shape() for _ in range(1)]
+        att_object.object.shapes[0].type = Shape.CYLINDER
+        att_object.object.shapes[0].dimensions = [float() for _ in range(2)]
+        att_object.object.shapes[0].dimensions[0] = .02
+        att_object.object.shapes[0].dimensions[1] = .1
+        att_object.object.poses = [Pose() for _ in range(1)]
+        att_object.object.poses[0].position.x = -.02
+        att_object.object.poses[0].position.y = .04
+        att_object.object.poses[0].position.z = 0
+        att_object.object.poses[0].orientation.x = 0
+        att_object.object.poses[0].orientation.y = 0
+        att_object.object.poses[0].orientation.z = 0
+        att_object.object.poses[0].orientation.w = 1
+
+        att_pub.publish(att_object)
+
+        rospy.sleep(5.0)        
 
     def testMotionExecutionBuffer(self):
         
@@ -124,7 +141,7 @@ class TestMotionExecutionBuffer(unittest.TestCase):
         r = rospy.Rate(10)
 
         goal.motion_plan_request.goal_constraints.joint_constraints = [JointConstraint() for i in range(len(joint_names))]
-        for z in range(10):
+        for z in range(6):
             for i in range(len(joint_names)):
                 goal.motion_plan_request.goal_constraints.joint_constraints[i].joint_name = joint_names[i]
                 goal.motion_plan_request.goal_constraints.joint_constraints[i].position = 0.0
