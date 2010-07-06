@@ -32,7 +32,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/** \author Mrinal Kalakrishnan */
+/** \author Mrinal Kalakrishnan, E. Gil Jones */
 
 #include <chomp_motion_planner/chomp_planner_node.h>
 #include <chomp_motion_planner/chomp_trajectory.h>
@@ -115,9 +115,9 @@ bool ChompPlannerNode::init()
   // advertise the planning service
   plan_kinematic_path_service_ = root_handle_.advertiseService("chomp_planner_longrange/plan_path", &ChompPlannerNode::planKinematicPath, this);
 
-  filter_joint_trajectory_service_ = root_handle_.advertiseService("chomp_planner_longrange/filter_trajectory", &ChompPlannerNode::filterJointTrajectory, this);
+  filter_joint_trajectory_service_ = root_handle_.advertiseService("chomp_planner_longrange/filter_trajectory_with_constraints", &ChompPlannerNode::filterJointTrajectory, this);
 
-  filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectory>("trajectory_filter/filter_trajectory");    
+  filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("trajectory_filter/filter_trajectory_with_constraints");    
   
   ros::service::waitForService("trajectory_filter/filter_trajectory_with_constraints");
 
@@ -312,8 +312,18 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
 
   ROS_INFO_STREAM("Sampled trajectory has " << jtraj.points.size() << " points with " << jtraj.points[0].positions.size() << " joints");
 
+  //TODO - match joints in the trajectory to planning group name
+  std::string group_name;
+  if(req.trajectory.joint_names[0].at(0) == 'r') {
+    group_name = "right_arm";
+  } else if(req.trajectory.joint_names[0].at(0) == 'l') {
+    group_name="left_arm";
+  } else {
+    ROS_INFO_STREAM("Joint names don't seem to correspond to left or right arm");
+  }
+
   // get the filter group - will need to figure out
-  const ChompRobotModel::ChompPlanningGroup* group = chomp_robot_model_.getPlanningGroup("right_arm");
+  const ChompRobotModel::ChompPlanningGroup* group = chomp_robot_model_.getPlanningGroup(group_name);
 
   if (group==NULL)
   {
@@ -333,8 +343,6 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   std::vector<const planning_models::KinematicModel::Joint*> joints;
   monitor_->getKinematicModel()->getJoints(joints);
 	
-  ROS_INFO_STREAM("Number of joints is " << joints.size());
-    
   robot_state.joint_state.name.resize(joints.size());
   robot_state.joint_state.position.resize(joints.size());
   robot_state.joint_state.header.frame_id = reference_frame_;
@@ -438,11 +446,11 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
     }
   }
 
-  motion_planning_msgs::FilterJointTrajectory::Request  next_req;
-  motion_planning_msgs::FilterJointTrajectory::Response next_res;
+  motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request  next_req;
+  motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response next_res;
 
+  next_req = req;
   next_req.trajectory = res.trajectory;  
-  next_req.limits = req.limits;
   next_req.allowed_time=ros::Duration(.1);
   
   ROS_INFO("Trying to make call");
@@ -475,7 +483,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
 
       res.trajectory.points[i].velocities[j] = 0.5*(v1 + v2);
     }
-  }
+ }
 
   ROS_INFO("Serviced filter request in %f wall-seconds, trajectory duration is %f", (ros::WallTime::now() - start_time).toSec(), res.trajectory.points.back().time_from_start.toSec());
   return true;

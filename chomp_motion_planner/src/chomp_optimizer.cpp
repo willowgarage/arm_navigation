@@ -271,7 +271,7 @@ void ChompOptimizer::optimize()
   {
     animatePath();
   }
-
+  
   group_trajectory_.getTrajectory() = best_group_trajectory_;
   updateFullTrajectory();
 
