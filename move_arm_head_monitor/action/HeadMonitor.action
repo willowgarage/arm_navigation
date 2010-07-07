@@ -1,0 +1,14 @@
+#goal definition
+time stop_time
+float32 max_frequency
+duration time_offset
+string target_link
+float32 target_x
+float32 target_y
+float32 target_z
+---
+#result definition
+actionlib_msgs/GoalStatus resultStatus
+---
+#feedback
+actionlib_msgs/GoalStatus feedbackStatus
