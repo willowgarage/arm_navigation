@@ -72,6 +72,11 @@
 
 #include <visualization_msgs/MarkerArray.h>
 
+#include <move_arm_head_monitor/HeadMonitorAction.h>
+#include <move_arm_head_monitor/HeadLookAction.h>
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/simple_client_goal_state.h>
+
 #include <std_msgs/Bool.h>
 
 #include <valarray>
@@ -87,7 +92,8 @@ enum MoveArmState {
   PLANNING,
   START_CONTROL,
   VISUALIZE_PLAN,
-  MONITOR
+  MONITOR,
+  PAUSE
 };
 
 enum ControllerStatus {
@@ -138,11 +144,26 @@ public:
     private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
     private_handle_.param<double>("ik_allowed_time",ik_allowed_time_, 2.0);
 
+    private_handle_.param<double>("pause_allowed_time",pause_allowed_time_, 30.0);
+    private_handle_.param<std::string>("head_monitor_link",head_monitor_link_, std::string());
+    private_handle_.param<double>("head_monitor_link_x",head_monitor_link_x_, 0.0);
+    private_handle_.param<double>("head_monitor_link_y",head_monitor_link_y_, 0.0);
+    private_handle_.param<double>("head_monitor_link_z",head_monitor_link_z_, 0.0);
+    private_handle_.param<double>("head_monitor_max_frequency",head_monitor_max_frequency_, 2.0);
+    private_handle_.param<double>("head_monitor_time_offset",head_monitor_time_offset_, 1.0);
+
+    using_head_monitor_ = true;
     num_planning_attempts_ = 0;
     state_ = PLANNING;
     last_monitor_time_ = ros::Time::now();
     trajectory_monitoring_frequency = std::min<double>(std::max<double>(trajectory_monitoring_frequency,MIN_TRAJECTORY_MONITORING_FREQUENCY),MAX_TRAJECTORY_MONITORING_FREQUENCY);
     trajectory_monitoring_duration_ = ros::Duration(1.0/trajectory_monitoring_frequency);
+
+    if(head_monitor_link_.empty())
+    {
+      ROS_WARN("No 'head_monitor_link' parameter specified, head monitoring will not be used.");
+      using_head_monitor_ = false;
+    } 
 
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
 
@@ -154,6 +175,18 @@ public:
     get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");      
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
     filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
+
+    if(using_head_monitor_)
+    {
+      head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("monitor_action", true));
+      head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("look_action", true));
+
+      ROS_DEBUG("Waiting for head monitor server");
+      head_monitor_client_->waitForServer();
+
+      ROS_DEBUG("Waiting for head look server");
+      head_look_client_->waitForServer();
+    }
 
     //    ros::service::waitForService(ARM_IK_NAME);
     arm_ik_initialized_ = false;
@@ -808,19 +841,35 @@ private:
     ROS_INFO("Connected to the controller");
     return true;
   }
+
+  void stopMonitoring()
+  {
+    if(using_head_monitor_ && head_monitor_client_->getState().state_ == actionlib::SimpleClientGoalState::ACTIVE)
+    {
+      head_monitor_client_->cancelGoal();
+      head_monitor_client_->waitForResult(ros::Duration(0.1));
+    }
+  }
+
   bool stopTrajectory()
   {
+    stopMonitoring();
+    
     if (controller_goal_handle_.isExpired())
       ROS_ERROR("Expired goal handle.  controller_status = %d", controller_status_);
     else
       controller_goal_handle_.cancel();
     return true;
   }
-  bool sendTrajectory(const trajectory_msgs::JointTrajectory &current_trajectory)
+  bool sendTrajectory(trajectory_msgs::JointTrajectory &current_trajectory)
   {
+    current_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
+
+    if(using_head_monitor_ && head_monitor_time_offset_ > 0.5)
+	current_trajectory.header.stamp += ros::Duration(head_monitor_time_offset_ - 0.5);
+
     pr2_controllers_msgs::JointTrajectoryGoal goal;  
     goal.trajectory = current_trajectory;
-    goal.trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
 
     ROS_INFO("Sending trajectory with %d points and timestamp: %f",(int)goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
     for(unsigned int i=0; i < goal.trajectory.joint_names.size(); i++)
@@ -1039,10 +1088,45 @@ private:
         {
           current_trajectory_ = filtered_trajectory;
         }
+
+	if(using_head_monitor_)
+	{
+          move_arm_head_monitor::HeadLookGoal look_goal;
+
+          look_goal.target_time = ros::Time::now() + ros::Duration(0.01);
+          look_goal.target_link = head_monitor_link_;
+          look_goal.target_x = head_monitor_link_x_;
+          look_goal.target_y = head_monitor_link_y_;
+          look_goal.target_z = head_monitor_link_z_;
+
+          ROS_DEBUG("Looking at target link before starting trajectory");
+
+          if(head_look_client_->sendGoalAndWait(look_goal, ros::Duration(4.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED)
+            ROS_WARN("Head look didn't succeed before timeout, starting anyway");
+	}
+
+
         ROS_DEBUG("Sending trajectory");
         if(sendTrajectory(current_trajectory_))
         {
           state_ = MONITOR;
+	  
+	  if(using_head_monitor_)
+	  {
+            move_arm_head_monitor::HeadMonitorGoal monitor_goal;
+
+            monitor_goal.stop_time = current_trajectory_.header.stamp + (current_trajectory_.points.end()-1)->time_from_start;
+            monitor_goal.max_frequency = head_monitor_max_frequency_;
+            monitor_goal.time_offset = ros::Duration(head_monitor_time_offset_);
+            monitor_goal.target_link = head_monitor_link_;
+            monitor_goal.target_x = head_monitor_link_x_;
+            monitor_goal.target_y = head_monitor_link_y_;
+            monitor_goal.target_z = head_monitor_link_z_;
+
+            ROS_DEBUG("Starting head monitoring");
+            head_monitor_client_->sendGoal(monitor_goal);
+	  }
+
         }
         else
         {
@@ -1060,6 +1144,8 @@ private:
         ROS_DEBUG("Start to monitor");
         if(isControllerDone())
         {
+	  stopMonitoring();
+
           motion_planning_msgs::RobotState current_state;
           current_state.joint_state = state_monitor_.getJointState(group_joint_names_);
           if(isStateValidAtGoal(current_state.joint_state))
@@ -1087,10 +1173,36 @@ private:
           if(!isExecutionSafe())
           {
             ROS_INFO("Stopping trajectory since it is unsafe");
+
+	    if(using_head_monitor_)
+	    {
+	      pause_start_time_ = ros::Time::now();
+	      state_ = PAUSE;
+	    }
+	    else
+	    {
+	      state_ = PLANNING;
+	    }
+
             stopTrajectory();
-            state_ = PLANNING;
+
           }
         }
+        break;
+      }
+    case PAUSE:
+      {
+        if(isExecutionSafe())
+        {
+          ROS_INFO("Safe to resume, going back to control");
+          state_ = PLANNING;
+        }
+        else if(ros::Time::now() - pause_start_time_ > ros::Duration(pause_allowed_time_))
+        {
+          ROS_INFO("Pausing has timed out, trying to replan trajectory");
+          state_ = PLANNING;
+        }
+
         break;
       }
     default:
@@ -1306,6 +1418,9 @@ private:
 
   std::string group_;
 
+  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
+  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> >  head_look_client_;
+
   ros::ServiceClient get_joints_in_group_client_, get_state_client_;
   ros::ServiceClient ik_client_, check_state_at_goal_client_, check_plan_validity_client_;
   ros::ServiceClient check_env_safe_client_, check_execution_safe_client_, check_state_validity_client_;
@@ -1343,6 +1458,12 @@ private:
   double trajectory_filter_allowed_time_, ik_allowed_time_;
   double trajectory_discretization_;
   bool arm_ik_initialized_;
+  
+  std::string head_monitor_link_;
+  double head_monitor_link_x_, head_monitor_link_y_, head_monitor_link_z_, head_monitor_max_frequency_, head_monitor_time_offset_;
+  double pause_allowed_time_;
+  ros::Time pause_start_time_;
+  bool using_head_monitor_;
 
 };
 }
