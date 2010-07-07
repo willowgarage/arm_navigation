@@ -111,7 +111,23 @@ bool ChompCollisionSpace::init(planning_environment::CollisionSpaceMonitor* moni
           std::string object2 = std::string(coll_ops[i]["object2"]);
           std::string operation = std::string(coll_ops[i]["operation"]);
           if(operation == "enable") {
-            ROS_WARN("Chomp doesn't support enabling collisions");
+            if(planning_group_link_names_.find(object1) == planning_group_link_names_.end()) {
+              ROS_WARN_STREAM("Object 1 must be a recognized planning group and " << object1 << " is not");
+              continue;
+            }
+            if(distance_include_links_.find(object1) == distance_include_links_.end()) {
+              std::vector<std::string> emp;
+              distance_include_links_[object1] = emp;
+            }
+            std::vector<std::string>& include_links = distance_include_links_[object1];
+            if(planning_group_link_names_.find(object2) == planning_group_link_names_.end()) {
+              include_links.push_back(object2);
+              ROS_DEBUG_STREAM("Link " << object1 << " adding include for link " << object2);
+            } else {
+              ROS_DEBUG_STREAM("Link " << object1 << " adding include for group " << object2 << " size " << planning_group_link_names_.find(object2)->second.size() );
+              include_links.insert(include_links.end(), planning_group_link_names_.find(object2)->second.begin(),
+                                   planning_group_link_names_.find(object2)->second.end());
+            }
           } else if(operation == "disable") {
             if(planning_group_link_names_.find(object1) == planning_group_link_names_.end()) {
               ROS_WARN_STREAM("Object 1 must be a recognized planning group and " << object1 << " is not");
@@ -567,6 +583,18 @@ void ChompCollisionSpace::addAllBodiesButExcludeLinksToPoints(std::string group_
   if(distance_exclude_links_.find(group_name) != distance_exclude_links_.end()) 
   {
     exclude_links = distance_exclude_links_[group_name];
+  }
+
+  //now go through include and see if we have to add anything back
+  if(distance_include_links_.find(group_name) != distance_include_links_.end()) {
+    for(std::vector<std::string>::iterator it = distance_include_links_[group_name].begin();
+        it != distance_include_links_[group_name].end();
+        it++) {
+      std::vector<std::string>::iterator f = find(exclude_links.begin(), exclude_links.end(), *it);
+      if(f != exclude_links.end()) {
+        exclude_links.erase(f);
+      }
+    }
   }
 
   for(std::map<std::string, std::vector<bodies::Body *> >::iterator it1 = planning_group_bodies_.begin();

@@ -176,6 +176,7 @@ private:
   void addAllBodiesButExcludeLinksToPoints(std::string group_name, std::vector<btVector3>& body_points);  
 
   std::map<std::string, std::vector<std::string> > distance_exclude_links_;
+  std::map<std::string, std::vector<std::string> > distance_include_links_;
 
 };
 
