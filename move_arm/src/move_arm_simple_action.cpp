@@ -178,8 +178,8 @@ public:
 
     if(using_head_monitor_)
     {
-      head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("monitor_action", true));
-      head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("look_action", true));
+      head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
+      head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("head_look_action", true));
 
       ROS_DEBUG("Waiting for head monitor server");
       head_monitor_client_->waitForServer();
