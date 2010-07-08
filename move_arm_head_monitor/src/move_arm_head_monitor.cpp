@@ -46,8 +46,6 @@ protected:
   // service client for calculating forward kinematics
   ros::ServiceClient forward_kinematics_serviceclient_;
 
-  std::string point_cloud_name_;
-
   move_arm_head_monitor::HeadMonitorGoal monitor_goal_;
   move_arm_head_monitor::HeadMonitorFeedback monitor_feedback_;
   move_arm_head_monitor::HeadMonitorResult monitor_result_;
@@ -68,9 +66,6 @@ public:
     point_head_actionclient_("head_controller_actionserver", true)  // ie "/head_traj_controller/point_head_action"
   {
 	ros::NodeHandle priv("~");
-    
-    	// Name of the stereo point cloud
-    	priv.param<std::string>("point_cloud_name", point_cloud_name_, "/narrow_stereo/points");  // ie "/narrow_stereo/points_filtered"
 
 	head_monitor_actionserver_.registerGoalCallback(boost::bind(&HeadMonitor::monitorGoalCallback, this));
 	head_monitor_actionserver_.registerPreemptCallback(boost::bind(&HeadMonitor::monitorPreemptCallback, this));
