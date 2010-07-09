@@ -266,9 +266,24 @@ class InterpolatedIKService:
                  self.steps_before_abort, self.num_steps, ordered_collision_operations, \
                  self.start_from_end, IK_robot_state, link_padding)
 
-        #find appropriate velocities and times for the resulting joint path
-        (times, vels) = self.ik_utils.trajectory_times_and_vels(trajectory, self.max_joint_vels, self.max_joint_accs)
- 
+        #find appropriate velocities and times for the valid part of the resulting joint path (invalid parts set to 0)
+        #if we're searching from the end, keep the end; if we're searching from the start, keep the start
+        start_ind = 0
+        stop_ind = len(error_codes)
+        if self.start_from_end:
+            for ind in range(len(error_codes)-1, 0, -1):
+                if error_codes[ind]:
+                    start_ind = ind+1
+                    break
+        else:
+            for ind in range(len(error_codes)):
+                if error_codes[ind]:
+                    stop_ind = ind
+                    break
+        (times, vels) = self.ik_utils.trajectory_times_and_vels(trajectory[start_ind:stop_ind], self.max_joint_vels, self.max_joint_accs)
+        times = [0]*start_ind + times + [0]*(len(error_codes)-stop_ind)
+        vels = [[0]*7]*start_ind + vels + [[0]*7]*(len(error_codes)-stop_ind)
+
         rospy.logdebug("trajectory:")
         for ind in range(len(trajectory)):
             rospy.logdebug("error code "+ str(error_codes[ind]) + " pos : " + self.pplist(trajectory[ind]))
@@ -304,6 +319,13 @@ class InterpolatedIKService:
 
         trajectory_error_codes = [ArmNavigationErrorCodes(val=error_code_dict[error_code]) for error_code in error_codes]
         res.trajectory_error_codes = trajectory_error_codes 
+
+#         rospy.loginfo("trajectory:")
+#         for ind in range(len(trajectory)):
+#             rospy.loginfo("error code "+ str(error_codes[ind]) + " pos : " + self.pplist(trajectory[ind]))
+#         rospy.loginfo("")
+#         for ind in range(len(trajectory)):
+#             rospy.loginfo("time: " + "%5.3f  "%times[ind] + "vels: " + self.pplist(vels[ind]))
 
         return res
 
