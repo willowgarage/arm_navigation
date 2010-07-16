@@ -56,6 +56,7 @@
 #include <motion_planning_msgs/GetMotionPlan.h>
 #include <motion_planning_msgs/ConvertToJointConstraint.h>
 #include <motion_planning_msgs/convert_messages.h>
+#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 
 #include <visualization_msgs/Marker.h>
 
@@ -181,11 +182,16 @@ public:
       head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
       head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("head_look_action", true));
 
-      ROS_DEBUG("Waiting for head monitor server");
-      head_monitor_client_->waitForServer();
+      while(!head_monitor_client_->waitForServer(ros::Duration(10)))
+      {
+      	ROS_INFO("Waiting for head monitor server");
+      }
 
-      ROS_DEBUG("Waiting for head look server");
-      head_look_client_->waitForServer();
+      while(!head_look_client_->waitForServer(ros::Duration(10)))
+      {
+      	ROS_INFO("Waiting for head look server");
+      }
+
     }
 
     //    ros::service::waitForService(ARM_IK_NAME);
@@ -228,7 +234,7 @@ public:
     {
       ROS_ERROR("Joint state monitor is not active, aborting.");
       return false;
-    }          
+    }             
 
     if (group_.empty())
     {
@@ -445,6 +451,93 @@ private:
       return false;
     }
   }
+
+  int closestStateOnTrajectory(const trajectory_msgs::JointTrajectory &trajectory, const sensor_msgs::JointState &joint_state, unsigned int start, unsigned int end)
+  {
+    if(trajectory.joint_names.size() != joint_state.name.size())
+      return -1;
+
+    double dist = 0.0;
+    int    pos  = -1;
+
+    for (unsigned int i = start ; i <= end ; ++i)
+    {
+      double d = 0.0;
+      for (unsigned int j = 0 ; j < joint_state.name.size() ; ++j)
+      {    
+        double current_joint_position = joint_state.position[j];	    
+        double diff = fabs(trajectory.points[i].positions[j] - current_joint_position);
+        d += diff * diff;
+      }
+	
+      if (pos < 0 || d < dist)
+      {
+        pos = i;
+        dist = d;
+      }
+    }    
+
+    return pos;
+  }
+
+  bool removeCompletedTrajectory(const trajectory_msgs::JointTrajectory &trajectory_in, 
+                        trajectory_msgs::JointTrajectory &trajectory_out, bool zero_vel_acc)
+  {
+
+    trajectory_out.header = trajectory_in.header;
+    trajectory_out.joint_names = trajectory_in.joint_names;
+    trajectory_out.points.clear();
+
+    if(trajectory_in.points.empty())
+    {
+      ROS_WARN("No points in input trajectory");
+      return true;
+    }
+    
+    sensor_msgs::JointState current_state = state_monitor_.getJointState(trajectory_in.joint_names);
+
+    int current_position_index = 0;        
+    //Get closest state in given trajectory
+    current_position_index = closestStateOnTrajectory(trajectory_in, current_state, current_position_index, trajectory_in.points.size() - 1);
+    if (current_position_index < 0)
+    {
+      ROS_ERROR("Unable to identify current state in trajectory");
+      return false;
+    }
+    
+    // Start one ahead of returned closest state index to make sure first trajectory point is not behind current state
+    for(unsigned int i = current_position_index+1; i < trajectory_in.points.size(); ++i)
+    {
+      trajectory_out.points.push_back(trajectory_in.points[i]);
+    }
+
+    if(trajectory_out.points.empty())
+    {
+      ROS_WARN("No points in output trajectory");
+      return true;
+    }	
+
+    ros::Duration first_time = trajectory_out.points[0].time_from_start;
+
+    for(unsigned int i=0; i < trajectory_out.points.size(); ++i)
+    {
+      trajectory_out.points[i].time_from_start -= first_time;
+    }
+
+    if(zero_vel_acc)
+    {
+      for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i)
+      {
+        trajectory_out.points[0].velocities[i] = 0;
+        trajectory_out.points[0].accelerations[i] = 0;
+      }
+    }
+
+    return true;
+
+  }
+		    
+
   ///
   /// End Trajectory Filtering
   ///
@@ -1194,8 +1287,19 @@ private:
       {
         if(isExecutionSafe())
         {
-          ROS_INFO("Safe to resume, going back to control");
-          state_ = PLANNING;
+          ROS_INFO("Safe to resume, trying to remove completed trajectory section");
+	  trajectory_msgs::JointTrajectory shortened_trajectory;
+	  if(removeCompletedTrajectory(current_trajectory_, shortened_trajectory, true))
+	  {
+            current_trajectory_ = shortened_trajectory;
+	    ROS_INFO("Shortening trajectory succeeded, starting control");	
+            state_ = START_CONTROL;
+          }
+          else
+          {
+            ROS_INFO("Shortening trajectory failed, going back to planning");	
+            state_ = PLANNING;
+          }
         }
         else if(ros::Time::now() - pause_start_time_ > ros::Duration(pause_allowed_time_))
         {
