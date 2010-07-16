@@ -1,3 +1,40 @@
+/*********************************************************************
+ *
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2010, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  \author Adam Harmat
+ *********************************************************************/
+
 #include <ros/ros.h>
 
 #include <actionlib/server/simple_action_server.h>
@@ -9,7 +46,6 @@
 
 #include <kinematics_msgs/GetKinematicSolverInfo.h>
 #include <kinematics_msgs/GetPositionFK.h>
-
 
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <pr2_controllers_msgs/QueryTrajectoryState.h>
@@ -32,40 +68,33 @@ protected:
   ros::NodeHandle root_handle_;
   actionlib::SimpleActionServer<move_arm_head_monitor::HeadMonitorAction> head_monitor_actionserver_;
   actionlib::SimpleActionServer<move_arm_head_monitor::HeadLookAction> head_look_actionserver_;
-  std::string action_name_;
 
-  // Marker publisher
   ros::Publisher marker_pub_;
 
-  //point head action client
   actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> point_head_actionclient_;
 
-  // service client for querying trajectory state in time
   ros::ServiceClient trajectory_state_serviceclient_;
-
-  // service client for calculating forward kinematics
   ros::ServiceClient forward_kinematics_serviceclient_;
 
   move_arm_head_monitor::HeadMonitorGoal monitor_goal_;
   move_arm_head_monitor::HeadMonitorFeedback monitor_feedback_;
   move_arm_head_monitor::HeadMonitorResult monitor_result_;
+
   ros::Timer monitor_timer_;
 
   visualization_msgs::Marker marker_;
 
 
-
 public:
 
 
-  HeadMonitor(std::string name) :
-    nh_(name),
+  HeadMonitor(const ros::NodeHandle &n) :
+    nh_("~"),
+    root_handle_(n),
     head_monitor_actionserver_(nh_, "monitor_action"),
     head_look_actionserver_(nh_, "look_action", boost::bind(&HeadMonitor::lookExecuteCallback, this, _1)),
-    action_name_(name),
     point_head_actionclient_("head_controller_actionserver", true)  // ie "/head_traj_controller/point_head_action"
   {
-	ros::NodeHandle priv("~");
 
 	head_monitor_actionserver_.registerGoalCallback(boost::bind(&HeadMonitor::monitorGoalCallback, this));
 	head_monitor_actionserver_.registerPreemptCallback(boost::bind(&HeadMonitor::monitorPreemptCallback, this));
@@ -75,18 +104,27 @@ public:
 
 	marker_pub_ = nh_.advertise<visualization_msgs::Marker>("point_head_target_marker", 1,true);
 
-	ROS_INFO("Waiting for point head action server");
-	point_head_actionclient_.waitForServer();
-
-	ROS_INFO("Waiting for trajectory query service");
-	ros::service::waitForService("trajectory_query_service");  // ie "/r_arm_controller/query_state"
 	trajectory_state_serviceclient_ = root_handle_.serviceClient<pr2_controllers_msgs::QueryTrajectoryState>("trajectory_query_service");
+	forward_kinematics_serviceclient_ = root_handle_.serviceClient<kinematics_msgs::GetPositionFK>("forward_kinematics_service");
 
-	ROS_INFO("Waiting for forward kinematics service");
-	ros::service::waitForService("forward_kinematics_service");  // ie "/pr2_right_arm_kinematics/get_fk"
-  	forward_kinematics_serviceclient_ = root_handle_.serviceClient<kinematics_msgs::GetPositionFK>("forward_kinematics_service");
+	while(!point_head_actionclient_.waitForServer(ros::Duration(5.0)))
+	{
+		ROS_INFO("Waiting for point head action server");
+	}
+
+	while(!ros::service::waitForService("trajectory_query_service", ros::Duration(5.0))) // ie "/r_arm_controller/query_state"
+	{	
+		ROS_INFO_STREAM("Waiting for trajectory query service: "<<trajectory_state_serviceclient_.getService());
+	}
+
 	
-	ROS_INFO("Starting action server for %s", action_name_.c_str());
+	while(!ros::service::waitForService("forward_kinematics_service", ros::Duration(5.0)))  // ie "/pr2_right_arm_kinematics/get_fk"
+	{
+		ROS_INFO_STREAM("Waiting for forward kinematics service: "<<forward_kinematics_serviceclient_.getService());
+	}
+
+	
+	ROS_INFO_STREAM("Starting head monitor action server for "<<ros::this_node::getName());
 
   }
 
@@ -95,7 +133,7 @@ public:
   }
 
 
-    //! Points the head at a point in a given frame  
+  // Points the head at a point in a given frame  
   void lookAt(std::string frame_id, double x, double y, double z, bool wait)
   {
     
@@ -110,9 +148,8 @@ public:
 
 	goal.target = point;
 
-	//take at least 0.1 seconds to get there
+	//take at least 0.4 seconds to get there, lower value makes head jerky
 	goal.min_duration = ros::Duration(0.4);
-
 
 	if(wait)
 	{
@@ -126,9 +163,9 @@ public:
 
   }
 
+  // Looks at where a target link will be at a given time by looking up future trajectory and calling forward kinematics service
   bool lookAtTarget(std::string target_link, double target_x, double target_y, double target_z, ros::Time check_time, bool wait_for_head, visualization_msgs::Marker* marker = NULL)
   {
-	// define the service messages
 	pr2_controllers_msgs::QueryTrajectoryState::Request  traj_request;
 	pr2_controllers_msgs::QueryTrajectoryState::Response traj_response;
 
@@ -176,6 +213,8 @@ public:
 					tempPoint.y = absolute_target_position.y() + y_corr;
 					tempPoint.z = absolute_target_position.z();
 					marker->points.push_back(tempPoint);
+
+					marker->header.stamp = ros::Time::now();
 				}
 
 			}
@@ -202,7 +241,7 @@ public:
 
   }
 
-	
+  // Looks at a given target at the current time and returns	
   void lookExecuteCallback(const move_arm_head_monitor::HeadLookGoalConstPtr &goalPtr)
   {
 	move_arm_head_monitor::HeadLookGoal goal(*goalPtr);
@@ -213,7 +252,7 @@ public:
   	if(success)
 	{
 		result.resultStatus.status = result.resultStatus.SUCCEEDED;
- 		ROS_INFO("%s: Succeeded at looking", action_name_.c_str());
+ 		ROS_INFO_STREAM(ros::this_node::getName()<<": Succeeded at looking");
 		head_look_actionserver_.setSucceeded(result);
 	}
 	else
@@ -223,14 +262,14 @@ public:
 		if(head_look_actionserver_.isPreemptRequested())
 		{
 			result.resultStatus.status = result.resultStatus.PREEMPTED;
-			ROS_INFO("%s: Preempted while looking", action_name_.c_str());
+			ROS_INFO_STREAM(ros::this_node::getName()<<": Preempted while looking");
 			head_look_actionserver_.setPreempted();
 
 		}
 		else
 		{
 			result.resultStatus.status = result.resultStatus.ABORTED;
- 			ROS_ERROR("%s: Aborted while looking", action_name_.c_str());
+ 			ROS_ERROR_STREAM(ros::this_node::getName()<<": Aborted while looking");
 			head_look_actionserver_.setAborted(result);
 		}
 
@@ -254,10 +293,11 @@ public:
 	monitor_timer_.stop();
 
 	monitor_result_.resultStatus.status = monitor_result_.resultStatus.PREEMPTED;
-	ROS_INFO("%s: Preempted", action_name_.c_str());
+	ROS_INFO_STREAM(ros::this_node::getName()<<": Preempted");
 	head_monitor_actionserver_.setPreempted(monitor_result_);
   }
 
+  // Periodic timer callback computes next head position and sends it to head controller
   void monitorTimerCallback(const ros::TimerEvent& event)
   {
 	if(!head_monitor_actionserver_.isActive())
@@ -269,10 +309,11 @@ public:
 	ros::Time now = ros::Time::now();
 	ros::Time check_time = now + monitor_goal_.time_offset;
 
+        // Stop if past goal stop time
 	if(monitor_goal_.stop_time > ros::Time(0) && now > monitor_goal_.stop_time)
 	{
 		monitor_result_.resultStatus.status = monitor_result_.resultStatus.SUCCEEDED;
- 		ROS_INFO("%s: Succeeded", action_name_.c_str());
+ 		ROS_INFO_STREAM(ros::this_node::getName()<<": Succeeded");
 		head_monitor_actionserver_.setSucceeded(monitor_result_);
 		monitor_timer_.stop();
 		return;
@@ -283,7 +324,7 @@ public:
 	if(!success)
 	{
 		monitor_result_.resultStatus.status = monitor_result_.resultStatus.ABORTED;
-		ROS_ERROR("%s: Aborted", action_name_.c_str());
+		ROS_ERROR_STREAM(ros::this_node::getName()<<": Aborted");
 		head_monitor_actionserver_.setAborted(monitor_result_);
 		monitor_timer_.stop();
 	}
@@ -293,7 +334,6 @@ public:
 	}	
 
   }
-
 
 
   void monitorGoalCallback()
@@ -309,7 +349,7 @@ public:
 	if(head_monitor_actionserver_.isPreemptRequested())
 	{
 		monitor_result_.resultStatus.status = monitor_result_.resultStatus.PREEMPTED;
-		ROS_INFO("%s: Preempted", action_name_.c_str());
+		ROS_INFO_STREAM(ros::this_node::getName() << ": Preempted");
 		head_monitor_actionserver_.setPreempted(monitor_result_);
 		return;
 	}
@@ -351,8 +391,8 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "move_arm_head_monitor");
 
-
-  HeadMonitor head_monitor(ros::this_node::getName());
+  ros::NodeHandle node;
+  HeadMonitor head_monitor(node);
   
   ros::spin();
 
