@@ -481,7 +481,7 @@ void IKConstrainedPlanner::fillResult(motion_planning_msgs::GetMotionPlan::Reque
       }
       else
       {
-        ROS_INFO("%d: %f %f %f %f %f %f %f",i,solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);
+        ROS_DEBUG("%d: %f %f %f %f %f %f %f",i,solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);
         for (unsigned int j = 0 ; j < dim ; ++j)
         {
           res.trajectory.joint_trajectory.points[i].positions[j] = solution[j];
@@ -584,6 +584,8 @@ bool IKConstrainedPlanner::callPlanner(ompl::base::Planner *planner,
           }
           }*/
         
+        dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(space_information)->interpolatePath(path, 1.0);
+
         if (sol.path == NULL || sol.difference > goal->getDifference() || 
             (sol.path && sol.difference == goal->getDifference() && sol.path->length() > goal->getSolutionPath()->length()))
         {
