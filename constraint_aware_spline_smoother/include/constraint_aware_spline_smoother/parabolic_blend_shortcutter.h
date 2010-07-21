@@ -121,6 +121,7 @@ bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &traj
   planning_monitor_->getRobotStateMsg(robot_state);
   planning_monitor_->getChildLinks(trajectory.joint_names, child_links);
   planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
+  planning_monitor_->setCollisionSpace();
   planning_monitor_->applyLinkPaddingToCollisionSpace(link_padding);
   planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
   planning_monitor_->setAllowedContacts(allowed_contact_regions);

@@ -165,7 +165,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     return false;
   }
 
-  ROS_DEBUG("Got trajectory with %d points",(int)trajectory_in.trajectory.points.size());
+  ROS_INFO("Got trajectory with %d points",(int)trajectory_in.trajectory.points.size());
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
   motion_planning_msgs::RobotState robot_state;
@@ -191,6 +191,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   std::vector<std::string> child_links;
   planning_monitor_->getChildLinks(trajectory_in.trajectory.joint_names, child_links);
   planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
+  planning_monitor_->setCollisionSpace();
   planning_monitor_->applyLinkPaddingToCollisionSpace(trajectory_in.link_padding);
   planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
   
