@@ -237,6 +237,7 @@ void IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   std::vector<std::string> child_links;
   //  sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
 
+  planning_monitor_->setCollisionSpace();
   planning_monitor_->setAllowedContacts(req.motion_plan_request.allowed_contacts);    
   planning_monitor_->getChildLinks(planning_monitor_->getKinematicModel()->getGroup(req.motion_plan_request.group_name)->jointNames,child_links);
 
