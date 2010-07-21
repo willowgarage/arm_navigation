@@ -22,7 +22,7 @@ groups:
 
 right_arm:
   planner_configs:
-    - pSBLkConfig1 
+    - SBLkConfig1 
     - LBKPIECEkConfig1
   kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
   redundancy:
@@ -32,7 +32,7 @@ right_arm:
 
 left_arm: 
   planner_configs:
-    - pSBLkConfig1 
+    - SBLkConfig1 
     - LBKPIECEkConfig1
   kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
   redundancy:
@@ -41,8 +41,8 @@ left_arm:
   root_name: torso_lift_link
 
 planner_configs:
-  pSBLkConfig1:
-    type: kinematic::pSBL
+  SBLkConfig1:
+    type: kinematic::SBL
     projection: 0 1
     celldim: 1 1
     range: 0.5

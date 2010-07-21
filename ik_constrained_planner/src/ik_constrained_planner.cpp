@@ -887,7 +887,7 @@ bool IKConstrainedPlanner::addPlanner(const std::string &param_server_prefix,
   cfg.reset(new ompl_planning::PlannerConfig(param_server_prefix,planner_config_name));
   std::string type = cfg->getParamString("type");
 
-  if (type == "kinematic::pSBL")
+  if (type == "kinematic::SBL")
   {
     if(!addPlanner(cfg,model_name,space_information))
     {
@@ -917,19 +917,19 @@ bool IKConstrainedPlanner::addPlanner(boost::shared_ptr<ompl_planning::PlannerCo
 {
   std::string type = cfg->getParamString("type");
   ompl::base::Planner *p;    
-  if (type == "kinematic::pSBL")
+  if (type == "kinematic::SBL")
   {
-    ompl::kinematic::pSBL *planner = new ompl::kinematic::pSBL(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(space_information));
+    ompl::kinematic::SBL *planner = new ompl::kinematic::SBL(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(space_information));
     if (cfg->hasParam("range"))
     {
       planner->setRange(cfg->getParamDouble("range", planner->getRange()));
       ROS_DEBUG("Range is set to %g", planner->getRange());
     }
-    if (cfg->hasParam("thread_count"))
+    /*    if (cfg->hasParam("thread_count"))
     {
       planner->setThreadCount(cfg->getParamInt("thread_count", planner->getThreadCount()));
       ROS_DEBUG("Thread count is set to %u", planner->getThreadCount());
-    }
+      }*/
     planner->setProjectionEvaluator(getProjectionEvaluator(cfg,space_information));    
     if (planner->getProjectionEvaluator() == NULL)
     {
@@ -1013,7 +1013,7 @@ bool IKConstrainedPlanner::initialize(planning_environment::PlanningMonitor *pla
   state_names_.push_back("pitch");
   state_names_.push_back("yaw");
   state_names_.push_back("redundancy");
-  default_planner_id_ = "kinematic::pSBL";
+  default_planner_id_ = "kinematic::SBL";
 
   planning_monitor_ = planning_monitor;
 

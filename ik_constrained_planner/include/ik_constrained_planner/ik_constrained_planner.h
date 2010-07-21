@@ -64,7 +64,7 @@
 #include <ompl/base/ProjectionEvaluator.h>
 #include <ompl/kinematic/SpaceInformationKinematic.h>
 
-#include <ompl/kinematic/planners/sbl/pSBL.h>
+#include <ompl/kinematic/planners/sbl/SBL.h>
 #include <ompl/kinematic/planners/kpiece/LBKPIECE1.h>
 
 #include <pluginlib/class_loader.h>
