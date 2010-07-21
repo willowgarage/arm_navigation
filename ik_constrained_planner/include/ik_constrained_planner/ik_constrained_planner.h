@@ -94,6 +94,15 @@ public:
 
   IKConstrainedPlanner():kinematics_loader_("kinematics_base","kinematics::KinematicsBase"){};
 
+  ~IKConstrainedPlanner()
+  {
+    for(std::map<std::string,ompl::base::Planner*>::iterator pm = planner_map_.begin(); pm != planner_map_.end(); ++pm)
+      delete pm->second;
+
+    for(std::map<std::string,kinematics::KinematicsBase*>::iterator kb = kinematics_solver_map_.begin(); kb != kinematics_solver_map_.end(); kb++)
+      delete kb->second;
+  }
+
   bool isRequestValid(motion_planning_msgs::GetMotionPlan::Request &req);
     
   void setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &workspace_parameters, 

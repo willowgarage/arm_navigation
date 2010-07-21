@@ -173,6 +173,10 @@ void IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   // Clear allowed contact regions
   planning_monitor_->clearAllowedContacts();
   planning_monitor_->revertAllowedCollisionToDefault();
+//   std::vector<std::vector<bool> > matrix;
+//   std::map<std::string, unsigned int> ind;  
+//   planning_monitor_->getEnvironmentModel()->getCurrentAllowedCollisionMatrix(matrix, ind);
+//   planning_monitor_->printAllowedCollisionMatrix(matrix, ind);
   planning_monitor_->revertCollisionSpacePaddingToDefault();
   planning_monitor_->clearAllowedContacts();
   planning_monitor_->clearConstraints();
@@ -231,12 +235,31 @@ void IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   /* add allowed contacts */
   motion_planning_msgs::OrderedCollisionOperations operations;
   std::vector<std::string> child_links;
-  sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
+  //  sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
+
   planning_monitor_->setAllowedContacts(req.motion_plan_request.allowed_contacts);    
-  planning_monitor_->getChildLinks(joint_state.name, child_links);
+  planning_monitor_->getChildLinks(planning_monitor_->getKinematicModel()->getGroup(req.motion_plan_request.group_name)->jointNames,child_links);
+
+  ROS_DEBUG("Moving links are");
+  for(unsigned int i=0; i < child_links.size(); i++)
+  {
+    ROS_DEBUG("%s",child_links[i].c_str());
+  }
+
   planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,req.motion_plan_request.ordered_collision_operations,operations);
+  ROS_DEBUG("Ordered collision operations");
+  for(unsigned int i=0; i < operations.collision_operations.size(); i++)
+  {
+    ROS_DEBUG("%s :: %s :: %d",operations.collision_operations[i].object1.c_str(),operations.collision_operations[i].object2.c_str(),operations.collision_operations[i].operation);
+  }
   planning_monitor_->applyLinkPaddingToCollisionSpace(req.motion_plan_request.link_padding);
   planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
+
+//   std::vector<std::vector<bool> > matrix2;
+//   std::map<std::string, unsigned int> ind2;  
+//   planning_monitor_->getEnvironmentModel()->getCurrentAllowedCollisionMatrix(matrix2, ind2);
+//   planning_monitor_->printAllowedCollisionMatrix(matrix2, ind2);
+
 
   /* add goal state */
   planning_monitor_->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, planning_monitor_->getFrameId(),error_code);
@@ -418,7 +441,6 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
   
   // configure the planner
   configureOnRequest(req,start_state,space_information_);
-
     
   /* compute actual motion plan */
   Solution sol;

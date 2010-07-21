@@ -51,6 +51,10 @@
 #include <tf/tf.h>
 #include <iostream>
 
+#include <motion_planning_msgs/DisplayTrajectory.h>
+#include <planning_environment_msgs/GetRobotState.h>
+#include <sensor_msgs/JointState.h>
+
 namespace ik_constrained_planner
 {    
 
@@ -90,6 +94,7 @@ protected:
   planning_environment::PlanningMonitor *planning_monitor_;
   kinematics::KinematicsBase* kinematics_solver_;
   ompl::base::SpaceInformation *space_information_;
+  ros::Publisher display_path_publisher_;
 };
 }
 

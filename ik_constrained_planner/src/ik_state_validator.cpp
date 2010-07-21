@@ -40,6 +40,9 @@ namespace ik_constrained_planner
 {    
 bool IKStateValidator::operator()(const ompl::base::State *s) const
 {
+  //  double c_x = 0.6;
+  //  double c_y = -0.45;
+
   int test = planning_environment::PlanningMonitor::COLLISION_TEST;  
 
   btVector3 tmp_pos(s->values[0],s->values[1],s->values[2]);
@@ -49,7 +52,14 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
   btTransform result = kinematics_planner_tf_*tmp_transform;
   geometry_msgs::Pose pose;
   tf::poseTFToMsg(result,pose);
-
+  ROS_DEBUG("Checking ik for pose: %f %f %f, %f %f %f %f",
+           pose.position.x,
+           pose.position.y,
+           pose.position.z,
+           pose.orientation.x,
+           pose.orientation.y,
+           pose.orientation.z,
+           pose.orientation.w);
   std::vector<double> solution;
   std::vector<double> seed;
   seed.resize(space_information_->getStateDimension(),0.0);
@@ -57,8 +67,47 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
 
   if(!kinematics_solver_->getPositionIK(pose,seed,solution))
     return false;
-  kinematic_state_->setParamsGroup(solution,group_name_);
-  bool valid = planning_monitor_->isStateValid(kinematic_state_,test,false);  
+  ROS_DEBUG("IK Solution: %f %f %f %f %f %f %f",solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);
+  
+  sensor_msgs::JointState joint_state;
+  for(unsigned int i=0; i < kinematics_solver_->getJointNames().size(); i++)
+  {
+    joint_state.position.push_back(solution[i]);
+    joint_state.name.push_back((kinematics_solver_->getJointNames())[i]);
+  }
+  planning_monitor_->setJointStateAndComputeTransforms(joint_state);
+  planning_monitor_->getEnvironmentModel()->updateRobotModel();
+  bool valid = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
+
+//   motion_planning_msgs::DisplayTrajectory d_path;
+//   ros::NodeHandle root_handle;
+//   if(valid)
+//   {
+//     ROS_INFO("Collision check was false for group %s",group_name_.c_str());
+//     double cyl_distance = sqrt((pose.position.x-c_x)*(pose.position.x-c_x)+(pose.position.y-c_y)*(pose.position.y-c_y));
+//     double cyl_radius = 0.1;
+//     if(cyl_distance < cyl_radius)
+//     {
+//       ROS_ERROR("This is not right");
+//       d_path.model_id = group_name_;
+//       ros::ServiceClient get_state_client = root_handle.serviceClient<planning_environment_msgs::GetRobotState>("/environment_server_right_arm/get_robot_state");
+//       planning_environment_msgs::GetRobotState::Request req;
+//       planning_environment_msgs::GetRobotState::Response res;
+//       if(get_state_client.call(req,res))
+//         d_path.robot_state = res.robot_state;
+//       else
+//         ROS_ERROR("IKStateValidator:: Service call to get robot state failed on %s",
+//                   get_state_client.getService().c_str());
+//       d_path.trajectory.joint_trajectory.points.resize(1);
+//       d_path.trajectory.joint_trajectory.points[0].positions = solution;
+//       d_path.trajectory.joint_trajectory.joint_names = kinematics_solver_->getJointNames();
+//       display_path_publisher_.publish(d_path);
+//       ros::Duration(10.0).sleep();
+//     }
+//   }
+//   else
+//     ROS_INFO("Collision check was true for group %s",group_name_.c_str());
+    
   return valid;    
 }
 
@@ -86,6 +135,11 @@ void IKStateValidator::configure(const std::string &group_name,
   btTransform tmp;
   tf::poseMsgToTF(kinematics_planner_offset,tmp);
   kinematics_planner_tf_ = tmp;
+
+  ros::NodeHandle root_handle;
+  //Set up mechanism for displaying paths
+  display_path_publisher_ = root_handle.advertise<motion_planning_msgs::DisplayTrajectory>("ik_constrained_planner_debug", 1, true);  
+  // end mechanism for displaying paths
 }
 
 }
