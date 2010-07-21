@@ -227,6 +227,7 @@ void ompl_planning::RequestHandler::configure(const planning_models::KinematicSt
     motion_planning_msgs::OrderedCollisionOperations operations;
     std::vector<std::string> child_links;
     sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
+    psetup->ompl_model->planningMonitor->setCollisionSpace();
     psetup->ompl_model->planningMonitor->setAllowedContacts(req.motion_plan_request.allowed_contacts);    
     psetup->ompl_model->planningMonitor->getChildLinks(joint_state.name, child_links);
     psetup->ompl_model->planningMonitor->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,req.motion_plan_request.ordered_collision_operations,operations);
