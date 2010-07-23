@@ -1,4 +1,40 @@
 #! /usr/bin/python
+# Software License Agreement (BSD License)
+#
+# Copyright (c) 2009, Willow Garage, Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#  * Neither the name of the Willow Garage nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# author: Kaijen Hsiao
+
+## @package ik_utilities
+#Utility functions for doing inverse kinematics, forward kinematics, checking a Cartesian path
 
 import roslib; roslib.load_manifest('interpolated_ik_motion_planner')
 import rospy
@@ -19,7 +55,7 @@ import pdb
 def pplist(list):
     return ' '.join(['%8.5f'%x for x in list])
 
-
+#utility functions for doing inverse kinematics, forward kinematics, checking a Cartesian path
 class IKUtilities:
 
     #initialize all service functions
@@ -78,7 +114,7 @@ class IKUtilities:
         rospy.loginfo("ik_utilities: done init")
 
 
-    #draw a PoseStamped in rviz as a set of arrows (x=red, y=green, z=blue)
+    ##draw a PoseStamped in rviz as a set of arrows (x=red, y=green, z=blue)
     #id is the id number for the x-arrow (y is id+1, z is id+2)
     def draw_pose(self, pose_stamped, id):
         marker = Marker()
@@ -122,7 +158,7 @@ class IKUtilities:
         self.marker_pub.publish(marker)
 
 
-    #get the joint names and limits, and the possible link names for running IK
+    ##get the joint names and limits, and the possible link names for running IK
     def run_query(self):
         try:
             resp = self.query_service()
@@ -139,7 +175,7 @@ class IKUtilities:
         return (resp.kinematic_solver_info.joint_names, min_limits, max_limits, resp.kinematic_solver_info.link_names)
 
 
-    #run forward kinematics on a set of 7 joint angles 
+    ##run forward kinematics on a set of 7 joint angles 
     #link_name specifies the desired output frame
     #returns a PoseStamped
     def run_fk(self, angles, link_name):
@@ -165,7 +201,7 @@ class IKUtilities:
         return resp.pose_stamped[0]
 
 
-    #run inverse kinematics on a PoseStamped (7-dof pose 
+    ##run inverse kinematics on a PoseStamped (7-dof pose 
     #(position + quaternion orientation) + header specifying the 
     #frame of the pose)
     #tries to stay close to double start_angles[7]
@@ -219,7 +255,7 @@ class IKUtilities:
 
 
 
-    #convert a pointStamped to a pos list in a desired frame
+    ##convert a pointStamped to a pos list in a desired frame
     def point_stamped_to_list(self, point, frame):
 
         #convert the pointStamped to the desired frame, if necessary
@@ -240,7 +276,7 @@ class IKUtilities:
         return pos
 
 
-    #convert a Vector3Stamped to a rot list in a desired frame
+    ##convert a Vector3Stamped to a rot list in a desired frame
     def vector3_stamped_to_list(self, vector3, frame):
 
         #convert the vector3Stamped to the desired frame, if necessary
@@ -261,7 +297,7 @@ class IKUtilities:
         return vect
 
 
-    #convert a QuaternionStamped to a quat list in a desired frame
+    ##convert a QuaternionStamped to a quat list in a desired frame
     def quaternion_stamped_to_list(self, quaternion, frame):
 
         #convert the QuaternionStamped to the desired frame, if necessary
@@ -282,7 +318,7 @@ class IKUtilities:
         return quat
 
 
-    #convert a poseStamped to pos and rot (quaternion) lists in a desired frame
+    ##convert a poseStamped to pos and rot (quaternion) lists in a desired frame
     def pose_stamped_to_lists(self, pose, frame):
 
         #convert the poseStamped to the desired frame, if necessary
@@ -307,7 +343,7 @@ class IKUtilities:
         return (pos, rot)
 
 
-    #convert pos and rot lists (relative to in_frame) to a poseStamped (relative to to_frame)
+    ##convert pos and rot lists (relative to in_frame) to a poseStamped (relative to to_frame)
     def lists_to_pose_stamped(self, pos, rot, in_frame, to_frame):
         
         #stick lists in a poseStamped
@@ -324,17 +360,17 @@ class IKUtilities:
         return pose_stamped
 
 
-    #vector norm of a list
+    ##vector norm of a list
     def vect_norm(self, vect):
         return sum([x**2 for x in vect])**.5
 
 
-    #normalize a vector
+    ##normalize a vector
     def normalize_vect(self, vect):
         return list(numpy.array(vect)/self.vect_norm(vect))
 
 
-    #angle between two quaternions (as lists)
+    ##angle between two quaternions (as lists)
     def quat_angle(self, quat1, quat2):
         dot = sum([x*y for (x,y) in zip(quat1, quat2)])
         if dot > 1.:
@@ -345,7 +381,7 @@ class IKUtilities:
         return angle
 
 
-    #interpolate a Cartesian path (expressed as pos and rot lists)
+    ##interpolate a Cartesian path (expressed as pos and rot lists)
     #pos_spacing is max wrist translation in meters between trajectory points
     #rot_spacing is max wrist rotation in radians between trajectory points
     #num_steps overrides the number of steps (if != 0, ignore pos_spacing and rot_spacing)
@@ -383,14 +419,14 @@ class IKUtilities:
         return steps
             
     
-    #check that all differences between angles1 and angles2 (lists of joint angles) are within consistent_range
+    ##check that all differences between angles1 and angles2 (lists of joint angles) are within consistent_range
     def check_consistent(self, angles1, angles2, consistent_range):
         diff = [math.fabs(x-y) for (x,y) in zip(angles1, angles2)]
         inconsistent = any([x>consistent_range for x in diff])
         return not inconsistent
 
 
-    #generate appropriate times and joint velocities for a joint path (such as that output by check_cartesian_path)
+    ##generate appropriate times and joint velocities for a joint path (such as that output by check_cartesian_path)
     #max_joint_vels is a list of maximum velocities to move the arm joints
     #max_joint_accs is a list of maximum accelerations to move the arm joints (can be ignored)
     #starts and ends in stop
@@ -475,7 +511,7 @@ class IKUtilities:
         return (times, vels)
 
             
-    #check a Cartesian path for consistent, non-colliding IK solutions
+    ##check a Cartesian path for consistent, non-colliding IK solutions
     #start_pose and end_pose are PoseStamped messages with the wrist poses
     #start_angles are angles to try to stay close to
     #num_steps is the number of interpolation steps to use (if 0, use 

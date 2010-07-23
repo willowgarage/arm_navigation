@@ -1,58 +1,91 @@
 #!/usr/bin/python
-'''server to provide interpolated IK motion plans
+# Software License Agreement (BSD License)
+#
+# Copyright (c) 2009, Willow Garage, Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#  * Neither the name of the Willow Garage nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# author: Kaijen Hsiao
 
-relevant params:
-num_steps: the number of steps to use when interpolating including start and finish (0 means use pos_spacing and 
-    rot_spacing to calculate the number of steps, anything ==1 or <0 will become 2, start and finish)
-consistent_angle: the max angle distance (in any joint) before we declare that the path is inconsistent
-collision_check_resolution: how many steps between collision checks (0 or 1 is check every step; 2 is every other, etc.)
-steps_before_abort: the number of steps in the plan (starting from the end and going backwards) that can be invalid 
-    due to collisions or inconsistency before aborting (0 is abort as soon as you find one, 1 is allow one and still 
-    continue, -1 or >=num_steps to never abort early)
-pos_spacing: the max translation (m) to move the wrist between waypoints (only used if num_steps is 0)
-rot_spacing: the max rotation (rad) to move the wrist between waypoints (only used if num_steps is 0)
-collision_aware: if this is 0, collisions won't be checked for (returns non-collision aware IK solutions)
-start_from_end: if this is 1, the planner searches for an IK solution for the end first, then works backwards from there
-max_joint_vels: a list of maximum joint velocities to use when computing times and velocities for the joint trajectory (defaults to [.2]*7 if left empty)
-max_joint_accs: a list of maximum accelerations to use when computing times and velocities for the joint trajectory (defaults to [.5]*7 if left empty)
+## @package interpolated_ik_motion_planner
+# Server to provide interpolated IK motion plans
+# relevant params:
+# num_steps: the number of steps to use when interpolating including start and finish (0 means use pos_spacing and 
+#     rot_spacing to calculate the number of steps, anything ==1 or <0 will become 2, start and finish)
+# consistent_angle: the max angle distance (in any joint) before we declare that the path is inconsistent
+# collision_check_resolution: how many steps between collision checks (0 or 1 is check every step; 2 is every other, etc.)
+# steps_before_abort: the number of steps in the plan (starting from the end and going backwards) that can be invalid 
+#     due to collisions or inconsistency before aborting (0 is abort as soon as you find one, 1 is allow one and still 
+#     continue, -1 or >=num_steps to never abort early)
+# pos_spacing: the max translation (m) to move the wrist between waypoints (only used if num_steps is 0)
+# rot_spacing: the max rotation (rad) to move the wrist between waypoints (only used if num_steps is 0)
+# collision_aware: if this is 0, collisions won't be checked for (returns non-collision aware IK solutions)
+# start_from_end: if this is 1, the planner searches for an IK solution for the end first, then works backwards from there
+# max_joint_vels: a list of maximum joint velocities to use when computing times and velocities for the joint trajectory (defaults to [.2]*7 if left empty)
+# max_joint_accs: a list of maximum accelerations to use when computing times and velocities for the joint trajectory (defaults to [.5]*7 if left empty)
 
-Parameters can be changed by calling the r_interpolated_ik_motion_plan_set_params service (or l_inter...)
+# Parameters can be changed by calling the r_interpolated_ik_motion_plan_set_params service (or l_inter...)
 
 
-The main service message is GetMotionPlan.srv, in motion_planning_msgs.  Parts that were hijacked 
-for the relevant inputs and outputs:
+# The main service message is GetMotionPlan.srv, in motion_planning_msgs.  Parts that were hijacked 
+# for the relevant inputs and outputs:
 
-inputs:
-req.motion_plan_request.start_state.joint_state.name: the names of the arm joints in order (defaults to those provided by IKQuery, if not specified)
-req.motion_plan_request.start_state.joint_state.position: a set of joint angles to stay sort of close to if possible (defaults to current joint angles if not specified)
+# inputs:
+# req.motion_plan_request.start_state.joint_state.name: the names of the arm joints in order (defaults to those provided by IKQuery, if not specified)
+# req.motion_plan_request.start_state.joint_state.position: a set of joint angles to stay sort of close to if possible (defaults to current joint angles if not specified)
 
-req.motion_plan_request.start_state.multi_dof_joint_state.pose: the start pose for the r_wrist_roll_link
-req.motion_plan_request.start_state.multi_dof_joint_state.child_frame_id: the link to put at that pose (better be 'r_wrist_roll_link' or 'l_wrist_roll_link')
-req.motion_plan_request.start_state.multi_dof_joint_state.frame_id: the frame for the start pose
+# req.motion_plan_request.start_state.multi_dof_joint_state.pose: the start pose for the r_wrist_roll_link
+# req.motion_plan_request.start_state.multi_dof_joint_state.child_frame_id: the link to put at that pose (better be 'r_wrist_roll_link' or 'l_wrist_roll_link')
+# req.motion_plan_request.start_state.multi_dof_joint_state.frame_id: the frame for the start pose
 
-req.motion_plan_request.goal_constraints.position_constraints[0].position: the (x,y,z) goal position of the same link as the start pose
-req.motion_plan_request.goal_constraints.position_constraints[0].header.frame_id: the frame that goal position is in
-req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation: the (x,y,z,w) goal orientation of the same link as the start pose
-req.motion_plan_request.goal_constraints.orientation_constraints[0].header.frame_id: the frame that goal orientation is in
+# req.motion_plan_request.goal_constraints.position_constraints[0].position: the (x,y,z) goal position of the same link as the start pose
+# req.motion_plan_request.goal_constraints.position_constraints[0].header.frame_id: the frame that goal position is in
+# req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation: the (x,y,z,w) goal orientation of the same link as the start pose
+# req.motion_plan_request.goal_constraints.orientation_constraints[0].header.frame_id: the frame that goal orientation is in
 
-req.motion_plan_request.workspace_parameters.ordered_collision_operations: the list of collision operations to modify the collision space
-req.motion_plan_request.link_padding: links and collision-space padding to change from the default dynamically
+# req.motion_plan_request.workspace_parameters.ordered_collision_operations: the list of collision operations to modify the collision space
+# req.motion_plan_request.link_padding: links and collision-space padding to change from the default dynamically
 
-outputs:
-res.trajectory.joint_trajectory.joint_names: the arm joint names in the normal order, as spit out by IKQuery
-res.trajectory.joint_trajectory.points: a list of JointTrajectoryPoints whose 'positions' fields are lists of joint angles in a trajectory that gets you from start to goal (positions will be all 0s if a point on the path is out of reach),
-'velocities' fields are reasonable joint velocities, and 'time_from_start' fields are reasonable times to get to each waypoint. ('accelerations' will be empty.)
-res.trajectory_error_codes: a list of ArmNavigationErrorCodes messages the same length as the trajectory, 
-with values for each trajectory point as follows:
-ArmNavigationErrorCodes.SUCCESS (1): no problem
-ArmNavigationErrorCodes.COLLISION_CONSTRAINTS_VIOLATED (-23): no non-colliding IK solution (colliding solution provided)
-ArmNavigationErrorCodes.PATH_CONSTRAINTS_VIOLATED (-20): inconsistency in path between this point and the next point
-ArmNavigationErrorCodes.JOINT_LIMITS_VIOLATED (-21): out of reach (no colliding solution)
-ArmNavigationErrorCodes.PLANNING_FAILED (-1): aborted before getting to this point
+# outputs:
+# res.trajectory.joint_trajectory.joint_names: the arm joint names in the normal order, as spit out by IKQuery
+# res.trajectory.joint_trajectory.points: a list of JointTrajectoryPoints whose 'positions' fields are lists of joint angles in a trajectory that gets you from start to goal (positions will be all 0s if a point on the path is out of reach),
+# 'velocities' fields are reasonable joint velocities, and 'time_from_start' fields are reasonable times to get to each waypoint. ('accelerations' will be empty.)
+# res.trajectory_error_codes: a list of ArmNavigationErrorCodes messages the same length as the trajectory, 
+# with values for each trajectory point as follows:
+# ArmNavigationErrorCodes.SUCCESS (1): no problem
+# ArmNavigationErrorCodes.COLLISION_CONSTRAINTS_VIOLATED (-23): no non-colliding IK solution (colliding solution provided)
+# ArmNavigationErrorCodes.PATH_CONSTRAINTS_VIOLATED (-20): inconsistency in path between this point and the next point
+# ArmNavigationErrorCodes.JOINT_LIMITS_VIOLATED (-21): out of reach (no colliding solution)
+# ArmNavigationErrorCodes.PLANNING_FAILED (-1): aborted before getting to this point
 
-Everything else is completely ignored.
+# Everything else is completely ignored.
 
-'''
 
 import roslib; roslib.load_manifest('interpolated_ik_motion_planner')
 import rospy
@@ -67,7 +100,7 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 from interpolated_ik_motion_planner.srv import SetInterpolatedIKMotionPlanParams, SetInterpolatedIKMotionPlanParamsResponse
 from sensor_msgs.msg import JointState
 
-
+# class to provide the interpolated ik motion planner service
 class InterpolatedIKService:
 
     def __init__(self, which_arm): #which_arm is 'r' or 'l'
@@ -123,19 +156,19 @@ class InterpolatedIKService:
                 SetInterpolatedIKMotionPlanParams, self.set_params_callback)
 
 
-    #add a header to a message with a 0 timestamp (good for getting the latest TF transform)
+    ##add a header to a message with a 0 timestamp (good for getting the latest TF transform)
     def add_header(self, msg, frame):
         msg.header.frame_id = frame
         msg.header.stamp = rospy.Time()
         return msg
 
 
-    #pretty-print list to string
+    ##pretty-print list to string
     def pplist(self, list):
         return ' '.join(['%2.3f'%x for x in list])
 
 
-    #callback for the set_params service
+    ##callback for the set_params service
     def set_params_callback(self, req):
         self.num_steps = req.num_steps
         self.consistent_angle = req.consistent_angle
@@ -150,7 +183,7 @@ class InterpolatedIKService:
         return SetInterpolatedIKMotionPlanParamsResponse()
 
 
-    #callback for get_interpolated_ik_motion_plan service
+    ##callback for get_interpolated_ik_motion_plan service
     def interpolated_ik_motion_planner_callback(self, req):
 
         #names and angles for the joints in their desired order
