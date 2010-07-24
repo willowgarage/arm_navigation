@@ -89,7 +89,7 @@
 
 import roslib; roslib.load_manifest('interpolated_ik_motion_planner')
 import rospy
-import ik_utilities
+import interpolated_ik_motion_planner.ik_utilities as ik_utilities
 import math
 import sys
 import pdb
