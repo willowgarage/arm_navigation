@@ -89,9 +89,11 @@ class IKUtilities:
 
         #get and store the joint names and limits
         #only one IK link available so far ('r_wrist_roll_link' or 'l_wrist_roll_link')
+        rospy.loginfo("getting the IK solver info")
         (self.joint_names, self.min_limits, self.max_limits, self.link_names) = \
             self.run_query()
         self.link_name = self.link_names[-1]
+        rospy.loginfo("done getting the IK solver info")
 
         #dictionary for the possible kinematics error codes
         self.error_code_dict = {}  #codes are things like SUCCESS, NO_IK_SOLUTION
