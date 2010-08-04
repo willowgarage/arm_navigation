@@ -14,7 +14,7 @@ MD5SUM_FILE = $(FILENAME).md5sum
 include $(shell rospack find mk)/download_unpack_build.mk
 
 installed: wiped $(SOURCE_DIR)/unpacked
-	   cp -r $(SOURCE_DIR)/code/ompl .
+	   cp -r $(SOURCE_DIR)/code/ompl include/
 	   touch installed
 
 wipe: clean
@@ -27,4 +27,4 @@ wiped: Makefile.ompl
 clean:
 	-if test -d $(SOURCE_DIR); then cd $(SOURCE_DIR) && make clean ; fi
 	rm -rf installed
-	rm -rf ompl
+	rm -rf include/ompl
