@@ -410,7 +410,7 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
   ompl::base::Planner *planner;
   planner = planner_map_[req.motion_plan_request.planner_id+"["+req.motion_plan_request.group_name+"]"];  
 
-  ROS_INFO("Planner %x",planner);
+  //  ROS_INFO("Planner %x",planner);
 
   // choose the kinematics solver
   if(kinematics_solver_map_.find(req.motion_plan_request.group_name) != kinematics_solver_map_.end())

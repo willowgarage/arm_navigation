@@ -43,7 +43,7 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
   //  double c_x = 0.6;
   //  double c_y = -0.45;
 
-  int test = planning_environment::PlanningMonitor::COLLISION_TEST;  
+  //  int test = planning_environment::PlanningMonitor::COLLISION_TEST;  
 
   btVector3 tmp_pos(s->values[0],s->values[1],s->values[2]);
   btQuaternion tmp_rot;

@@ -60,7 +60,7 @@ public:
 	    planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
     //    motion_planner_ = new IKConstrainedPlanner();
 	
-    plan_path_service_ = node_handle_.advertiseService("plan_kinematic_path", &IKConstrainedPlannerROS::planToGoal, this);
+    plan_path_service_ = node_handle_.advertiseService("plan_path", &IKConstrainedPlannerROS::planToGoal, this);
   }
     
   /** Free the memory */
@@ -72,7 +72,7 @@ public:
     
   void run(void)
   {
-    bool execute = false;
+    //    bool execute = false;
     
     motion_planner_.initialize(planning_monitor_,node_handle_.getNamespace());
     if (collision_models_->loadedModels())
