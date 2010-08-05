@@ -187,7 +187,7 @@ bool robot_self_filter::SelfMask::configure(const std::vector<LinkInfo> &links)
 
 	    sl.body->setScale(links[i].scale);
 	    sl.body->setPadding(links[i].padding);
-            ROS_INFO_STREAM("Self see link name " <<  links[i].name << " padding " << links[i].padding);
+            ROS_DEBUG_STREAM("Self see link name " <<  links[i].name << " padding " << links[i].padding);
 	    sl.volume = sl.body->computeVolume();
 	    sl.unscaledBody = bodies::createBodyFromShape(shape);
 	    bodies_.push_back(sl);
