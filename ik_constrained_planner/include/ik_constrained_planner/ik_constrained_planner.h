@@ -42,6 +42,9 @@
 
 #include <motion_planning_msgs/convert_messages.h>
 #include <motion_planning_msgs/GetMotionPlan.h>
+#include <planning_environment_msgs/ContactInformation.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
@@ -70,6 +73,7 @@
 #include <pluginlib/class_loader.h>
 #include <ompl_planning/PlannerConfig.h>
 #include <kinematics_base/kinematics_base.h>
+
 
 namespace ik_constrained_planner
 {
@@ -189,5 +193,8 @@ private:
 
   bool solver_initialized_;
   geometry_msgs::PoseStamped kinematics_planner_frame_;
+  void contactFound(collision_space::EnvironmentModel::Contact &contact);
+  std::vector<planning_environment_msgs::ContactInformation> contact_information_;
+  ros::Publisher vis_marker_publisher_;
 };
 }

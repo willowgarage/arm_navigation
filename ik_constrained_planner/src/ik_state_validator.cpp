@@ -66,7 +66,10 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
   seed[redundant_joint_index_] = s->values[6];
 
   if(!kinematics_solver_->getPositionIK(pose,seed,solution))
+    {
+      ROS_INFO("Could not find IK pose");
     return false;
+    }
   ROS_DEBUG("IK Solution: %f %f %f %f %f %f %f",solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);
   
   sensor_msgs::JointState joint_state;
@@ -77,7 +80,11 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
   }
   planning_monitor_->setJointStateAndComputeTransforms(joint_state);
   planning_monitor_->getEnvironmentModel()->updateRobotModel();
+
   bool valid = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
+
+  if(!valid)
+    ROS_INFO("State is in collision");
 
 //   motion_planning_msgs::DisplayTrajectory d_path;
 //   ros::NodeHandle root_handle;

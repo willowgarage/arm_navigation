@@ -1,7 +1,7 @@
 <launch>
 
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />  
-  <node machine="c2" pkg="ik_constrained_planner" type="motion_planner" name="ik_constrained_planner" respawn="false" output="screen">
+  <node machine="c1" pkg="ik_constrained_planner" type="motion_planner" name="ik_constrained_planner" respawn="false" output="screen">
     <remap from="robot_description" to="robot_description" />  
     <remap from="collision_map" to="collision_map_occ" />
     <remap from="collision_map_update" to="collision_map_occ_update" />

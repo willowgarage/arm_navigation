@@ -120,6 +120,100 @@ bool IKConstrainedPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::R
   return true;
 }
 
+  /** @brief The ccost and display arguments should be bound by the caller. 
+   * This is a callback function that gets called by the planning
+   * environment when a collision is found */
+  void IKConstrainedPlanner::contactFound(collision_space::EnvironmentModel::Contact &contact)
+  {
+    static int count = 0;
+
+    std::string ns_name;
+    planning_environment_msgs::ContactInformation contact_info;
+    contact_info.header.frame_id = planning_monitor_->getFrameId();
+    if(contact.link1 != NULL) {
+      //ROS_INFO_STREAM("Link 1 is " << contact.link2->name);
+      if(contact.link1_attached_body_index == 0) {
+        ns_name += contact.link1->name+"+";
+        contact_info.contact_body_1 = contact.link1->name;
+        contact_info.attached_body_1 = "";
+        contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+      } else {
+        if(contact.link1->attachedBodies.size() < contact.link1_attached_body_index) {
+          ROS_ERROR("Link doesn't have attached body with indicated index");
+        } else {
+          ns_name += contact.link1->attachedBodies[contact.link1_attached_body_index-1]->id+"+";
+          contact_info.contact_body_1 = contact.link1->name;
+          contact_info.attached_body_1 = contact.link1->attachedBodies[contact.link1_attached_body_index-1]->id;
+          contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+        }
+      }
+    } 
+    
+    if(contact.link2 != NULL) {
+      //ROS_INFO_STREAM("Link 2 is " << contact.link2->name);
+      if(contact.link2_attached_body_index == 0) {
+        ns_name += contact.link2->name;
+        contact_info.contact_body_2 = contact.link2->name;
+        contact_info.attached_body_2 = "";
+        contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+      } else {
+        if(contact.link2->attachedBodies.size() < contact.link2_attached_body_index) {
+          ROS_ERROR("Link doesn't have attached body with indicated index");
+        } else {
+          ns_name += contact.link2->attachedBodies[contact.link2_attached_body_index-1]->id;
+          contact_info.contact_body_2 = contact.link2->name;
+          contact_info.attached_body_2 = contact.link2->attachedBodies[contact.link2_attached_body_index-1]->id;
+          contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+        }
+      }
+    } 
+    
+    if(!contact.object_name.empty()) {
+      //ROS_INFO_STREAM("Object is " << contact.object_name);
+      ns_name += contact.object_name;
+      contact_info.contact_body_2 = contact.object_name;
+      contact_info.attached_body_2 = "";
+      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::OBJECT;
+    }
+    
+    visualization_msgs::Marker mk;
+    mk.header.stamp = planning_monitor_->lastJointStateUpdate();
+    mk.header.frame_id = planning_monitor_->getFrameId();
+    mk.ns = ns_name;
+    mk.id = count++;
+    mk.type = visualization_msgs::Marker::SPHERE;
+    mk.action = visualization_msgs::Marker::ADD;
+    mk.pose.position.x = contact.pos.x();
+    mk.pose.position.y = contact.pos.y();
+    mk.pose.position.z = contact.pos.z();
+    mk.pose.orientation.w = 1.0;
+    
+    mk.scale.x = mk.scale.y = mk.scale.z = 0.01;
+    
+    mk.color.a = 0.6;
+    mk.color.r = 1.0;
+    mk.color.g = 0.8;
+    mk.color.b = 0.04;
+    
+    //mk.lifetime = ros::Duration(30.0);
+    contact_info.position.x = contact.pos.x();
+    contact_info.position.y = contact.pos.y();
+    contact_info.position.z = contact.pos.z();
+    contact_info.depth = contact.depth;
+    //   ROS_INFO("Environment server: Found contact");
+    //     ROS_INFO("Position                    : (%f,%f,%f)",contact_info.position.x,contact_info.position.y,contact_info.position.z);
+    //     ROS_INFO("Frame id                    : %s",contact_info.header.frame_id.c_str());
+    //     ROS_INFO("Depth                       : %f",contact_info.depth);
+    //     ROS_INFO("Link 1                      : %s",contact_info.contact_body_1.c_str());
+    //     ROS_INFO("Link 2                      : %s",contact_info.contact_body_2.c_str());
+    //     ROS_INFO(" ");
+
+    contact_information_.push_back(contact_info);
+    vis_marker_publisher_.publish(mk);
+  }
+
+
+
 void IKConstrainedPlanner::setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &workspace_parameters, 
                                               ompl::base::SpaceInformation *space_information)
 {
@@ -237,7 +331,7 @@ void IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   std::vector<std::string> child_links;
   //  sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
 
-  planning_monitor_->setCollisionSpace();
+  //  planning_monitor_->setCollisionSpace();
   planning_monitor_->setAllowedContacts(req.motion_plan_request.allowed_contacts);    
   planning_monitor_->getChildLinks(planning_monitor_->getKinematicModel()->getGroup(req.motion_plan_request.group_name)->jointNames,child_links);
 
@@ -319,21 +413,39 @@ void IKConstrainedPlanner::updateStateComponents(const motion_planning_msgs::Con
 
     double min_roll = roll - constraints.orientation_constraints[0].absolute_roll_tolerance;
     double max_roll = roll + constraints.orientation_constraints[0].absolute_roll_tolerance;
-
+    if(fabs(constraints.orientation_constraints[0].absolute_roll_tolerance-M_PI) <= 0.001)
+      {
+	min_roll = -M_PI;
+	max_roll = M_PI;
+      }
     double min_pitch = pitch - constraints.orientation_constraints[0].absolute_pitch_tolerance;
     double max_pitch = pitch + constraints.orientation_constraints[0].absolute_pitch_tolerance;
+    if(fabs(constraints.orientation_constraints[0].absolute_pitch_tolerance-M_PI) <= 0.001)
+      {
+	min_pitch = -M_PI;
+	max_pitch = M_PI;
+      }
 
     double min_yaw = yaw - constraints.orientation_constraints[0].absolute_yaw_tolerance;
     double max_yaw = yaw + constraints.orientation_constraints[0].absolute_yaw_tolerance;
 
-    state_specification[3].minValue = min_pitch;
-    state_specification[3].maxValue = max_pitch;
+    if(fabs(constraints.orientation_constraints[0].absolute_yaw_tolerance-M_PI) <= 0.001)
+      {
+	ROS_INFO("Yaw is unconstrained");
+	min_yaw = -M_PI;
+	max_yaw = M_PI;
+      }
+    state_specification[3].minValue = min_roll;
+    state_specification[3].maxValue = max_roll;
     
-    state_specification[4].minValue = min_roll;
-    state_specification[4].maxValue = max_roll;
+    state_specification[4].minValue = min_pitch;
+    state_specification[4].maxValue = max_pitch;
     
     state_specification[5].minValue = min_yaw;
     state_specification[5].maxValue = max_yaw;
+    ROS_INFO("Roll: %f, [%f %f]",roll,min_roll,max_roll);
+    ROS_INFO("Pitch: %f, [%f %f]",pitch,min_pitch,max_pitch);
+    ROS_INFO("Yaw: %f, [%f %f]",yaw,min_yaw,max_yaw);
   }
   space_information_->setStateComponents(state_specification);
 }
@@ -1017,6 +1129,7 @@ bool IKConstrainedPlanner::initialize(planning_environment::PlanningMonitor *pla
   default_planner_id_ = "kinematic::SBL";
 
   planning_monitor_ = planning_monitor;
+  planning_monitor_->setOnCollisionContactCallback(boost::bind(&IKConstrainedPlanner::contactFound, this, _1));
 
   getGroupNames(param_server_prefix,group_names_);
 
@@ -1043,6 +1156,8 @@ bool IKConstrainedPlanner::initialize(planning_environment::PlanningMonitor *pla
     return false;
   }
 
+  vis_marker_publisher_ = node_handle_.advertise<visualization_msgs::Marker>("ik_constrained_planner_contact_markers", 128);
+  
   return true;
 } 
 
