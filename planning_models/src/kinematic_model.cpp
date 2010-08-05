@@ -260,6 +260,7 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::constru
       {
         RevoluteJoint *j = new RevoluteJoint(this, urdf_joint->name, joint_config);
         j->continuous = true;
+        j->setVariableBounds(j->name, -M_PI, M_PI);
         j->axis.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
         result = j;
       }
@@ -425,6 +426,57 @@ std::map<std::string, double> planning_models::KinematicModel::getAllJointsValue
     ret.insert(j_vals.begin(), j_vals.end());
   }
   return ret;
+}
+
+std::vector<double> planning_models::KinematicModel::getAllJointsValuesVector() const {
+  std::vector<double> ret;
+  for(std::map<std::string,Joint*>::const_iterator it = joint_map_.begin();
+      it != joint_map_.end();
+      it++) {
+    for(std::map<std::string, double>::const_iterator it2 = it->second->stored_joint_values.begin();
+        it2 != it->second->stored_joint_values.end();
+        it2++) {
+      ret.push_back(it2->second);
+    }
+  }
+  return ret;
+}
+
+std::map<std::string, unsigned int> planning_models::KinematicModel::getMapOrderIndex() const {
+  std::map<std::string, unsigned int> ret;
+  unsigned int i = 0;
+  for(std::map<std::string,Joint*>::const_iterator it = joint_map_.begin();
+      it != joint_map_.end();
+      it++) {
+    for(std::map<std::string, double>::const_iterator it2 = it->second->stored_joint_values.begin();
+        it2 != it->second->stored_joint_values.end();
+        it2++) {
+      ret[it2->first] = i;
+      i++;
+    }
+  }
+  return ret;
+}
+
+void planning_models::KinematicModel::setAllJointsValues(const std::vector<double>& joint_values) {
+  std::vector<double>::const_iterator vit = joint_values.begin();
+  for(std::map<std::string,Joint*>::iterator it = joint_map_.begin();
+      it != joint_map_.end();
+      it++) {
+    for(std::map<std::string, double>::iterator it2 = it->second->stored_joint_values.begin();
+        it2 != it->second->stored_joint_values.end();
+        it2++, vit++) {
+      if(vit == joint_values.end()) {
+        ROS_WARN_STREAM("Not enough joint values to set " << it2->first);
+      } else {
+        it2->second = *vit;
+      } 
+    }
+    it->second->updateVariableTransformFromStoredJointValues();
+  }
+  if(vit != joint_values.end()) {
+    ROS_WARN("Too many values in joint values");
+  }
 }
 
 std::map<std::string, double> planning_models::KinematicModel::getJointValues(const std::string joint) const {
@@ -1162,7 +1214,7 @@ planning_models::KinematicModel::JointGroup::JointGroup(KinematicModel *model, c
   for (unsigned int i = 0 ; i < joints.size() ; ++i)
   {
     joint_names[i] = joints[i]->name;
-    joint_map[joint_names[i]] = i;
+    joint_map[joint_names[i]] = joints[i];
   }
     
   for (unsigned int i = 0 ; i < joints.size() ; ++i)
@@ -1232,6 +1284,22 @@ void planning_models::KinematicModel::JointGroup::computeTransforms(){
     updated_links[i]->computeTransform();
 }
 
+std::map<std::string, unsigned int> planning_models::KinematicModel::JointGroup::getMapOrderIndex() const {
+  std::map<std::string, unsigned int> ret;
+  unsigned int i = 0;
+  for(std::map<std::string,Joint*>::const_iterator it = joint_map.begin();
+      it != joint_map.end();
+      it++) {
+    for(std::map<std::string, double>::const_iterator it2 = it->second->stored_joint_values.begin();
+        it2 != it->second->stored_joint_values.end();
+        it2++) {
+      ret[it2->first] = i;
+      i++;
+    }
+  }
+  return ret;
+}
+
 std::map<std::string, double> planning_models::KinematicModel::JointGroup::getAllJointsValues() const {
   std::map<std::string, double> ret;
   const unsigned int js = joint_names.size();
@@ -1242,8 +1310,55 @@ std::map<std::string, double> planning_models::KinematicModel::JointGroup::getAl
   return ret;
 }
 
+planning_models::KinematicModel::Joint* planning_models::KinematicModel::JointGroup::getJoint(const std::string &name)
+{
+  std::map<std::string, Joint*>::iterator it = joint_map.find(name);
+  if (it == joint_map.end())
+  {
+    ROS_ERROR("Joint '%s' not found", name.c_str());
+    return NULL;
+  }
+  else
+    return it->second;
+}
+
 std::map<std::string, double> planning_models::KinematicModel::JointGroup::getJointValues(const std::string joint) const {
   return owner->getJointValues(joint);
+}
+
+std::vector<double> planning_models::KinematicModel::JointGroup::getAllJointsValuesVector() const {
+  std::vector<double> ret;
+  for(std::map<std::string,Joint*>::const_iterator it = joint_map.begin();
+      it != joint_map.end();
+      it++) {
+    for(std::map<std::string, double>::const_iterator it2 = it->second->stored_joint_values.begin();
+        it2 != it->second->stored_joint_values.end();
+        it2++) {
+      ret.push_back(it2->second);
+    }
+  }
+  return ret;
+}
+
+void planning_models::KinematicModel::JointGroup::setAllJointsValues(const std::vector<double>& joint_values) {
+  std::vector<double>::const_iterator vit = joint_values.begin();
+  for(std::map<std::string,Joint*>::iterator it = joint_map.begin();
+      it != joint_map.end();
+      it++) {
+    for(std::map<std::string, double>::iterator it2 = it->second->stored_joint_values.begin();
+        it2 != it->second->stored_joint_values.end();
+        it2++, vit++) {
+      if(vit == joint_values.end()) {
+        ROS_WARN_STREAM("Not enough joint values to set " << it2->first);
+      } else {
+        it2->second = *vit;
+      } 
+    }
+    it->second->updateVariableTransformFromStoredJointValues();
+  }
+  if(vit != joint_values.end()) {
+    ROS_WARN("Too many values in joint values");
+  }
 }
 
 void planning_models::KinematicModel::JointGroup::defaultState(void)

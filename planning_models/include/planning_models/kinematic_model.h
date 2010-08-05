@@ -347,8 +347,8 @@ public:
     /** \brief Joint instances in the order they appear in the group state */
     std::vector<Joint*>                 joints;
 
-    /** \brief Easy way of finding the position of a joint in the list of joints contained in the group */
-    std::map<std::string, unsigned int> joint_map;
+    /** \brief A map from joint names to their instances */
+    std::map<std::string, Joint*> joint_map;
 
      /** \brief The list of joints that are roots in this group */
     std::vector<Joint*>                 joint_roots;
@@ -367,12 +367,24 @@ public:
 
     /** \brief Check if a joint is part of this group */
     bool hasJoint(const std::string &joint) const;
+
+    /** \brief Get a joint by its name */
+    Joint* getJoint(const std::string &joint);
 	    
     /** \brief Gets all the joint values */
     std::map<std::string, double> getAllJointsValues() const;
     
     /** \brief Gets all the joint values associated with a particular joint  */
     std::map<std::string, double> getJointValues(const std::string joint) const;
+
+    /** \brief Returns all the joint values in alphabetical (map) order */
+    std::vector<double> getAllJointsValuesVector() const;
+
+    /** \brief Gets all the joint values in map order*/
+    std::map<std::string, unsigned int> getMapOrderIndex() const;
+    
+    /** \brief Update all joint values assuming alphabetical (map) order */
+    void setAllJointsValues(const std::vector<double>& joint_values);
     
     /** \brief Bring the group to a default state. All joints are
         at 0. If 0 is not within the bounds of the joint, the
@@ -467,6 +479,15 @@ public:
   /** \brief Gets all the joint values */
   std::map<std::string, double> getAllJointsValues() const;
   
+  /** \brief Gets all the joint values in map order*/
+  std::map<std::string, unsigned int> getMapOrderIndex() const;
+
+  /** \brief Returns all the joint values in alphabetical (map) order */
+  std::vector<double> getAllJointsValuesVector() const;
+  
+  /** \brief Update all joint values assuming alphabetical (map) order */
+  void setAllJointsValues(const std::vector<double>& joint_values);
+
   /** \brief Gets all the joint values associated with a particular joint  */
   std::map<std::string, double> getJointValues(std::string joint) const;
 
