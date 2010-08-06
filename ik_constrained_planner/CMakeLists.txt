@@ -34,8 +34,8 @@ rosbuild_add_library(ik_constrained_planner
   src/projection_evaluators.cpp
   src/ik_constrained_planner.cpp
   src/constraint_evaluators.cpp
-  src/ik_state_validator.cpp
-  src/ik_constrained_helpers.cpp)
+  src/ik_state_validator.cpp)
+#  src/ik_constrained_helpers.cpp)
 
 rosbuild_link_boost(ik_constrained_planner thread)
 rosbuild_add_executable(motion_planner src/ros_interface.cpp)

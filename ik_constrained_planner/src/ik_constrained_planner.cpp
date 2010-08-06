@@ -358,7 +358,9 @@ void IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
 
   /* add goal state */
   planning_monitor_->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, planning_monitor_->getFrameId(),error_code);
-  planning_monitor_->setGoalConstraints(req.motion_plan_request.goal_constraints,error_code);
+  motion_planning_msgs::Constraints tmp_constraints = req.motion_plan_request.goal_constraints;
+  tmp_constraints.joint_constraints.clear();
+  planning_monitor_->setGoalConstraints(tmp_constraints,error_code);
   ROS_INFO("Setting goal for space information");
   ompl::base::Goal *goal = computeGoalFromConstraints(space_information,req.motion_plan_request.goal_constraints,req.motion_plan_request.group_name);
   space_information->setGoal(goal);
@@ -447,6 +449,7 @@ void IKConstrainedPlanner::updateStateComponents(const motion_planning_msgs::Con
     ROS_INFO("Pitch: %f, [%f %f]",pitch,min_pitch,max_pitch);
     ROS_INFO("Yaw: %f, [%f %f]",yaw,min_yaw,max_yaw);
   }
+
   space_information_->setStateComponents(state_specification);
 }
 
@@ -1161,6 +1164,94 @@ bool IKConstrainedPlanner::initialize(planning_environment::PlanningMonitor *pla
   return true;
 } 
 
+void IKConstrainedPlanner::ikDesiredPoseCallback(const geometry_msgs::Pose &ik_pose,
+						 const std::vector<double> &ik_solution,
+						 int &error_code) 
+{
+  error_code = 1;
+  return;
+}
+
+void IKConstrainedPlanner::ikSolutionCallback(const geometry_msgs::Pose &ik_pose,
+					      const std::vector<double> &ik_solution,
+					      int &error_code)
+{
+  sensor_msgs::JointState joint_state;
+  for(unsigned int i=0; i < kinematics_solver_->getJointNames().size(); i++)
+  {
+    joint_state.position.push_back(ik_solution[i]);
+    joint_state.name.push_back((kinematics_solver_->getJointNames())[i]);
+  }
+  planning_monitor_->setJointStateAndComputeTransforms(joint_state);
+  planning_monitor_->getEnvironmentModel()->updateRobotModel();
+
+  bool valid = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
+
+  if(!valid)
+    error_code = -1;
+  else
+    error_code = 1;
+  return;
+}
 
 
+bool IKConstrainedPlanner::computeRedundancyFromConstraints(const motion_planning_msgs::Constraints &goal_constraint,
+							    geometry_msgs::PoseStamped &kinematics_planner_frame,
+							    kinematics::KinematicsBase *kinematics_solver,
+							    const std::string &redundant_joint_name,
+							    double &redundancy)
+{
+  geometry_msgs::PoseStamped desired_pose = motion_planning_msgs::poseConstraintsToPoseStamped(goal_constraint.position_constraints[0],
+                                                                                               goal_constraint.orientation_constraints[0]);
+  btTransform desired_pose_tf;
+  btTransform kinematics_planner_frame_tf;
+  tf::poseMsgToTF(desired_pose.pose,desired_pose_tf);
+  tf::poseMsgToTF(kinematics_planner_frame.pose,kinematics_planner_frame_tf);
+
+  // Now convert to kinematics frame and perform kinematics
+  desired_pose_tf = kinematics_planner_frame_tf * desired_pose_tf;
+
+  unsigned int redundant_joint_index(0);
+  std::vector<std::string> joint_names = kinematics_solver->getJointNames();
+  for(unsigned int i=0; i < joint_names.size(); ++i)
+  {
+    if(joint_names[i] == redundant_joint_name)
+    {
+      redundant_joint_index = i;
+      break;
+    }
+  }
+  geometry_msgs::Pose pose;
+  tf::poseTFToMsg(desired_pose_tf,pose);
+  std::vector<double> solution;
+  std::vector<double> seed;
+  seed.resize(7,0.0);
+  solution.resize(7,0.0);
+
+  if(!goal_constraint.joint_constraints.empty())
+  {
+    for(unsigned int i=0; i < goal_constraint.joint_constraints.size(); i++)
+      {
+	if(goal_constraint.joint_constraints[i].joint_name == redundant_joint_name)
+	  {
+	    seed[redundant_joint_index] = goal_constraint.joint_constraints[i].position;
+	    break;
+	  }
+      }
+  }
+  double timeout = 2.0;
+  ROS_DEBUG("Kinematics request: Goal");
+  ROS_DEBUG("Position          : %f %f %f",pose.position.x,pose.position.y,pose.position.z);
+  ROS_DEBUG("Orientation       : %f %f %f %f",pose.orientation.x,pose.orientation.y,pose.orientation.z,pose.orientation.w);
+  if(!kinematics_solver->searchPositionIK(pose,
+					  seed,
+					  timeout,
+					  solution,
+					  boost::bind(&IKConstrainedPlanner::ikDesiredPoseCallback, this, _1, _2, _3),
+					  boost::bind(&IKConstrainedPlanner::ikSolutionCallback, this, _1, _2, _3)))
+    return false;
+
+  redundancy = solution[redundant_joint_index];
+  return true;
+}
 }

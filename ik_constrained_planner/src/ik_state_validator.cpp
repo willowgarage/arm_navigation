@@ -67,7 +67,7 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
 
   if(!kinematics_solver_->getPositionIK(pose,seed,solution))
     {
-      ROS_INFO("Could not find IK pose");
+      ROS_DEBUG("Could not find IK pose");
     return false;
     }
   ROS_DEBUG("IK Solution: %f %f %f %f %f %f %f",solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);

@@ -59,7 +59,7 @@
 #include <ik_constrained_planner/ik_constrained_goal.h>
 #include <ik_constrained_planner/projection_evaluators.h>
 #include <ik_constrained_planner/ik_state_validator.h>
-#include <ik_constrained_planner/ik_constrained_helpers.h>
+//#include <ik_constrained_planner/ik_constrained_helpers.h>
 
 #include <ompl/base/State.h>
 #include <ompl/base/Planner.h>
@@ -196,5 +196,19 @@ private:
   void contactFound(collision_space::EnvironmentModel::Contact &contact);
   std::vector<planning_environment_msgs::ContactInformation> contact_information_;
   ros::Publisher vis_marker_publisher_;
+  void ikDesiredPoseCallback(const geometry_msgs::Pose &ik_pose,
+			     const std::vector<double> &ik_solution,
+			     int &error_code);
+
+  void ikSolutionCallback(const geometry_msgs::Pose &ik_pose,
+			  const std::vector<double> &ik_solution,
+			  int &error_code);
+
+  bool computeRedundancyFromConstraints(const motion_planning_msgs::Constraints &goal_constraint,
+					geometry_msgs::PoseStamped &kinematics_planner_frame,
+					kinematics::KinematicsBase *kinematics_solver,
+					const std::string &redundant_joint_name,
+					double &redundancy);
+
 };
 }
