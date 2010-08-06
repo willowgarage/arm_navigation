@@ -30,10 +30,14 @@
 #include "robot_self_filter/self_mask.h"
 #include <urdf/model.h>
 #include <resource_retriever/retriever.h>
+#include <geometric_shapes/shape_operations.h>
 #include <ros/console.h>
 #include <algorithm>
 #include <sstream>
 #include <climits>
+#include <assimp/assimp.hpp>     
+#include <assimp/aiScene.h>      
+#include <assimp/aiPostProcess.h>
 
 void robot_self_filter::SelfMask::freeMemory(void)
 {
@@ -79,37 +83,76 @@ namespace robot_self_filter
 	    break;
 	case urdf::Geometry::MESH:
 	    {
-		const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
-		if (!mesh->filename.empty())
-		{
-		    resource_retriever::Retriever retriever;
-		    resource_retriever::MemoryResource res;
-		    bool ok = true;
-		    
-		    try
-		    {
-			res = retriever.get(mesh->filename);
-		    }
-		    catch (resource_retriever::Exception& e)
-		    {
-			ROS_ERROR("%s", e.what());
-			ok = false;
-		    }
-		    
-		    if (ok)
-		    {
-			if (res.size == 0)
-			    ROS_WARN("Retrieved empty mesh for resource '%s'", mesh->filename.c_str());
-			else
-			{
-			    result = shapes::createMeshFromBinaryStlData(reinterpret_cast<char*>(res.data.get()), res.size);
-			    if (result == NULL)
-				ROS_ERROR("Failed to load mesh '%s'", mesh->filename.c_str());
-			}
-		    }
-		}
-		else
-		    ROS_WARN("Empty mesh filename");
+               const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
+               if (!mesh->filename.empty())
+               {
+                 resource_retriever::Retriever retriever;
+                 resource_retriever::MemoryResource res;
+                 bool ok = true;
+                 
+                 try
+                 {
+                   res = retriever.get(mesh->filename);
+                 }
+                 catch (resource_retriever::Exception& e)
+                 {
+                   ROS_ERROR("%s", e.what());
+                   ok = false;
+                 }
+                 
+                 if (ok)
+                 {
+                   if (res.size == 0)
+                     ROS_WARN("Retrieved empty mesh for resource '%s'", mesh->filename.c_str());
+                   else
+                   {
+                     // Create an instance of the Importer class
+                     Assimp::Importer importer;
+                     
+                     // try to get a file extension
+                     std::string hint;
+                     std::size_t pos = mesh->filename.find_last_of(".");
+                     if (pos != std::string::npos)
+                     {
+                       hint = mesh->filename.substr(pos + 1);
+                       
+                       // temp hack until everything is stl not stlb
+                       if (hint.find("stl") != std::string::npos)
+                         hint = "stl";
+                     }
+                     
+                     // And have it read the given file with some postprocessing
+                     const aiScene* scene = importer.ReadFileFromMemory(reinterpret_cast<void*>(res.data.get()), res.size,
+                                                                        aiProcess_Triangulate            |
+                                                                        aiProcess_JoinIdenticalVertices  |
+                                                                        aiProcess_SortByPType, hint.c_str());
+                     if (scene)
+                     {
+                       if (scene->HasMeshes())
+                       {
+                         if (scene->mNumMeshes > 1)
+                           ROS_WARN("More than one mesh specified in resource. Using first one");
+                         result = shapes::createMeshFromAsset(scene->mMeshes[0]);
+                       }
+                       else
+                         ROS_ERROR("There is no mesh specified in the indicated resource");
+                     }
+                     else
+                     {
+                       std::string ext;
+                       importer.GetExtensionList(ext);
+                       ROS_ERROR("Failed to import scene containing mesh: %s. Supported extensions are: %s", importer.GetErrorString(), ext.c_str());
+                     }
+                     
+                     if (result == NULL)
+                       ROS_ERROR("Failed to load mesh '%s'", mesh->filename.c_str());
+                     else
+                       ROS_DEBUG("Loaded mesh '%s' consisting of %d triangles", mesh->filename.c_str(), static_cast<shapes::Mesh*>(result)->triangleCount);			
+                   }
+                 }
+               }
+               else
+                 ROS_WARN("Empty mesh filename");
 	    }
 	    
 	    break;

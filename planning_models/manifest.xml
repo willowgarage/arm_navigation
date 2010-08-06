@@ -13,6 +13,7 @@
   <depend package="bullet"/>
   <depend package="resource_retriever"/>
   <depend package="angles"/>
+  <depend package="assimp" />
 
   <export>
     <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lplanning_models `rosboost-cfg --lflags thread`"/>
