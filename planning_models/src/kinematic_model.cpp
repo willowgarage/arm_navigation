@@ -526,7 +526,7 @@ void planning_models::KinematicModel::setAllJointsValues(const std::vector<doubl
 std::map<std::string, double> planning_models::KinematicModel::getJointValues(const std::string joint) const {
   std::map<std::string, double> ret;
   if(hasJoint(joint)) {
-    ret = joint_map_.find(joint)->second->getVariableTransformValues();
+   ret = joint_map_.find(joint)->second->getVariableTransformValues();
   }
   return ret;
 }
@@ -989,7 +989,7 @@ bool planning_models::KinematicModel::Joint::updateVariableTransform(const std::
   return(allJointStateEquivalentsAreDefined(joint_value_map));
 }
 
-std::map<std::string, double> planning_models::KinematicModel::Joint::getVariableTransformValues() const{
+const std::map<std::string, double>& planning_models::KinematicModel::Joint::getVariableTransformValues() const{
   return stored_joint_values;
 }
 

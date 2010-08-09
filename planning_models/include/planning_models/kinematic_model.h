@@ -125,7 +125,7 @@ public:
     bool setStoredJointValues(const std::map<std::string, double>& joint_value_map);
 
     /** \brief returns the current transform as a map from variable names to values */
-    std::map<std::string, double> getVariableTransformValues() const;
+    const std::map<std::string, double>& getVariableTransformValues() const;
     
     /** \brief Update the value of varTrans using current joint_state_values */
     virtual bool updateVariableTransform(const std::map<std::string, double>& joint_value_map);
