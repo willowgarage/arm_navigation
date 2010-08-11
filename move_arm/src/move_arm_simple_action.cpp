@@ -177,6 +177,37 @@ public:
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
     filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
 
+    if(using_head_monitor_) {
+      head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
+      head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("head_look_action", true));
+      
+      const unsigned int MAX_TRIES = 5;
+      unsigned int tries = 0;
+      
+      while(!head_monitor_client_->waitForServer(ros::Duration(10))) {
+	ROS_INFO("Waiting for head monitor server");
+	tries++;
+	if(tries >= MAX_TRIES) {
+	  ROS_INFO("Can't talk to head monitor, not using");
+	  using_head_monitor_ = false;
+	  break;
+	}
+      }
+      //still need to check for this
+      if(using_head_monitor_) {
+	tries = 0;
+	while(!head_look_client_->waitForServer(ros::Duration(10))) {
+	  ROS_INFO("Waiting for head look server");
+	  tries++;
+	  if(tries >= MAX_TRIES) {
+	    ROS_INFO("Can't talk to head look client, not using");
+	    using_head_monitor_ = false;
+	    break;
+	  }
+	}
+      }
+    }
+    
     if(using_head_monitor_)
     {
       head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
