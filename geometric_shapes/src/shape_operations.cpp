@@ -49,7 +49,7 @@ namespace shapes
     Shape* cloneShape(const Shape *shape)
     {
 	Shape *result = NULL;
-	if (shape)
+	if (shape) {
 	    switch (shape->type)
 	    {
 	    case SPHERE:
@@ -80,13 +80,14 @@ namespace shapes
 	    default:
 		break;
 	    }
+        }
 	return result;
     }
     
     StaticShape* cloneShape(const StaticShape *shape)
     {
 	StaticShape *result = NULL;
-	if (shape)
+	if (shape) {
 	    switch (shape->type)
 	    {
 	    case PLANE:
@@ -96,6 +97,7 @@ namespace shapes
 	    default:
 		break;
 	    }
+        }
 	
 	return result;
     }
@@ -247,7 +249,7 @@ namespace shapes
 	return mesh;
     }
 
-    shapes::Mesh* createMeshFromAsset(const aiMesh* a)
+shapes::Mesh* createMeshFromAsset(const aiMesh* a, const btVector3& scale)
     {
 	if (!a->HasFaces())
 	{
@@ -274,9 +276,9 @@ namespace shapes
 	// copy vertices
 	for (unsigned int i = 0 ; i < a->mNumVertices ; ++i)
 	{
-	    mesh->vertices[3 * i    ] = a->mVertices[i].x;
-	    mesh->vertices[3 * i + 1] = a->mVertices[i].y;
-	    mesh->vertices[3 * i + 2] = a->mVertices[i].z;
+          mesh->vertices[3 * i    ] = a->mVertices[i].x*scale.x();
+          mesh->vertices[3 * i + 1] = a->mVertices[i].y*scale.y();
+          mesh->vertices[3 * i + 2] = a->mVertices[i].z*scale.z();
 	}
 	
 	// copy triangles
@@ -290,15 +292,27 @@ namespace shapes
 	// compute normals
 	for (unsigned int i = 0 ; i < a->mNumFaces ; ++i)
 	{
-	    aiVector3D as1 = a->mVertices[a->mFaces[i].mIndices[0]] - a->mVertices[a->mFaces[i].mIndices[1]];
-	    aiVector3D as2 = a->mVertices[a->mFaces[i].mIndices[1]] - a->mVertices[a->mFaces[i].mIndices[2]];
-	    btVector3   s1(as1.x, as1.y, as1.z);
-	    btVector3   s2(as2.x, as2.y, as2.z);
-	    btVector3 normal = s1.cross(s2);
-	    normal.normalize();
-	    mesh->normals[3 * i    ] = normal.getX();
-	    mesh->normals[3 * i + 1] = normal.getY();
-	    mesh->normals[3 * i + 2] = normal.getZ();
+          aiVector3D f1 = a->mVertices[a->mFaces[i].mIndices[0]];
+          f1.x *= scale.x();
+          f1.y *= scale.y();
+          f1.z *= scale.z();
+          aiVector3D f2 = a->mVertices[a->mFaces[i].mIndices[1]];
+          f2.x *= scale.x();
+          f2.y *= scale.y();
+          f2.z *= scale.z();          
+          aiVector3D f3 = a->mVertices[a->mFaces[i].mIndices[2]];
+          f3.x *= scale.x();
+          f3.y *= scale.y();
+          f3.z *= scale.z();          
+          aiVector3D as1 = f1-f2;
+          aiVector3D as2 = f2-f3;
+          btVector3   s1(as1.x, as1.y, as1.z);
+          btVector3   s2(as2.x, as2.y, as2.z);
+          btVector3 normal = s1.cross(s2);
+          normal.normalize();
+          mesh->normals[3 * i    ] = normal.getX();
+          mesh->normals[3 * i + 1] = normal.getY();
+          mesh->normals[3 * i + 2] = normal.getZ();
 	}
 	
 	return mesh;

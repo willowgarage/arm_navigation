@@ -59,7 +59,7 @@ namespace shapes
     Mesh* createMeshFromVertices(const std::vector<btVector3> &source);
     
     /** \brief Load a mesh from an assimp datastructure */
-    Mesh* createMeshFromAsset(const aiMesh* a);
+Mesh* createMeshFromAsset(const aiMesh* a, const btVector3& scale);
     
     /** \brief Load a mesh from a binary STL file. Normals are
 	recomputed and repeating vertices are identified. */
