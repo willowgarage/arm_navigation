@@ -406,13 +406,14 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
                                                                aiProcess_Triangulate            |
                                                                aiProcess_JoinIdenticalVertices  |
                                                                aiProcess_SortByPType, hint.c_str());
+            btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
             if (scene)
             {
               if (scene->HasMeshes())
               {
                 if (scene->mNumMeshes > 1)
                   ROS_WARN("More than one mesh specified in resource. Using first one");
-                result = shapes::createMeshFromAsset(scene->mMeshes[0]);
+                result = shapes::createMeshFromAsset(scene->mMeshes[0], scale);
               }
               else
                 ROS_ERROR("There is no mesh specified in the indicated resource");
