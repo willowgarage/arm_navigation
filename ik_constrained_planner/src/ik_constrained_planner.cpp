@@ -256,7 +256,7 @@ void IKConstrainedPlanner::setWorkspaceBounds(motion_planning_msgs::WorkspacePar
     ROS_DEBUG("No workspace bounding volume was set");
 }
 
-void IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
+bool IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
                                               const planning_models::KinematicState *start_state, 
                                               ompl::base::SpaceInformation *space_information)
 {
@@ -363,9 +363,17 @@ void IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   planning_monitor_->setGoalConstraints(tmp_constraints,error_code);
   ROS_INFO("Setting goal for space information");
   ompl::base::Goal *goal = computeGoalFromConstraints(space_information,req.motion_plan_request.goal_constraints,req.motion_plan_request.group_name);
+
+  if(!goal)
+  {
+    ROS_ERROR("Inverse kinematics failed to find collision free solution");
+    return false;
+  }
+
   space_information->setGoal(goal);
   
   printSettings(space_information);
+  return true;
 }
 
 void IKConstrainedPlanner::printSettings(ompl::base::SpaceInformation *si)
@@ -556,7 +564,11 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
   planning_monitor_->getKinematicModel()->lock();
   
   // configure the planner
-  configureOnRequest(req,start_state,space_information_);
+  if(!configureOnRequest(req,start_state,space_information_))
+    {
+      ROS_INFO("Could not configure planner");
+      return false;
+    }
     
   /* compute actual motion plan */
   Solution sol;

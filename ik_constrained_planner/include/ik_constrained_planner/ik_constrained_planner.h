@@ -112,7 +112,7 @@ public:
   void setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &workspace_parameters, 
                           ompl::base::SpaceInformation *space_information);
 
-  void configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
+  bool configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
                           const planning_models::KinematicState *start_state, 
                           ompl::base::SpaceInformation *space_information);
 

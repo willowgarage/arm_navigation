@@ -84,7 +84,7 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
   bool valid = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
 
   if(!valid)
-    ROS_INFO("State is in collision");
+    ROS_DEBUG("State is in collision");
 
 //   motion_planning_msgs::DisplayTrajectory d_path;
 //   ros::NodeHandle root_handle;

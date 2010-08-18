@@ -104,7 +104,7 @@ void IKConstrainedGoal::setup(motion_planning_msgs::Constraints &goal_constraint
 
   ROS_INFO("Goal State:");
   ROS_INFO("Position   : %f %f %f",state->values[0],state->values[1],state->values[2]);
-  ROS_INFO("Orientation: %f %f %f %f",state->values[2],state->values[3],state->values[4],state->values[5]);
+  ROS_INFO("Orientation: %f %f %f %f",state->values[3],state->values[4],state->values[5],state->values[6]);
 
 }
 
