@@ -34,56 +34,47 @@
 
 /** \author Ioan Sucan */
 
+#ifndef GEOMETRIC_SHAPES_SHAPE_OPERATIONS_
+#define GEOMETRIC_SHAPES_SHAPE_OPERATIONS_
+
 #include "geometric_shapes/shapes.h"
 
-shapes::Shape* shapes::cloneShape(const shapes::Shape *shape)
+#include <vector>
+#include <LinearMath/btVector3.h>
+#include <assimp/aiMesh.h>
+
+namespace shapes
 {
-    shapes::Shape *result = NULL;
-    switch (shape->type)
-    {
-    case SPHERE:
-	result = new Sphere(static_cast<const Sphere*>(shape)->radius);
-	break;
-    case CYLINDER:
-	result = new Cylinder(static_cast<const Cylinder*>(shape)->radius, static_cast<const Cylinder*>(shape)->length);
-	break;
-    case BOX:
-	result = new Box(static_cast<const Box*>(shape)->size[0], static_cast<const Box*>(shape)->size[1], static_cast<const Box*>(shape)->size[2]);
-	break;
-    case MESH:
-	{
-	    const Mesh *src = static_cast<const Mesh*>(shape);
-	    Mesh *dest = new Mesh(src->vertexCount, src->triangleCount);
-	    unsigned int n = 3 * src->vertexCount;
-	    for (unsigned int i = 0 ; i < n ; ++i)
-		dest->vertices[i] = src->vertices[i];
-	    n = 3 * src->triangleCount;
-	    for (unsigned int i = 0 ; i < n ; ++i)
-	    {
-		dest->triangles[i] = src->triangles[i];
-		dest->normals[i] = src->normals[i];
-	    }
-	    result = dest;
-	}
-	break;
-    default:
-	break;
-    }
-    return result;
+    
+    /** \brief Load a mesh from a set of vertices. Triangles are
+	constructed using index values from the triangles
+	vector. Triangle k has vertices at index values triangles[3k],
+	triangles[3k+1], triangles[3k+2]  */
+    Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, const std::vector<unsigned int> &triangles);
+    
+    /** \brief Load a mesh from a set of vertices. Every 3 vertices
+	are considered a triangle. Repeating vertices are identified
+	and the set of triangle indices is constructed. The normal at
+	each triangle is also computed */
+    Mesh* createMeshFromVertices(const std::vector<btVector3> &source);
+    
+    /** \brief Load a mesh from an assimp datastructure */
+Mesh* createMeshFromAsset(const aiMesh* a, const btVector3& scale);
+    
+    /** \brief Load a mesh from a binary STL file. Normals are
+	recomputed and repeating vertices are identified. */
+    __attribute__((deprecated)) Mesh* createMeshFromBinaryStl(const char *filename);
+
+    /** \brief Load a mesh from a binary STL stream. Normals are
+	recomputed and repeating vertices are identified. */
+    __attribute__((deprecated)) Mesh* createMeshFromBinaryStlData(const char *data, unsigned int size);
+
+    /** \brief Create a copy of a shape */
+    Shape* cloneShape(const Shape *shape);
+
+    /** \brief Create a copy of a static shape */
+    StaticShape* cloneShape(const StaticShape *shape);
+    
 }
 
-shapes::StaticShape* shapes::cloneShape(const shapes::StaticShape *shape)
-{
-    shapes::StaticShape *result = NULL;
-    switch (shape->type)
-    {
-    case PLANE:
-	result = new Plane(static_cast<const Plane*>(shape)->a, static_cast<const Plane*>(shape)->b, 
-			   static_cast<const Plane*>(shape)->c, static_cast<const Plane*>(shape)->d);
-	break;
-    default:
-	break;
-    }
-    
-    return result;
-}
+#endif

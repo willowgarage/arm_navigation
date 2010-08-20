@@ -38,9 +38,6 @@
 #define GEOMETRIC_SHAPES_SHAPES_
 
 #include <cstdlib>
-#include <vector>
-#include <LinearMath/btVector3.h>
-#include <assimp/aiMesh.h>
 
 /** Definition of various shapes. No properties such as position are
     included. These are simply the descriptions and dimensions of
@@ -221,36 +218,6 @@ namespace shapes
 	
 	double a, b, c, d;
     };
-    
-    
-    /** \brief Load a mesh from a set of vertices. Triangles are
-	constructed using index values from the triangles
-	vector. Triangle k has vertices at index values triangles[3k],
-	triangles[3k+1], triangles[3k+2]  */
-    Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, const std::vector<unsigned int> &triangles);
-    
-    /** \brief Load a mesh from a set of vertices. Every 3 vertices
-	are considered a triangle. Repeating vertices are identified
-	and the set of triangle indices is constructed. The normal at
-	each triangle is also computed */
-    Mesh* createMeshFromVertices(const std::vector<btVector3> &source);
-    
-    /** \brief Load a mesh from an assimp datastructure */
-    Mesh* createMeshFromAsset(const aiMesh* a);
-    
-    /** \brief Load a mesh from a binary STL file. Normals are
-	recomputed and repeating vertices are identified. */
-    __attribute__((deprecated)) Mesh* createMeshFromBinaryStl(const char *filename);
-
-    /** \brief Load a mesh from a binary STL stream. Normals are
-	recomputed and repeating vertices are identified. */
-    __attribute__((deprecated)) Mesh* createMeshFromBinaryStlData(const char *data, unsigned int size);
-
-    /** \brief Create a copy of a shape */
-    Shape* cloneShape(const Shape *shape);
-
-    /** \brief Create a copy of a static shape */
-    StaticShape* cloneShape(const StaticShape *shape);
     
 }
 
