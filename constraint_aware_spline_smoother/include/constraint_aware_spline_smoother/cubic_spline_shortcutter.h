@@ -173,7 +173,6 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   spline_smoother::SplineTrajectory spline, shortcut_spline;
   motion_planning_msgs::JointTrajectoryWithLimits shortcut, discretized_trajectory;
 
-  planning_monitor_->getRobotStateMsg(robot_state);
   trajectory_out = trajectory_in;
 
   if (!spline_smoother::checkTrajectoryConsistency(trajectory_out))
@@ -187,16 +186,17 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 
   ros::Time start_time = ros::Time::now();
   ros::Duration timeout = trajectory_in.allowed_time;
-  motion_planning_msgs::OrderedCollisionOperations operations, ordered_collision_operations;
-  std::vector<std::string> child_links;
-  planning_monitor_->getChildLinks(trajectory_in.trajectory.joint_names, child_links);
-  planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
-  planning_monitor_->setCollisionSpace();
-  planning_monitor_->applyLinkPaddingToCollisionSpace(trajectory_in.link_padding);
-  planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
-  
-  planning_monitor_->setAllowedContacts(trajectory_in.allowed_contacts);
-  planning_monitor_->setPathConstraints(trajectory_in.path_constraints,error_code);
+
+  planning_monitor_->prepareForValidityChecks(trajectory_in.trajectory.joint_names,
+                                              trajectory_in.ordered_collision_operations,
+                                              trajectory_in.allowed_contacts,
+                                              trajectory_in.path_constraints,
+                                              trajectory_in.goal_constraints,
+                                              trajectory_in.link_padding, error_code); 
+
+  //getting current state
+  planning_monitor_->getCurrentRobotState(robot_state);
+
   if(error_code.val != error_code.SUCCESS)
   {
     ROS_ERROR("Could not set path constraints");
@@ -293,14 +293,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   trajectory_out.limits = trajectory_in.limits;
 
   printTrajectory(trajectory_out.trajectory);
-  planning_monitor_->clearAllowedContacts();
-  planning_monitor_->clearConstraints();
-  planning_monitor_->getKinematicModel()->lock();
-  planning_monitor_->getEnvironmentModel()->lock();
-  planning_monitor_->revertAllowedCollisionToDefault();
-  planning_monitor_->revertCollisionSpacePaddingToDefault();
-  planning_monitor_->getKinematicModel()->unlock();
-  planning_monitor_->getEnvironmentModel()->unlock();
+  planning_monitor_->revertToDefaultState();
 	
   ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),
             trajectory_out.trajectory.points.back().time_from_start.toSec());
@@ -597,12 +590,14 @@ bool CubicSplineShortCutter<T>::setupCollisionEnvironment()
   // monitor robot
   collision_models_ = new planning_environment::CollisionModels("robot_description");
   planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
-  planning_monitor_->use_collision_map_ = use_collision_map;
+  planning_monitor_->setUseCollisionMap(use_collision_map);
   if(!collision_models_->loadedModels())
     return false;
-
   if (planning_monitor_->getExpectedJointStateUpdateInterval() > 1e-3)
     planning_monitor_->waitForState();
+
+  planning_monitor_->startEnvironmentMonitor();
+
   if (planning_monitor_->getExpectedMapUpdateInterval() > 1e-3 && use_collision_map)
     planning_monitor_->waitForMap();
   return true;

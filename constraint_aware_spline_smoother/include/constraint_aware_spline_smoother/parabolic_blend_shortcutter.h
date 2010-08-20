@@ -113,19 +113,20 @@ bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &traj
                                     const motion_planning_msgs::Constraints &path_constraints)
 {
   std::vector<std::string> child_links;
-  motion_planning_msgs::RobotState robot_state;
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   motion_planning_msgs::OrderedCollisionOperations operations;
 
   joint_names_ = trajectory.joint_names;
-  planning_monitor_->getRobotStateMsg(robot_state);
-  planning_monitor_->getChildLinks(trajectory.joint_names, child_links);
-  planning_monitor_->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,ordered_collision_operations,operations);
-  planning_monitor_->setCollisionSpace();
-  planning_monitor_->applyLinkPaddingToCollisionSpace(link_padding);
-  planning_monitor_->applyOrderedCollisionOperationsToCollisionSpace(operations);
-  planning_monitor_->setAllowedContacts(allowed_contact_regions);
-  planning_monitor_->setPathConstraints(path_constraints,error_code);
+
+  motion_planning_msgs::Constraints emp;
+  
+  planning_monitor_->prepareForValidityChecks(joint_names_,
+                                              ordered_collision_operations,
+                                              allowed_contact_regions,
+                                              path_constraints,
+                                              emp,
+                                              link_padding, 
+                                              error_code); 
   if(error_code.val != error_code.SUCCESS)
   {
     ROS_ERROR("Could not set path constraints");
@@ -136,31 +137,25 @@ bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &traj
 
 void FeasibilityChecker::resetRequest()
 {
-  planning_monitor_->revertAllowedCollisionToDefault();
-  planning_monitor_->revertCollisionSpacePaddingToDefault();
-  planning_monitor_->clearAllowedContacts();
-  planning_monitor_->clearConstraints();
-  planning_monitor_->getKinematicModel()->lock();
-  planning_monitor_->getEnvironmentModel()->lock();
-  planning_monitor_->revertAllowedCollisionToDefault();
-  planning_monitor_->getKinematicModel()->unlock();
-  planning_monitor_->getEnvironmentModel()->unlock();
+  planning_monitor_->revertToDefaultState();
 }
 
 bool FeasibilityChecker::setupCollisionEnvironment()
 {
   bool use_collision_map;
   node_handle_.param<bool>("use_collision_map", use_collision_map, true);
-
+  
   // monitor robot
   collision_models_ = new planning_environment::CollisionModels("robot_description");
   planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
-  planning_monitor_->use_collision_map_ = use_collision_map;
+  planning_monitor_->setUseCollisionMap(use_collision_map);
   if(!collision_models_->loadedModels())
     return false;
-
   if (planning_monitor_->getExpectedJointStateUpdateInterval() > 1e-3)
     planning_monitor_->waitForState();
+
+  planning_monitor_->startEnvironmentMonitor();
+
   if (planning_monitor_->getExpectedMapUpdateInterval() > 1e-3 && use_collision_map)
     planning_monitor_->waitForMap();
   return true;
@@ -203,7 +198,7 @@ bool FeasibilityChecker::ConfigFeasible(const Vector& x)
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
   motion_planning_msgs::RobotState robot_state;
-  planning_monitor_->getRobotStateMsg(robot_state);
+  planning_monitor_->getCurrentRobotState(robot_state);
 
   trajectory_msgs::JointTrajectory joint_traj;
   joint_traj.joint_names = joint_names_;
@@ -220,7 +215,7 @@ bool FeasibilityChecker::SegmentFeasible(const Vector& a,const Vector& b)
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
   motion_planning_msgs::RobotState robot_state;
-  planning_monitor_->getRobotStateMsg(robot_state);
+  //empty state is ok
 
   trajectory_msgs::JointTrajectory joint_traj_in, joint_traj;
   joint_traj_in.joint_names = joint_names_;
