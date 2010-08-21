@@ -63,7 +63,6 @@ ChompPlannerNode::ChompPlannerNode(ros::NodeHandle node_handle) : node_handle_(n
 bool ChompPlannerNode::init()
 {
   // load in some default parameters
-  node_handle_.param("reference_frame", reference_frame_, std::string("base_link"));
   node_handle_.param("trajectory_duration", trajectory_duration_, 3.0);
   node_handle_.param("trajectory_discretization", trajectory_discretization_, 0.03);
 
@@ -93,7 +92,13 @@ bool ChompPlannerNode::init()
     return false;
   }
 
-  monitor_ = new planning_environment::CollisionSpaceMonitor(collision_models_, &tf_, reference_frame_);
+  monitor_ = new planning_environment::CollisionSpaceMonitor(collision_models_, &tf_);
+
+  monitor_->waitForState();
+  monitor_->setUseCollisionMap(true);
+  monitor_->startEnvironmentMonitor();
+
+  reference_frame_ = monitor_->getRobotFrameId();
 
   // build the robot model
   if (!chomp_robot_model_.init(monitor_, reference_frame_))
@@ -274,43 +279,47 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   ros::WallTime start_time = ros::WallTime::now();
   ROS_INFO_STREAM("Received filtering request with trajectory size " << req.trajectory.points.size());
 
-  //create a spline from the trajectory
-  spline_smoother::CubicTrajectory trajectory_solver;
-  spline_smoother::SplineTrajectory spline;
-
-  getLimits(req.trajectory, req.limits);
+  unsigned int NUM_POINTS=100;
 
   for (unsigned int i=0; i< req.trajectory.points.size(); i++)
   {
     req.trajectory.points[i].velocities.resize(req.trajectory.joint_names.size());
   }
 
-  bool success = trajectory_solver.parameterize(req.trajectory,req.limits,spline);  
-
-  double smoother_time;
-  spline_smoother::getTotalTime(spline, smoother_time);
-  
-  ROS_INFO_STREAM("Total time is " << smoother_time);
-
-  unsigned int NUM_POINTS=100;
-
-  double t = 0.0;
-  std::vector<double> times(NUM_POINTS);
-  for(unsigned int i = 0; i < NUM_POINTS; i++,t += smoother_time/(1.0*NUM_POINTS)) {
-    times[i] = t;
-  }
+  getLimits(req.trajectory, req.limits);
 
   trajectory_msgs::JointTrajectory jtraj;
-  spline_smoother::sampleSplineTrajectory(spline, times, jtraj);
+  if(req.trajectory.points.size() > NUM_POINTS) {
 
-  double planner_time = req.trajectory.points.back().time_from_start.toSec();
+    //create a spline from the trajectory
+    spline_smoother::CubicTrajectory trajectory_solver;
+    spline_smoother::SplineTrajectory spline;
+    
+    trajectory_solver.parameterize(req.trajectory,req.limits,spline);  
+    
+    double smoother_time;
+    spline_smoother::getTotalTime(spline, smoother_time);
   
-  t = 0.0;
-  for(unsigned int i = 0; i < jtraj.points.size(); i++, t += planner_time/(1.0*NUM_POINTS)) {
-    jtraj.points[i].time_from_start = ros::Duration(t);
-  }
+    double t = 0.0;
+    std::vector<double> times(NUM_POINTS);
+    for(unsigned int i = 0; i < NUM_POINTS; i++,t += smoother_time/(1.0*NUM_POINTS)) {
+      times[i] = t;
+    }
 
-  ROS_INFO_STREAM("Sampled trajectory has " << jtraj.points.size() << " points with " << jtraj.points[0].positions.size() << " joints");
+    spline_smoother::sampleSplineTrajectory(spline, times, jtraj);
+
+    double planner_time = req.trajectory.points.back().time_from_start.toSec();
+  
+    t = 0.0;
+    for(unsigned int i = 0; i < jtraj.points.size(); i++, t += planner_time/(1.0*NUM_POINTS)) {
+      jtraj.points[i].time_from_start = ros::Duration(t);
+    }
+
+    ROS_INFO_STREAM("Sampled trajectory has " << jtraj.points.size() << " points with " << jtraj.points[0].positions.size() << " joints");
+  } else {
+    ROS_INFO_STREAM("Total time is " << req.trajectory.points.back().time_from_start.toSec());
+    jtraj = req.trajectory;
+  }
 
   //TODO - match joints in the trajectory to planning group name
   std::string group_name;
@@ -335,32 +344,9 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
 
   //configure the distance field - this should just use current state
   motion_planning_msgs::RobotState robot_state;
-  robot_state.joint_state.position.clear();
-  robot_state.joint_state.name.clear();
-  planning_models::KinematicState sp(*(monitor_->getRobotState()));
-  // boost::scoped_ptr<planning_models::KinematicState> sp(new planning_models::KinematicState(getKinematicModel()));
-  // fill in robot state with current one
-  std::vector<const planning_models::KinematicModel::Joint*> joints;
-  monitor_->getKinematicModel()->getJoints(joints);
-	
-  robot_state.joint_state.name.resize(joints.size());
-  robot_state.joint_state.position.resize(joints.size());
-  robot_state.joint_state.header.frame_id = reference_frame_;
-  robot_state.joint_state.header.stamp = monitor_->lastJointStateUpdate();
+  monitor_->getCurrentRobotState(robot_state);
 
-  for (unsigned int i = 0 ; i < joints.size() ; ++i)
-  {
-    robot_state.joint_state.name[i] = joints[i]->name;
-    std::vector<double> tmp;
-    sp.copyParamsJoint(tmp, joints[i]->name);
-    if(!tmp.empty()) {
-      robot_state.joint_state.position[i] = tmp[0];
-    }
-  }
-
-  // set the start state:
   chomp_robot_model_.jointStateToArray(robot_state.joint_state, trajectory.getTrajectoryPoint(0));
-
   chomp_collision_space_.setStartState(*group, robot_state);
 
   //updating collision points for the potential for new attached objects
@@ -397,8 +383,6 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   // set the max planning time:
   chomp_parameters_.setPlanningTimeLimit(req.allowed_time.toSec());
   
-  ROS_INFO("Calling optimizer");
-
   // optimize!
   ChompOptimizer optimizer(&trajectory, &chomp_robot_model_, group, &chomp_parameters_,
       vis_marker_array_publisher_, vis_marker_publisher_, &chomp_collision_space_);
@@ -442,7 +426,11 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
         if (d > duration)
           duration = d;
       }
-      res.trajectory.points[i].time_from_start = res.trajectory.points[i-1].time_from_start + ros::Duration(duration);
+      try {
+        res.trajectory.points[i].time_from_start = res.trajectory.points[i-1].time_from_start + ros::Duration(duration);
+      } catch(...) {
+        ROS_INFO_STREAM("Potentially weird duration of " << duration);
+      }
     }
   }
 
@@ -451,10 +439,8 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
 
   next_req = req;
   next_req.trajectory = res.trajectory;  
-  next_req.allowed_time=ros::Duration(.1);
+  next_req.allowed_time=ros::Duration(req.allowed_time);
   
-  ROS_INFO("Trying to make call");
-
   if(filter_trajectory_client_.call(next_req, next_res)) {
     ROS_INFO("Filter call ok");
   } else {

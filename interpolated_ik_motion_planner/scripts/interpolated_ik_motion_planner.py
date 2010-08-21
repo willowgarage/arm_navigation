@@ -241,16 +241,16 @@ class InterpolatedIKService:
             IK_robot_state.joint_state.position = additional_joint_angles
 
         #check that the desired link is in the list of possible IK links (only r/l_wrist_roll_link for now)
-        link_name = req.motion_plan_request.start_state.multi_dof_joint_state.child_frame_id
+        link_name = req.motion_plan_request.start_state.multi_dof_joint_state.child_frame_ids[0]
         if link_name != self.ik_utils.link_name:
             rospy.logerr("link_name not allowed: %s"%link_name)
             return 0
 
         #the start pose for that link
-        start_pose = req.motion_plan_request.start_state.multi_dof_joint_state.pose
+        start_pose = req.motion_plan_request.start_state.multi_dof_joint_state.poses[0]
 
         #the frame that start pose is in
-        frame_id = req.motion_plan_request.start_state.multi_dof_joint_state.frame_id
+        frame_id = req.motion_plan_request.start_state.multi_dof_joint_state.frame_ids[0]
 
         #turn it into a PoseStamped
         start_pose_stamped = self.add_header(PoseStamped(), frame_id)

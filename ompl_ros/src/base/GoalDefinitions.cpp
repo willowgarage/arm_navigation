@@ -79,33 +79,28 @@ void ompl_ros::GoalToState::setup(ModelBase *model, const std::vector<motion_pla
   // keep track of the desired joint values
   std::vector<double> desiredValue(dim_);
   std::vector<int> desiredValueCount(dim_, 0);
-    
+  std::map<std::string, unsigned int> all_group_order = model->group->getMapOrderIndex();
+  
   // tighten the bounds based on the constraints
   for (unsigned int i = 0 ; i < jc.size() ; ++i)
     {
       // get the index at which the joint parameters start
-      const planning_models::KinematicModel::Joint *jnt = model->planningMonitor->getKinematicModel()->getJoint(jc[i].joint_name);
+      const planning_models::KinematicModel::Joint *jnt = model->group->getJoint(jc[i].joint_name);
       if (jnt)
+      {
+        int idx = all_group_order[jnt->name];
+        if (idx >= 0)
         {
-          unsigned int usedParams = jnt->usedParams;
-          int idx = model->group->getJointPosition(jnt->name);
-          if (idx >= 0)
-            {
-              if (!(usedParams==1))
-                ROS_ERROR("Constraint on joint %s has incorrect number of parameters. Expected %u.", jc[i].joint_name.c_str(), usedParams);
-              else
-                {
-                  if (bounds_[idx].first < jc[i].position - jc[i].tolerance_below)
-                    bounds_[idx].first = jc[i].position - jc[i].tolerance_below;
-                  if (bounds_[idx].second > jc[i].position + jc[i].tolerance_above)
-                    bounds_[idx].second = jc[i].position + jc[i].tolerance_above;
-                  desiredValueCount[idx]++;
-                  desiredValue[idx] = jc[i].position;
-                }
-            }   
-        }
+          if (bounds_[idx].first < jc[i].position - jc[i].tolerance_below)
+            bounds_[idx].first = jc[i].position - jc[i].tolerance_below;
+          if (bounds_[idx].second > jc[i].position + jc[i].tolerance_above)
+            bounds_[idx].second = jc[i].position + jc[i].tolerance_above;
+          desiredValueCount[idx]++;
+          desiredValue[idx] = jc[i].position;
+        }   
+      }
     }
-    
+  
   // check if joint bounds are feasible
   for (int i = 0 ; i < dim_ ; ++i)
     if (bounds_[i].first > bounds_[i].second)
@@ -172,8 +167,11 @@ double ompl_ros::GoalToPosition::evaluateGoalAux(const ompl::base::State *state,
   //TODO - orientation_importance
   double orientation_importance = 1.0;
   EnvironmentDescription *ed = model_->getEnvironmentDescription();
-  ed->group->computeTransforms(state->values);
-    
+  ROS_INFO("Evaluating goal");
+  std::vector<double> vals(state->values,state->values+model_->group->joints.size());
+  ed->group->setAllJointsValues(vals);
+  ed->group->computeTransforms();
+
   if (decision)
     decision->resize(pce_.size());
   double distance = 0.0;

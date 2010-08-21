@@ -50,14 +50,12 @@ public:
     // register with ROS
     collisionModels_ = new planning_environment::CollisionModels("robot_description");
     nodeHandle_.param("distance_metric", distance_metric_, std::string("L2Square"));
-    if (nodeHandle_.hasParam("planning_frame_id"))
-      {
-        std::string frame; nodeHandle_.param("planning_frame_id", frame, std::string(""));
-        planningMonitor_ = new planning_environment::PlanningMonitor(collisionModels_, &tf_, frame);
-      }
-    else
-	    planningMonitor_ = new planning_environment::PlanningMonitor(collisionModels_, &tf_);
+    planningMonitor_ = new planning_environment::PlanningMonitor(collisionModels_, &tf_);
 	
+    planningMonitor_->waitForState();
+
+    planningMonitor_->startEnvironmentMonitor();
+
     nodeHandle_.param<double>("state_delay", stateDelay_, 0.01);	
     planKinematicPathService_ = nodeHandle_.advertiseService("plan_kinematic_path", &OMPLPlanning::planToGoal, this);
   }
@@ -87,7 +85,7 @@ public:
         execute = !mlist.empty();
 	    
         if (execute)
-          ROS_INFO("Motion planning running in frame '%s'", planningMonitor_->getFrameId().c_str());
+          ROS_INFO("Motion planning running in frame '%s'", planningMonitor_->getWorldFrameId().c_str());
       }
 	
     if (execute)
@@ -110,52 +108,6 @@ public:
   }
 
 private:
-  //  planning_models::KinematicState* fillStartState(const std::vector<motion_planning_msgs::KinematicJoint> &given)
-  //      getCurrentJointState(res.robot_state.joint_state);
-  planning_models::KinematicState* fillStartState(const motion_planning_msgs::RobotState &robot_state)
-  {
-    motion_planning_msgs::ArmNavigationErrorCodes error_code;
-    planning_models::KinematicState *s = new planning_models::KinematicState(planningMonitor_->getKinematicModel());
-    if (!planningMonitor_->getTransformListener()->frameExists(robot_state.joint_state.header.frame_id))
-    {
-      ROS_ERROR("Frame '%s' in starting state is unknown.", robot_state.joint_state.header.frame_id.c_str());
-    }
-    std::vector<double> tmp;
-    tmp.resize(1);
-
-    for(unsigned int i=0; i < robot_state.joint_state.name.size(); i++)
-      {
-        double tmp_state = robot_state.joint_state.position[i];
-        std::string tmp_name = robot_state.joint_state.name[i];
-        roslib::Header tmp_header = robot_state.joint_state.header;
-        std::string tmp_frame = planningMonitor_->getFrameId();
-        
-        if (planningMonitor_->transformJointToFrame(tmp_state, tmp_name, tmp_header, tmp_frame, error_code))
-          {
-            tmp[0] = tmp_state;
-            s->setParamsJoint(tmp, robot_state.joint_state.name[i]);
-          }
-      }
-
-    if (s->seenAll())
-	    return s;
-    else
-    {
-        if (planningMonitor_->haveState())
-        {
-          ROS_INFO("Using the current state to fill in the starting state for the motion plan");
-          std::vector<const planning_models::KinematicModel::Joint*> joints;
-          planningMonitor_->getKinematicModel()->getJoints(joints);
-          for (unsigned int i = 0 ; i < joints.size() ; ++i)
-            if (!s->seenJoint(joints[i]->name))
-              s->setParamsJoint(planningMonitor_->getRobotState()->getParamsJoint(joints[i]->name), joints[i]->name);
-          return s;
-        }
-    }
-    delete s;
-    return NULL;
-  }
-    
   bool planToGoal(motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res)
   {
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
@@ -165,25 +117,14 @@ private:
 	
     res.trajectory.joint_trajectory.points.clear();
     res.trajectory.joint_trajectory.joint_names.clear();
-    res.trajectory.joint_trajectory.header.frame_id = planningMonitor_->getFrameId();
+    res.trajectory.joint_trajectory.header.frame_id = planningMonitor_->getWorldFrameId();
     res.trajectory.joint_trajectory.header.stamp = planningMonitor_->lastMapUpdate();
-	
-    planning_models::KinematicState *startState = fillStartState(req.motion_plan_request.start_state);
-	
-    if (startState)
-      {
-        std::stringstream ss;
-        startState->print(ss);
-        ROS_DEBUG("Complete starting state:\n%s", ss.str().c_str());
-        st = requestHandler_.computePlan(models_, startState, stateDelay_, req, res, distance_metric_);
-        if (st && !res.trajectory.joint_trajectory.points.empty())
-	        if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory, req.motion_plan_request.start_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes))
-            ROS_ERROR("Reported solution appears to have already become invalidated");
-        delete startState;
-      }
-    else
-	    ROS_ERROR("Starting robot state is unknown. Cannot start plan.");
-	
+
+    st = requestHandler_.computePlan(models_, stateDelay_, req, res, distance_metric_);
+    if (st && !res.trajectory.joint_trajectory.points.empty())
+      if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory,res.robot_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes))
+        ROS_ERROR("Reported solution appears to have already become invalidated");
+    
     return st;	
   }
     

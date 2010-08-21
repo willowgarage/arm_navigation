@@ -66,9 +66,12 @@ void ompl_ros::ROSStateValidityPredicateDynamic::printSettings(std::ostream &out
 bool ompl_ros::ROSStateValidityPredicateDynamic::check(const ompl::base::State *s, collision_space::EnvironmentModel *em, planning_models::KinematicModel::JointGroup *jg,
                                                        const planning_environment::KinematicConstraintEvaluatorSet *kce) const
 {
-  jg->computeTransforms(s->values);
+
+  std::vector<double> vals(s->values,s->values+model_->group->joints.size());
+  model_->group->setAllJointsValues(vals);
+  model_->group->computeTransforms();
     
-  bool valid = kce->decide(s->values, jg);
+  bool valid = kce->decide(jg);
   if (valid)
     {
       em->updateRobotModel();

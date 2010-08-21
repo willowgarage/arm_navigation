@@ -160,15 +160,17 @@ bool ChompRobotModel::init(planning_environment::CollisionSpaceMonitor* monitor,
         {
           joint.wrap_around_ = revolute_joint->continuous;
           joint.has_joint_limits_ = !(joint.wrap_around_);
-          joint.joint_limit_min_ = revolute_joint->lowLimit;
-          joint.joint_limit_max_ = revolute_joint->hiLimit;
+          std::pair<double,double> bounds = revolute_joint->getVariableBounds(revolute_joint->name);
+          joint.joint_limit_min_ = bounds.first;
+          joint.joint_limit_max_ = bounds.second;
         }
         else if (planning_models::KinematicModel::PrismaticJoint* prismatic_joint = dynamic_cast<planning_models::KinematicModel::PrismaticJoint*>(kin_model_joint))
         {
           joint.wrap_around_ = false;
           joint.has_joint_limits_ = true;
-          joint.joint_limit_min_ = prismatic_joint->lowLimit;
-          joint.joint_limit_max_ = prismatic_joint->hiLimit;
+          std::pair<double,double> bounds = prismatic_joint->getVariableBounds(prismatic_joint->name);
+          joint.joint_limit_min_ = bounds.first;
+          joint.joint_limit_max_ = bounds.second;
         }
         else
         {
@@ -267,7 +269,7 @@ void ChompRobotModel::addCollisionPointsFromLink(std::string link_name, double c
 
   bodies::Body* body = bodies::createBodyFromShape(link->shape);
   body->setPadding(monitor_->getEnvironmentModel()->getCurrentLinkPadding(link->name));
-  body->setPose(link->globalTrans);
+  body->setPose(link->global_link_transform);
   body->setScale(1.0);
   bodies::BoundingCylinder cyl;
   body->computeBoundingCylinder(cyl);
@@ -400,24 +402,15 @@ void ChompRobotModel::generateAttachedObjectCollisionPoints(const motion_plannin
     ROS_ERROR("Must have robot state to generate collision points from attached objects");
     return;
   }
-  
-  monitor_->getEnvironmentModel()->lock();
+
   monitor_->getKinematicModel()->lock();
+  monitor_->setRobotStateAndComputeTransforms(*robot_state);
   
-  planning_models::KinematicState *state = new planning_models::KinematicState(*(monitor_->getRobotState()));
-  
-  std::vector<double> tmp;
-  tmp.resize(1);
-  for (unsigned int i = 0 ; i < robot_state->joint_state.position.size() ; ++i)
-  {
-    tmp[0] = robot_state->joint_state.position[i];
-    state->setParamsJoint(tmp, robot_state->joint_state.name[i]);
-  }
-  
-  // figure out the poses of the robot model
-  monitor_->getKinematicModel()->computeTransforms(state->getParams());
-  // update the collision space
-  monitor_->getEnvironmentModel()->updateRobotModel();
+  //get rid of root transform
+  btTransform id;
+  id.setIdentity();
+  monitor_->getKinematicModel()->getRoot()->updateVariableTransform(id);
+  monitor_->getKinematicModel()->computeTransforms();
   
   // iterate over all collision checking links to add collision points
   for (vector<string>::const_iterator link_it=monitor_->getCollisionModels()->getGroupLinkUnion().begin();
@@ -446,7 +439,7 @@ void ChompRobotModel::generateAttachedObjectCollisionPoints(const motion_plannin
             geometry_msgs::PoseStamped pose_global;
             pose_global.header.stamp = robot_state->joint_state.header.stamp;
             pose_global.header.frame_id = reference_frame_;
-            tf::poseTFToMsg(att_vec[i]->globalTrans[j], pose_global.pose);
+            tf::poseTFToMsg(att_vec[i]->global_collision_body_transform[j], pose_global.pose);
             
             geometry_msgs::PoseStamped pose_link;
             monitor_->getTransformListener()->transformPose(link_name, pose_global, pose_link);
@@ -484,7 +477,6 @@ void ChompRobotModel::generateAttachedObjectCollisionPoints(const motion_plannin
       }
     }
   }
-  monitor_->getEnvironmentModel()->unlock();
   monitor_->getKinematicModel()->unlock();
 }
 

@@ -66,7 +66,7 @@ void ompl_planning::DisplayPlanner::display(PlannerSetup *psetup)
     
     visualization_msgs::Marker mk;        
     mk.header.stamp = psetup->ompl_model->planningMonitor->lastJointStateUpdate();
-    mk.header.frame_id = psetup->ompl_model->planningMonitor->getFrameId();
+    mk.header.frame_id = psetup->ompl_model->planningMonitor->getWorldFrameId();
     mk.ns = ros::this_node::getName();
     mk.id = 1;    
     mk.type = visualization_msgs::Marker::POINTS;

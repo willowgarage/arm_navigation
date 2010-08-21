@@ -43,55 +43,57 @@ void ompl_ros::ROSSpaceInformationKinematic::configureOMPLSpace(ModelBase *model
   kmodel_ = model->planningMonitor->getKinematicModel();
   groupName_ = model->groupName;
   divisions_ = 100;
-    
+
+  std::map<std::string, unsigned int> map_index = model->group->getMapOrderIndex();
+   
   /* compute the state space for this group */
-  m_stateDimension = model->group->dimension;
+  m_stateDimension = map_index.size();
   m_stateComponent.resize(m_stateDimension);
 
-  for (unsigned int i = 0 ; i < m_stateDimension ; ++i)
-    {	
-      int p = model->group->stateIndex[i] * 2;
-      m_stateComponent[i].minValue = kmodel_->getStateBounds()[p    ];
-      m_stateComponent[i].maxValue = kmodel_->getStateBounds()[p + 1];
-      m_stateComponent[i].resolution = (m_stateComponent[i].maxValue - m_stateComponent[i].minValue) / divisions_;
-    }
-    
   for (unsigned int i = 0 ; i < model->group->joints.size() ; ++i)
-    {	
-      if (m_stateComponent[i].type == ompl::base::StateComponent::UNKNOWN)
-        {
-          unsigned int k = model->group->jointIndex[i];
-          planning_models::KinematicModel::RevoluteJoint *rj = 
-            dynamic_cast<planning_models::KinematicModel::RevoluteJoint*>(model->group->joints[i]);
-          if (rj && rj->continuous)
-            m_stateComponent[k].type = ompl::base::StateComponent::WRAPPING_ANGLE;
-          else
-            m_stateComponent[k].type = ompl::base::StateComponent::LINEAR;
-        }
-	
-      if (dynamic_cast<planning_models::KinematicModel::FloatingJoint*>(model->group->joints[i]))
-        {
-          unsigned int k = model->group->jointIndex[i];
-          floatingJoints_.push_back(k);
-          m_stateComponent[k + 3].type = ompl::base::StateComponent::QUATERNION;
-          m_stateComponent[k + 4].type = ompl::base::StateComponent::QUATERNION;
-          m_stateComponent[k + 5].type = ompl::base::StateComponent::QUATERNION;
-          m_stateComponent[k + 6].type = ompl::base::StateComponent::QUATERNION;
-          break;
-        }
-	
-      if (dynamic_cast<planning_models::KinematicModel::PlanarJoint*>(model->group->joints[i]))
-        {
-          unsigned int k = model->group->jointIndex[i];
-          planarJoints_.push_back(k);
-          m_stateComponent[k + 2].type = ompl::base::StateComponent::WRAPPING_ANGLE;
-          break;		    
-        }
+  {	
+    std::map<std::string, std::pair<double,double> >& bounds = model->group->joints[i]->joint_state_bounds;
+    for(std::map<std::string, std::pair<double,double> >::iterator it = bounds.begin();
+        it != bounds.end();
+        it++) {
+      m_stateComponent[map_index[it->first]].minValue = it->second.first;
+      m_stateComponent[map_index[it->first]].maxValue = it->second.second;
+      m_stateComponent[map_index[it->first]].resolution = (m_stateComponent[i].maxValue - m_stateComponent[i].minValue) / divisions_;
+    }
+
+    unsigned int k = map_index[model->group->joints[i]->name];
+    
+    if (m_stateComponent[i].type == ompl::base::StateComponent::UNKNOWN)
+    {
+      planning_models::KinematicModel::RevoluteJoint *rj = 
+        dynamic_cast<planning_models::KinematicModel::RevoluteJoint*>(model->group->joints[i]);
+      if (rj && rj->continuous)
+        m_stateComponent[k].type = ompl::base::StateComponent::WRAPPING_ANGLE;
+      else
+        m_stateComponent[k].type = ompl::base::StateComponent::LINEAR;
     }
     
+    if (dynamic_cast<planning_models::KinematicModel::FloatingJoint*>(model->group->joints[i]))
+    {
+      floatingJoints_.push_back(k);
+      m_stateComponent[k + 3].type = ompl::base::StateComponent::QUATERNION;
+      m_stateComponent[k + 4].type = ompl::base::StateComponent::QUATERNION;
+      m_stateComponent[k + 5].type = ompl::base::StateComponent::QUATERNION;
+      m_stateComponent[k + 6].type = ompl::base::StateComponent::QUATERNION;
+      break;
+    }
+    
+    if (dynamic_cast<planning_models::KinematicModel::PlanarJoint*>(model->group->joints[i]))
+    {
+      planarJoints_.push_back(k);
+      m_stateComponent[k + 2].type = ompl::base::StateComponent::WRAPPING_ANGLE;
+      break;		    
+    }
+  }
+  
   // create a backup of this, in case it gets bound by joint constraints
   basicStateComponent_ = m_stateComponent;
-    
+  
   checkResolution();
   checkBounds();    
 }
@@ -165,22 +167,18 @@ void ompl_ros::ROSSpaceInformationKinematic::setPathConstraints(const motion_pla
     // tighten the bounds based on the constraints
     for (unsigned int i = 0 ; i < jc.size() ; ++i)
       {
-        // get the index at which the joint parameters start
-        int idx = kmodel_->getGroup(groupName_)->getJointPosition(jc[i].joint_name);
+        std::map<std::string, unsigned int> all_group_order = kmodel_->getGroup(groupName_)->getMapOrderIndex();
+        
+        int idx = all_group_order[jc[i].joint_name];
         if (idx >= 0)
+        {
           {
-            unsigned int usedParams = kmodel_->getJoint(jc[i].joint_name)->usedParams;
-	    
-            if (!(usedParams == 1))
-              ROS_ERROR("Constraint on joint %s has incorrect number of parameters. Expected %u", jc[i].joint_name.c_str(), usedParams);
-            else
-              {
-                if (m_stateComponent[idx].minValue < jc[i].position - jc[i].tolerance_below)
-                  m_stateComponent[idx].minValue = jc[i].position - jc[i].tolerance_below;
-                if (m_stateComponent[idx].maxValue > jc[i].position + jc[i].tolerance_above)
-                  m_stateComponent[idx].maxValue = jc[i].position + jc[i].tolerance_above;
-              }
+            if (m_stateComponent[idx].minValue < jc[i].position - jc[i].tolerance_below)
+              m_stateComponent[idx].minValue = jc[i].position - jc[i].tolerance_below;
+            if (m_stateComponent[idx].maxValue > jc[i].position + jc[i].tolerance_above)
+              m_stateComponent[idx].maxValue = jc[i].position + jc[i].tolerance_above;
           }
+        }
       }
     checkBounds();    
     motion_planning_msgs::Constraints temp_kc = kc;

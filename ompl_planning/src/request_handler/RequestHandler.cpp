@@ -151,7 +151,7 @@ void ompl_planning::RequestHandler::setWorkspaceBounds(motion_planning_msgs::Wor
       bool err = false;
       try
         {
-          ompl_model->planningMonitor->getTransformListener()->transformPose(ompl_model->planningMonitor->getFrameId(), workspace_parameters.workspace_region_pose, workspace_parameters.workspace_region_pose);
+          ompl_model->planningMonitor->getTransformListener()->transformPose(ompl_model->planningMonitor->getWorldFrameId(), workspace_parameters.workspace_region_pose, workspace_parameters.workspace_region_pose);
         }
       catch(...)
         {
@@ -184,63 +184,62 @@ void ompl_planning::RequestHandler::setWorkspaceBounds(motion_planning_msgs::Wor
     ROS_DEBUG("No workspace bounding volume was set");
 }
 
-void ompl_planning::RequestHandler::configure(const planning_models::KinematicState *startState, motion_planning_msgs::GetMotionPlan::Request &req, PlannerSetup *psetup, const std::string &distance_metric)
+void ompl_planning::RequestHandler::configure(motion_planning_msgs::GetMotionPlan::Request &req, PlannerSetup *psetup, const std::string &distance_metric)
 {
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
     /* clear memory */
     psetup->ompl_model->si->clearGoal();           // goal definitions
     psetup->ompl_model->si->clearStartStates();    // start states
-    // Clear allowed contact regions
-    psetup->ompl_model->planningMonitor->clearAllowedContacts();
-    psetup->ompl_model->planningMonitor->revertAllowedCollisionToDefault();
-    psetup->ompl_model->planningMonitor->revertCollisionSpacePaddingToDefault();
-    psetup->ompl_model->planningMonitor->clearAllowedContacts();
-    psetup->ompl_model->planningMonitor->clearConstraints();
-
-    // clear clones of environments 
     psetup->ompl_model->clearEnvironmentDescriptions();
 
+    setWorkspaceBounds(req.motion_plan_request.workspace_parameters, psetup->ompl_model);
+
+    //doing planning monitor setup
+    sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
+    psetup->ompl_model->planningMonitor->prepareForValidityChecks(joint_state.name,
+                                                                  req.motion_plan_request.ordered_collision_operations,
+                                                                  req.motion_plan_request.allowed_contacts,
+                                                                  req.motion_plan_request.path_constraints,
+                                                                  req.motion_plan_request.goal_constraints,
+                                                                  req.motion_plan_request.link_padding,
+                                                                  error_code);
+    /* set the pose of the whole robot */
+    psetup->ompl_model->planningMonitor->setRobotStateAndComputeTransforms(req.motion_plan_request.start_state);
+    psetup->ompl_model->planningMonitor->getEnvironmentModel()->updateRobotModel();
+                                         
+
     /* before configuring, we may need to update bounds on the state space + other path constraints */
-    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.path_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
+    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.path_constraints, psetup->ompl_model->planningMonitor->getWorldFrameId(),error_code);
     if (ompl_ros::ROSSpaceInformationKinematic *s = dynamic_cast<ompl_ros::ROSSpaceInformationKinematic*>(psetup->ompl_model->si))
   	s->setPathConstraints(req.motion_plan_request.path_constraints);
     if (ompl_ros::ROSSpaceInformationDynamic *s = dynamic_cast<ompl_ros::ROSSpaceInformationDynamic*>(psetup->ompl_model->si))
 	  s->setPathConstraints(req.motion_plan_request.path_constraints);
-    setWorkspaceBounds(req.motion_plan_request.workspace_parameters, psetup->ompl_model);
     psetup->ompl_model->si->setStateDistanceEvaluator(psetup->ompl_model->sde[distance_metric]);
     
+    //planning_models::KinematicModel::JointGroup* joint_group = psetup->ompl_model->planningMonitor->getKinematicModel()->getGroup(psetup->ompl_model->group->name);
+    //if(joint_group == NULL) {
+    //  ROS_ERROR_STREAM("No kinematic group for " <<psetup->ompl_model->group);
+    //  return;
+    //}
+
     /* set the starting state */
     const unsigned int dim = psetup->ompl_model->si->getStateDimension();
     ompl::base::State *start = new ompl::base::State(dim);
-    
-    /* set the pose of the whole robot */
-    ompl_ros::EnvironmentDescription *ed = psetup->ompl_model->getEnvironmentDescription();
-    ed->kmodel->computeTransforms(startState->getParams());
-    ed->collisionSpace->updateRobotModel();
-    
-    /* extract the components needed for the start state of the desired group */
-    startState->copyParamsGroup(start->values, psetup->ompl_model->group);
+
+    std::vector<double> start_vals = psetup->ompl_model->group->getAllJointsValuesVector();
+    if(start_vals.size() != dim) {
+      ROS_ERROR_STREAM("Kinematic model group has dimension " << start_vals.size() << " and not dimension " << dim);
+      return;
+    }
+    for(unsigned int i = 0; i < start_vals.size(); i++) {
+      start->values[i] = start_vals[i];
+    }
     
     psetup->ompl_model->si->addStartState(start);
-    
-    /* add allowed contacts */
-    motion_planning_msgs::OrderedCollisionOperations operations;
-    std::vector<std::string> child_links;
-    sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
-    psetup->ompl_model->planningMonitor->setCollisionSpace();
-    psetup->ompl_model->planningMonitor->setAllowedContacts(req.motion_plan_request.allowed_contacts);    
-    psetup->ompl_model->planningMonitor->getChildLinks(joint_state.name, child_links);
-    psetup->ompl_model->planningMonitor->getOrderedCollisionOperationsForOnlyCollideLinks(child_links,req.motion_plan_request.ordered_collision_operations,operations);
-    psetup->ompl_model->planningMonitor->applyLinkPaddingToCollisionSpace(req.motion_plan_request.link_padding);
-    psetup->ompl_model->planningMonitor->applyOrderedCollisionOperationsToCollisionSpace(operations);
 
-    /* add goal state */
-    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
+    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.goal_constraints, psetup->ompl_model->planningMonitor->getWorldFrameId(),error_code);
     psetup->ompl_model->si->setGoal(computeGoalFromConstraints(psetup->ompl_model, req.motion_plan_request.goal_constraints));
     
-    psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.path_constraints, psetup->ompl_model->planningMonitor->getFrameId(),error_code);
-    psetup->ompl_model->planningMonitor->setPathConstraints(req.motion_plan_request.path_constraints, error_code);
-
     /* fix invalid input states, if we have any */
     fixInputStates(psetup, 0.02, 50);
     fixInputStates(psetup, 0.05, 50);
@@ -285,8 +284,10 @@ bool ompl_planning::RequestHandler::fixInputStates(PlannerSetup *psetup, double 
     return result;
 }
 
-bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning_models::KinematicState *start, double stateDelay,
-                                                motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::GetMotionPlan::Response &res, const std::string &distance_metric)
+bool ompl_planning::RequestHandler::computePlan(ModelMap &models, double stateDelay,
+                                                motion_planning_msgs::GetMotionPlan::Request &req, 
+                                                motion_planning_msgs::GetMotionPlan::Response &res, 
+                                                const std::string &distance_metric)
 {
   if (!isRequestValid(models, req, distance_metric))
     return false;
@@ -299,11 +300,8 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning
     
   ROS_INFO("Selected motion planner: '%s', with priority %d", req.motion_plan_request.planner_id.c_str(), psetup->priority);
     
-  m->planningMonitor->getEnvironmentModel()->lock();
-  m->planningMonitor->getKinematicModel()->lock();
-
   // configure the planner
-  configure(start, req, psetup, distance_metric);
+  configure(req, psetup, distance_metric);
     
   /* compute actual motion plan */
   Solution sol;
@@ -311,9 +309,9 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning
   sol.difference = 0.0;
   sol.approximate = false;
   callPlanner(psetup, req.motion_plan_request.num_planning_attempts, req.motion_plan_request.allowed_planning_time.toSec(), sol);
-    
-  m->planningMonitor->getEnvironmentModel()->unlock();
+
   m->planningMonitor->getKinematicModel()->unlock();
+  m->planningMonitor->revertToDefaultState();
 
   psetup->ompl_model->si->clearGoal();
   psetup->ompl_model->si->clearStartStates();
@@ -321,7 +319,8 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning
   /* copy the solution to the result */
   if (sol.path)
     {
-      fillResult(psetup, start, stateDelay, res, sol);
+      fillResult(psetup, stateDelay, res, sol);
+      res.robot_state = req.motion_plan_request.start_state;
       delete sol.path;
       if (!sol.approximate)
         {
@@ -341,32 +340,31 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, const planning
   return true;
 }
 
-void ompl_planning::RequestHandler::fillResult(PlannerSetup *psetup, const planning_models::KinematicState *start, double stateDelay,
-                                               motion_planning_msgs::GetMotionPlan::Response &res, const Solution &sol)
+void ompl_planning::RequestHandler::fillResult(PlannerSetup *psetup, double stateDelay,
+                                               motion_planning_msgs::GetMotionPlan::Response &res, 
+                                               const Solution &sol)
 {   
-  std::vector<const planning_models::KinematicModel::Joint*> joints;
-  psetup->ompl_model->planningMonitor->getKinematicModel()->getJoints(joints);
-  /*    res.path.start_state.resize(joints.size());
-        for (unsigned int i = 0 ; i < joints.size() ; ++i)
-        {
-        res.path.start_state[i].header = res.path.header;
-        res.path.start_state[i].joint_name = joints[i]->name;
-        start->copyParamsJoint(res.path.start_state[i].value, joints[i]->name);
-        }*/
-    
   ompl::kinematic::PathKinematic *kpath = dynamic_cast<ompl::kinematic::PathKinematic*>(sol.path);
   if (kpath)
     {
       res.trajectory.joint_trajectory.points.resize(kpath->states.size());
-      res.trajectory.joint_trajectory.joint_names = psetup->ompl_model->group->jointNames;
-	
+
+      std::map<std::string, unsigned int> map_order = psetup->ompl_model->group->getMapOrderIndex();
+      for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+          it != map_order.end();
+          it++) {
+        res.trajectory.joint_trajectory.joint_names.push_back(it->first);
+      }
       const unsigned int dim = psetup->ompl_model->si->getStateDimension();
       for (unsigned int i = 0 ; i < kpath->states.size() ; ++i)
         {
           res.trajectory.joint_trajectory.points[i].time_from_start = ros::Duration(i * stateDelay);
           res.trajectory.joint_trajectory.points[i].positions.resize(dim);
-          for (unsigned int j = 0 ; j < dim ; ++j)
-            res.trajectory.joint_trajectory.points[i].positions[j] = kpath->states[i]->values[j];
+          for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+              it != map_order.end();
+              it++) {
+            res.trajectory.joint_trajectory.points[i].positions[it->second] = kpath->states[i]->values[it->second];
+          }
         }
     }
     
@@ -374,15 +372,16 @@ void ompl_planning::RequestHandler::fillResult(PlannerSetup *psetup, const plann
   if (dpath)
     {
       res.trajectory.joint_trajectory.points.resize(dpath->states.size());
-      res.trajectory.joint_trajectory.joint_names = psetup->ompl_model->group->jointNames;
+      res.trajectory.joint_trajectory.joint_names = psetup->ompl_model->group->joint_names;
 	
       const unsigned int dim = psetup->ompl_model->si->getStateDimension();
       for (unsigned int i = 0 ; i < dpath->states.size() ; ++i)
         {
           res.trajectory.joint_trajectory.points[i].time_from_start = ros::Duration(i * stateDelay);
           res.trajectory.joint_trajectory.points[i].positions.resize(dim);
-          for (unsigned int j = 0 ; j < dim ; ++j)
+          for (unsigned int j = 0 ; j < dim ; ++j) {
             res.trajectory.joint_trajectory.points[i].positions[j] = kpath->states[i]->values[j];
+          }
         }
     }
   assert(kpath || dpath);    

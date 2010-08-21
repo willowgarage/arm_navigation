@@ -53,8 +53,10 @@ unsigned int ompl_ros::LinkPositionProjectionEvaluator::getDimension(void) const
 void ompl_ros::LinkPositionProjectionEvaluator::operator()(const ompl::base::State *state, double *projection) const
 {  
     EnvironmentDescription *ed = model_->getEnvironmentDescription();
-    ed->group->computeTransforms(state->values);
-    const btVector3 &origin = ed->kmodel->getLink(linkName_)->globalTrans.getOrigin();
+    std::vector<double> vals(state->values,state->values+model_->group->joints.size());
+    ed->group->setAllJointsValues(vals);
+    ed->group->computeTransforms();
+    const btVector3 &origin = ed->kmodel->getLink(linkName_)->global_link_transform.getOrigin();
     projection[0] = origin.x();
     projection[1] = origin.y();
     projection[2] = origin.z();

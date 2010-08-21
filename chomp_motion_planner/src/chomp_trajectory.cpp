@@ -133,8 +133,8 @@ ChompTrajectory::ChompTrajectory(const ChompRobotModel* robot_model,
 
   init();
 
-  for(unsigned int i = 0; i < num_points_; i++) {
-    for(unsigned int j = 0; j < num_joints_; j++) {
+  for(int i = 0; i < num_points_; i++) {
+    for(int j = 0; j < num_joints_; j++) {
       trajectory_(i,j) = 0.0;
     }
   }

@@ -171,7 +171,7 @@ private:
   void loadRobotBodies();
   void updateRobotBodiesPoses();
   void getVoxelsInBody(const bodies::Body &body, std::vector<btVector3> &voxels);
-  void addCollisionObjectsToPoints(std::vector<btVector3>& points);
+  void addCollisionObjectsToPoints(std::vector<btVector3>& points, const btTransform& cur);
   void addBodiesInGroupToPoints(const std::string& group, std::vector<btVector3> &voxels);
   void addAllBodiesButExcludeLinksToPoints(std::string group_name, std::vector<btVector3>& body_points);  
 

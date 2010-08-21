@@ -177,42 +177,43 @@ void ChompCollisionSpace::setStartState(const ChompRobotModel::ChompPlanningGrou
 
   std::vector<btVector3> all_points;
 
-  monitor_->getEnvironmentModel()->lock();
   monitor_->getKinematicModel()->lock();
+  monitor_->getEnvironmentModel()->lock();
+  monitor_->setRobotStateAndComputeTransforms(robot_state);
 
-  planning_models::KinematicState state(planning_models::KinematicState(*(monitor_->getRobotState())));
-
-  std::vector<double> tmp;
-  tmp.resize(1);
-  for (unsigned int i = 0 ; i < robot_state.joint_state.position.size() ; ++i)
-  {
-    tmp[0] = robot_state.joint_state.position[i];
-    state.setParamsJoint(tmp, robot_state.joint_state.name[i]);
-  }
-
-  // figure out the poses of the robot model
-  monitor_->getKinematicModel()->computeTransforms(state.getParams());
-  // update the collision space
-  monitor_->getEnvironmentModel()->updateRobotModel();
+  monitor_->setCollisionSpace();
+  
+  //now we need to back out this transform
+  const btTransform& cur = monitor_->getKinematicModel()->getRootTransform();
+  btTransform cur_copy(cur);
+  
+  //now get the body in the identity transform
+  btTransform id;
+  id.setIdentity();
+  monitor_->getKinematicModel()->getRoot()->updateVariableTransform(id);
+  monitor_->getKinematicModel()->computeTransforms();
 
   updateRobotBodiesPoses();
 
   addAllBodiesButExcludeLinksToPoints(planning_group.name_, all_points);
-  addCollisionObjectsToPoints(all_points);
+  addCollisionObjectsToPoints(all_points, cur_copy);
 
   ROS_INFO_STREAM("All points size " << all_points.size());
   
   distance_field_->addPointsToField(all_points);
-  distance_field_->visualize(0.0*max_expansion_, 0.01*max_expansion_, reference_frame_, ros::Time::now());
+  distance_field_->visualize(0.0*max_expansion_, 0.01*max_expansion_, monitor_->getWorldFrameId(), cur_copy, ros::Time::now());
 
   monitor_->getKinematicModel()->unlock();
-  monitor_->getEnvironmentModel()->unlock();  
+  monitor_->getEnvironmentModel()->unlock();
 
   ros::WallDuration t_diff = ros::WallTime::now() - start;
   ROS_INFO_STREAM("Took " << t_diff.toSec() << " to set distance field");
 }
 
-void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& points) {  
+void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& points, const btTransform& cur_transform) {  
+
+  btTransform inv = cur_transform.inverse();
+
   const collision_space::EnvironmentObjects *eo = monitor_->getEnvironmentModel()->getObjects();
   std::vector<std::string> ns = eo->getNamespaces();
   for (unsigned int i = 0 ; i < ns.size() ; ++i)
@@ -225,14 +226,14 @@ void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& po
       //points.reserve(points.size()+n);
       for(unsigned int j = 0; j < n;  ++j) 
       {
-        points.push_back(no.shapePose[j].getOrigin());
+        points.push_back(inv*no.shapePose[j].getOrigin());
       }
       continue;
     }
     for(unsigned int j = 0; j < n; j++) {
       if (no.shape[j]->type == shapes::MESH) {
         bodies::Body *body = bodies::createBodyFromShape(no.shape[j]);
-        body->setPose(no.shapePose[j]);
+        body->setPose(inv*no.shapePose[j]);
         std::vector<btVector3> body_points;
         getVoxelsInBody(*body, body_points);
         points.insert(points.end(), body_points.begin(), body_points.end());
@@ -280,7 +281,7 @@ void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& po
                   KDL::Vector p(pose.position.x-x,pose.position.y-y,pose.position.z-z);                  
                   KDL::Vector p2;
                   p2 = f*p;
-                  points.push_back(btVector3(p2(0),p2(1),p2(2)));
+                  points.push_back(inv*btVector3(p2(0),p2(1),p2(2)));
                 }
               }
             }
@@ -302,7 +303,7 @@ void ChompCollisionSpace::addCollisionObjectsToPoints(std::vector<btVector3>& po
                 KDL::Vector p(pose.position.x-x,pose.position.y-y,pose.position.z-z);                  
                 KDL::Vector p2;
                 p2 = f*p;
-                points.push_back(btVector3(p2(0),p2(1),p2(2)));
+                points.push_back(inv*btVector3(p2(0),p2(1),p2(2)));
               }
             }
           }
@@ -536,15 +537,13 @@ void ChompCollisionSpace::loadRobotBodies() {
 }
 
 void ChompCollisionSpace::updateRobotBodiesPoses() {
-  monitor_->getKinematicModel()->computeTransforms(monitor_->getRobotState()->getParams());
-
   for(std::map<std::string, std::vector<bodies::Body *> >::iterator it1 = planning_group_bodies_.begin();
       it1 != planning_group_bodies_.end();
       it1++) {
     std::vector<std::string>& v = planning_group_link_names_[it1->first];
     for(unsigned int i = 0; i < it1->second.size(); i++) {
       const planning_models::KinematicModel::Link* link = monitor_->getKinematicModel()->getLink(v[i]);
-      (it1->second)[i]->setPose(link->globalTransFwd);
+      (it1->second)[i]->setPose(link->global_link_transform);
     }
   }
 }

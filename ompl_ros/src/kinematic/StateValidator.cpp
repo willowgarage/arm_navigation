@@ -37,32 +37,37 @@
 #include "ompl_ros/kinematic/StateValidator.h"
 
 bool ompl_ros::ROSStateValidityPredicateKinematic::operator()(const ompl::base::State *s) const
-{
-  //  EnvironmentDescription *ed = model_->getEnvironmentDescription();
-  int test = planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST | planning_environment::PlanningMonitor::GOAL_CONSTRAINTS_TEST;
-  //  group->computeTransforms(s->values);    
-  kinematic_state_->setParamsGroup(s->values,model_->groupName);
-  bool valid = model_->planningMonitor->isStateValid(kinematic_state_,test,false);
+{  
+  std::vector<double> vals(s->values,s->values+model_->group->joints.size());
 
-  /*
-    bool valid = model_->constraintEvaluator.decide(s->values, group);
-    if (valid)
-    {
-      em->updateRobotModel();
-      valid = !em->isCollision();
-    }
-  */
-    return valid;
-    
-    //    EnvironmentDescription *ed = model_->getEnvironmentDescription();
-    //    return check(s, ed->collisionSpace, ed->group, ed->constraintEvaluator);
+  model_->group->setAllJointsValues(vals);
+  model_->group->computeTransforms();
+  model_->planningMonitor->getEnvironmentModel()->updateRobotModel();  
+
+  //Already knows about joint limits
+  //bool within_bounds = model_->planningMonitor->getCheckingKinematicModel()->checkJointsBounds(joint_group->joint_names);     
+  //if(!within_bounds) {
+  //  return false;
+  //}
+  
+  bool collision = model_->planningMonitor->getEnvironmentModel()->isCollision();
+  if(collision) {
+    return false;
+  }
+
+  bool path_constraints_ok = model_->planningMonitor->checkPathConstraints(model_->planningMonitor->getKinematicModel(), false);
+
+  if(!path_constraints_ok) {
+    return false;
+  }
+  
+  return true;  
 }
 
 void ompl_ros::ROSStateValidityPredicateKinematic::setConstraints(const motion_planning_msgs::Constraints &kc)
 {
   
   clearConstraints();
-  *kinematic_state_ = *model_->planningMonitor->getRobotState();
   ROS_INFO("ompl planning for group %s",model_->groupName.c_str());
   model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.position_constraints);
   model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.orientation_constraints);
@@ -86,18 +91,20 @@ void ompl_ros::ROSStateValidityPredicateKinematic::printSettings(std::ostream &o
 bool ompl_ros::ROSStateValidityPredicateKinematic::check(const ompl::base::State *s, collision_space::EnvironmentModel *em, planning_models::KinematicModel::JointGroup *jg,
 							 const planning_environment::KinematicConstraintEvaluatorSet *kce) const
 {
-    jg->computeTransforms(s->values);
+  //   jg->computeTransforms(s->values);
     
-    ROS_INFO("Checking");
+//     ROS_INFO("Checking");
     
-    kce->print(std::cout);
+//     kce->print(std::cout);
 
-    bool valid = kce->decide(s->values, jg);
-    if (valid)
-    {
-      em->updateRobotModel();
-      valid = !em->isCollision();
-    }
+//     bool valid = kce->decide(s->values, jg);
+//     if (valid)
+//     {
+//       em->updateRobotModel();
+//       valid = !em->isCollision();
+//     }
     
-    return valid;
+  //return valid;
+
+  return true;
 }
