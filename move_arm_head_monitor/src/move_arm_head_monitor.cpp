@@ -107,18 +107,18 @@ public:
 	trajectory_state_serviceclient_ = root_handle_.serviceClient<pr2_controllers_msgs::QueryTrajectoryState>("trajectory_query_service");
 	forward_kinematics_serviceclient_ = root_handle_.serviceClient<kinematics_msgs::GetPositionFK>("forward_kinematics_service");
 
-	while(!point_head_actionclient_.waitForServer(ros::Duration(5.0)))
+	while(ros::ok() && !point_head_actionclient_.waitForServer(ros::Duration(5.0)))
 	{
 		ROS_INFO("Waiting for point head action server");
 	}
 
-	while(!ros::service::waitForService("trajectory_query_service", ros::Duration(5.0))) // ie "/r_arm_controller/query_state"
+	while(ros::ok() && !ros::service::waitForService("trajectory_query_service", ros::Duration(5.0))) // ie "/r_arm_controller/query_state"
 	{	
 		ROS_INFO_STREAM("Waiting for trajectory query service: "<<trajectory_state_serviceclient_.getService());
 	}
 
 	
-	while(!ros::service::waitForService("forward_kinematics_service", ros::Duration(5.0)))  // ie "/pr2_right_arm_kinematics/get_fk"
+	while(ros::ok() && !ros::service::waitForService("forward_kinematics_service", ros::Duration(5.0)))  // ie "/pr2_right_arm_kinematics/get_fk"
 	{
 		ROS_INFO_STREAM("Waiting for forward kinematics service: "<<forward_kinematics_serviceclient_.getService());
 	}
