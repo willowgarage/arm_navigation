@@ -61,13 +61,14 @@
 #include <visualization_msgs/Marker.h>
 
 #include <planning_environment/util/construct_object.h>
+#include <planning_environment_msgs/utils.h>
 //#include <planning_environment/monitors/joint_state_monitor.h>
 #include <geometric_shapes/bodies.h>
 
 #include <planning_environment_msgs/GetRobotState.h>
 #include <planning_environment_msgs/GetJointTrajectoryValidity.h>
 #include <planning_environment_msgs/GetStateValidity.h>
-#include <planning_environment_msgs/GetJointsInGroup.h>
+#include <planning_environment_msgs/GetGroupInfo.h>
 #include <planning_environment_msgs/GetEnvironmentSafety.h>
 #include <planning_environment_msgs/SetConstraints.h>
 
@@ -172,7 +173,7 @@ public:
     check_env_safe_client_ = root_handle_.serviceClient<planning_environment_msgs::GetEnvironmentSafety>("get_environment_safety");
     check_state_validity_client_ = root_handle_.serviceClient<planning_environment_msgs::GetStateValidity>("get_state_validity");
     check_execution_safe_client_ = root_handle_.serviceClient<planning_environment_msgs::GetJointTrajectoryValidity>("get_execution_safety");
-    get_joints_in_group_client_ = root_handle_.serviceClient<planning_environment_msgs::GetJointsInGroup>("get_joints_in_group");      
+    get_group_info_client_ = root_handle_.serviceClient<planning_environment_msgs::GetGroupInfo>("get_group_info");      
     get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");      
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
     filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
@@ -214,7 +215,7 @@ public:
     ros::service::waitForService("get_environment_safety");
     ros::service::waitForService("get_state_validity");
     ros::service::waitForService("get_execution_safety");
-    ros::service::waitForService("get_joints_in_group");
+    ros::service::waitForService("get_group_info");
     ros::service::waitForService("get_robot_state");
     ros::service::waitForService("filter_trajectory");
 
@@ -249,31 +250,38 @@ public:
       ROS_ERROR("No 'group' parameter specified. Without the name of the group of joints to plan for, action cannot start");
       return false;
     }
-    else
+    planning_environment_msgs::GetGroupInfo::Request req;
+    planning_environment_msgs::GetGroupInfo::Response res;
+    req.group_name = group_;
+    if(get_group_info_client_.call(req,res))
     {
-      planning_environment_msgs::GetJointsInGroup::Request req;
-      planning_environment_msgs::GetJointsInGroup::Response res;
-      req.group_name = group_;
-      if(get_joints_in_group_client_.call(req,res))
+      if(!res.joint_names.empty())
       {
-        if(!res.joint_names.empty())
-        {
-          group_joint_names_ = res.joint_names;
-          return true;
-        }
-        else
-        {
-          ROS_ERROR("Could not get the list of joint names in the group: %s",
-                    group_.c_str());
-          return false;
-        }
+        group_joint_names_ = res.joint_names;
+        group_link_names_ = res.link_names;
       }
       else
       {
-        ROS_ERROR("Service call to find list of joint names failed on %s",
-                  get_joints_in_group_client_.getService().c_str());
+        ROS_ERROR("Could not get the list of joint names in the group: %s",
+                  group_.c_str());
         return false;
       }
+    }
+    else
+    {
+      ROS_ERROR("Service call to find group info failed on %s",
+                get_group_info_client_.getService().c_str());
+      return false;
+    }
+    //now getting all links
+    
+    req.group_name="";
+    if(get_group_info_client_.call(req,res))
+    {
+      all_link_names_ = res.link_names;
+    } else {
+      ROS_INFO("Can't get all link names");
+      return false;
     }
     return true;
   }
@@ -689,8 +697,13 @@ private:
     req.robot_state = state;
     req.check_goal_constraints = true;
     req.check_collisions = true;
+    planning_environment_msgs::generateDisableAllowedCollisionsWithExclusions(all_link_names_,
+                                                                              group_link_names_,
+                                                                              req.ordered_collision_operations.collision_operations);
+    req.ordered_collision_operations.collision_operations.insert(req.ordered_collision_operations.collision_operations.end(),
+                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.begin(),
+                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.end());
     req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
     req.link_padding = original_request_.motion_plan_request.link_padding;
@@ -718,7 +731,17 @@ private:
     req.robot_state = state;
     addCheckFlags(req,COLLISION_TEST | flag);
     req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
+    planning_environment_msgs::generateDisableAllowedCollisionsWithExclusions(all_link_names_,
+                                                                              group_link_names_,
+                                                                              req.ordered_collision_operations.collision_operations);
+    req.ordered_collision_operations.collision_operations.insert(req.ordered_collision_operations.collision_operations.end(),
+                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.begin(),
+                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.end());
+    //for(unsigned int i = 0; i < req.ordered_collision_operations.collision_operations.size(); i++) {
+    //  ROS_INFO_STREAM("Disabling collisions between " << req.ordered_collision_operations.collision_operations[i].object1
+    //                  << " and " << req.ordered_collision_operations.collision_operations[i].object2);
+    //}
+
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
     req.link_padding = original_request_.motion_plan_request.link_padding;
@@ -1631,7 +1654,7 @@ private:
   boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
   boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> >  head_look_client_;
 
-  ros::ServiceClient get_joints_in_group_client_, get_state_client_;
+  ros::ServiceClient get_group_info_client_, get_state_client_;
   ros::ServiceClient ik_client_, check_state_at_goal_client_, check_plan_validity_client_;
   ros::ServiceClient check_env_safe_client_, check_execution_safe_client_, check_state_validity_client_;
   ros::ServiceClient trajectory_start_client_,trajectory_cancel_client_,trajectory_query_client_;	
@@ -1648,6 +1671,8 @@ private:
   int num_planning_attempts_;
 
   std::vector<std::string> group_joint_names_;
+  std::vector<std::string> group_link_names_;
+  std::vector<std::string> all_link_names_;
   move_arm_msgs::MoveArmResult move_arm_action_result_;
   move_arm_msgs::MoveArmFeedback move_arm_action_feedback_;
 
