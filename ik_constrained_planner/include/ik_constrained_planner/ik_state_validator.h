@@ -42,7 +42,6 @@
 #include <ompl/base/State.h>
 
 #include <motion_planning_msgs/Constraints.h>
-#include <planning_models/kinematic_state.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 
 #include <kinematics_base/kinematics_base.h>
@@ -66,16 +65,14 @@ public:
     ompl::base::StateValidityChecker(si), 
     planning_monitor_(planning_monitor),
     space_information_(si)
-	{
-    kinematic_state_ = new planning_models::KinematicState(planning_monitor_->getKinematicModel());
+  {
   }
 	
-	virtual ~IKStateValidator(void)
-	{
-    delete kinematic_state_;
-	}
+  virtual ~IKStateValidator(void)
+  {
+  }
 	
-	virtual bool operator()(const ompl::base::State *s) const;
+  virtual bool operator()(const ompl::base::State *s) const;
 	
   /** \brief Used by the planner to set the group name */
   void configure(const std::string &group_name, 
@@ -83,14 +80,13 @@ public:
                  const geometry_msgs::Pose &kinematics_planner_frame,
                  kinematics::KinematicsBase *kinematics_solver);
 
-	/** \brief Used by the ROS space information to print information */
-	void printSettings(std::ostream &out) const;
+  /** \brief Used by the ROS space information to print information */
+  void printSettings(std::ostream &out) const;
 	
 protected:	
   btTransform kinematics_planner_tf_;
   std::string group_name_;
   unsigned int redundant_joint_index_;
-  planning_models::KinematicState *kinematic_state_;
   planning_environment::PlanningMonitor *planning_monitor_;
   kinematics::KinematicsBase* kinematics_solver_;
   ompl::base::SpaceInformation *space_information_;

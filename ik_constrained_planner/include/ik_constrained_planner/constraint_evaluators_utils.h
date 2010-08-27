@@ -40,6 +40,7 @@
 #include <motion_planning_msgs/Constraints.h>
 #include <geometric_shapes_msgs/Shape.h>
 #include <geometric_shapes/bodies.h>
+#include <geometric_shapes/shape_operations.h>
 #include <geometry_msgs/Pose.h>
 
 #include <boost/scoped_ptr.hpp>

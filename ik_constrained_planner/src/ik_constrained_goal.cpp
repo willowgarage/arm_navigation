@@ -75,7 +75,7 @@ void IKConstrainedGoal::print(std::ostream &out) const
 {
 }
 
-void IKConstrainedGoal::setup(motion_planning_msgs::Constraints &goal_constraint,                              
+void IKConstrainedGoal::setup(const motion_planning_msgs::Constraints &goal_constraint,                              
                               const double &redundant_joint_value)
 {
   // Setup the position constraint

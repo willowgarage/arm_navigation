@@ -51,15 +51,12 @@ public:
   {	
     collision_models_ = new planning_environment::CollisionModels("robot_description");
     node_handle_.param("distance_metric", distance_metric_, std::string("L2Square"));
-    if (node_handle_.hasParam("planning_frame_id"))
-    {
-      std::string frame; node_handle_.param("planning_frame_id", frame, std::string(""));
-      planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_, frame);
-    }
-    else
-	    planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
+    planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
     //    motion_planner_ = new IKConstrainedPlanner();
-	
+    
+    planning_monitor_->waitForState();
+    planning_monitor_->startEnvironmentMonitor();
+    
     plan_path_service_ = node_handle_.advertiseService("plan_path", &IKConstrainedPlannerROS::planToGoal, this);
   }
     
@@ -109,7 +106,7 @@ private:
 	
     res.trajectory.joint_trajectory.points.clear();
     res.trajectory.joint_trajectory.joint_names.clear();
-    res.trajectory.joint_trajectory.header.frame_id = planning_monitor_->getFrameId();
+    res.trajectory.joint_trajectory.header.frame_id = planning_monitor_->getWorldFrameId();
     res.trajectory.joint_trajectory.header.stamp = planning_monitor_->lastMapUpdate();
 	
     st = motion_planner_.computePlan(req,res);

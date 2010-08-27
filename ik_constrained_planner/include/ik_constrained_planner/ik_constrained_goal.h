@@ -56,7 +56,7 @@ namespace ik_constrained_planner
   {
     public:
     IKConstrainedGoal(ompl::base::SpaceInformation *si, 
-                      motion_planning_msgs::Constraints &constraint,
+                      const motion_planning_msgs::Constraints &constraint,
                       const double &redundant_joint_value):ompl::base::GoalState(si)
     {
       state = new ompl::base::State(7);
@@ -73,7 +73,7 @@ namespace ik_constrained_planner
 	
     protected:
 	
-    void setup(motion_planning_msgs::Constraints &goal_constraint,                              
+    void setup(const motion_planning_msgs::Constraints &goal_constraint,                              
                const double &redundant_joint_value);
 
   private:

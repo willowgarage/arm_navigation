@@ -72,13 +72,12 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
     }
   ROS_DEBUG("IK Solution: %f %f %f %f %f %f %f",solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);
   
-  sensor_msgs::JointState joint_state;
+  std::map<std::string, double> joint_map_values;
   for(unsigned int i=0; i < kinematics_solver_->getJointNames().size(); i++)
   {
-    joint_state.position.push_back(solution[i]);
-    joint_state.name.push_back((kinematics_solver_->getJointNames())[i]);
+    joint_map_values[kinematics_solver_->getJointNames()[i]] = solution[i];
   }
-  planning_monitor_->setJointStateAndComputeTransforms(joint_state);
+  planning_monitor_->getKinematicModel()->computeTransforms(joint_map_values);
   planning_monitor_->getEnvironmentModel()->updateRobotModel();
 
   bool valid = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());

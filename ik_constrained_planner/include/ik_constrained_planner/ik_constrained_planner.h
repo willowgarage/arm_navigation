@@ -50,7 +50,6 @@
 #include <boost/shared_ptr.hpp>
 
 #include <planning_environment/monitors/planning_monitor.h>
-#include <planning_models/kinematic_state.h>
 #include <planning_models/kinematic_model.h>
 #include <tf/transform_datatypes.h>
 #include <angles/angles.h>
@@ -113,12 +112,9 @@ public:
                           ompl::base::SpaceInformation *space_information);
 
   bool configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
-                          const planning_models::KinematicState *start_state, 
                           ompl::base::SpaceInformation *space_information);
 
   void printSettings(ompl::base::SpaceInformation *si);
-
-  planning_models::KinematicState* fillStartState(const motion_planning_msgs::RobotState &robot_state);
 
   bool computePlan(motion_planning_msgs::GetMotionPlan::Request &req, 
                    motion_planning_msgs::GetMotionPlan::Response &res);
@@ -185,7 +181,7 @@ private:
 
   std::string default_planner_id_;
   ompl::base::Goal* computeGoalFromConstraints(ompl::base::SpaceInformation *space_information, 
-                                               motion_planning_msgs::Constraints &constraints,
+                                               const motion_planning_msgs::Constraints &constraints,
                                                const std::string &group_name);
   std::vector<std::string> state_names_;
   ompl::base::StateValidityChecker* validity_checker_;
