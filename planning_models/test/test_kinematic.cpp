@@ -35,7 +35,6 @@
 /** \author Ioan Sucan */
 
 #include <planning_models/kinematic_model.h>
-#include <planning_models/kinematic_state.h>
 #include <gtest/gtest.h>
 #include <sstream>
 #include <ctype.h>
@@ -64,32 +63,33 @@ static bool sameStringIgnoringWS(const std::string &s1, const std::string &s2)
 TEST(Loading, SimpleRobot)
 {
     static const std::string MODEL0 = 
-	"<?xml version=\"1.0\" ?>" 
-	"<robot name=\"myrobot\">" 
-	"  <joint name=\"base_joint\" type=\"planar\">"
-	"  <origin rpy=\"0 0 0\" xyz=\"0 0 0.0\"/>"
-	"  <parent link=\"world\"/>"
-	"  <child link=\"base_link\"/>"
-	"</joint>"
-  "<link name=\"world\"/>"
-	"<link name=\"base_link\">"
-	"  <collision name=\"base_collision\">"
-        "  <origin rpy=\"0 0 0\" xyz=\"0 0 0.165\"/>"
-        "  <geometry name=\"base_collision_geom\">"
-	"  <box size=\"0.65 0.65 0.23\"/>"
-        "</geometry>"
-	"</collision>"
-	"</link>"
-	"</robot>";
+      "<?xml version=\"1.0\" ?>" 
+      "<robot name=\"myrobot\">" 
+      "  <link name=\"base_link\">"
+      "    <collision name=\"base_collision\">"
+      "    <origin rpy=\"0 0 0\" xyz=\"0 0 0.165\"/>"
+      "    <geometry name=\"base_collision_geom\">"
+      "      <box size=\"0.65 0.65 0.23\"/>"
+      "    </geometry>"
+      "    </collision>"
+      "   </link>"
+      "</robot>";
+
+    std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
+    planning_models::KinematicModel::MultiDofConfig config("base_joint");
+    config.type = "Planar";
+    config.parent_frame_id = "odom_combined";
+    config.child_frame_id = "base_link";
+    multi_dof_configs.push_back(config);
 
     urdf::Model urdfModel;
     urdfModel.initString(MODEL0);
     
     std::map < std::string, std::vector<std::string> > groups;
-    planning_models::KinematicModel *model = new planning_models::KinematicModel(urdfModel, groups);
+    planning_models::KinematicModel *model = new planning_models::KinematicModel(urdfModel, groups,multi_dof_configs);
     
     EXPECT_EQ(std::string("myrobot"), model->getName());
-    EXPECT_EQ((unsigned int)3, model->getDimension());
+    EXPECT_EQ((unsigned int)3, model->getAllJointsValues().size());
     
     std::vector<const planning_models::KinematicModel::Link*> links;
     model->getLinks(links);
@@ -110,13 +110,7 @@ TEST(LoadingAndFK, SimpleRobot)
 {   
     static const std::string MODEL1 = 
 	"<?xml version=\"1.0\" ?>" 
-	"<robot name=\"one_robot\">"
-	"  <joint name=\"base_joint\" type=\"planar\">"
-	"  <parent link=\"world\"/>"
-	"  <child link=\"base_link\"/>"
-	"  <origin rpy=\"1 0 0 \" xyz=\"0 0 0 \"/>"
-	"  </joint>"
-  "<link name=\"world\"/>"
+      "<robot name=\"myrobot\">" 
 	"<link name=\"base_link\">"
 	"  <inertial>"
 	"    <mass value=\"2.81\"/>"
@@ -139,13 +133,18 @@ TEST(LoadingAndFK, SimpleRobot)
 	"</robot>";
     
     static const std::string MODEL1_INFO = 
-	"Complete model state dimension = 3\n"
-	"State bounds: [0.00000, 0.00000] [0.00000, 0.00000] [-3.14159, 3.14159] \n"
-	"Floating joints : \n"
-	"Planar joints : base_joint \n"
-	"Available groups: base \n"
-	"Group base has 1 roots: base_joint \n"
-	"The state components for this group are: 0 1 2 \n";
+      "Complete model state dimension = 3\n"
+      "State bounds: [-3.14159, 3.14159] [-DBL_MAX, DBL_MAX] [-DBL_MAX, DBL_MAX]\n"
+      "Root joint : base_joint \n"
+      "Available groups: base \n"
+      "Group base has 1 roots: base_joint \n";
+
+    std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
+    planning_models::KinematicModel::MultiDofConfig config("base_joint");
+    config.type = "Planar";
+    config.parent_frame_id = "odom_combined";
+    config.child_frame_id = "base_link";
+    multi_dof_configs.push_back(config);
     
     urdf::Model urdfModel;
     urdfModel.initString(MODEL1);
@@ -153,34 +152,31 @@ TEST(LoadingAndFK, SimpleRobot)
     std::map < std::string, std::vector<std::string> > groups;
     groups["base"].push_back("base_joint");
 
-    planning_models::KinematicModel *model = new planning_models::KinematicModel(urdfModel, groups);
+    planning_models::KinematicModel *model = new planning_models::KinematicModel(urdfModel, groups, multi_dof_configs);
         
-    EXPECT_EQ((unsigned int)3, model->getDimension());
+    EXPECT_EQ((unsigned int)3, model->getAllJointsValues().size());
     
     model->defaultState();
     
     std::vector<const planning_models::KinematicModel::Joint*> joints;
     model->getJoints(joints);
     EXPECT_EQ((unsigned int)1, joints.size());
-    EXPECT_EQ((unsigned int)3, joints[0]->usedParams);
-
-    EXPECT_EQ((unsigned int)1, model->getPlanarJoints().size());
+    EXPECT_EQ((unsigned int)3, joints[0]->getVariableTransformValues().size());
 
     std::stringstream ssi;
     model->printModelInfo(ssi);
-    EXPECT_TRUE(sameStringIgnoringWS(MODEL1_INFO, ssi.str()));
+    EXPECT_TRUE(sameStringIgnoringWS(MODEL1_INFO, ssi.str())) << ssi.str();
         
     
-    double param[3] = { 10, 8, 0 };
-    model->computeTransforms(param);
+    std::map<std::string, double> joint_values;
+    joint_values["planar_x"]=10.0;
+    joint_values["planar_y"]=8.0;
+    joint_values["planar_th"]=0.0;
+    model->computeTransforms(joint_values);
 
-    EXPECT_NEAR(9.9, model->getLink("base_link")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(8.0, model->getLink("base_link")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(-0.479426, model->getLink("base_link")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(0.877583, model->getLink("base_link")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(10.0, model->getLink("base_link")->global_link_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(8.0, model->getLink("base_link")->global_link_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("base_link")->global_link_transform.getOrigin().z(), 1e-5);
     
     delete model;    
 }
@@ -189,14 +185,8 @@ TEST(LoadingAndFK, SimpleRobot)
 TEST(FK, OneRobot)
 {
     static const std::string MODEL2 = 
-	"<?xml version=\"1.0\" ?>" 
-	"<robot name=\"one_robot\">"
-	"<joint name=\"base_joint\" type=\"planar\">"
-	"  <parent link=\"world\"/>"
-	"  <child link=\"base_link\"/>"
-	"  <origin rpy=\" 0.0 -0.2 0 \" xyz=\"1 0 0 \"/>"
-	"</joint>"
-  "<link name=\"world\"/>"
+      "<?xml version=\"1.0\" ?>" 
+      "<robot name=\"one_robot\">"
 	"<link name=\"base_link\">"
 	"  <inertial>"
 	"    <mass value=\"2.81\"/>"
@@ -295,13 +285,11 @@ TEST(FK, OneRobot)
 	"</robot>";
     
     static const std::string MODEL2_INFO = 
-	"Complete model state dimension = 5\n"
-	"State bounds: [0.00000, 0.00000] [0.00000, 0.00000] [-3.14159, 3.14159] [-3.14159, 3.14159] [0.00000, 0.08900] \n"
-	"Floating joints : \n"
-	"Planar joints : base_joint \n"
-	"Available groups: base \n"
-	"Group base has 1 roots: base_joint \n"
-	"The state components for this group are: 0 1 2 3 4 \n";
+      "Complete model state dimension = 5\n"
+      "State bounds: [-3.14159, 3.14159] [-DBL_MAX, DBL_MAX] [-DBL_MAX, DBL_MAX] [-3.14159, 3.14159] [0.00000, 0.08900]\n"
+      "Root joint : base_joint \n"
+      "Available groups: base \n"
+      "Group base has 1 roots: base_joint \n";
 
     urdf::Model urdfModel;
     urdfModel.initString(MODEL2);
@@ -311,23 +299,37 @@ TEST(FK, OneRobot)
     groups["base"].push_back("joint_a");
     groups["base"].push_back("joint_b");
     groups["base"].push_back("joint_c");
-        
-    planning_models::KinematicModel *model = new planning_models::KinematicModel(urdfModel, groups);
-    
-    
-    EXPECT_EQ((unsigned int)5, model->getDimension());
 
-    double param[5] = { 1, 1, 0.5, -0.5, 0.1 };
-    model->getGroup("base")->computeTransforms(param);
+    std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
+    planning_models::KinematicModel::MultiDofConfig config("base_joint");
+    config.type = "Planar";
+    config.parent_frame_id = "odom_combined";
+    config.child_frame_id = "base_link";
+    multi_dof_configs.push_back(config);
+        
+    planning_models::KinematicModel *model = new planning_models::KinematicModel(urdfModel, groups, multi_dof_configs);
+    
+    EXPECT_EQ((unsigned int)5, model->getAllJointsValues().size());
+
+    std::map<std::string, double> joint_values;
+    joint_values["planar_x"]=1.0;
+    joint_values["planar_y"]=1.0;
+    joint_values["planar_th"]=0.5;
+    joint_values["joint_a"] = -0.5;
+    joint_values["joint_c"] = 0.1;
+    model->getGroup("base")->computeTransforms(joint_values);
+
+    //double param[5] = { 1, 1, 0.5, -0.5, 0.1 };
+    //model->getGroup("base")->computeTransforms(param);
     
     std::stringstream ss1;
     model->printModelInfo(ss1);
-    EXPECT_TRUE(sameStringIgnoringWS(MODEL2_INFO, ss1.str()));
+    EXPECT_TRUE(sameStringIgnoringWS(MODEL2_INFO, ss1.str())) << ss1.str();
     
     // make sure applying the state works for the entire robot
     model->printTransforms(ss1);
     
-    model->computeTransforms(param);
+    model->computeTransforms(joint_values);
     
     std::stringstream ss2;
     model->printModelInfo(ss2);
@@ -335,65 +337,38 @@ TEST(FK, OneRobot)
     
     EXPECT_EQ(ss1.str(), ss2.str());
     
-    EXPECT_NEAR(1.0, model->getLink("base_link")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("base_link")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("base_link")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.247404, model->getLink("base_link")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(0.968912, model->getLink("base_link")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("base_link")->global_link_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("base_link")->global_link_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("base_link")->global_link_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("base_link")->global_link_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("base_link")->global_link_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.247404, model->getLink("base_link")->global_link_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(0.968912, model->getLink("base_link")->global_link_transform.getRotation().w(), 1e-5);
 
-    EXPECT_NEAR(1.0, model->getLink("link_a")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("link_a")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_a")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("link_a")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_a")->global_link_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_a")->global_link_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_link_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_link_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_link_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_a")->global_link_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_a")->global_link_transform.getRotation().w(), 1e-5);
 
-    EXPECT_NEAR(1.0, model->getLink("link_b")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.5, model->getLink("link_b")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_b")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_b")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(-0.20846, model->getLink("link_b")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_b")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(0.978031, model->getLink("link_b")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_b")->global_link_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.5, model->getLink("link_b")->global_link_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_b")->global_link_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_b")->global_link_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(-0.20846, model->getLink("link_b")->global_link_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_b")->global_link_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(0.978031, model->getLink("link_b")->global_link_transform.getRotation().w(), 1e-5);
 
-    EXPECT_NEAR(1.1, model->getLink("link_c")->globalTrans.getOrigin().x(), 1e-5);
-    EXPECT_NEAR(1.4, model->getLink("link_c")->globalTrans.getOrigin().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getOrigin().z(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getRotation().x(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getRotation().y(), 1e-5);
-    EXPECT_NEAR(0.0, model->getLink("link_c")->globalTrans.getRotation().z(), 1e-5);
-    EXPECT_NEAR(1.0, model->getLink("link_c")->globalTrans.getRotation().w(), 1e-5);
+    EXPECT_NEAR(1.1, model->getLink("link_c")->global_link_transform.getOrigin().x(), 1e-5);
+    EXPECT_NEAR(1.4, model->getLink("link_c")->global_link_transform.getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_link_transform.getOrigin().z(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_link_transform.getRotation().x(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_link_transform.getRotation().y(), 1e-5);
+    EXPECT_NEAR(0.0, model->getLink("link_c")->global_link_transform.getRotation().z(), 1e-5);
+    EXPECT_NEAR(1.0, model->getLink("link_c")->global_link_transform.getRotation().w(), 1e-5);
 
-    planning_models::KinematicState *sp = new planning_models::KinematicState(model);
-    EXPECT_FALSE(sp->seenAll());
-
-    double tmpParam[3];
-    tmpParam[0] = 0.1;
-    sp->setParamsJoint(tmpParam, "joint_a");
-    EXPECT_FALSE(sp->seenAll());
-    EXPECT_TRUE(sp->seenJoint("joint_a"));
-
-    tmpParam[0] = -1.0;    
-    sp->setParamsJoint(tmpParam, "joint_c");
-    EXPECT_FALSE(sp->seenAll());
-    
-    tmpParam[0] = 0.5; tmpParam[1] = 0.4; tmpParam[2] = 1.1;
-    sp->setParamsJoint(tmpParam, "base_joint");
-    EXPECT_TRUE(sp->seenAll());
-    
-    EXPECT_EQ(0.5, sp->getParams()[0]);
-    //    EXPECT_EQ(0.4, sp->getParams()[1]);
-    //    EXPECT_EQ(1.1, sp->getParams()[2]);
-    EXPECT_EQ(0.1, sp->getParams()[3]);
-    EXPECT_EQ(-1.0, sp->getParams()[4]);
-    
-    planning_models::KinematicState sp_copy = *sp;
-    EXPECT_TRUE(sp_copy == *sp);
-    
-    delete sp;
     delete model;
 }
 

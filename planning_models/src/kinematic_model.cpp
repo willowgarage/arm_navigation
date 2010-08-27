@@ -82,6 +82,10 @@ planning_models::KinematicModel::~KinematicModel(void)
     delete root_;
 }
 
+const std::string& planning_models::KinematicModel::getName() const {
+  return model_name_;
+}
+
 void planning_models::KinematicModel::copyFrom(const KinematicModel &source)
 {
   model_name_ = source.model_name_;
@@ -798,48 +802,53 @@ planning_models::KinematicModel::Joint* planning_models::KinematicModel::copyJoi
 
 void planning_models::KinematicModel::printModelInfo(std::ostream &out) const
 {
-  //out << "Complete model state dimension = " << dimension_ << std::endl;
+  out << "Complete model state dimension = " << getAllJointsValues().size() << std::endl;
     
-//   std::ios_base::fmtflags old_flags = out.flags();    
-//   out.setf(std::ios::fixed, std::ios::floatfield);
-//   std::streamsize old_prec = out.precision();
-//   out.precision(5);
-//   out << "State bounds: ";
-//   for (unsigned int i = 0 ; i < dimension_ ; ++i)
-//     out << "[" << stateBounds_[2 * i] << ", " << stateBounds_[2 * i + 1] << "] ";
-//   out << std::endl;
-//   out.precision(old_prec);    
-//   out.flags(old_flags);
+  std::ios_base::fmtflags old_flags = out.flags();    
+  out.setf(std::ios::fixed, std::ios::floatfield);
+  std::streamsize old_prec = out.precision();
+  out.precision(5);
+  out << "State bounds: ";
+  for(unsigned int i = 0; i < joint_list_.size(); i++) {
+    for(std::map<std::string, std::pair<double, double> >::const_iterator it = joint_list_[i]->joint_state_bounds.begin();
+        it != joint_list_[i]->joint_state_bounds.end();
+        it++) {
+      if(it->second.first == -DBL_MAX) {
+        out << "[-DBL_MAX, ";
+      } else {
+        out << "[" << it->second.first << ", ";
+      }
+      if(it->second.second == DBL_MAX) {
+        out << "DBL_MAX] ";
+      } else {
+        out << it->second.second << "] ";  
+      }
+    }
+  }
+    
+  out << std::endl;
+  out.precision(old_prec);    
+  out.flags(old_flags);
         
-//   out << "Floating joints : ";
-//   for (unsigned int i = 0 ; i < floatingJoints_.size() ; ++i)
-//     out << floatingJoints_[i] << " ";
-//   out << std::endl;
+  out << "Root joint : ";
+  out << getRoot()->name << " ";
+  out << std::endl;
     
-//   out << "Planar joints : ";
-//   for (unsigned int i = 0 ; i < planarJoints_.size() ; ++i)
-//     out << planarJoints_[i] << " ";
-//   out << std::endl;
+  out << "Available groups: ";
+  std::vector<std::string> l;
+  getGroupNames(l);
+  for (unsigned int i = 0 ; i < l.size() ; ++i)
+    out << l[i] << " ";
+  out << std::endl;
     
-//   out << "Available groups: ";
-//   std::vector<std::string> l;
-//   getGroupNames(l);
-//   for (unsigned int i = 0 ; i < l.size() ; ++i)
-//     out << l[i] << " ";
-//   out << std::endl;
-    
-//   for (unsigned int i = 0 ; i < l.size() ; ++i)
-//   {
-//     const JointGroup *g = getGroup(l[i]);
-//     out << "Group " << l[i] << " has " << g->jointRoots.size() << " roots: ";
-//     for (unsigned int j = 0 ; j < g->jointRoots.size() ; ++j)
-//       out << g->jointRoots[j]->name << " ";
-//     out << std::endl;
-//     out << "The state components for this group are: ";
-//     for (unsigned int j = 0 ; j < g->stateIndex.size() ; ++j)
-//       out << g->stateIndex[j] << " ";
-//     out << std::endl;
-//   }
+  for (unsigned int i = 0 ; i < l.size() ; ++i)
+  {
+    const JointGroup *g = getGroup(l[i]);
+    out << "Group " << l[i] << " has " << g->joint_roots.size() << " roots: ";
+    for (unsigned int j = 0 ; j < g->joint_roots.size() ; ++j)
+      out << g->joint_roots[j]->name << " ";
+    out << std::endl;
+  }
 }
 
 void planning_models::KinematicModel::printTransform(const std::string &st, const btTransform &t, std::ostream &out) const
