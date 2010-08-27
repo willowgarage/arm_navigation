@@ -279,6 +279,19 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   ros::WallTime start_time = ros::WallTime::now();
   ROS_INFO_STREAM("Received filtering request with trajectory size " << req.trajectory.points.size());
 
+  if(req.path_constraints.joint_constraints.size() > 0 ||
+     req.path_constraints.position_constraints.size() > 0 ||
+     req.path_constraints.orientation_constraints.size() > 0 ||
+     req.path_constraints.visibility_constraints.size() > 0) {
+    ROS_INFO("Chomp can't handle path constraints, passing through to other trajectory filters");
+    if(!filter_trajectory_client_.call(req,res)) {
+      ROS_INFO("Pass through failed");
+    } else {
+      ROS_INFO("Pass through succeeded");
+    }
+    return true;
+  }
+
   unsigned int NUM_POINTS=100;
 
   for (unsigned int i=0; i< req.trajectory.points.size(); i++)
