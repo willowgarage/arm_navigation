@@ -48,6 +48,7 @@ public:
   SelfFilter(void): nh_("~")
   {
     nh_.param<std::string>("sensor_frame", sensor_frame_, std::string());
+    nh_.param<int>("subsample_value", subsample_param_, 1);
     self_filter_ = new filters::SelfFilter<sensor_msgs::PointCloud>(nh_);
 
     sub_ = new message_filters::Subscriber<sensor_msgs::PointCloud>(root_handle_, "cloud_in", 1);	
@@ -91,9 +92,20 @@ private:
     ROS_DEBUG("Got pointcloud that is %f seconds old", (ros::Time::now() - cloud->header.stamp).toSec());
     std::vector<int> mask;
     ros::WallTime tm = ros::WallTime::now();
+
+    if(subsample_param_ != 1) {
+      sensor_msgs::PointCloud subpoints;
+      subpoints.header = cloud->header;
       
-    self_filter_->updateWithSensorFrame(*cloud, out, sensor_frame_);
+      for(int i = 0; i < (int)cloud->points.size(); i += subsample_param_) {
+	subpoints.points.push_back(cloud->points[i]);
+      }
       
+      self_filter_->updateWithSensorFrame(subpoints, out, sensor_frame_);
+    } else {
+      self_filter_->updateWithSensorFrame(*cloud, out, sensor_frame_);
+    }      
+
     double sec = (ros::WallTime::now() - tm).toSec();
 
     pointCloudPublisher_.publish(out);
@@ -109,6 +121,7 @@ private:
 
   filters::SelfFilter<sensor_msgs::PointCloud> *self_filter_;
   std::string sensor_frame_;
+  int subsample_param_;
 
   ros::Publisher                                        pointCloudPublisher_;
   ros::Subscriber                                       no_filter_sub_;
