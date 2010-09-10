@@ -94,6 +94,10 @@ namespace ompl_planning
 	
 	/** \brief Set the workspace bounds based on the request */
 	void setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &params, ompl_ros::ModelBase *ompl_model);
+
+        bool checkPathForCollisions(PlannerSetup *psetup,
+                                    motion_planning_msgs::RobotState &robot_state,
+                                    ompl::kinematic::PathKinematic *kpath);
 	
 	/** \brief Fill the response with solution data */
 	void fillResult(PlannerSetup *psetup, double stateDelay,

@@ -204,6 +204,7 @@ void ompl_planning::RequestHandler::configure(motion_planning_msgs::GetMotionPla
                                                                   req.motion_plan_request.link_padding,
                                                                   error_code);
     /* set the pose of the whole robot */
+    psetup->ompl_model->planningMonitor->getKinematicModel()->lock();
     psetup->ompl_model->planningMonitor->setRobotStateAndComputeTransforms(req.motion_plan_request.start_state);
     psetup->ompl_model->planningMonitor->getEnvironmentModel()->updateRobotModel();
                                          
@@ -477,3 +478,36 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, int times,
   return result;
 }
 
+bool ompl_planning::RequestHandler::checkPathForCollisions(PlannerSetup *psetup,
+                                                           motion_planning_msgs::RobotState &robot_state,
+                                                           ompl::kinematic::PathKinematic *kpath) {
+  
+  motion_planning_msgs::ArmNavigationErrorCodes error_code;
+  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+  
+  if(!psetup->ompl_model->planningMonitor->isStateValid(robot_state, planning_environment::PlanningMonitor::COLLISION_TEST, false, error_code)) {
+    ROS_INFO("Start state already invalid");
+    return false;
+  }
+  
+  std::vector<const planning_models::KinematicModel::Joint*> joints;
+  psetup->ompl_model->planningMonitor->getKinematicModel()->getJoints(joints);
+  trajectory_msgs::JointTrajectory joint_trajectory;
+  
+  joint_trajectory.points.resize(kpath->states.size());
+  joint_trajectory.joint_names = psetup->ompl_model->group->joint_names;
+  
+  const unsigned int dim = psetup->ompl_model->si->getStateDimension();
+  for (unsigned int i = 0 ; i < kpath->states.size() ; ++i)
+  {
+    joint_trajectory.points[i].time_from_start = ros::Duration(i * .01);
+    joint_trajectory.points[i].positions.resize(dim);
+    for (unsigned int j = 0 ; j < dim ; ++j)
+      joint_trajectory.points[i].positions[j] = kpath->states[i]->values[j];
+  }
+  
+  if (!psetup->ompl_model->planningMonitor->isTrajectoryValid(joint_trajectory, robot_state, (int)planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes)) {
+    return false;
+  }
+  return true;
+}
