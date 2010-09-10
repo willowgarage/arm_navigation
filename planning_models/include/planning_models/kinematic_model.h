@@ -41,7 +41,7 @@
 
 #include <urdf/model.h>
 #include <LinearMath/btTransform.h>
-#include <boost/thread/mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 
 #include <iostream>
 #include <vector>
@@ -558,7 +558,7 @@ private:
   /** \brief The root joint */
   Joint                                            *root_;
 	
-  boost::mutex                                      lock_;
+  boost::recursive_mutex                                      lock_;
 
   bool load_meshes_;
 
