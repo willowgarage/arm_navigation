@@ -39,6 +39,8 @@
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
+#include <urdf/model.h>
+#include <angles/angles.h>
 
 #include <actionlib/client/action_client.h>
 #include <pr2_controllers_msgs/JointTrajectoryAction.h>
@@ -153,6 +155,19 @@ public:
     private_handle_.param<double>("head_monitor_link_z",head_monitor_link_z_, 0.0);
     private_handle_.param<double>("head_monitor_max_frequency",head_monitor_max_frequency_, 2.0);
     private_handle_.param<double>("head_monitor_time_offset",head_monitor_time_offset_, 1.0);
+
+    std::string urdf_xml,full_urdf_xml;
+    root_handle_.param("urdf_xml", urdf_xml, std::string("robot_description"));
+    if(!root_handle_.getParam(urdf_xml,full_urdf_xml))
+    {
+      ROS_ERROR("Could not load the xml from parameter server: %s\n", urdf_xml.c_str());
+      robot_model_initialized_ = false;
+    }
+    else
+    {
+      robot_model_.initString(full_urdf_xml);
+      robot_model_initialized_ = true;
+    }
 
     using_head_monitor_ = true;
     num_planning_attempts_ = 0;
@@ -476,15 +491,37 @@ private:
     int    pos  = -1;
 
     std::map<std::string, double> current_state_map;
+    std::map<std::string, bool> continuous;
     for(unsigned int i = 0; i < joint_state.name.size(); i++) {
       current_state_map[joint_state.name[i]] = joint_state.position[i];
+    }
+
+    for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+      std::string name = trajectory.joint_names[j];
+      boost::shared_ptr<const urdf::Joint> joint = robot_model_.getJoint(name);
+      if (joint.get() == NULL)
+      {
+        ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
+        return false;
+      }
+      if (joint->type == urdf::Joint::CONTINUOUS) {
+        continuous[name] = true;
+      } else {
+        continuous[name] = false;
+      }
+
     }
 
     for (unsigned int i = start ; i <= end ; ++i)
     {
       double d = 0.0;
       for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
-        double diff = fabs(trajectory.points[i].positions[j] - current_state_map[trajectory.joint_names[j]]);
+        double diff; 
+        if(!continuous[trajectory.joint_names[j]]) {
+          diff = fabs(trajectory.points[i].positions[j] - current_state_map[trajectory.joint_names[j]]);
+        } else {
+          diff = angles::shortest_angular_distance(trajectory.points[i].positions[j],current_state_map[trajectory.joint_names[j]]);
+        }
         d += diff * diff;
       }
 	
@@ -494,6 +531,15 @@ private:
         dist = d;
       }
     }    
+
+    // if(pos == 0) {
+    //   for(unsigned int i = 0; i < joint_state.name.size(); i++) {
+    //     ROS_INFO_STREAM("Current state for joint " << joint_state.name[i] << " is " << joint_state.position[i]);
+    //   }
+    //   for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+    //     ROS_INFO_STREAM("Trajectory zero has " << trajectory.points[0].positions[j] << " for joint " << trajectory.joint_names[j]);
+    //   }
+    // }
 
     return pos;
   }
@@ -540,14 +586,25 @@ private:
     if(trajectory_out.points.empty())
     {
       ROS_WARN("No points in output trajectory");
-      return true;
+      return false;
     }	
 
     ros::Duration first_time = trajectory_out.points[0].time_from_start;
 
+    if(first_time < ros::Duration(.1)) {
+      ROS_INFO("First time less than one-tenth of a second");
+      first_time = ros::Duration(0.0);
+    } else {
+      first_time -= ros::Duration(.1);
+    }
+
     for(unsigned int i=0; i < trajectory_out.points.size(); ++i)
     {
-      trajectory_out.points[i].time_from_start -= (first_time-ros::Duration(.1));
+      if(trajectory_out.points[i].time_from_start > first_time) {
+        trajectory_out.points[i].time_from_start -= first_time;
+      } else {
+        ROS_INFO_STREAM("Not enough time in time from start for trajectory point " << i);
+      }
     }
 
     if(zero_vel_acc)
@@ -1677,6 +1734,11 @@ private:
   move_arm_msgs::MoveArmFeedback move_arm_action_feedback_;
 
   motion_planning_msgs::GetMotionPlan::Request original_request_;
+
+  //! A model of the robot to see which joints wrap around
+  urdf::Model robot_model_;
+  //! Flag that tells us if the robot model was initialized successfully
+  bool robot_model_initialized_;
 
   ros::Publisher display_path_publisher_;
   ros::Publisher display_joint_goal_publisher_;
