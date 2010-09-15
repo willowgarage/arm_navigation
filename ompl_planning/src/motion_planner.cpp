@@ -121,10 +121,11 @@ private:
     res.trajectory.joint_trajectory.header.stamp = planningMonitor_->lastMapUpdate();
 
     st = requestHandler_.computePlan(models_, stateDelay_, req, res, distance_metric_);
-    if (st && !res.trajectory.joint_trajectory.points.empty())
-      if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory,res.robot_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes))
-        ROS_ERROR("Reported solution appears to have already become invalidated");
-    
+    // if (st && !res.trajectory.joint_trajectory.points.empty())
+    //   planningMonitor_->setOnCollisionContactCallback(boost::bind(&ompl_planning::RequestHandler::contactFound, (&requestHandler_), _1));
+    //   if (!planningMonitor_->isTrajectoryValid(res.trajectory.joint_trajectory,res.robot_state,planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes))
+    //     ROS_ERROR("Reported solution appears to have already become invalidated");
+    //   planningMonitor_->setOnCollisionContactCallback(NULL);
     return st;	
   }
     

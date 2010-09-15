@@ -309,7 +309,7 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, double stateDe
   sol.path = NULL;
   sol.difference = 0.0;
   sol.approximate = false;
-  callPlanner(psetup, req.motion_plan_request.num_planning_attempts, req.motion_plan_request.allowed_planning_time.toSec(), sol);
+  callPlanner(psetup, req.motion_plan_request.start_state, req.motion_plan_request.num_planning_attempts, req.motion_plan_request.allowed_planning_time.toSec(), sol);
 
   m->planningMonitor->getKinematicModel()->unlock();
   m->planningMonitor->revertToDefaultState();
@@ -388,7 +388,7 @@ void ompl_planning::RequestHandler::fillResult(PlannerSetup *psetup, double stat
   assert(kpath || dpath);    
 }
 
-bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, int times, double allowed_time, Solution &sol)
+bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, motion_planning_msgs::RobotState& robot_state, int times, double allowed_time, Solution &sol)
 {
   if (times <= 0)
     {
@@ -403,6 +403,8 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, int times,
   double t_distance = 0.0;
   bool result = psetup->mp->isTrivial(&t_index, &t_distance);
     
+  bool all_ok = true;
+
   if (result)
     {
       ROS_INFO("Solution already achieved");
@@ -429,6 +431,8 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, int times,
       double totalTime = 0.0;
       ompl::base::Goal *goal = psetup->ompl_model->si->getGoal();
 	
+      psetup->ompl_model->planningMonitor->setOnCollisionContactCallback(boost::bind(&ompl_planning::RequestHandler::contactFound, this, _1));
+
       for (int i = 0 ; i < times ; ++i)
         {
           ros::WallTime startTime = ros::WallTime::now();
@@ -437,20 +441,33 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, int times,
           ROS_DEBUG("%s Motion planner spent %g seconds", (ok ? "[Success]" : "[Failure]"), tsolve);
           totalTime += tsolve;
 	    
-
           if (ok)
             {
+              ompl::kinematic::PathKinematic *path = dynamic_cast<ompl::kinematic::PathKinematic*>(goal->getSolutionPath());
+              if(path) {
+                if(!checkPathForCollisions(psetup, robot_state, path)) {
+                  ROS_INFO("Path out of planner bad");
+                  all_ok = false;
+                }
+              }
               /* do path smoothing, if we are doing kinematic planning */
               if (psetup->smoother)
                 {
-                  ompl::kinematic::PathKinematic *path = dynamic_cast<ompl::kinematic::PathKinematic*>(goal->getSolutionPath());
                   if (path)
                     {
                       ros::WallTime startTime = ros::WallTime::now();
                       psetup->smoother->smoothMax(path);
+                      if(!checkPathForCollisions(psetup, robot_state, path)) {
+                        ROS_INFO("Path out of smoother bad");
+                        all_ok = false;
+                      }
                       double tsmooth = (ros::WallTime::now() - startTime).toSec();
                       ROS_DEBUG("          Smoother spent %g seconds (%g seconds in total)", tsmooth, tsmooth + tsolve);
-                      dynamic_cast<ompl_ros::ROSSpaceInformationKinematic*>(psetup->ompl_model->si)->interpolatePath(path, 0.3);
+                      dynamic_cast<ompl_ros::ROSSpaceInformationKinematic*>(psetup->ompl_model->si)->interpolatePath(path, 1.0);
+                      if(!checkPathForCollisions(psetup, robot_state, path)) {
+                        ROS_INFO("Path out of interpolator bad");
+                        all_ok = false;
+                      }
                     }
                 }
 		
@@ -475,6 +492,12 @@ bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, int times,
 	
       ROS_DEBUG("Total planning time: %g; Average planning time: %g", totalTime, (totalTime / (double)times));
     }
+  if(all_ok) {
+    ROS_INFO("Ompl says ok");
+  } else {
+    ROS_INFO("Ompl says not ok");
+  }
+  psetup->ompl_model->planningMonitor->setOnCollisionContactCallback(NULL);
   return result;
 }
 
@@ -495,19 +518,102 @@ bool ompl_planning::RequestHandler::checkPathForCollisions(PlannerSetup *psetup,
   trajectory_msgs::JointTrajectory joint_trajectory;
   
   joint_trajectory.points.resize(kpath->states.size());
-  joint_trajectory.joint_names = psetup->ompl_model->group->joint_names;
-  
+
+  std::map<std::string, unsigned int> map_order = psetup->ompl_model->group->getMapOrderIndex();
+  for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+      it != map_order.end();
+      it++) {
+    joint_trajectory.joint_names.push_back(it->first);
+  }
+
   const unsigned int dim = psetup->ompl_model->si->getStateDimension();
   for (unsigned int i = 0 ; i < kpath->states.size() ; ++i)
   {
     joint_trajectory.points[i].time_from_start = ros::Duration(i * .01);
     joint_trajectory.points[i].positions.resize(dim);
-    for (unsigned int j = 0 ; j < dim ; ++j)
-      joint_trajectory.points[i].positions[j] = kpath->states[i]->values[j];
+    for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+        it != map_order.end();
+        it++) {
+      joint_trajectory.points[i].positions[it->second] = kpath->states[i]->values[it->second];
+    }
   }
   
   if (!psetup->ompl_model->planningMonitor->isTrajectoryValid(joint_trajectory, robot_state, (int)planning_environment::PlanningMonitor::COLLISION_TEST, true, error_code, trajectory_error_codes)) {
+    if(error_code.val == error_code.JOINT_LIMITS_VIOLATED) {
+      ROS_INFO("Joint limits violated");
+    } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
+      ROS_INFO("Trajectory in collision");
+    } else if(error_code.val == error_code.PATH_CONSTRAINTS_VIOLATED) {
+      ROS_INFO("Trajectory violates path constraints");
+    } else if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
+      ROS_INFO("Trajectory violates path constraints");
+    } else {
+      ROS_INFO_STREAM("Something else wrong with path: " << error_code.val);
+    }
     return false;
   }
   return true;
+}
+
+/** \brief The ccost and display arguments should be bound by the caller. This is a callback function that gets called by the planning
+ * environment when a collision is found */
+void ompl_planning::RequestHandler::contactFound(collision_space::EnvironmentModel::Contact &contact)
+{
+
+  static int count = 0;
+  
+  std::string ns_name;
+  if(contact.link1 != NULL) {
+    //ROS_INFO_STREAM("Link 1 is " << contact.link2->name);
+    if(contact.link1_attached_body_index == 0) {
+      ns_name += contact.link1->name+"+";
+    } else {
+      if(contact.link1->attached_bodies.size() < contact.link1_attached_body_index) {
+        ROS_ERROR("Link doesn't have attached body with indicated index");
+      } else {
+        ns_name += contact.link1->attached_bodies[contact.link1_attached_body_index-1]->id+"+";
+      }
+    }
+  } 
+  
+  if(contact.link2 != NULL) {
+    //ROS_INFO_STREAM("Link 2 is " << contact.link2->name);
+    if(contact.link2_attached_body_index == 0) {
+      ns_name += contact.link2->name;
+    } else {
+      if(contact.link2->attached_bodies.size() < contact.link2_attached_body_index) {
+        ROS_ERROR("Link doesn't have attached body with indicated index");
+      } else {
+        ns_name += contact.link2->attached_bodies[contact.link2_attached_body_index-1]->id;
+      }
+    }
+  } 
+  
+  if(!contact.object_name.empty()) {
+    //ROS_INFO_STREAM("Object is " << contact.object_name);
+    ns_name += contact.object_name;
+  }
+  
+  visualization_msgs::Marker mk;
+  mk.header.stamp = ros::Time::now();
+  mk.header.frame_id = "odom_combined";
+  mk.ns = ns_name;
+  mk.id = count++;
+  mk.type = visualization_msgs::Marker::SPHERE;
+  mk.action = visualization_msgs::Marker::ADD;
+  mk.pose.position.x = contact.pos.x();
+  mk.pose.position.y = contact.pos.y();
+  mk.pose.position.z = contact.pos.z();
+  mk.pose.orientation.w = 1.0;
+  
+  mk.scale.x = mk.scale.y = mk.scale.z = 0.01;
+  
+  mk.color.a = 0.6;
+  mk.color.r = 0.04;
+  mk.color.g = 1.0;
+  mk.color.b = 0.04;
+  
+  //mk.lifetime = ros::Duration(30.0);
+  
+  vis_marker_publisher_.publish(mk);
 }

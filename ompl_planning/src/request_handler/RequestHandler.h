@@ -45,6 +45,8 @@
 
 #include <boost/bind.hpp>
 
+#include <visualization_msgs/Marker.h>
+
 /** \brief Main namespace */
 namespace ompl_planning
 {    
@@ -56,9 +58,10 @@ namespace ompl_planning
     {
     public:
 	
-	RequestHandler(void)
+      RequestHandler()
 	{
 	    onFinishPlan_ = NULL;
+            vis_marker_publisher_ = ros::NodeHandle().advertise<visualization_msgs::Marker>("ompl_collisions", 128);
 	}
 	
 	~RequestHandler(void)
@@ -76,7 +79,9 @@ namespace ompl_planning
 
 	/** \brief Enable callback for when a motion plan computation is completed */
 	void setOnFinishPlan(const boost::function<void(PlannerSetup*)> &onFinishPlan);
-	
+
+      void contactFound(collision_space::EnvironmentModel::Contact &contact);
+       
     private:
 
 	struct Solution
@@ -90,7 +95,7 @@ namespace ompl_planning
 	void configure(motion_planning_msgs::GetMotionPlan::Request &req, PlannerSetup *psetup, const std::string &distance_metric);
 
 	/** \brief Compute the actual motion plan. Return true if computed plan was trivial (start state already in goal region) */
-	bool callPlanner(PlannerSetup *psetup, int times, double allowed_time, Solution &sol);
+      bool callPlanner(PlannerSetup *psetup, motion_planning_msgs::RobotState& state, int times, double allowed_time, Solution &sol);
 	
 	/** \brief Set the workspace bounds based on the request */
 	void setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &params, ompl_ros::ModelBase *ompl_model);
@@ -116,6 +121,8 @@ namespace ompl_planning
 	/** \brief Callback for when a plan computation is completed */
 	boost::function<void(PlannerSetup*)> onFinishPlan_;
 	
+      ros::Publisher vis_marker_publisher_;
+
     };
     
 } // ompl_planning
