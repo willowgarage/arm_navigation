@@ -1,5 +1,5 @@
 <package>
-  <description brief="Move Arm Head Monitor">
+  <description brief="move_arm_head_monitor">
 
      A node that provides monitoring capability for robot arms by continuously pointing the head at the location in space where an arm will be in the future.
 
