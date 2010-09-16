@@ -351,6 +351,9 @@ private:
       /*if(!checkIK(tpose,link_name,solution))
          ROS_ERROR("IK solution does not get to desired pose");
       */
+      motion_planning_msgs::RobotState ik_sanity_check;
+      ik_sanity_check.joint_state.header = tpose.header;
+
       for (unsigned int i = 0 ; i < solution.name.size() ; ++i)
       {
         motion_planning_msgs::JointConstraint jc;
@@ -359,6 +362,20 @@ private:
         jc.tolerance_below = 0.01;
         jc.tolerance_above = 0.01;
         req.motion_plan_request.goal_constraints.joint_constraints.push_back(jc);
+        ik_sanity_check.joint_state.name.push_back(jc.joint_name);
+        ik_sanity_check.joint_state.position.push_back(jc.position);
+      }
+      motion_planning_msgs::ArmNavigationErrorCodes error_code;
+      if(!isStateValidAtGoal(ik_sanity_check, error_code))
+      {
+        ROS_INFO("IK returned joint state for goal that doesn't seem to be valid");
+        if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
+          ROS_WARN("IK solution doesn't obey goal constraints");
+        } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
+          ROS_WARN("IK solution in collision");
+        } else {
+          ROS_WARN_STREAM("Some other problem with ik solution " << error_code.val);
+        }
       }
       req.motion_plan_request.goal_constraints.position_constraints.clear();
       req.motion_plan_request.goal_constraints.orientation_constraints.clear();	    
