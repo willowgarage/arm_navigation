@@ -321,6 +321,7 @@ public:
 
   }
 
+  // Called when a new monitoring goal is received
   void monitorGoalCallback()
   {
   	if(head_monitor_actionserver_.isActive())
