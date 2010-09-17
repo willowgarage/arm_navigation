@@ -624,12 +624,12 @@ private:
       }
     }
 
-    if(zero_vel_acc)
-    {
-      for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i)
-      {
-        trajectory_out.points[0].velocities[i] = 0;
-        trajectory_out.points[0].accelerations[i] = 0;
+    //if(zero_vel_acc)
+    //{
+    for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i) {
+      for(unsigned int j=0; j < trajectory_out.points.size(); ++j) {
+	trajectory_out.points[j].velocities[i] = 0;
+	trajectory_out.points[j].accelerations[i] = 0;
       }
     }
 
@@ -1227,10 +1227,30 @@ private:
     for(unsigned int i = 0; i < trajectory_out.joint_names.size(); i++) {
       current.position[i] = val_map[trajectory_out.joint_names[i]];
     }
+    std::map<std::string, bool> continuous;
+    for(unsigned int j = 0; j < trajectory_in.joint_names.size(); j++) {
+      std::string name = trajectory_in.joint_names[j];
+      boost::shared_ptr<const urdf::Joint> joint = robot_model_.getJoint(name);
+      if (joint.get() == NULL)
+	{
+	  ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
+	  return;
+	}
+      if (joint->type == urdf::Joint::CONTINUOUS) {
+        continuous[name] = true;
+      } else {
+        continuous[name] = false;
+      }
+    }
     for (unsigned int i = 0 ; i < current.position.size() ; ++i)
     {
-      double dif = current.position[i] - trajectory_in.points[0].positions[i];
-      d += dif * dif;
+      double diff; 
+      if(!continuous[trajectory_in.joint_names[i]]) {
+	diff = fabs(trajectory_in.points[0].positions[i] - val_map[trajectory_in.joint_names[i]]);
+      } else {
+	diff = angles::shortest_angular_distance(trajectory_in.points[0].positions[i],val_map[trajectory_in.joint_names[i]]);
+      }
+      d += diff * diff;
     }
     d = sqrt(d);	    
     // decide whether we place the current state in front of the trajectory_in
@@ -1240,10 +1260,11 @@ private:
 
     if (include_first)
     {
+      ROS_INFO("Adding current state to front of trajectory");
       trajectory_out.points[0].positions = motion_planning_msgs::jointStateToJointTrajectoryPoint(current).positions;
       trajectory_out.points[0].time_from_start = ros::Duration(0.0);
       offset = 0.3 + d;
-    }	    
+    } 
     for (unsigned int i = 0 ; i < trajectory_in.points.size() ; ++i)
     {
       trajectory_out.points[i+include_first].time_from_start = trajectory_in.points[i].time_from_start;
@@ -1594,6 +1615,7 @@ private:
       std::stringstream ss;
       for (unsigned int j = 0 ; j < trajectory.points[i].positions.size() ; ++j)
         ss << trajectory.points[i].positions[j] << " ";
+      ss << trajectory.points[i].time_from_start.toSec();
       ROS_DEBUG("%s", ss.str().c_str());
     }
   }	 
