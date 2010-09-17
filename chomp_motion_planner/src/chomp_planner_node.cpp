@@ -296,7 +296,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
 
   for (unsigned int i=0; i< req.trajectory.points.size(); i++)
   {
-    req.trajectory.points[i].velocities.resize(req.trajectory.joint_names.size());
+    req.trajectory.points[i].velocities.resize(req.trajectory.joint_names.size(),0.0);
   }
 
   getLimits(req.trajectory, req.limits);
@@ -455,7 +455,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   next_req.allowed_time=ros::Duration(req.allowed_time);
   
   if(filter_trajectory_client_.call(next_req, next_res)) {
-    ROS_INFO("Filter call ok");
+    ROS_INFO_STREAM("Filter call ok. Sent trajectory had " << res.trajectory.points.size() << " points.  Returned trajectory has " << next_res.trajectory.points.size() << " points ");
   } else {
     ROS_INFO("Filter call not ok");
   }
@@ -528,13 +528,13 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "chomp_planner_node");
 
-  ros::AsyncSpinner spinner(1); // Use 1 thread
-  spinner.start();
+  //ros::AsyncSpinner spinner(1); // Use 1 thread
+  //spinner.start();
 
   ros::NodeHandle node_handle("~");
   chomp::ChompPlannerNode chomp_planner_node(node_handle);
   if (!chomp_planner_node.init())
     return 1;
-  ros::waitForShutdown();
-  //return chomp_planner_node.run();
+  return chomp_planner_node.run();
+  //ros::waitForShutdown();
 }
