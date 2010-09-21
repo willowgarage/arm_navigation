@@ -33,4 +33,5 @@ rosbuild_add_library(constraint_aware_spline_smoother
                      src/DynamicPath.cpp
                      src/ParabolicRamp.cpp
                      src/cubic_spline_shortcutter.cpp
+                     src/linear_spline_shortcutter.cpp
                      src/parabolic_blend_shortcutter.cpp)

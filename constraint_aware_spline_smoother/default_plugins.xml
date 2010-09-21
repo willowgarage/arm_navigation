@@ -12,6 +12,12 @@
         Generates collision free parabolic spline trajectories
       </description>
     </class>
+    <class name="LinearSplineShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::LinearSplineShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+            base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>">
+      <description>
+        Generates collision free linear trajectories
+      </description>
+    </class>
 
   </library>
 </class_libraries>
