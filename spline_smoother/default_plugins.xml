@@ -30,6 +30,12 @@
 	      Generates position trajectories that conform to velocity limits
       </description>
     </class>
+    <class name="CubicParameterizedSplineVelocityScalerJointTrajectoryWithLimits" type="spline_smoother::CubicParameterizedSplineVelocityScaler<motion_planning_msgs::JointTrajectoryWithLimits>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>">
+      <description>
+	      Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
 
 
 
@@ -60,6 +66,12 @@
       </description>
     </class>
     <class name="CubicSplineVelocityScalerFilterJointTrajectory" type="spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectory::Request>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>">
+      <description>
+	      Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
+    <class name="CubicParameterizedSplineVelocityScalerFilterJointTrajectory" type="spline_smoother::CubicParameterizedSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectory::Request>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>">
       <description>
 	      Generates position trajectories that conform to velocity limits
@@ -97,6 +109,12 @@
       </description>
     </class>
     <class name="CubicSplineVelocityScalerFilterJointTrajectoryWithConstraints" type="spline_smoother::CubicSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>">
+      <description>
+	      Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
+    <class name="CubicParameterizedSplineVelocityScalerFilterJointTrajectoryWithConstraints" type="spline_smoother::CubicParameterizedSplineVelocityScaler<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>" 
 	    base_class_type="filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>">
       <description>
 	      Generates position trajectories that conform to velocity limits

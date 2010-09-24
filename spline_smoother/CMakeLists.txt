@@ -40,6 +40,8 @@ rosbuild_add_library(spline_smoother
   src/linear_trajectory.cpp
   src/lspb_trajectory.cpp
   src/spline_smoother_utils.cpp
+  src/cubic_parameterized_trajectory.cpp
+  src/cubic_parameterized_spline_velocity_scaler.cpp
 )
 
 rosbuild_add_gtest(test/test_spline_smoother
@@ -71,3 +73,10 @@ rosbuild_add_gtest(test/regress_cubic test/regress_cubic.cpp)
 target_link_libraries(test/regress_cubic spline_smoother)
 rosbuild_add_gtest(test/regress_lspb test/regress_lspb.cpp)
 target_link_libraries(test/regress_lspb spline_smoother)
+
+
+rosbuild_add_gtest(test/regress_cubic_parameterized test/regress_cubic_parameterized.cpp)
+target_link_libraries(test/regress_cubic_parameterized spline_smoother)
+
+rosbuild_add_executable(test/test_cubic_parameterized test/test_cubic_parameterized.cpp)
+target_link_libraries(test/test_cubic_parameterized spline_smoother)

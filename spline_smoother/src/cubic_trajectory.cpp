@@ -188,13 +188,13 @@ bool CubicTrajectory::validSolution(const double &q0,
     }
   }
 
-  if(amax > 0 && max_accn-amax > 1e-2)
+  if(amax > 0 && (max_accn-amax)/amax > 1e-5)
   {
     ROS_DEBUG("amax allowed: %f, max_accn: %f",amax,max_accn);
     return false;
   }
   if(max_vel_exists)
-    if(fabs(max_vel)-vmax > 1e-2)
+    if((fabs(max_vel)-vmax)/vmax > 1e-5)
     {
       ROS_DEBUG("vmax allowed: %f, max_vel: %f",vmax,max_vel);
       return false;
