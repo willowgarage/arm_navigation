@@ -75,8 +75,8 @@ rosbuild_add_gtest(test/regress_lspb test/regress_lspb.cpp)
 target_link_libraries(test/regress_lspb spline_smoother)
 
 
-rosbuild_add_gtest(test/regress_cubic_parameterized test/regress_cubic_parameterized.cpp)
-target_link_libraries(test/regress_cubic_parameterized spline_smoother)
+#rosbuild_add_gtest(test/regress_cubic_parameterized test/regress_cubic_parameterized.cpp)
+#target_link_libraries(test/regress_cubic_parameterized spline_smoother)
 
 rosbuild_add_executable(test/test_cubic_parameterized test/test_cubic_parameterized.cpp)
 target_link_libraries(test/test_cubic_parameterized spline_smoother)

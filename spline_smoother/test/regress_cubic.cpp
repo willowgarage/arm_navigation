@@ -208,7 +208,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits1)
   double total_time;
   bool ss = spline_smoother::getTotalTime(spline,total_time);
   EXPECT_TRUE(ss);
-  EXPECT_NEAR(total_time,7.74597,1e-5);
+  EXPECT_NEAR(total_time,7.5,1e-5);
 
   trajectory_msgs::JointTrajectory wpt_out;
   std::vector<double> times_out;
