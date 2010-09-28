@@ -3,9 +3,9 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 rosbuild_init()
 rosbuild_add_boost_directories()
 
-set(ROS_BUILD_TYPE Release)
+set(ROS_BUILD_TYPE Debug)
 
-rosbuild_add_library(planning_models src/kinematic_model.cpp)
+rosbuild_add_library(planning_models src/kinematic_model.cpp src/kinematic_state.cpp)
 rosbuild_link_boost(planning_models thread)
 
 # Unit tests
