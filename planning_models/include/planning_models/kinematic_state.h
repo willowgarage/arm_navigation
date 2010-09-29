@@ -325,6 +325,21 @@ public:
     {
       return joint_roots_;
     }
+
+    const std::map<std::string, unsigned int> getKinematicStateIndexMap() const
+    {
+      return kinematic_state_index_map_;
+    }
+    
+    const std::vector<std::string>& getJointNames() const
+    {
+      return joint_names_;
+    }
+
+    const std::vector<JointState*>& getJointStateVector() const
+    {
+      return joint_state_vector_;
+    }
 	    
   private:
     
@@ -334,6 +349,7 @@ public:
     const KinematicModel::JointModelGroup* joint_model_group_;
     
     unsigned int dimension_;
+    std::map<std::string, unsigned int> kinematic_state_index_map_;
 
     /** \brief Names of joints in the order they appear in the group state */
     std::vector<std::string> joint_names_;

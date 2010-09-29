@@ -635,13 +635,12 @@ void planning_models::KinematicModel::JointModel::initialize(const std::vector<s
     }
     parent_frame_id_ = config->parent_frame_id;
     child_frame_id_ = config->child_frame_id;
-  }
-
+  } 
   unsigned int i = 0;
   for(std::vector<std::string>::const_iterator it = local_joint_names.begin();
       it != local_joint_names.end();
       it++, i++) {
-    computation_order_map_index_[i] = joint_state_equivalents_.right.at(*it);
+    computation_order_map_index_[i] = joint_state_equivalents_.left.at(*it);
   }
 
   for(js_type::iterator it = joint_state_equivalents_.begin();

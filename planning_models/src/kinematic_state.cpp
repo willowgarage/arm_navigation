@@ -505,9 +505,10 @@ void planning_models::KinematicState::AttachedBodyState::computeTransform()
 
 planning_models::KinematicState::JointStateGroup::JointStateGroup(const planning_models::KinematicModel::JointModelGroup* jmg, 
                                                                   const planning_models::KinematicState* kinematic_state) : 
-  joint_model_group_(jmg)
+  joint_model_group_(jmg), dimension_(0)
 {
   const std::vector<const KinematicModel::JointModel*>& joint_model_vector = jmg->getJointModels();
+  unsigned int vector_index_counter = 0;
   for(unsigned int i = 0; i < joint_model_vector.size(); i++) {
     if(!kinematic_state->hasJointState(joint_model_vector[i]->getName())) {
       ROS_WARN_STREAM("No joint state for group joint name " << joint_model_vector[i]->getName());
@@ -516,7 +517,13 @@ planning_models::KinematicState::JointStateGroup::JointStateGroup(const planning
     JointState* js = kinematic_state->getJointState(joint_model_vector[i]->getName());
     joint_state_vector_.push_back(js);
     joint_state_map_[joint_model_vector[i]->getName()] = js;
-    dimension_++;
+    unsigned int joint_dim = joint_state_vector_[i]->getDimension();
+    dimension_ += joint_dim;
+    const std::vector<std::string>& name_order = joint_state_vector_[i]->getJointStateNameOrder();
+    for(unsigned int i = 0; i < name_order.size(); i++) {
+      kinematic_state_index_map_[name_order[i]] = vector_index_counter+i;
+    }
+    vector_index_counter += joint_dim;
   }
   const std::vector<const KinematicModel::LinkModel*>& link_model_vector = jmg->getUpdatedLinkModels();
   for(unsigned int i = 0; i < link_model_vector.size(); i++) {
