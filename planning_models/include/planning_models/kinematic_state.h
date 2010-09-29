@@ -106,7 +106,7 @@ public:
 
     /** \brief Gets the joint state values stored in the required order */
     const std::vector<double>& getJointStateValues() const;
-    
+
     /** \brief Gets the required name order for the joint state values */
     const std::vector<std::string>& getJointStateNameOrder() const;
 
@@ -125,6 +125,16 @@ public:
     const std::map<std::string, unsigned int>& getJointStateIndexMap() const
     {
       return joint_state_index_map_;
+    }
+
+    const std::string& getParentFrameId() const
+    {
+      return joint_model_->getParentFrameId();
+    }
+
+    const std::string& getChildFrameId() const
+    {
+      return joint_model_->getChildFrameId();
     }
 
   private:
@@ -232,8 +242,18 @@ public:
     {
     }
 
+    const std::string& getName() const
+    {
+      return attached_body_model_->getName();
+    }
+
     /** \brief Recompute global_collision_body_transform */
     void computeTransform(void);
+
+    const std::vector<btTransform>& getGlobalCollisionBodyTransforms() const
+    {
+      return global_collision_body_transforms_;
+    }
 
   private:
     const KinematicModel::AttachedBodyModel* attached_body_model_;
@@ -290,8 +310,8 @@ public:
     bool updatesLinkState(const std::string& joint) const;
 
     /** \brief Get a joint state by its name */
-    JointState* getJointState(const std::string &joint);
-	 
+    JointState* getJointState(const std::string &joint) const;
+
     void getKinematicStateValues(std::vector<double>& joint_state_values) const;
     
     void getKinematicStateValues(std::map<std::string, double>& joint_state_values) const;
@@ -387,7 +407,15 @@ public:
   /** \brief Get a link state by its name */
   LinkState* getLinkState(const std::string &link) const;
 
+  /** \brief Get an attached body state by its name */
+  AttachedBodyState* getAttachedBodyState(const std::string &attached) const;
+
   const std::vector<JointState*>& getJointStateVector() const 
+  {
+    return joint_state_vector_;
+  }
+
+  std::vector<JointState*>& getJointStateVector()
   {
     return joint_state_vector_;
   }

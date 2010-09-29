@@ -329,7 +329,9 @@ public:
     const std::vector<AttachedBodyModel*>& getAttachedBodyModels() const {
       return attached_body_models_;
     }
-    
+
+  private:
+     
     /** \brief Removes all attached body models from this link, requiring an exclusive lock */
     void clearAttachedBodyModels();
     
@@ -337,9 +339,11 @@ public:
         requiring an exclusive lock
      */
     void replaceAttachedBodyModels(std::vector<AttachedBodyModel*>& attached_body_vector);
+   
+    void clearLinkAttachedBodyModel(const std::string& att_name);
 
-  private:
-        
+    void addAttachedBodyModel(AttachedBodyModel* attached_body_model);
+
     /** \brief Name of the link */
     std::string name_;
     
@@ -571,6 +575,16 @@ public:
   }
 
   void getModelGroupNames(std::vector<std::string>& getModelGroupNames) const;
+
+  void clearAllAttachedBodyModels();
+
+  void clearLinkAttachedBodyModels(const std::string& link_name);
+
+  void clearLinkAttachedBodyModel(const std::string& link_name, const std::string& att_name);
+
+  void replaceAttachedBodyModels(const std::string& link_name, std::vector<AttachedBodyModel*>& attached_body_vector);
+
+  void addAttachedBodyModel(const std::string& link_name, AttachedBodyModel* att_body_model);
 	
 private:
 	

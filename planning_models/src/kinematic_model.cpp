@@ -536,87 +536,6 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
     
   return newJoint;
 }
-/*
-void planning_models::KinematicModel::printModelInfo(std::ostream &out) const
-{
-  out << "Complete model state dimension = " << getAllJointsValues().size() << std::endl;
-    
-  std::ios_base::fmtflags old_flags = out.flags();    
-  out.setf(std::ios::fixed, std::ios::floatfield);
-  std::streamsize old_prec = out.precision();
-  out.precision(5);
-  out << "State bounds: ";
-  for(unsigned int i = 0; i < joint_list_.size(); i++) {
-    for(std::map<std::string, std::pair<double, double> >::const_iterator it = joint_list_[i]->joint_state_bounds.begin();
-        it != joint_list_[i]->joint_state_bounds.end();
-        it++) {
-      if(it->second.first == -DBL_MAX) {
-        out << "[-DBL_MAX, ";
-      } else {
-        out << "[" << it->second.first << ", ";
-      }
-      if(it->second.second == DBL_MAX) {
-        out << "DBL_MAX] ";
-      } else {
-        out << it->second.second << "] ";  
-      }
-    }
-  }
-    
-  out << std::endl;
-  out.precision(old_prec);    
-  out.flags(old_flags);
-        
-  out << "Root joint : ";
-  out << getRoot()->name << " ";
-  out << std::endl;
-    
-  out << "Available groups: ";
-  std::vector<std::string> l;
-  getGroupNames(l);
-  for (unsigned int i = 0 ; i < l.size() ; ++i)
-    out << l[i] << " ";
-  out << std::endl;
-    
-  for (unsigned int i = 0 ; i < l.size() ; ++i)
-  {
-    const JointModelGroup *g = getGroup(l[i]);
-    out << "Group " << l[i] << " has " << g->joint_roots.size() << " roots: ";
-    for (unsigned int j = 0 ; j < g->joint_roots.size() ; ++j)
-      out << g->joint_roots[j]->name << " ";
-    out << std::endl;
-  }
-}
-
-void planning_models::KinematicModel::printTransform(const std::string &st, const btTransform &t, std::ostream &out) const
-{
-  out << st << std::endl;
-  const btVector3 &v = t.getOrigin();
-  out << "  origin: " << v.x() << ", " << v.y() << ", " << v.z() << std::endl;
-  const btQuaternion &q = t.getRotation();
-  out << "  quaternion: " << q.x() << ", " << q.y() << ", " << q.z() << ", " << q.w() << std::endl;
-}
-
-void planning_models::KinematicModel::printTransforms(std::ostream &out) const
-{
-  out << "Joint transforms:" << std::endl;
-  std::vector<const Joint*> joints;
-  getJoints(joints);
-  for (unsigned int i = 0 ; i < joints.size() ; ++i)
-  {
-    printTransform(joints[i]->name, joints[i]->variable_transform, out);
-    out << std::endl;	
-  }
-  out << "Link poses:" << std::endl;
-  std::vector<const Link*> links;
-  getLinks(links);
-  for (unsigned int i = 0 ; i < links.size() ; ++i)
-  {
-    printTransform(links[i]->name, links[i]->global_collision_body_transform, out);
-    out << std::endl;	
-  }    
-}
-*/
 
 void planning_models::KinematicModel::getChildLinkModels(const KinematicModel::LinkModel *parent, 
                                                          std::vector<const KinematicModel::LinkModel*> &links) const
@@ -637,6 +556,58 @@ void planning_models::KinematicModel::getChildLinkModels(const KinematicModel::L
     }
   }
 }
+
+void planning_models::KinematicModel::clearAllAttachedBodyModels()
+{
+  exclusiveLock();
+  for(unsigned int i =0; i < link_model_vector_.size(); i++) {
+    link_model_vector_[i]->clearAttachedBodyModels();
+  }
+  exclusiveUnlock();
+}
+
+void planning_models::KinematicModel::clearLinkAttachedBodyModels(const std::string& link_name)
+{
+  exclusiveLock();
+  if(link_model_map_.find(link_name) == link_model_map_.end()) return;
+  link_model_map_[link_name]->clearAttachedBodyModels();
+  exclusiveUnlock();
+}
+
+void planning_models::KinematicModel::replaceAttachedBodyModels(const std::string& link_name, 
+                                                               std::vector<AttachedBodyModel*>& attached_body_vector)
+{
+  exclusiveLock();
+  if(link_model_map_.find(link_name) == link_model_map_.end())
+  {
+    ROS_WARN_STREAM("Model has no link named " << link_name << ".  This is probably going to introduce a memory leak");
+    return;
+  }
+  link_model_map_[link_name]->replaceAttachedBodyModels(attached_body_vector);
+  exclusiveUnlock();
+}
+
+void planning_models::KinematicModel::clearLinkAttachedBodyModel(const std::string& link_name, 
+                                                                 const std::string& att_name)
+{
+  exclusiveLock();
+  if(link_model_map_.find(link_name) == link_model_map_.end()) return;
+  link_model_map_[link_name]->clearLinkAttachedBodyModel(att_name);
+  exclusiveUnlock();
+}
+
+void planning_models::KinematicModel::addAttachedBodyModel(const std::string& link_name, 
+                                                           planning_models::KinematicModel::AttachedBodyModel* ab)
+{
+  exclusiveLock();
+  if(link_model_map_.find(link_name) == link_model_map_.end()) {
+    ROS_WARN_STREAM("Model has no link named " << link_name << " to attach body to.  This is probably going to introduce a memory leak");
+    return;
+  }
+  link_model_map_[link_name]->addAttachedBodyModel(ab);
+  exclusiveUnlock();
+}
+
 
 /* ------------------------ JointModel ------------------------ */
 
@@ -925,23 +896,38 @@ planning_models::KinematicModel::LinkModel::~LinkModel(void)
 
 void planning_models::KinematicModel::LinkModel::clearAttachedBodyModels() 
 {
-  kinematic_model_->exclusiveLock();
+  //assumes exclusive lock has been granted
   for (unsigned int i = 0 ; i < attached_body_models_.size() ; ++i)
     delete attached_body_models_[i];
   attached_body_models_.clear();
-  kinematic_model_->exclusiveUnlock();
 }
 
 void planning_models::KinematicModel::LinkModel::replaceAttachedBodyModels(std::vector<AttachedBodyModel*>& attached_body_vector) 
 {
-  kinematic_model_->exclusiveLock();
+  //assumes exclusive lock has been granted
   for (unsigned int i = 0 ; i < attached_body_models_.size() ; ++i)
     delete attached_body_models_[i];
   attached_body_models_.clear();
 
   attached_body_models_ = attached_body_vector;
+}
 
-  kinematic_model_->exclusiveUnlock();
+void planning_models::KinematicModel::LinkModel::clearLinkAttachedBodyModel(const std::string& att_name) 
+{
+  for(std::vector<AttachedBodyModel*>::iterator it = attached_body_models_.begin();
+      it != attached_body_models_.end();
+      it++) {
+    if((*it)->getName() == att_name) {
+      delete (*it);
+      attached_body_models_.erase(it);
+      return;
+    }
+  }
+}
+
+void planning_models::KinematicModel::LinkModel::addAttachedBodyModel(planning_models::KinematicModel::AttachedBodyModel* ab)
+{
+  attached_body_models_.push_back(ab);
 }
 
 /* ------------------------ AttachedBodyModel ------------------------ */

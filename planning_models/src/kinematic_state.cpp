@@ -324,6 +324,18 @@ planning_models::KinematicState::LinkState* planning_models::KinematicState::get
   return link_state_map_.find(link)->second;
 }
 
+planning_models::KinematicState::AttachedBodyState* planning_models::KinematicState::getAttachedBodyState(const std::string &att) const
+{
+  for(unsigned int i = 0; i < link_state_vector_.size(); i++) {
+    for(unsigned int j = 0; j < link_state_vector_[i]->getAttachedBodyStateVector().size(); j++) {
+      if(link_state_vector_[i]->getAttachedBodyStateVector()[j]->getName() == att) {
+        return (link_state_vector_[i]->getAttachedBodyStateVector()[j]);
+      }
+    }
+  }
+  return NULL;
+}
+
 //-------------------- JointState ---------------------
 
 planning_models::KinematicState::JointState::JointState(const planning_models::KinematicModel::JointModel* jm) :
@@ -592,6 +604,35 @@ void planning_models::KinematicState::JointStateGroup::setKinematicStateToDefaul
     }
   }
   setKinematicState(default_joint_states);
+}
+
+void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(std::vector<double>& joint_state_values) const {
+  joint_state_values.clear();
+  for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
+    unsigned int dim = joint_state_vector_[i]->getDimension();  
+    if(dim != 0) {
+      copy(joint_state_vector_[i]->getJointStateValues().begin(), joint_state_vector_[i]->getJointStateValues().end(),
+           joint_state_values.end());
+    }
+  }
+  if(joint_state_values.size() != dimension_) {
+    ROS_WARN("Some problem with dimension");
+  }
+}
+
+void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(std::map<std::string,double>& joint_state_values) const {
+  joint_state_values.clear();
+  for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
+    unsigned int dim = joint_state_vector_[i]->getDimension();  
+    if(dim != 0) {
+      for(unsigned int j = 0; j < joint_state_vector_[i]->getJointStateValues().size(); j++) {
+        joint_state_values[joint_state_vector_[i]->getJointStateNameOrder()[j]] = joint_state_vector_[i]->getJointStateValues()[j]; 
+      }
+    }
+  }
+  if(joint_state_values.size() != dimension_) {
+    ROS_WARN("Some problems with dimension");
+  }
 }
 
 // ------ printing transforms -----
