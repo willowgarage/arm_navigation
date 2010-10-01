@@ -247,6 +247,16 @@ public:
       return attached_body_model_->getName();
     }
 
+    const std::string& getAttachedLinkName() const
+    {
+      return attached_body_model_->getAttachedLinkModel()->getName();
+    }
+    
+    const KinematicModel::AttachedBodyModel* getAttachedBodyModel() const
+    {
+      return attached_body_model_;
+    }
+
     /** \brief Recompute global_collision_body_transform */
     void computeTransform(void);
 
@@ -326,7 +336,7 @@ public:
       return joint_roots_;
     }
 
-    const std::map<std::string, unsigned int> getKinematicStateIndexMap() const
+    const std::map<std::string, unsigned int>& getKinematicStateIndexMap() const
     {
       return kinematic_state_index_map_;
     }
@@ -440,7 +450,12 @@ public:
   {
     return link_state_vector_;
   } 
-
+  
+  const std::vector<const AttachedBodyState*>& getAttachedBodyStateVector() const
+  {
+    return attached_body_state_vector_;
+  }
+  
   const std::map<std::string, JointStateGroup*>& getJointStateGroupMap() const
   {
     return joint_state_group_map_;
@@ -475,6 +490,9 @@ private:
 
   std::vector<LinkState*> link_state_vector_;
   std::map<std::string, LinkState*> link_state_map_;
+
+  //vector of bodies, owned by states
+  std::vector<const AttachedBodyState*> attached_body_state_vector_;
   
   std::map<std::string, JointStateGroup*> joint_state_group_map_;
 };

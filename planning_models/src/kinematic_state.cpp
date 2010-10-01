@@ -61,6 +61,9 @@ planning_models::KinematicState::KinematicState(const boost::shared_ptr<const Ki
   for(unsigned int i = 0; i < link_model_vector.size(); i++) {
     link_state_vector_[i] = new LinkState(link_model_vector[i]);
     link_state_map_[link_state_vector_[i]->getName()] = link_state_vector_[i];
+    for(unsigned int j = 0; j < link_state_vector_[i]->getAttachedBodyStateVector().size(); j++) {
+      attached_body_state_vector_.push_back(link_state_vector_[i]->getAttachedBodyStateVector()[j]);
+    }
   }
   setLinkStatesParents();
 
@@ -90,6 +93,9 @@ planning_models::KinematicState::KinematicState(const KinematicState* ks) :
   for(unsigned int i = 0; i < link_state_vector.size(); i++) {
     link_state_vector_[i] = new LinkState(link_state_vector[i]->getLinkModel());
     link_state_map_[link_state_vector_[i]->getName()] = link_state_vector_[i];
+    for(unsigned int j = 0; j < link_state_vector_[i]->getAttachedBodyStateVector().size(); j++) {
+      attached_body_state_vector_.push_back(link_state_vector_[i]->getAttachedBodyStateVector()[j]);
+    }
   }
   setLinkStatesParents();
   
@@ -640,6 +646,12 @@ void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(s
   if(joint_state_values.size() != dimension_) {
     ROS_WARN("Some problems with dimension");
   }
+}
+
+planning_models::KinematicState::JointState* planning_models::KinematicState::JointStateGroup::getJointState(const std::string &joint) const
+{
+  if(!hasJointState(joint)) return NULL;
+  return joint_state_map_.find(joint)->second;
 }
 
 // ------ printing transforms -----
