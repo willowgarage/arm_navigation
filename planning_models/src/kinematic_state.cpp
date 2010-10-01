@@ -160,8 +160,9 @@ void planning_models::KinematicState::getKinematicStateValues(std::vector<double
   for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
     unsigned int dim = joint_state_vector_[i]->getDimension();  
     if(dim != 0) {
-      copy(joint_state_vector_[i]->getJointStateValues().begin(), joint_state_vector_[i]->getJointStateValues().end(),
-           joint_state_values.end());
+      for(unsigned int j = 0; j < joint_state_vector_[i]->getJointStateValues().size(); j++) {
+        joint_state_values.push_back(joint_state_vector_[i]->getJointStateValues()[j]);
+      }
     }
   }
   if(joint_state_values.size() != dimension_) {
@@ -624,8 +625,9 @@ void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(s
   for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
     unsigned int dim = joint_state_vector_[i]->getDimension();  
     if(dim != 0) {
-      copy(joint_state_vector_[i]->getJointStateValues().begin(), joint_state_vector_[i]->getJointStateValues().end(),
-           joint_state_values.end());
+      for(unsigned int j = 0; j < joint_state_vector_[i]->getJointStateValues().size(); j++) {
+        joint_state_values.push_back(joint_state_vector_[i]->getJointStateValues()[j]);
+      }
     }
   }
   if(joint_state_values.size() != dimension_) {
