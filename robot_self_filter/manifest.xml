@@ -16,6 +16,7 @@
   <depend package="urdf"/>
   <depend package="resource_retriever"/>
   <depend package="assimp"/>
+  <depend package="pcl"/>
 
   <export>
     <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lrobot_self_filter" />
