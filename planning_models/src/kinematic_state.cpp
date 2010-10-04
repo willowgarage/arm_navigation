@@ -504,7 +504,7 @@ planning_models::KinematicState::AttachedBodyState::AttachedBodyState(const plan
 void planning_models::KinematicState::AttachedBodyState::computeTransform() 
 {
   for(unsigned int i = 0; i < global_collision_body_transforms_.size(); i++) {
-    global_collision_body_transforms_[i] = parent_link_state_->getGlobalCollisionBodyTransform() * attached_body_model_->getAttachedBodyFixedTransforms()[i];
+    global_collision_body_transforms_[i] = parent_link_state_->getGlobalLinkTransform() * attached_body_model_->getAttachedBodyFixedTransforms()[i];
   }
 }
 
