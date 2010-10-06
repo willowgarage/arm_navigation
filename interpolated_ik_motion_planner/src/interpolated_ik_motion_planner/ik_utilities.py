@@ -59,25 +59,22 @@ def pplist(list):
 class IKUtilities:
 
     #initialize all service functions
-    def __init__(self, whicharm, tf_listener = None): #whicharm is 'right' or 'left'
+    #if wait_for_services = 0, you must call check_services_and_get_ik_info externally before running any of the IK/FK functions
+    def __init__(self, whicharm, tf_listener = None, wait_for_services = 1): #whicharm is 'right' or 'left'
         self.srvroot = '/pr2_'+whicharm+'_arm_kinematics/'
 
         #set this to 0 to disable collision-aware IK
         self.perception_running = 1
-
-        rospy.loginfo("ik_utilities: waiting for IK services to be there")
-        rospy.wait_for_service(self.srvroot+'get_ik')
-        if self.perception_running:
-            rospy.wait_for_service(self.srvroot+'get_constraint_aware_ik')
-        rospy.wait_for_service(self.srvroot+'get_fk')
-        rospy.wait_for_service(self.srvroot+'get_ik_solver_info')
-        rospy.loginfo("ik_utilities: services found")
 
         self.ik_service = rospy.ServiceProxy(self.srvroot+'get_ik', GetPositionIK)
         if self.perception_running:
             self.ik_service_with_collision = rospy.ServiceProxy(self.srvroot+'get_constraint_aware_ik', GetConstraintAwarePositionIK)
         self.fk_service = rospy.ServiceProxy(self.srvroot+'get_fk', GetPositionFK)
         self.query_service = rospy.ServiceProxy(self.srvroot+'get_ik_solver_info', GetKinematicSolverInfo)
+
+        #wait for IK/FK/query services and get the joint names and limits 
+        if wait_for_services:
+            self.check_services_and_get_ik_info()
         
         if tf_listener == None:
             rospy.loginfo("ik_utilities: starting up tf_listener")
@@ -86,14 +83,6 @@ class IKUtilities:
             self.tf_listener = tf_listener
 
         self.marker_pub = rospy.Publisher('interpolation_markers', Marker)
-
-        #get and store the joint names and limits
-        #only one IK link available so far ('r_wrist_roll_link' or 'l_wrist_roll_link')
-        rospy.loginfo("getting the IK solver info")
-        (self.joint_names, self.min_limits, self.max_limits, self.link_names) = \
-            self.run_query()
-        self.link_name = self.link_names[-1]
-        rospy.loginfo("done getting the IK solver info")
 
         #dictionary for the possible kinematics error codes
         self.error_code_dict = {}  #codes are things like SUCCESS, NO_IK_SOLUTION
@@ -114,6 +103,26 @@ class IKUtilities:
         self.pose_id_set = 0
 
         rospy.loginfo("ik_utilities: done init")
+
+
+    #wait for the various services and run the IK query to get the joint names and limits
+    def check_services_and_get_ik_info(self):
+
+        rospy.loginfo("ik_utilities: waiting for IK services to be there")
+        rospy.wait_for_service(self.srvroot+'get_ik')
+        if self.perception_running:
+            rospy.wait_for_service(self.srvroot+'get_constraint_aware_ik')
+        rospy.wait_for_service(self.srvroot+'get_fk')
+        rospy.wait_for_service(self.srvroot+'get_ik_solver_info')
+        rospy.loginfo("ik_utilities: services found")
+
+        #get and store the joint names and limits
+        #only one IK link available so far ('r_wrist_roll_link' or 'l_wrist_roll_link')
+        rospy.loginfo("getting the IK solver info")
+        (self.joint_names, self.min_limits, self.max_limits, self.link_names) = \
+            self.run_query()
+        self.link_name = self.link_names[-1]
+        rospy.loginfo("done getting the IK solver info")
 
 
     ##draw a PoseStamped in rviz as a set of arrows (x=red, y=green, z=blue)
@@ -785,7 +794,8 @@ if __name__ == '__main__':
 
     rospy.init_node('test_ik_and_fk', anonymous=True)
     
-    ik_utilities = IKUtilities('right')
+    ik_utilities = IKUtilities('right', wait_for_services = 0)
+    ik_utilities.check_services_and_get_ik_info()
 
     print "testing ik and fk with random joint angles"
     for i in range(20):
