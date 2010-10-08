@@ -194,6 +194,8 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
                                               trajectory_in.goal_constraints,
                                               trajectory_in.link_padding, error_code); 
 
+  planning_models::KinematicState state(planning_monitor_->getKinematicModel());
+
   //getting current state
   planning_monitor_->getCurrentRobotState(robot_state);
 
