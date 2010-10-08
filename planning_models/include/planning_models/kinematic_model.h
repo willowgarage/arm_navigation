@@ -41,7 +41,7 @@
 
 #include <urdf/model.h>
 #include <LinearMath/btTransform.h>
-#include <boost/thread/recursive_mutex.hpp>
+#include <boost/thread/shared_mutex.hpp>
 
 #include <iostream>
 #include <vector>
@@ -59,16 +59,13 @@ class KinematicModel
 {
 public:	
   /** \brief Forward definition of a joint */
-  class Joint;
+  class JointModel;
 	
   /** \brief Forward definition of a link */
-  class Link;
+  class LinkModel;
 
   /** \brief Forward definition of an attached body */
-  class AttachedBody;
-	
-  /** \brief Forward definition of a group of joints */
-  class JointGroup;
+  class AttachedBodyModel;
 	
   struct MultiDofConfig
   {
@@ -78,501 +75,552 @@ public:
     ~MultiDofConfig() {
     }
     
+    /** \brief The name of the joint */
     std::string name;
+    
+    /** \brief The type of multi-dof joint */
     std::string type;
+    
+    /** \brief The parent frame in which the joint state will be supplied */
     std::string parent_frame_id;
+
+    /** \brief The child frame into which to convert the supplied transform */
     std::string child_frame_id;
+
+    /** \brief The mapping between internally defined DOF names and externally defined DOF names */
     std::map<std::string, std::string> name_equivalents;
   };
   
   /** \brief A joint from the robot. Contains the transform applied by the joint type */
-  class Joint
+  class JointModel
   {
+    friend class KinematicModel;
   public:
-    Joint(KinematicModel *model, 
-          const std::string name);
+    JointModel(const std::string& name);
 
-    Joint(const Joint* joint);
+    JointModel(const JointModel* joint);
 
     void initialize(const std::vector<std::string>& local_names,
                     const MultiDofConfig* multi_dof_config = NULL);
 
-    virtual ~Joint(void);
-
-    /** \brief Name of the joint */
-    std::string       name;
-    
-    /** \brief The model that owns this joint */
-    KinematicModel   *owner;
-	 
-    /** \brief The link before this joint */
-    Link             *parent_link;
-    
-    /** \brief The link after this joint */
-    Link             *child_link;
-        
-    /** \brief the local transform (computed by forward kinematics) */
-    btTransform       variable_transform;
-
-    std::string getEquiv(const std::string name);
-
-    std::pair<double, double> getVariableBounds(std::string variable) const;
-   
-    void setVariableBounds(std::string variable, double low, double high);
-
-    bool allJointStateEquivalentsAreDefined(const std::map<std::string, double>& joint_value_map) const;
-
-    bool setStoredJointValues(const std::map<std::string, double>& joint_value_map);
-
-    /** \brief returns the current transform as a map from variable names to values */
-    const std::map<std::string, double>& getVariableTransformValues() const;
-    
-    /** \brief Update the value of varTrans using current joint_state_values */
-    virtual bool updateVariableTransform(const std::map<std::string, double>& joint_value_map);
-    
-    /** \brief Updates the value of varTrans using a transform */
-    virtual bool updateVariableTransform(const btTransform& trans) = 0;
-
-    virtual void updateVariableTransformFromStoredJointValues() = 0;
+    virtual ~JointModel(void);
 
     typedef boost::bimap< std::string, std::string > js_type;
+
+    const std::string& getName() const 
+    {
+      return name_;
+    }
+
+    const LinkModel* getParentLinkModel() const 
+    {
+      return parent_link_model_;
+    }
+    
+    const LinkModel* getChildLinkModel() const
+    {
+      return child_link_model_;
+    }
+    
+    const std::string& getParentFrameId() const
+    {
+      return parent_frame_id_;
+    }
+
+    const std::string& getChildFrameId() const
+    {
+      return child_frame_id_;
+    }
+
+    const js_type& getJointStateEquivalents() const
+    {
+      return joint_state_equivalents_;
+    }
+
+    const std::map<unsigned int, std::string>& getComputatationOrderMapIndex() const
+    {
+      return computation_order_map_index_;
+    }
+    /** \brief Gets the joint state equivalent for given name */  
+    std::string getEquiv(const std::string name) const;
+
+    /** \brief Gets the lower and upper bounds for a variable */
+    std::pair<double, double> getVariableBounds(std::string variable) const;
+   
+    /** \brief Sets the lower and upper bounds for a variable */
+    void setVariableBounds(std::string variable, double low, double high);
+
+    const std::map<std::string, std::pair<double, double> >& getAllVariableBounds() const {
+      return joint_state_bounds_;
+    }
+
+    bool hasVariable(const std::string var) const
+    {
+      return(joint_state_equivalents_.right.find(var) != joint_state_equivalents_.right.end());
+    }
+   
+    virtual btTransform computeTransform(const std::vector<double>& joint_values) const = 0;
+    
+    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const = 0;
+
+  private:
+
+    /** \brief Name of the joint */
+    std::string name_;
+    
+    /** \brief The link before this joint */
+    LinkModel *parent_link_model_;
+    
+    /** \brief The link after this joint */
+    LinkModel *child_link_model_;
+
     //local names on the left, config names on the right
-    js_type joint_state_equivalents;
+    js_type joint_state_equivalents_;
 
     //map for high and low bounds
-    std::map<std::string, std::pair<double, double> > joint_state_bounds;
+    std::map<std::string, std::pair<double, double> > joint_state_bounds_;
     
-    //stored in local names
-    std::map<std::string, double> stored_joint_values;
+    //correspondance between index into computation array and external name
+    std::map<unsigned int, std::string> computation_order_map_index_;
+   
+    /** The parent frame id for this joint.  May be empty unless specified as multi-dof*/
+    std::string parent_frame_id_;
     
-    std::string parent_frame_id;
-    std::string child_frame_id;
+    /** The child frame id for this joint.  May be empty unless specified as multi-dof*/
+    std::string child_frame_id_;
   };
 
   /** \brief A fixed joint */
-  class FixedJoint : public Joint
+  class FixedJointModel : public JointModel
   {
   public:
 	    
-    FixedJoint(KinematicModel *owner, const std::string name, const MultiDofConfig* multi_dof_config) :
-      Joint(owner, name)
+    FixedJointModel(const std::string name, const MultiDofConfig* multi_dof_config) :
+      JointModel(name)
     {
     }
 	    
-    FixedJoint(const FixedJoint* joint): Joint(joint)
+    FixedJointModel(const FixedJointModel* joint): JointModel(joint)
     {
     }
 
-    /** \brief Updates the value of varTrans using a transform */
-    virtual bool updateVariableTransform(const btTransform& trans){
-      return true;
-    };
-
-    virtual void updateVariableTransformFromStoredJointValues(){
+    virtual btTransform computeTransform(const std::vector<double>& joint_values) const {
+      btTransform ident;
+      ident.setIdentity();
+      return ident;
     }
-
-    static const std::string local_names[4];
+    
+    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const {
+      std::vector<double> ret;
+      return ret;
+    }
 
   };
 
   /** \brief A planar joint */
-  class PlanarJoint : public Joint
+  class PlanarJointModel : public JointModel
   {
   public:
 	    
-    PlanarJoint(KinematicModel *owner, const std::string name, const MultiDofConfig* multi_dof_config);
+    PlanarJointModel(const std::string& name, const MultiDofConfig* multi_dof_config);
 	    
-    PlanarJoint(const PlanarJoint* joint): Joint(joint)
+    PlanarJointModel(const PlanarJointModel* joint): JointModel(joint)
     {
     }
 
-    /** \brief Updates the value of varTrans using a transform */
-    virtual bool updateVariableTransform(const btTransform& trans);
+    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
+    
+    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
 
-    virtual void updateVariableTransformFromStoredJointValues();
   };
 
   /** \brief A floating joint */
-  class FloatingJoint : public Joint
+  class FloatingJointModel : public JointModel
   {
   public:
 	    
-    FloatingJoint(KinematicModel *owner, const std::string name, const MultiDofConfig* multi_dof_config);
+    FloatingJointModel(const std::string& name, const MultiDofConfig* multi_dof_config);
 
-    FloatingJoint(const FloatingJoint* joint) : Joint(joint)
+    FloatingJointModel(const FloatingJointModel* joint) : JointModel(joint)
     {
     }
 
-    /** \brief Updates the value of varTrans using a transform */
-    virtual bool updateVariableTransform(const btTransform& trans);
+    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
     
-    virtual void updateVariableTransformFromStoredJointValues();
+    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
 
   };
 
   /** \brief A prismatic joint */
-  class PrismaticJoint : public Joint
+  class PrismaticJointModel : public JointModel
   {
   public:
 	    
-    PrismaticJoint(KinematicModel *owner, const std::string name, const MultiDofConfig* multi_dof_config);
+    PrismaticJointModel(const std::string& name, const MultiDofConfig* multi_dof_config);
     
-    PrismaticJoint(const PrismaticJoint* joint) : Joint(joint){
-      axis = joint->axis;
+    PrismaticJointModel(const PrismaticJointModel* joint) : JointModel(joint){
+      axis_ = joint->axis_;
     }
 	    
-    btVector3 axis;
+    btVector3 axis_;
     
-    /** \brief Updates the value of varTrans using a transform */
-    virtual bool updateVariableTransform(const btTransform& trans);
+    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
     
-    virtual void updateVariableTransformFromStoredJointValues();     
+    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+    
   };
 	
   /** \brief A revolute joint */
-  class RevoluteJoint : public Joint
+  class RevoluteJointModel : public JointModel
   {
   public:
 	    
-    RevoluteJoint(KinematicModel *owner, const std::string name, const MultiDofConfig* multi_dof_config);
+    RevoluteJointModel(const std::string& name, const MultiDofConfig* multi_dof_config);
 
-    RevoluteJoint(const RevoluteJoint* joint) : Joint(joint){
-      axis = joint->axis;
-      continuous = joint->continuous;
+    RevoluteJointModel(const RevoluteJointModel* joint) : JointModel(joint){
+      axis_ = joint->axis_;
+      continuous_ = joint->continuous_;
     }
 	    	    
-    btVector3 axis;
-    bool      continuous;
+    btVector3 axis_;
+    bool      continuous_;
 
-    /** \brief Update the value of varTrans using the information from params */
-    virtual bool updateVariableTransform(const std::map<std::string, double>& joint_value_map);
+    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
     
-    /** \brief Updates the value of varTrans using a transform */
-    virtual bool updateVariableTransform(const btTransform& trans);
-
-    virtual void updateVariableTransformFromStoredJointValues();  
+    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
   };
 	
   /** \brief A link from the robot. Contains the constant transform applied to the link and its geometry */
-  class Link
+  class LinkModel
   {
+    friend class KinematicModel;
   public:
     
-    Link(KinematicModel *model);	    
-    ~Link(void);
+    LinkModel(const KinematicModel* kinematic_model);
     
+    LinkModel(const LinkModel* link_model);
+
+    ~LinkModel(void);
+
+    const std::string& getName() const {
+      return name_;
+    }
+    
+    const JointModel* getParentJointModel() const {
+      return parent_joint_model_;
+    }
+
+    const std::vector<JointModel*>& getChildJointModels() const {
+      return child_joint_models_;
+    }
+
+    const btTransform& getJointOriginTransform() const {
+      return joint_origin_transform_;
+    }
+
+    const btTransform& getCollisionOriginTransform() const {
+      return collision_origin_transform_;
+    }
+
+    const shapes::Shape* getLinkShape() const {
+      return shape_;
+    }
+    
+    const std::vector<AttachedBodyModel*>& getAttachedBodyModels() const {
+      return attached_body_models_;
+    }
+
+  private:
+     
+    /** \brief Removes all attached body models from this link, requiring an exclusive lock */
+    void clearAttachedBodyModels();
+    
+    /** \brief Removes all attached body models from this link, and replaces them with the supplied vector,
+        requiring an exclusive lock
+     */
+    void replaceAttachedBodyModels(std::vector<AttachedBodyModel*>& attached_body_vector);
+   
+    void clearLinkAttachedBodyModel(const std::string& att_name);
+
+    void addAttachedBodyModel(AttachedBodyModel* attached_body_model);
+
     /** \brief Name of the link */
-    std::string                name;
+    std::string name_;
     
-    /** \brief The model that owns this link */
-    KinematicModel            *owner;
-    
-    /** \brief Joint that connects this link to the parent link */
-    Joint                     *parent_joint;
+    /** \brief KinematicState point for accessing locks */
+    const KinematicModel* kinematic_model_;
+
+    /** \brief JointModel that connects this link to the parent link */
+    JointModel *parent_joint_model_;
     
     /** \brief List of descending joints (each connects to a child link) */
-    std::vector<Joint*>        child_joint;
+    std::vector<JointModel*> child_joint_models_;
     
     /** \brief The constant transform applied to the link (local) */
-    btTransform                joint_origin_transform;
+    btTransform joint_origin_transform_;
     
     /** \brief The constant transform applied to the collision geometry of the link (local) */
-    btTransform                collision_origin_transform;
+    btTransform  collision_origin_transform_;
     
     /** \brief The geometry of the link */
-    shapes::Shape             *shape;
+    shapes::Shape *shape_;
     
     /** \brief Attached bodies */
-    std::vector<AttachedBody*> attached_bodies;	    
-    
-    /** \brief The global transform this link forwards (computed by forward kinematics) */
-    btTransform                global_link_transform;
-    
-    /** \brief The global transform for this link (computed by forward kinematics) */
-    btTransform                global_collision_body_transform;
-    
-    /** \brief Recompute global_collision_body_transform and global_link_transform */
-    void computeTransform(void);
-    
+    std::vector<AttachedBodyModel*> attached_body_models_;	        
   };
   
   /** \brief Class defining bodies that can be attached to robot
       links. This is useful when handling objects picked up by
       the robot. */
-  class AttachedBody
+  class AttachedBodyModel
   {
   public:
     
-    AttachedBody(Link *link, const std::string& id);
-    ~AttachedBody(void);
+    AttachedBodyModel(const LinkModel *link, 
+                      const std::string& id,
+                      const std::vector<btTransform>& attach_trans,
+                      const std::vector<std::string>& touch_links,
+                      std::vector<shapes::Shape*>& shapes);
+
+    ~AttachedBodyModel(void);
     
+    const std::string& getName() const 
+    {
+      return id_;
+    }
+    
+    const LinkModel* getAttachedLinkModel() const 
+    {
+      return attached_link_model_;
+    }
+
+    const std::vector<shapes::Shape*>& getShapes() const 
+    {
+      return shapes_;
+    }
+
+    const std::vector<btTransform>& getAttachedBodyFixedTransforms() const
+    {
+      return attach_trans_;
+    }
+
+    const std::vector<std::string>& getTouchLinks() const
+    {
+      return touch_links_;
+    }
+    
+  private:
+
     /** \brief The link that owns this attached body */
-    Link                                  *owner;
+    const LinkModel *attached_link_model_;
     
     /** \brief The geometries of the attached body */
-    std::vector<shapes::Shape*>            shapes;
+    std::vector<shapes::Shape*> shapes_;
     
     /** \brief The constant transforms applied to the link (need to be specified by user) */
-    std::vector<btTransform>               attach_trans;
-    
-    /** \brief The global transforms for these attached bodies (computed by forward kinematics) */
-    std::vector<btTransform>               global_collision_body_transform;
+    std::vector<btTransform> attach_trans_;
     
     /** \brief The set of links this body is allowed to touch */
-    std::vector<std::string>               touch_links;
+    std::vector<std::string> touch_links_;
     
     /** string id for reference */
-    std::string                            id;
-    
-    /** \brief Recompute global_collision_body_transform */
-    void computeTransform(void);
+    std::string id_;
   };
 
-  class JointGroup
+  class JointModelGroup
   {
+    friend class KinematicModel;
   public:
 	    
-    JointGroup(KinematicModel *model, const std::string& groupName, const std::vector<Joint*> &groupJoints);
-    ~JointGroup(void);
+    JointModelGroup(
+                    const std::string& groupName, 
+                    const std::vector<const JointModel*> &groupJoints);
+    ~JointModelGroup(void);
+
+    const std::string& getName() const
+    {
+      return name_;
+    }
 	    
-    /** \brief The kinematic model that owns the group */
-    KinematicModel                     *owner;	    
-
-    /** \brief Name of group */
-    std::string                         name;
-
-    /** \brief Names of joints in the order they appear in the group state */
-    std::vector<std::string>            joint_names;
-
-    /** \brief Joint instances in the order they appear in the group state */
-    std::vector<Joint*>                 joints;
-
-    /** \brief A map from joint names to their instances */
-    std::map<std::string, Joint*> joint_map;
-
-     /** \brief The list of joints that are roots in this group */
-    std::vector<Joint*>                 joint_roots;
-
-    /** \brief The list of links that are updated when computeTransforms() is called, in the order they are updated */
-    std::vector<Link*>                  updated_links;
-	    
-    /** \brief Perform forward kinematics starting at the roots
-        within a group. Links that are not in the group are also
-        updated, but transforms for joints that are not in the
-        group are not recomputed.  */
-    void computeTransforms(const std::map<std::string, double>& joint_value_map);
-
-    /** compute transforms using current joint values */
-    void computeTransforms();	
-
     /** \brief Check if a joint is part of this group */
-    bool hasJoint(const std::string &joint) const;
+    bool hasJointModel(const std::string &joint) const;
 
     /** \brief Get a joint by its name */
-    Joint* getJoint(const std::string &joint);
+    const JointModel* getJointModel(const std::string &joint);
+
+    const std::vector<const JointModel*>& getJointModels() const
+    {
+      return joint_model_vector_;
+    }
+    
+    const std::vector<std::string>& getJointModelNames() const
+    {
+      return joint_model_name_vector_;
+    }
+
+    const std::vector<const LinkModel*>& getUpdatedLinkModels() const
+    {
+      return updated_link_model_vector_;
+    }
+
+    const std::vector<const JointModel*>& getJointRoots() const
+    {
+      return joint_roots_;
+    }
+    
+  private:
+
+    /** \brief Name of group */
+    std::string name_;
+
+    /** \brief Names of joints in the order they appear in the group state */
+    std::vector<std::string> joint_model_name_vector_;
+
+    /** \brief Joint instances in the order they appear in the group state */
+    std::vector<const JointModel*> joint_model_vector_;
+
+    /** \brief A map from joint names to their instances */
+    std::map<std::string, const JointModel*> joint_model_map_;
+
+     /** \brief The list of joint models that are roots in this group */
+    std::vector<const JointModel*> joint_roots_;
+
+    /** \brief The list of child link_models in the order they should be updated */
+    std::vector<const LinkModel*> updated_link_model_vector_;
 	    
-    /** \brief Gets all the joint values */
-    std::map<std::string, double> getAllJointsValues() const;
-    
-    /** \brief Gets all the joint values associated with a particular joint  */
-    std::map<std::string, double> getJointValues(const std::string joint) const;
-
-    /** \brief Returns all the joint values in alphabetical (map) order */
-    std::vector<double> getAllJointsValuesVector() const;
-
-    /** \brief Gets all the joint values in map order*/
-    std::map<std::string, unsigned int> getMapOrderIndex() const;
-    
-    /** \brief Update all joint values assuming alphabetical (map) order */
-    void setAllJointsValues(const std::vector<double>& joint_values);
-    
-    /** \brief Bring the group to a default state. All joints are
-        at 0. If 0 is not within the bounds of the joint, the
-        middle of the bounds is used. */
-    void defaultState(void);
-	    
-    /** \brief Check if this group contains the joints from another group */
-    bool containsGroup(const JointGroup *group) const;
-
-    /** \brief Construct a group that consists of the union of joints of this group and the argument group */
-    JointGroup* addGroup(const JointGroup *group) const;
-
-    /** \brief Construct a group that consists of the joints of this group that are not joints in the argument group */
-    JointGroup* removeGroup(const JointGroup *group) const;
-
   };
-	
+
   /** \brief Construct a kinematic model from another one */
-  KinematicModel(const KinematicModel &source, bool load_meshes=true);
+  KinematicModel(const KinematicModel &source);
 
   /** \brief Construct a kinematic model from a parsed description and a list of planning groups */
   KinematicModel(const urdf::Model &model, 
                  const std::map< std::string, std::vector<std::string> > &groups, 
-                 const std::vector<MultiDofConfig>& multi_dof_configs,
-                 bool load_meshes = true);
+                 const std::vector<MultiDofConfig>& multi_dof_configs);
 	
   /** \brief Destructor. Clear all memory. */
   ~KinematicModel(void);
 
   void copyFrom(const KinematicModel &source);
 
-  /** \brief Bring the robot to a default state */
   void defaultState(void);
 	
   /** \brief General the model name **/
   const std::string& getName(void) const;
-	
-  /** \brief Get a group by its name */
-  const JointGroup* getGroup(const std::string &name) const;
-
-  /** \brief Get a group by its name */
-  JointGroup* getGroup(const std::string &name);
-	
-  /** \brief Check if a group exists */
-  bool hasGroup(const std::string &name) const;
-	
-  /** \brief Get the array of planning groups */
-  void getGroups(std::vector<const JointGroup*> &groups) const;
-	
-  /** \brief Get the group names, in no particular order */
-  void getGroupNames(std::vector<std::string> &groups) const;
 
   /** \brief Get a link by its name */
-  const Link* getLink(const std::string &link) const;
-
-  /** \brief Get a link by its name */
-  Link* getLink(const std::string &link);
+  const LinkModel* getLinkModel(const std::string &link) const;
 
   /** \brief Check if a link exists */
-  bool hasLink(const std::string &name) const;
+  bool hasLinkModel(const std::string &name) const;
 
-  /** \brief Get the array of links, in no particular order */
-  void getLinks(std::vector<const Link*> &links) const;
-
-  /** \brief Get the link names, in no particular order */
-  void getLinkNames(std::vector<std::string> &links) const;
+  /** \brief Get the link names in the order they should be updated */
+  void getLinkModelNames(std::vector<std::string> &links) const;
 
   /** \brief Get the set of links that follow a parent link in the kinematic chain */
-  void getChildLinks(const Link* parent, std::vector<Link*> &links);
+  void getChildLinkModels(const LinkModel* parent, std::vector<const LinkModel*> &links) const;
   
   /** \brief Get a joint by its name */
-  const Joint* getJoint(const std::string &joint) const;
-
-  /** \brief Get a joint by its name */
-  Joint* getJoint(const std::string &joint);
+  const JointModel* getJointModel(const std::string &joint) const;
 
   /** \brief Check if a joint exists */
-  bool hasJoint(const std::string &name) const;
+  bool hasJointModel(const std::string &name) const;
 	
   /** \brief Get the array of joints, in the order they appear
       in the robot state. */
-  void getJoints(std::vector<const Joint*> &joints) const;
-
-  /** \brief Get the array of joints, in the order they appear
-      in the robot state. */
-  void getJoints(std::vector<Joint*> &joints) const;
+  const std::vector<JointModel*>& getJointModels() const
+  {
+    return joint_model_vector_;
+  }
+ /** \brief Get the array of joints, in the order they should be
+     updated*/
+  const std::vector<LinkModel*>& getLinkModels() const
+  {
+    return link_model_vector_;
+  }
 	
   /** \brief Get the array of joint names, in the order they
       appear in the robot state. */
-  void getJointNames(std::vector<std::string> &joints) const;
-
-  /** \brief Gets all the joint values */
-  std::map<std::string, double> getAllJointsValues() const;
-  
-  /** \brief Gets all the joint values in map order*/
-  std::map<std::string, unsigned int> getMapOrderIndex() const;
-
-  /** \brief Returns all the joint values in alphabetical (map) order */
-  std::vector<double> getAllJointsValuesVector() const;
-  
-  /** \brief Update all joint values assuming alphabetical (map) order */
-  void setAllJointsValues(const std::vector<double>& joint_values);
-
-  /** \brief Gets all the joint values associated with a particular joint  */
-  std::map<std::string, double> getJointValues(std::string joint) const;
-
-  /** \brief Check if a single joint's values are in bounds */
-  bool checkJointBounds(std::string joint) const;
-
-  /** \brief Checks if a vector of joints values' are in bounds */
-  bool checkJointsBounds(std::vector<std::string> joints) const;
-
-  /** \brief Perform forward kinematics for the entire robot */
-  void computeTransforms(std::map<std::string, double> joint_value_map);
-
-  /** \brief Perform forward kinematics for the entire robot using all current joint transforms*/
-  void computeTransforms();
-  
-  /** \brief Assuming a link is set at a specific transform, update the transforms for the necessary (descendant) links */
-  void updateTransformsWithLinkAt(Link *link, const btTransform &transform);
-	
-  /** \brief Get the global transform applied to the entire tree of links */
-  const btTransform& getRootTransform(void) const;
-	
-  /** \brief Set the global transform applied to the entire tree of links */
-  void setRootTransform(const btTransform &transform);
+  void getJointModelNames(std::vector<std::string> &joints) const;
 
   /** \brief Get the root joint */
-  const Joint* getRoot(void) const;
+  const JointModel* getRoot(void) const;
+	
+  /** \brief Provide interface to get an exclusive lock to change the model. Use carefully! */
+  void exclusiveLock(void) const;
+	
+  /** \brief Provide interface to release an exclusive lock. Use carefully! */
+  void exclusiveUnlock(void) const;
 
-  /** \brief Get the root joint */
-  Joint* getRoot(void);
-	
-  /** \brief Provide interface to a lock. Use carefully! */
-  void lock(void);
-	
-  /** \brief Provide interface to a lock. Use carefully! */
-  void unlock(void);
+  /** \brief Provide interface to get a shared lock for reading model data */
+  void sharedLock(void) const;
+  
+  /** \brief Provide interface to release a shared lock */
+  void sharedUnlock(void) const;
 
   /** \brief Print information about the constructed model */
   void printModelInfo(std::ostream &out = std::cout) const;
 
-  /** \brief Print the pose of every link */
-  void printTransforms(std::ostream &out = std::cout) const;
+  bool hasModelGroup(const std::string& group) const;
 
-  void printTransform(const std::string &st, const btTransform &t, std::ostream &out = std::cout) const;
+  const JointModelGroup* getModelGroup(const std::string& name) const
+  {
+    if(!hasModelGroup(name)) return NULL;
+    return joint_model_group_map_.find(name)->second;
+  }
+
+  const std::map<std::string, JointModelGroup*>& getJointModelGroupMap() const
+  {
+    return joint_model_group_map_;
+  }
+
+  void getModelGroupNames(std::vector<std::string>& getModelGroupNames) const;
+
+  void clearAllAttachedBodyModels();
+
+  void clearLinkAttachedBodyModels(const std::string& link_name);
+
+  void clearLinkAttachedBodyModel(const std::string& link_name, const std::string& att_name);
+
+  void replaceAttachedBodyModels(const std::string& link_name, std::vector<AttachedBodyModel*>& attached_body_vector);
+
+  void addAttachedBodyModel(const std::string& link_name, AttachedBodyModel* att_body_model);
 	
 private:
 	
-  /** \brief The name of the model */
-  std::string                                       model_name_;	
+  /** \brief Shared lock for changing models */ 
+  mutable boost::shared_mutex lock_;
 
-  /** \brief A map from group names to their instances */
-  std::map<std::string, JointGroup*>                group_map_;	
+  /** \brief The name of the model */
+  std::string model_name_;	
 
   /** \brief A map from link names to their instances */
-  std::map<std::string, Link*>                      link_map_;
+  std::map<std::string, LinkModel*> link_model_map_;
 
   /** \brief A map from joint names to their instances */
-  std::map<std::string, Joint*>                     joint_map_;
+  std::map<std::string, JointModel*> joint_model_map_;
 
-  /** \brief The list of joints in the model, in the order they appear in the state vector */
-  std::vector<Joint*>                               joint_list_;
+  /** \brief The vector of joints in the model, in the order they appear in the state vector */
+  std::vector<JointModel*> joint_model_vector_;
 	
-  /** \brief The index at which a joint starts reading values in the state vector */
-  std::vector<unsigned int>                         joint_index_;
-	
-  /** \brief The list of links that are updated when computeTransforms() is called, in the order they are updated */
-  std::vector<Link*>                                updated_links_;	
+  /** \brief The vector of links that are updated when computeTransforms() is called, in the order they are updated */
+  std::vector<LinkModel*> link_model_vector_;	
 	
   /** \brief The root joint */
-  Joint                                            *root_;
+  JointModel *root_;
 	
-  boost::recursive_mutex                                      lock_;
+  std::map<std::string, JointModelGroup*> joint_model_group_map_;
 
-  bool load_meshes_;
-
-  void buildConvenientDatastructures(void);	
   void buildGroups(const std::map< std::string, std::vector<std::string> > &groups);
-  Joint* buildRecursive(Link *parent, const urdf::Link *link, const std::vector<MultiDofConfig>& multi_dof_configs);
-  Joint* constructJoint(const urdf::Joint *urdfJoint,  const urdf::Link *child_link,
+  JointModel* buildRecursive(LinkModel *parent, const urdf::Link *link, 
+                             const std::vector<MultiDofConfig>& multi_dof_configs);
+  JointModel* constructJointModel(const urdf::Joint *urdfJointModel,  const urdf::Link *child_link,
                         const std::vector<MultiDofConfig>& multi_dof_configs);
-  Link* constructLink(const urdf::Link *urdfLink);
+  LinkModel* constructLinkModel(const urdf::Link *urdfLink);
   shapes::Shape* constructShape(const urdf::Geometry *geom);
 
-  Joint* copyJoint(const Joint *joint);
-  Link* copyLink(const Link *link);
-  Joint* copyRecursive(Link *parent, const Link *link);
+  JointModel* copyJointModel(const JointModel *joint);
+  JointModel* copyRecursive(LinkModel *parent, const LinkModel *link);
 	
 };
 
