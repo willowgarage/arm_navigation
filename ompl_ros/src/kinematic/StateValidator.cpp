@@ -38,11 +38,12 @@
 
 bool ompl_ros::ROSStateValidityPredicateKinematic::operator()(const ompl::base::State *s) const
 {  
-  std::vector<double> vals(s->values,s->values+model_->group->joints.size());
+  EnvironmentDescription* ed = model_->getEnvironmentDescription();
 
-  model_->group->setAllJointsValues(vals);
-  model_->group->computeTransforms();
-  model_->planningMonitor->getEnvironmentModel()->updateRobotModel();  
+  std::vector<double> vals(s->values,s->values+ed->group_state->getDimension());
+
+  ed->group_state->setKinematicState(vals);
+  model_->planningMonitor->getEnvironmentModel()->updateRobotModel(ed->full_state);  
 
   //Already knows about joint limits
   //bool within_bounds = model_->planningMonitor->getCheckingKinematicModel()->checkJointsBounds(joint_group->joint_names);     
@@ -55,7 +56,7 @@ bool ompl_ros::ROSStateValidityPredicateKinematic::operator()(const ompl::base::
     return false;
   }
 
-  bool path_constraints_ok = model_->planningMonitor->checkPathConstraints(model_->planningMonitor->getKinematicModel(), false);
+  bool path_constraints_ok = model_->planningMonitor->checkPathConstraints(ed->full_state, false);
 
   if(!path_constraints_ok) {
     return false;
@@ -69,8 +70,8 @@ void ompl_ros::ROSStateValidityPredicateKinematic::setConstraints(const motion_p
   
   clearConstraints();
   ROS_INFO("ompl planning for group %s",model_->groupName.c_str());
-  model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.position_constraints);
-  model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.orientation_constraints);
+  model_->constraintEvaluator.add(kc.position_constraints);
+  model_->constraintEvaluator.add(kc.orientation_constraints);
   
   //motion_planning_msgs::ArmNavigationErrorCodes error_code;
   //model_->planningMonitor->setPathConstraints(kc, error_code);
@@ -88,7 +89,7 @@ void ompl_ros::ROSStateValidityPredicateKinematic::printSettings(std::ostream &o
     model_->constraintEvaluator.print(out);
 }
 
-bool ompl_ros::ROSStateValidityPredicateKinematic::check(const ompl::base::State *s, collision_space::EnvironmentModel *em, planning_models::KinematicModel::JointGroup *jg,
+bool ompl_ros::ROSStateValidityPredicateKinematic::check(const ompl::base::State *s, collision_space::EnvironmentModel *em, planning_models::KinematicModel::JointModelGroup *jg,
 							 const planning_environment::KinematicConstraintEvaluatorSet *kce) const
 {
   //   jg->computeTransforms(s->values);

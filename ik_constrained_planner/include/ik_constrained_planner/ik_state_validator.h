@@ -78,6 +78,7 @@ public:
   void configure(const std::string &group_name, 
                  const std::string &redundant_joint_name,
                  const geometry_msgs::Pose &kinematics_planner_frame,
+                 planning_models::KinematicState* kinematic_state,
                  kinematics::KinematicsBase *kinematics_solver);
 
   /** \brief Used by the ROS space information to print information */
@@ -90,6 +91,8 @@ protected:
   planning_environment::PlanningMonitor *planning_monitor_;
   kinematics::KinematicsBase* kinematics_solver_;
   ompl::base::SpaceInformation *space_information_;
+  planning_models::KinematicState* kinematic_state_;
+  planning_models::KinematicState::JointStateGroup* group_state_;
   ros::Publisher display_path_publisher_;
 };
 }

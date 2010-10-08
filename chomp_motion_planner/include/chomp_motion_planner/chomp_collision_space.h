@@ -169,7 +169,7 @@ private:
   planning_environment::CollisionModels* collision_models_;
 
   void loadRobotBodies();
-  void updateRobotBodiesPoses();
+  void updateRobotBodiesPoses(const planning_models::KinematicState& state);
   void getVoxelsInBody(const bodies::Body &body, std::vector<btVector3> &voxels);
   void addCollisionObjectsToPoints(std::vector<btVector3>& points, const btTransform& cur);
   void addBodiesInGroupToPoints(const std::string& group, std::vector<btVector3> &voxels);

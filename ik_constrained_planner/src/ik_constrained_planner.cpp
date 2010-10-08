@@ -133,17 +133,17 @@ bool IKConstrainedPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::R
     if(contact.link1 != NULL) {
       //ROS_INFO_STREAM("Link 1 is " << contact.link2->name);
       if(contact.link1_attached_body_index == 0) {
-        ns_name += contact.link1->name+"+";
-        contact_info.contact_body_1 = contact.link1->name;
+        ns_name += contact.link1->getName()+"+";
+        contact_info.contact_body_1 = contact.link1->getName();
         contact_info.attached_body_1 = "";
         contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
       } else {
-        if(contact.link1->attached_bodies.size() < contact.link1_attached_body_index) {
+        if(contact.link1->getAttachedBodyModels().size() < contact.link1_attached_body_index) {
           ROS_ERROR("Link doesn't have attached body with indicated index");
         } else {
-          ns_name += contact.link1->attached_bodies[contact.link1_attached_body_index-1]->id+"+";
-          contact_info.contact_body_1 = contact.link1->name;
-          contact_info.attached_body_1 = contact.link1->attached_bodies[contact.link1_attached_body_index-1]->id;
+          ns_name += contact.link1->getAttachedBodyModels()[contact.link1_attached_body_index-1]->getName()+"+";
+          contact_info.contact_body_1 = contact.link1->getName();
+          contact_info.attached_body_1 = contact.link1->getAttachedBodyModels()[contact.link1_attached_body_index-1]->getName();
           contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
         }
       }
@@ -152,17 +152,17 @@ bool IKConstrainedPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::R
     if(contact.link2 != NULL) {
       //ROS_INFO_STREAM("Link 2 is " << contact.link2->name);
       if(contact.link2_attached_body_index == 0) {
-        ns_name += contact.link2->name;
-        contact_info.contact_body_2 = contact.link2->name;
+        ns_name += contact.link2->getName();
+        contact_info.contact_body_2 = contact.link2->getName();
         contact_info.attached_body_2 = "";
         contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
       } else {
-        if(contact.link2->attached_bodies.size() < contact.link2_attached_body_index) {
+        if(contact.link2->getAttachedBodyModels().size() < contact.link2_attached_body_index) {
           ROS_ERROR("Link doesn't have attached body with indicated index");
         } else {
-          ns_name += contact.link2->attached_bodies[contact.link2_attached_body_index-1]->id;
-          contact_info.contact_body_2 = contact.link2->name;
-          contact_info.attached_body_2 = contact.link2->attached_bodies[contact.link2_attached_body_index-1]->id;
+          ns_name += contact.link2->getAttachedBodyModels()[contact.link2_attached_body_index-1]->getName();
+          contact_info.contact_body_2 = contact.link2->getName();
+          contact_info.attached_body_2 = contact.link2->getAttachedBodyModels()[contact.link2_attached_body_index-1]->getName();
           contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
         }
       }
@@ -256,6 +256,7 @@ void IKConstrainedPlanner::setWorkspaceBounds(motion_planning_msgs::WorkspacePar
 }
 
 bool IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
+                                              planning_models::KinematicState* state, 
                                               ompl::base::SpaceInformation *space_information)
 {
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
@@ -263,10 +264,9 @@ bool IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   //  space_information->clearGoal();           // goal definitions
   //  space_information->clearStartStates();    // start states
   // Clear allowed contact regions
-  planning_monitor_->revertToDefaultState();
   resetStateComponents();
 
-  planning_monitor_->prepareForValidityChecks(planning_monitor_->getKinematicModel()->getGroup(req.motion_plan_request.group_name)->joint_names,
+  planning_monitor_->prepareForValidityChecks(planning_monitor_->getKinematicModel()->getModelGroup(req.motion_plan_request.group_name)->getJointModelNames(),
                                               req.motion_plan_request.ordered_collision_operations,
                                               req.motion_plan_request.allowed_contacts,
                                               req.motion_plan_request.path_constraints,
@@ -289,15 +289,15 @@ bool IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   /* set the starting state */
   const unsigned int dim = space_information->getStateDimension();
   ompl::base::State *start = new ompl::base::State(dim);
-    
+
   /* set the pose of the whole robot */
-  planning_monitor_->setRobotStateAndComputeTransforms(req.motion_plan_request.start_state);
-  planning_monitor_->getEnvironmentModel()->updateRobotModel();
+  planning_monitor_->setRobotStateAndComputeTransforms(req.motion_plan_request.start_state, *state);
+  planning_monitor_->getEnvironmentModel()->updateRobotModel(state);
     
   /* extract the components needed for the start state of the desired group */
-  std::vector<std::string> joints = planning_monitor_->getKinematicModel()->getGroup(req.motion_plan_request.group_name)->joint_names;
-  planning_models::KinematicModel::Link* link = planning_monitor_->getKinematicModel()->getJoint(joints.back())->child_link;
-  btTransform end_effector_pose = link->global_link_transform;
+  const std::vector<std::string>& joints = planning_monitor_->getKinematicModel()->getModelGroup(req.motion_plan_request.group_name)->getJointModelNames();
+  const planning_models::KinematicModel::LinkModel* link = planning_monitor_->getKinematicModel()->getJointModel(joints.back())->getChildLinkModel();
+  btTransform end_effector_pose = state->getLinkState(link->getName())->getGlobalLinkTransform();
   double roll, pitch, yaw;
   end_effector_pose.getBasis().getRPY(roll,pitch,yaw);
 
@@ -309,14 +309,14 @@ bool IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   start->values[4] = pitch;
   start->values[5] = yaw;
 
-  std::map<std::string, double> joint_vals = planning_monitor_->getKinematicModel()->getJointValues(redundant_joint_map_[req.motion_plan_request.group_name]);
+  const std::vector<double>& joint_vals = state->getJointState(redundant_joint_map_[req.motion_plan_request.group_name])->getJointStateValues();
   if(joint_vals.size() > 1) {
-    ROS_INFO("Multi-dof joint: bad");
+    ROS_WARN("Multi-dof joint: bad");
   }
   
   ROS_INFO_STREAM("Redundancy is "<< redundant_joint_map_[req.motion_plan_request.group_name]);
 
-  start->values[6] = joint_vals.begin()->second;
+  start->values[6] = joint_vals[0];
   ROS_INFO("Start state:");
   ROS_INFO("Position   :");
 
@@ -457,6 +457,8 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
     ROS_INFO("Could not find kinematics solver for group %s",req.motion_plan_request.group_name.c_str());
     return false;
   }
+
+  kinematic_state_ = new planning_models::KinematicState(planning_monitor_->getKinematicModel());
   
   geometry_msgs::PoseStamped tmp_frame;
   tmp_frame.pose.orientation.w = 1.0;
@@ -467,20 +469,28 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
                              tmp_frame, 
                              kinematics_planner_frame_);
 
+  planning_monitor_->getEnvironmentModel()->lock();
+
+  geometry_msgs::PointStamped pos;
+  pos.point = req.motion_plan_request.goal_constraints.position_constraints[0].position;
+  pos.header = req.motion_plan_request.goal_constraints.position_constraints[0].header;
+  pos.header.stamp = ros::Time();
+  tf_listener_.transformPoint(kinematics_solver_->getBaseFrame(), pos, pos);
+  ROS_INFO_STREAM("Resulting position is " << pos.point.x << " " << pos.point.y << " " << pos.point.z);
+
   ik_constrained_planner::IKStateValidator *validity_checker;
   validity_checker = dynamic_cast<ik_constrained_planner::IKStateValidator*> (validity_checker_);
   validity_checker->configure(req.motion_plan_request.group_name,
                               redundant_joint_map_[req.motion_plan_request.group_name],
                               kinematics_planner_frame_.pose,
+                              kinematic_state_, 
                               kinematics_solver_);
-  
-  planning_monitor_->getEnvironmentModel()->lock();
-  planning_monitor_->getKinematicModel()->lock();
-  
+
   // configure the planner
-  if(!configureOnRequest(req,space_information_))
+  if(!configureOnRequest(req,kinematic_state_,space_information_))
     {
       ROS_INFO("Could not configure planner");
+      delete kinematic_state_;
       return false;
     }
     
@@ -491,34 +501,31 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
   sol.approximate = false;
   callPlanner(planner,space_information_,req,sol);
     
-  planning_monitor_->getEnvironmentModel()->unlock();
-  planning_monitor_->getKinematicModel()->unlock();
-  
   space_information_->clearGoal();
   space_information_->clearStartStates();
-  
+
   /* copy the solution to the result */
   if (sol.path)
   {
     fillResult(req,res,sol);
     delete sol.path;
   }  
+  planning_monitor_->revertToDefaultState();
+  planning_monitor_->getEnvironmentModel()->unlock();
+  delete kinematic_state_;
   return true;
 }
 
 void IKConstrainedPlanner::fillResult(motion_planning_msgs::GetMotionPlan::Request &req, 
-                                               motion_planning_msgs::GetMotionPlan::Response &res, 
-                                               const Solution &sol)
+                                      motion_planning_msgs::GetMotionPlan::Response &res, 
+                                      const Solution &sol)
 {   
-  std::vector<const planning_models::KinematicModel::Joint*> joints;
-  planning_monitor_->getKinematicModel()->getJoints(joints);
   double state_delay = req.motion_plan_request.expected_path_dt.toSec();
   ompl::kinematic::PathKinematic *kpath = dynamic_cast<ompl::kinematic::PathKinematic*>(sol.path);
   if (kpath)
   {
     res.trajectory.joint_trajectory.points.resize(kpath->states.size());
-    res.trajectory.joint_trajectory.joint_names = planning_monitor_->getKinematicModel()->getGroup(req.motion_plan_request.group_name)->joint_names;
-    
+    res.trajectory.joint_trajectory.joint_names = planning_monitor_->getKinematicModel()->getModelGroup(req.motion_plan_request.group_name)->getJointModelNames();    
     const unsigned int dim = space_information_->getStateDimension();
     for (unsigned int i = 0 ; i < kpath->states.size() ; ++i)
     {
@@ -544,7 +551,7 @@ void IKConstrainedPlanner::fillResult(motion_planning_msgs::GetMotionPlan::Reque
       }
       else
       {
-        ROS_DEBUG("%d: %f %f %f %f %f %f %f",i,solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);
+        //ROS_INFO("%d: %f %f %f %f %f %f %f",i,solution[0],solution[1],solution[2],solution[3],solution[4],solution[5],solution[6]);
         for (unsigned int j = 0 ; j < dim ; ++j)
         {
           res.trajectory.joint_trajectory.points[i].positions[j] = solution[j];
@@ -859,19 +866,19 @@ bool IKConstrainedPlanner::initializeKinematics(const std::string &param_server_
       ROS_ERROR("Could not find parameter %s on parameter server",(param_server_prefix+"/"+group_name+"/redundancy/name").c_str());
       return false;    
     }
-    planning_models::KinematicModel::Joint *joint = planning_monitor_->getKinematicModel()->getJoint(redundant_joint_name);
+    const planning_models::KinematicModel::JointModel *joint = planning_monitor_->getKinematicModel()->getJointModel(redundant_joint_name);
     if(joint == NULL)
     {
       ROS_ERROR("Could not find joint %s in kinematic model",redundant_joint_name.c_str());
       return false;
     }
-    if(static_cast<planning_models::KinematicModel::RevoluteJoint*>(joint))
+    if(static_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint))
     {
-      planning_models::KinematicModel::RevoluteJoint* revolute_joint = static_cast<planning_models::KinematicModel::RevoluteJoint*>(joint);
-      std::pair<double,double> bounds = joint->getVariableBounds(joint->name);
+      const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = static_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint);
+      std::pair<double,double> bounds = joint->getVariableBounds(joint->getName());
       state_specification.minValue = bounds.first;
       state_specification.maxValue = bounds.second;
-      if(revolute_joint->continuous)
+      if(revolute_joint->continuous_)
         state_specification.type = ompl::base::StateComponent::WRAPPING_ANGLE;
       else
         state_specification.type = ompl::base::StateComponent::LINEAR;
@@ -1107,10 +1114,14 @@ void IKConstrainedPlanner::ikSolutionCallback(const geometry_msgs::Pose &ik_pose
   {
     joint_map_values[kinematics_solver_->getJointNames()[i]] = ik_solution[i];
   }
-  planning_monitor_->getKinematicModel()->computeTransforms(joint_map_values);
-  planning_monitor_->getEnvironmentModel()->updateRobotModel();
+  kinematic_state_->setKinematicState(joint_map_values);
+  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state_);
 
   bool valid = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
+
+  if(!planning_monitor_->checkGoalConstraints(kinematic_state_, true)) {
+    ROS_INFO("ik solution violates goal constraints");
+  }
 
   if(!valid)
     error_code = -1;

@@ -45,35 +45,37 @@ void ompl_ros::ROSSpaceInformationDynamic::configureOMPLSpace(ModelBase *model)
   groupName_ = model->groupName;
   propagationModel_ = NULL;
     
-  std::map<std::string, unsigned int> map_index = model->group->getMapOrderIndex();
-   
+  planning_models::KinematicState state(kmodel_);
+  const planning_models::KinematicState::JointStateGroup* group_state = state.getJointStateGroup(groupName_);
+
+  const std::map<std::string, unsigned int>& map_index = group_state->getKinematicStateIndexMap();
   /* compute the state space for this group */
   m_stateDimension = map_index.size();
   m_stateComponent.resize(m_stateDimension);
 
-  for (unsigned int i = 0 ; i < model->group->joints.size() ; ++i)
+  for (unsigned int i = 0 ; i < group_state->getJointStateVector().size(); ++i)
   {	
-    std::map<std::string, std::pair<double,double> >& bounds = model->group->joints[i]->joint_state_bounds;
-    for(std::map<std::string, std::pair<double,double> >::iterator it = bounds.begin();
+    const std::map<std::string, std::pair<double,double> >& bounds = group_state->getJointStateVector()[i]->getAllJointValueBounds();
+    for(std::map<std::string, std::pair<double,double> >::const_iterator it = bounds.begin();
         it != bounds.end();
         it++) {
-      m_stateComponent[map_index[it->first]].minValue = it->second.first;
-      m_stateComponent[map_index[it->first]].maxValue = it->second.second;
+      m_stateComponent[map_index.at(it->first)].minValue = it->second.first;
+      m_stateComponent[map_index.at(it->first)].maxValue = it->second.second;
     }
 
-    unsigned int k = map_index[model->group->joints[i]->name];
+    unsigned int k = map_index.at(group_state->getJointStateVector()[i]->getName());
     
     if (m_stateComponent[i].type == ompl::base::StateComponent::UNKNOWN)
     {
-      planning_models::KinematicModel::RevoluteJoint *rj = 
-        dynamic_cast<planning_models::KinematicModel::RevoluteJoint*>(model->group->joints[i]);
-      if (rj && rj->continuous)
+      const planning_models::KinematicModel::RevoluteJointModel *rj = 
+        dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(group_state->getJointStateVector()[i]->getJointModel());
+      if (rj && rj->continuous_)
         m_stateComponent[k].type = ompl::base::StateComponent::WRAPPING_ANGLE;
       else
         m_stateComponent[k].type = ompl::base::StateComponent::LINEAR;
     }
     
-    if (dynamic_cast<planning_models::KinematicModel::FloatingJoint*>(model->group->joints[i]))
+    if (dynamic_cast<const planning_models::KinematicModel::FloatingJointModel*>(group_state->getJointStateVector()[i]->getJointModel()))
     {
       floatingJoints_.push_back(k);
       m_stateComponent[k + 3].type = ompl::base::StateComponent::QUATERNION;
@@ -83,7 +85,7 @@ void ompl_ros::ROSSpaceInformationDynamic::configureOMPLSpace(ModelBase *model)
       break;
     }
     
-    if (dynamic_cast<planning_models::KinematicModel::PlanarJoint*>(model->group->joints[i]))
+    if (dynamic_cast<const planning_models::KinematicModel::PlanarJointModel*>(group_state->getJointStateVector()[i]->getJointModel()))
     {
       planarJoints_.push_back(k);
       m_stateComponent[k + 2].type = ompl::base::StateComponent::WRAPPING_ANGLE;
@@ -142,15 +144,18 @@ void ompl_ros::ROSSpaceInformationDynamic::clearPathConstraints(void)
 
 void ompl_ros::ROSSpaceInformationDynamic::setPathConstraints(const motion_planning_msgs::Constraints &kc)
 {    
-  const std::vector<motion_planning_msgs::JointConstraint> &jc = kc.joint_constraints;    
+  const std::vector<motion_planning_msgs::JointConstraint> &jc = kc.joint_constraints;  
+  
+  planning_models::KinematicState state(kmodel_);
+  const planning_models::KinematicState::JointStateGroup* group_state = state.getJointStateGroup(groupName_);
+  
   // tighten the bounds based on the constraints
   for (unsigned int i = 0 ; i < jc.size() ; ++i)
     {
-      std::map<std::string, unsigned int> all_group_order = kmodel_->getGroup(groupName_)->getMapOrderIndex();
+      const std::map<std::string, unsigned int>& all_group_order = group_state->getKinematicStateIndexMap();
       
-      int idx = all_group_order[jc[i].joint_name];      
-      if (idx >= 0)
-      {
+      if(all_group_order.find(jc[i].joint_name) != all_group_order.end()) {
+        int idx = all_group_order.find(jc[i].joint_name)->second;
         if (m_stateComponent[idx].minValue < jc[i].position - jc[i].tolerance_below)
           m_stateComponent[idx].minValue = jc[i].position - jc[i].tolerance_below;
         if (m_stateComponent[idx].maxValue > jc[i].position + jc[i].tolerance_above)

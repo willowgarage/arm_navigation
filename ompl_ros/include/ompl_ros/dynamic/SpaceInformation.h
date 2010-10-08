@@ -83,7 +83,7 @@ namespace ompl_ros
 
       ForwardPropagationModel                 *propagationModel_;
       std::vector<ompl::base::StateComponent>  basicStateComponent_;
-      planning_models::KinematicModel         *kmodel_;
+      boost::shared_ptr<const planning_models::KinematicModel>         kmodel_;
       std::string                              groupName_;
       std::vector<int>                         floatingJoints_;
       std::vector<int>                         planarJoints_;	

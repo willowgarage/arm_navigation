@@ -44,7 +44,7 @@ ik_constrained_planner::IKProjectionEvaluator::IKProjectionEvaluator(const ompl:
 {
   planning_monitor_ = planning_monitor;
   link_name_ = link_name;
-  if (planning_monitor_->getKinematicModel()->getLink(link_name) == NULL)
+  if (planning_monitor_->getKinematicModel()->getLinkModel(link_name) == NULL)
     ROS_ERROR("Unknown link: '%s'", link_name.c_str());
 }
 

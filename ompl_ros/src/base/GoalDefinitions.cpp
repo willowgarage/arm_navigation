@@ -69,6 +69,9 @@ void ompl_ros::GoalToState::print(std::ostream &out) const
 	
 void ompl_ros::GoalToState::setup(ModelBase *model, const std::vector<motion_planning_msgs::JointConstraint> &jc) 
 {
+  planning_models::KinematicState kin_state(model->planningMonitor->getKinematicModel());
+  const planning_models::KinematicState::JointStateGroup* group_state = kin_state.getJointStateGroup(model->group->getName());
+
   dim_ = model->si->getStateDimension();
     
   // get the bounds for the state
@@ -79,16 +82,14 @@ void ompl_ros::GoalToState::setup(ModelBase *model, const std::vector<motion_pla
   // keep track of the desired joint values
   std::vector<double> desiredValue(dim_);
   std::vector<int> desiredValueCount(dim_, 0);
-  std::map<std::string, unsigned int> all_group_order = model->group->getMapOrderIndex();
+  const std::map<std::string, unsigned int>& all_group_order = group_state->getKinematicStateIndexMap();
   
   // tighten the bounds based on the constraints
   for (unsigned int i = 0 ; i < jc.size() ; ++i)
     {
       // get the index at which the joint parameters start
-      const planning_models::KinematicModel::Joint *jnt = model->group->getJoint(jc[i].joint_name);
-      if (jnt)
-      {
-        int idx = all_group_order[jnt->name];
+      if(group_state->getJointState(jc[i].joint_name)) {
+        int idx = all_group_order.find(jc[i].joint_name)->second;
         if (idx >= 0)
         {
           if (bounds_[idx].first < jc[i].position - jc[i].tolerance_below)
@@ -168,9 +169,8 @@ double ompl_ros::GoalToPosition::evaluateGoalAux(const ompl::base::State *state,
   double orientation_importance = 1.0;
   EnvironmentDescription *ed = model_->getEnvironmentDescription();
   ROS_INFO("Evaluating goal");
-  std::vector<double> vals(state->values,state->values+model_->group->joints.size());
-  ed->group->setAllJointsValues(vals);
-  ed->group->computeTransforms();
+  std::vector<double> vals(state->values,state->values+ed->group_state->getDimension());
+  ed->group_state->setKinematicState(vals);
 
   if (decision)
     decision->resize(pce_.size());
@@ -178,8 +178,7 @@ double ompl_ros::GoalToPosition::evaluateGoalAux(const ompl::base::State *state,
   for (unsigned int i = 0 ; i < pce_.size() ; ++i)
     {
       double dPos;
-      pce_[i]->use(ed->kmodel);
-      pce_[i]->evaluate(&dPos);
+      pce_[i]->evaluate(ed->full_state, dPos);
       if (decision)
         (*decision)[i] = pce_[i]->decide(dPos);
       distance += dPos;
@@ -187,8 +186,7 @@ double ompl_ros::GoalToPosition::evaluateGoalAux(const ompl::base::State *state,
   for (unsigned int i = 0 ; i < oce_.size() ; ++i)
     {
       double dAng;
-      oce_[i]->use(ed->kmodel);
-      oce_[i]->evaluate(&dAng);
+      oce_[i]->evaluate(ed->full_state, dAng);
       if (decision)
         (*decision)[i] = pce_[i]->decide(dAng);
       distance += orientation_importance * dAng;

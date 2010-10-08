@@ -84,7 +84,7 @@ namespace ompl_ros
           for (unsigned int i = 0 ; i < pc.size() ; ++i)
             {
               planning_environment::PositionConstraintEvaluator *pce = new planning_environment::PositionConstraintEvaluator();
-              pce->use(model_->planningMonitor->getKinematicModel(), pc[i]);
+              pce->use(pc[i]);
               pce_.push_back(pce);
               threshold = ompl::STATE_EPSILON;
             }
@@ -92,7 +92,7 @@ namespace ompl_ros
           for (unsigned int i = 0 ; i < oc.size() ; ++i)
             {
               planning_environment::OrientationConstraintEvaluator *oce = new planning_environment::OrientationConstraintEvaluator();
-              oce->use(model_->planningMonitor->getKinematicModel(), oc[i]);
+              oce->use(oc[i]);
               oce_.push_back(oce);
               threshold = ompl::STATE_EPSILON;
             }

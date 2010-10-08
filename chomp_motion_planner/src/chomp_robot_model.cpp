@@ -155,22 +155,24 @@ bool ChompRobotModel::init(planning_environment::CollisionSpaceMonitor* monitor,
         joint.link_name_ = link_name;
         joint.joint_name_ = segment_joint_mapping_[link_name];
         joint.joint_update_limit_ = joint_update_limit;
-        planning_models::KinematicModel::Joint* kin_model_joint = monitor_->getCollisionModels()->getKinematicModel()->getJoint(joint.joint_name_);
-        if (planning_models::KinematicModel::RevoluteJoint* revolute_joint = dynamic_cast<planning_models::KinematicModel::RevoluteJoint*>(kin_model_joint))
+        const planning_models::KinematicModel::JointModel* kin_model_joint = monitor_->getCollisionModels()->getKinematicModel()->getJointModel(joint.joint_name_);
+        if (const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(kin_model_joint))
         {
-          joint.wrap_around_ = revolute_joint->continuous;
+          joint.wrap_around_ = revolute_joint->continuous_;
           joint.has_joint_limits_ = !(joint.wrap_around_);
-          std::pair<double,double> bounds = revolute_joint->getVariableBounds(revolute_joint->name);
+          std::pair<double,double> bounds = revolute_joint->getVariableBounds(revolute_joint->getName());
           joint.joint_limit_min_ = bounds.first;
           joint.joint_limit_max_ = bounds.second;
+          ROS_DEBUG_STREAM("Setting bounds for joint " << revolute_joint->getName() << " to " << joint.joint_limit_min_ << " " << joint.joint_limit_max_);
         }
-        else if (planning_models::KinematicModel::PrismaticJoint* prismatic_joint = dynamic_cast<planning_models::KinematicModel::PrismaticJoint*>(kin_model_joint))
+        else if (const planning_models::KinematicModel::PrismaticJointModel* prismatic_joint = dynamic_cast<const planning_models::KinematicModel::PrismaticJointModel*>(kin_model_joint))
         {
           joint.wrap_around_ = false;
           joint.has_joint_limits_ = true;
-          std::pair<double,double> bounds = prismatic_joint->getVariableBounds(prismatic_joint->name);
+          std::pair<double,double> bounds = prismatic_joint->getVariableBounds(prismatic_joint->getName());
           joint.joint_limit_min_ = bounds.first;
           joint.joint_limit_max_ = bounds.second;
+          ROS_DEBUG_STREAM("Setting bounds for joint " << prismatic_joint->getName() << " to " << joint.joint_limit_min_ << " " << joint.joint_limit_max_);
         }
         else
         {
@@ -258,18 +260,17 @@ void ChompRobotModel::getLinkInformation(const std::string link_name, std::vecto
 
 }
 
-void ChompRobotModel::addCollisionPointsFromLink(std::string link_name, double clearance)
+void ChompRobotModel::addCollisionPointsFromLink(const planning_models::KinematicState& state, std::string link_name, double clearance)
 {
-  planning_models::KinematicModel* kmodel = monitor_->getKinematicModel();
-  planning_models::KinematicModel::Link* link = kmodel->getLink(link_name);
-  if(link == NULL) {
+  const planning_models::KinematicState::LinkState* link_state = state.getLinkState(link_name);
+  if(link_state == NULL) {
     ROS_WARN_STREAM("Collision link " << link_name << " not valid");
     return;
   }
 
-  bodies::Body* body = bodies::createBodyFromShape(link->shape);
-  body->setPadding(monitor_->getEnvironmentModel()->getCurrentLinkPadding(link->name));
-  body->setPose(link->global_link_transform);
+  bodies::Body* body = bodies::createBodyFromShape(link_state->getLinkModel()->getLinkShape());
+  body->setPadding(monitor_->getEnvironmentModel()->getCurrentLinkPadding(link_state->getName()));
+  body->setPose(link_state->getGlobalLinkTransform());
   body->setScale(1.0);
   bodies::BoundingCylinder cyl;
   body->computeBoundingCylinder(cyl);
@@ -389,10 +390,13 @@ void ChompRobotModel::generateLinkCollisionPoints()
     all_links_list.push_back(lname);
   }
 
+  planning_models::KinematicState state(monitor_->getKinematicModel());
+  monitor_->setStateValuesFromCurrentValues(state);
+  
   for(std::list<std::string>::iterator it = all_links_list.begin();
       it != all_links_list.end();
       it++) {
-    addCollisionPointsFromLink(*it, collision_clearance_default_);
+    addCollisionPointsFromLink(state, *it, collision_clearance_default_);
   }
 }
 
@@ -403,14 +407,15 @@ void ChompRobotModel::generateAttachedObjectCollisionPoints(const motion_plannin
     return;
   }
 
-  monitor_->getKinematicModel()->lock();
-  monitor_->setRobotStateAndComputeTransforms(*robot_state);
+  planning_models::KinematicState state(monitor_->getKinematicModel());
+
+  monitor_->setRobotStateAndComputeTransforms(*robot_state, state);
   
   //get rid of root transform
   btTransform id;
   id.setIdentity();
-  monitor_->getKinematicModel()->getRoot()->updateVariableTransform(id);
-  monitor_->getKinematicModel()->computeTransforms();
+  state.getJointState(monitor_->getKinematicModel()->getRoot()->getName())->setJointStateValues(id);
+  state.updateKinematicLinks();
   
   // iterate over all collision checking links to add collision points
   for (vector<string>::const_iterator link_it=monitor_->getCollisionModels()->getGroupLinkUnion().begin();
@@ -425,21 +430,21 @@ void ChompRobotModel::generateAttachedObjectCollisionPoints(const motion_plannin
 
     collision_points_vector.clear();
 
-    const std::vector<const planning_models::KinematicModel::AttachedBody*> att_vec = monitor_->getEnvironmentModel()->getAttachedBodies();
+    const std::vector<const planning_models::KinematicState::AttachedBodyState*>& att_vec = state.getAttachedBodyStateVector();
     for(unsigned int i = 0; i < att_vec.size(); i++) 
     {
-      if(link_name ==  att_vec[i]->owner->name) 
+      if(link_name ==  att_vec[i]->getAttachedLinkName()) 
       {
         if(robot_state != NULL) {
-          const unsigned int n = att_vec[i]->shapes.size();
+          const unsigned int n = att_vec[i]->getAttachedBodyModel()->getShapes().size();
           for(unsigned int j = 0; j < n; j++) {
-            bodies::Body *body = bodies::createBodyFromShape(att_vec[i]->shapes[j]);          
+            bodies::Body *body = bodies::createBodyFromShape(att_vec[i]->getAttachedBodyModel()->getShapes()[j]);          
             body->setPadding(monitor_->getEnvironmentModel()->getCurrentLinkPadding("attached"));
             
             geometry_msgs::PoseStamped pose_global;
             pose_global.header.stamp = robot_state->joint_state.header.stamp;
             pose_global.header.frame_id = reference_frame_;
-            tf::poseTFToMsg(att_vec[i]->global_collision_body_transform[j], pose_global.pose);
+            tf::poseTFToMsg(att_vec[i]->getGlobalCollisionBodyTransforms()[j], pose_global.pose);
             
             geometry_msgs::PoseStamped pose_link;
             monitor_->getTransformListener()->transformPose(link_name, pose_global, pose_link);
@@ -477,7 +482,6 @@ void ChompRobotModel::generateAttachedObjectCollisionPoints(const motion_plannin
       }
     }
   }
-  monitor_->getKinematicModel()->unlock();
 }
 
 void ChompRobotModel::populatePlanningGroupCollisionPoints() {

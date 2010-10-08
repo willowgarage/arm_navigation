@@ -291,7 +291,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
     }
     return true;
   }
-
+  
   unsigned int NUM_POINTS=100;
 
   for (unsigned int i=0; i< req.trajectory.points.size(); i++)
@@ -315,7 +315,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   
     double t = 0.0;
     std::vector<double> times(NUM_POINTS);
-    for(unsigned int i = 0; i < NUM_POINTS; i++,t += smoother_time/(1.0*NUM_POINTS)) {
+    for(unsigned int i = 0; i < NUM_POINTS; i++,t += smoother_time/(1.0*(NUM_POINTS-1))) {
       times[i] = t;
     }
 
@@ -324,7 +324,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
     double planner_time = req.trajectory.points.back().time_from_start.toSec();
   
     t = 0.0;
-    for(unsigned int i = 0; i < jtraj.points.size(); i++, t += planner_time/(1.0*NUM_POINTS)) {
+    for(unsigned int i = 0; i < jtraj.points.size(); i++, t += planner_time/(1.0*(NUM_POINTS-1))) {
       jtraj.points[i].time_from_start = ros::Duration(t);
     }
 
@@ -368,8 +368,8 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   chomp_robot_model_.generateAttachedObjectCollisionPoints(&(robot_state));
   chomp_robot_model_.populatePlanningGroupCollisionPoints();
 
-  // set the goal state equal to start state, and override the joints specified in the goal
-  // joint constraints
+  //set the goal state equal to start state, and override the joints specified in the goal
+  //joint constraints
   int goal_index = trajectory.getNumPoints()-1;
   trajectory.getTrajectoryPoint(goal_index) = trajectory.getTrajectoryPoint(0);
 
@@ -446,13 +446,12 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
       }
     }
   }
-
   motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request  next_req;
   motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response next_res;
 
   next_req = req;
   next_req.trajectory = res.trajectory;  
-  next_req.allowed_time=ros::Duration(req.allowed_time);
+  next_req.allowed_time=ros::Duration(1.0);//req.allowed_time/2.0;
   
   if(filter_trajectory_client_.call(next_req, next_res)) {
     ROS_INFO_STREAM("Filter call ok. Sent trajectory had " << res.trajectory.points.size() << " points.  Returned trajectory has " << next_res.trajectory.points.size() << " points ");
@@ -482,7 +481,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
 
       res.trajectory.points[i].velocities[j] = 0.5*(v1 + v2);
     }
- }
+  }
 
   ROS_INFO("Serviced filter request in %f wall-seconds, trajectory duration is %f", (ros::WallTime::now() - start_time).toSec(), res.trajectory.points.back().time_from_start.toSec());
   return true;

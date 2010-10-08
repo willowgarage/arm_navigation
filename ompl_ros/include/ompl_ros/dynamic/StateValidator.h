@@ -73,7 +73,7 @@ namespace ompl_ros
 	
     protected:
 	
-      bool check(const ompl::base::State *s, collision_space::EnvironmentModel *em, planning_models::KinematicModel::JointGroup *jg,
+      bool check(const ompl::base::State *s, EnvironmentDescription* ed, 
                  const planning_environment::KinematicConstraintEvaluatorSet *kce) const;
 	
       ModelBase                  *model_;

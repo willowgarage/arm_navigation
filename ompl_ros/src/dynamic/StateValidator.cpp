@@ -42,14 +42,14 @@ bool ompl_ros::ROSStateValidityPredicateDynamic::operator()(const ompl::base::St
     return false;
 
   EnvironmentDescription *ed = model_->getEnvironmentDescription();
-  return check(s, ed->collisionSpace, ed->group, ed->constraintEvaluator);
+  return check(s, ed, ed->constraintEvaluator);
 }
 
 void ompl_ros::ROSStateValidityPredicateDynamic::setConstraints(const motion_planning_msgs::Constraints &kc)
 {
   clearConstraints();
-  model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.position_constraints);
-  model_->constraintEvaluator.add(model_->planningMonitor->getEnvironmentModel()->getRobotModel().get(), kc.orientation_constraints);
+  model_->constraintEvaluator.add(kc.position_constraints);
+  model_->constraintEvaluator.add(kc.orientation_constraints);
 }
 
 void ompl_ros::ROSStateValidityPredicateDynamic::clearConstraints(void)
@@ -63,19 +63,19 @@ void ompl_ros::ROSStateValidityPredicateDynamic::printSettings(std::ostream &out
   model_->constraintEvaluator.print(out);
 }
 
-bool ompl_ros::ROSStateValidityPredicateDynamic::check(const ompl::base::State *s, collision_space::EnvironmentModel *em, planning_models::KinematicModel::JointGroup *jg,
+bool ompl_ros::ROSStateValidityPredicateDynamic::check(const ompl::base::State *s, 
+                                                       EnvironmentDescription* ed, 
                                                        const planning_environment::KinematicConstraintEvaluatorSet *kce) const
 {
 
-  std::vector<double> vals(s->values,s->values+model_->group->joints.size());
-  model_->group->setAllJointsValues(vals);
-  model_->group->computeTransforms();
+  std::vector<double> vals(s->values,s->values+ed->group_state->getDimension());
+  ed->group_state->setKinematicState(vals);
     
-  bool valid = kce->decide(jg);
+  bool valid = kce->decide(ed->full_state);
   if (valid)
     {
-      em->updateRobotModel();
-      valid = !em->isCollision();
+      ed->collisionSpace->updateRobotModel(ed->full_state);
+      valid = !ed->collisionSpace->isCollision();
     }
     
   return valid;

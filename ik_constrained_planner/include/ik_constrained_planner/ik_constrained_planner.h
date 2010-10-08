@@ -112,6 +112,7 @@ public:
                           ompl::base::SpaceInformation *space_information);
 
   bool configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
+                          planning_models::KinematicState* state, 
                           ompl::base::SpaceInformation *space_information);
 
   void printSettings(ompl::base::SpaceInformation *si);
@@ -170,6 +171,7 @@ private:
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
   std::vector<std::string> group_names_;
   planning_environment::PlanningMonitor *planning_monitor_;
+  planning_models::KinematicState* kinematic_state_;
   ompl::base::SpaceInformation *space_information_;
   std::vector<ompl::base::StateComponent> original_state_specification_;
   ros::NodeHandle node_handle_;

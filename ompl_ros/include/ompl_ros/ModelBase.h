@@ -51,12 +51,13 @@ namespace ompl_ros
 	for each thread. */
     struct EnvironmentDescription
     {
-	collision_space::EnvironmentModel                           *collisionSpace;
-	planning_models::KinematicModel                             *kmodel;
-	
-	/** \brief The group instance */
-	planning_models::KinematicModel::JointGroup                 *group;
-	const planning_environment::KinematicConstraintEvaluatorSet *constraintEvaluator;	
+      collision_space::EnvironmentModel                           *collisionSpace;
+      boost::shared_ptr<const planning_models::KinematicModel>    kmodel;
+      
+      /** \brief The group instance */
+      planning_models::KinematicState                                    *full_state;
+      planning_models::KinematicState::JointStateGroup                 *group_state;
+      const planning_environment::KinematicConstraintEvaluatorSet *constraintEvaluator;	
     };
     
     /** \brief The basic definition of a model (a group defined by the planning environment) we are planning for */
@@ -84,7 +85,7 @@ namespace ompl_ros
 	std::string                                                 groupName;
 	
 	/** \brief The group instance */
-	planning_models::KinematicModel::JointGroup                *group;
+	const planning_models::KinematicModel::JointModelGroup                *group;
 	
 	/** \brief The instance of the space information maintained for this group. si->setup() will need to be called after configure() */
 	ompl::base::SpaceInformation                               *si;

@@ -203,18 +203,18 @@ void ompl_planning::RequestHandler::configure(motion_planning_msgs::GetMotionPla
                                                                   req.motion_plan_request.goal_constraints,
                                                                   req.motion_plan_request.link_padding,
                                                                   error_code);
-    /* set the pose of the whole robot */
-    psetup->ompl_model->planningMonitor->getKinematicModel()->lock();
-    psetup->ompl_model->planningMonitor->setRobotStateAndComputeTransforms(req.motion_plan_request.start_state);
-    psetup->ompl_model->planningMonitor->getEnvironmentModel()->updateRobotModel();
-                                         
+    
+    planning_models::KinematicState* state = psetup->ompl_model->getEnvironmentDescription()->full_state;
+    planning_models::KinematicState::JointStateGroup* group_state = psetup->ompl_model->getEnvironmentDescription()->group_state;
 
+    /* set the pose of the whole robot */
+    psetup->ompl_model->planningMonitor->setRobotStateAndComputeTransforms(req.motion_plan_request.start_state, *state);
+    psetup->ompl_model->planningMonitor->getEnvironmentModel()->updateRobotModel(state);
+                                         
     /* before configuring, we may need to update bounds on the state space + other path constraints */
     psetup->ompl_model->planningMonitor->transformConstraintsToFrame(req.motion_plan_request.path_constraints, psetup->ompl_model->planningMonitor->getWorldFrameId(),error_code);
     if (ompl_ros::ROSSpaceInformationKinematic *s = dynamic_cast<ompl_ros::ROSSpaceInformationKinematic*>(psetup->ompl_model->si))
   	s->setPathConstraints(req.motion_plan_request.path_constraints);
-    if (ompl_ros::ROSSpaceInformationDynamic *s = dynamic_cast<ompl_ros::ROSSpaceInformationDynamic*>(psetup->ompl_model->si))
-	  s->setPathConstraints(req.motion_plan_request.path_constraints);
     psetup->ompl_model->si->setStateDistanceEvaluator(psetup->ompl_model->sde[distance_metric]);
     
     //planning_models::KinematicModel::JointGroup* joint_group = psetup->ompl_model->planningMonitor->getKinematicModel()->getGroup(psetup->ompl_model->group->name);
@@ -227,11 +227,35 @@ void ompl_planning::RequestHandler::configure(motion_planning_msgs::GetMotionPla
     const unsigned int dim = psetup->ompl_model->si->getStateDimension();
     ompl::base::State *start = new ompl::base::State(dim);
 
-    std::vector<double> start_vals = psetup->ompl_model->group->getAllJointsValuesVector();
+    std::vector<double> start_vals;
+    group_state->getKinematicStateValues(start_vals);
+    for(unsigned int i = 0; i < start_vals.size(); i++) {
+      ROS_INFO_STREAM("Before joint " << i << " val " << start_vals[i]);
+    }
+
+    for(unsigned int i = 0; i < group_state->getJointStateVector().size(); i++) {
+      const planning_models::KinematicModel::RevoluteJointModel *rj = 
+        dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(group_state->getJointStateVector()[i]->getJointModel());
+      if (rj && rj->continuous_) {
+	while(start_vals[i] < M_PI) {
+	  start_vals[i] += 2.0*M_PI;
+	}
+	while(start_vals[i] > M_PI) {
+	  start_vals[i] -= 2.0*M_PI;
+	}
+      }
+    }
+
+    for(unsigned int i = 0; i < start_vals.size(); i++) {
+      ROS_INFO_STREAM("After joint " << i << " val " << start_vals[i]);
+    }
     if(start_vals.size() != dim) {
       ROS_ERROR_STREAM("Kinematic model group has dimension " << start_vals.size() << " and not dimension " << dim);
       return;
     }
+    std::map<std::string, double > vals;
+    group_state->getKinematicStateValues(vals);
+
     for(unsigned int i = 0; i < start_vals.size(); i++) {
       start->values[i] = start_vals[i];
     }
@@ -242,8 +266,8 @@ void ompl_planning::RequestHandler::configure(motion_planning_msgs::GetMotionPla
     psetup->ompl_model->si->setGoal(computeGoalFromConstraints(psetup->ompl_model, req.motion_plan_request.goal_constraints));
     
     /* fix invalid input states, if we have any */
-    fixInputStates(psetup, 0.02, 50);
-    fixInputStates(psetup, 0.05, 50);
+    //fixInputStates(psetup, 0.02, 50);
+    //fixInputStates(psetup, 0.05, 50);
     
     /* print some information */
     printSettings(psetup->ompl_model->si);
@@ -311,11 +335,7 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, double stateDe
   sol.approximate = false;
   callPlanner(psetup, req.motion_plan_request.start_state, req.motion_plan_request.num_planning_attempts, req.motion_plan_request.allowed_planning_time.toSec(), sol);
 
-  m->planningMonitor->getKinematicModel()->unlock();
   m->planningMonitor->revertToDefaultState();
-
-  psetup->ompl_model->si->clearGoal();
-  psetup->ompl_model->si->clearStartStates();
 
   /* copy the solution to the result */
   if (sol.path)
@@ -337,6 +357,10 @@ bool ompl_planning::RequestHandler::computePlan(ModelMap &models, double stateDe
       if (psetup->priority < -(int)m->planners.size())
         psetup->priority = -m->planners.size();
     }
+  psetup->ompl_model->si->clearGoal();
+  psetup->ompl_model->si->clearStartStates();
+  psetup->ompl_model->clearEnvironmentDescriptions();
+
   ROS_DEBUG("New motion priority for  '%s' is %d", req.motion_plan_request.planner_id.c_str(), psetup->priority);
   return true;
 }
@@ -345,47 +369,32 @@ void ompl_planning::RequestHandler::fillResult(PlannerSetup *psetup, double stat
                                                motion_planning_msgs::GetMotionPlan::Response &res, 
                                                const Solution &sol)
 {   
+  planning_models::KinematicState state(psetup->ompl_model->planningMonitor->getKinematicModel());
+
   ompl::kinematic::PathKinematic *kpath = dynamic_cast<ompl::kinematic::PathKinematic*>(sol.path);
   if (kpath)
     {
       res.trajectory.joint_trajectory.points.resize(kpath->states.size());
-
-      std::map<std::string, unsigned int> map_order = psetup->ompl_model->group->getMapOrderIndex();
-      for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+      const std::map<std::string, unsigned int>& map_order = state.getJointStateGroup(psetup->ompl_model->groupName)->getKinematicStateIndexMap();
+      res.trajectory.joint_trajectory.joint_names.resize(map_order.size());
+      for(std::map<std::string, unsigned int>::const_iterator it = map_order.begin();
           it != map_order.end();
           it++) {
-        res.trajectory.joint_trajectory.joint_names.push_back(it->first);
+        res.trajectory.joint_trajectory.joint_names[it->second] = it->first;
       }
       const unsigned int dim = psetup->ompl_model->si->getStateDimension();
       for (unsigned int i = 0 ; i < kpath->states.size() ; ++i)
         {
           res.trajectory.joint_trajectory.points[i].time_from_start = ros::Duration(i * stateDelay);
           res.trajectory.joint_trajectory.points[i].positions.resize(dim);
-          for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+          for(std::map<std::string, unsigned int>::const_iterator it = map_order.begin();
               it != map_order.end();
               it++) {
             res.trajectory.joint_trajectory.points[i].positions[it->second] = kpath->states[i]->values[it->second];
           }
         }
     }
-    
-  ompl::dynamic::PathDynamic *dpath = dynamic_cast<ompl::dynamic::PathDynamic*>(sol.path);
-  if (dpath)
-    {
-      res.trajectory.joint_trajectory.points.resize(dpath->states.size());
-      res.trajectory.joint_trajectory.joint_names = psetup->ompl_model->group->joint_names;
-	
-      const unsigned int dim = psetup->ompl_model->si->getStateDimension();
-      for (unsigned int i = 0 ; i < dpath->states.size() ; ++i)
-        {
-          res.trajectory.joint_trajectory.points[i].time_from_start = ros::Duration(i * stateDelay);
-          res.trajectory.joint_trajectory.points[i].positions.resize(dim);
-          for (unsigned int j = 0 ; j < dim ; ++j) {
-            res.trajectory.joint_trajectory.points[i].positions[j] = kpath->states[i]->values[j];
-          }
-        }
-    }
-  assert(kpath || dpath);    
+  assert(kpath);    
 }
 
 bool ompl_planning::RequestHandler::callPlanner(PlannerSetup *psetup, motion_planning_msgs::RobotState& robot_state, int times, double allowed_time, Solution &sol)
@@ -507,23 +516,22 @@ bool ompl_planning::RequestHandler::checkPathForCollisions(PlannerSetup *psetup,
   
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-  
+
   if(!psetup->ompl_model->planningMonitor->isStateValid(robot_state, planning_environment::PlanningMonitor::COLLISION_TEST, false, error_code)) {
     ROS_INFO("Start state already invalid");
     return false;
   }
-  
-  std::vector<const planning_models::KinematicModel::Joint*> joints;
-  psetup->ompl_model->planningMonitor->getKinematicModel()->getJoints(joints);
+
+  planning_models::KinematicState state(psetup->ompl_model->planningMonitor->getKinematicModel());   
   trajectory_msgs::JointTrajectory joint_trajectory;
   
   joint_trajectory.points.resize(kpath->states.size());
-
-  std::map<std::string, unsigned int> map_order = psetup->ompl_model->group->getMapOrderIndex();
-  for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+  const std::map<std::string, unsigned int>& map_order = state.getJointStateGroup(psetup->ompl_model->groupName)->getKinematicStateIndexMap();
+  joint_trajectory.joint_names.resize(map_order.size());
+  for(std::map<std::string, unsigned int>::const_iterator it = map_order.begin();
       it != map_order.end();
       it++) {
-    joint_trajectory.joint_names.push_back(it->first);
+    joint_trajectory.joint_names[it->second] = it->first;
   }
 
   const unsigned int dim = psetup->ompl_model->si->getStateDimension();
@@ -531,7 +539,7 @@ bool ompl_planning::RequestHandler::checkPathForCollisions(PlannerSetup *psetup,
   {
     joint_trajectory.points[i].time_from_start = ros::Duration(i * .01);
     joint_trajectory.points[i].positions.resize(dim);
-    for(std::map<std::string, unsigned int>::iterator it = map_order.begin();
+    for(std::map<std::string, unsigned int>::const_iterator it = map_order.begin();
         it != map_order.end();
         it++) {
       joint_trajectory.points[i].positions[it->second] = kpath->states[i]->values[it->second];
@@ -566,12 +574,12 @@ void ompl_planning::RequestHandler::contactFound(collision_space::EnvironmentMod
   if(contact.link1 != NULL) {
     //ROS_INFO_STREAM("Link 1 is " << contact.link2->name);
     if(contact.link1_attached_body_index == 0) {
-      ns_name += contact.link1->name+"+";
+      ns_name += contact.link1->getName()+"+";
     } else {
-      if(contact.link1->attached_bodies.size() < contact.link1_attached_body_index) {
+      if(contact.link1->getAttachedBodyModels().size() < contact.link1_attached_body_index) {
         ROS_ERROR("Link doesn't have attached body with indicated index");
       } else {
-        ns_name += contact.link1->attached_bodies[contact.link1_attached_body_index-1]->id+"+";
+        ns_name += contact.link1->getAttachedBodyModels()[contact.link1_attached_body_index-1]->getName()+"+";
       }
     }
   } 
@@ -579,12 +587,12 @@ void ompl_planning::RequestHandler::contactFound(collision_space::EnvironmentMod
   if(contact.link2 != NULL) {
     //ROS_INFO_STREAM("Link 2 is " << contact.link2->name);
     if(contact.link2_attached_body_index == 0) {
-      ns_name += contact.link2->name;
+      ns_name += contact.link2->getName();
     } else {
-      if(contact.link2->attached_bodies.size() < contact.link2_attached_body_index) {
+      if(contact.link2->getAttachedBodyModels().size() < contact.link2_attached_body_index) {
         ROS_ERROR("Link doesn't have attached body with indicated index");
       } else {
-        ns_name += contact.link2->attached_bodies[contact.link2_attached_body_index-1]->id;
+        ns_name += contact.link2->getAttachedBodyModels()[contact.link2_attached_body_index-1]->getName();
       }
     }
   } 

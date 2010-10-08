@@ -77,8 +77,8 @@ bool IKStateValidator::operator()(const ompl::base::State *s) const
   {
     joint_map_values[kinematics_solver_->getJointNames()[i]] = solution[i];
   }
-  planning_monitor_->getKinematicModel()->computeTransforms(joint_map_values);
-  planning_monitor_->getEnvironmentModel()->updateRobotModel();
+  group_state_->setKinematicState(joint_map_values);
+  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state_);
 
   bool valid = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
 
@@ -125,10 +125,13 @@ void IKStateValidator::printSettings(std::ostream &out) const
 void IKStateValidator::configure(const std::string &group_name, 
                                  const std::string &redundant_joint_name,                      
                                  const geometry_msgs::Pose &kinematics_planner_offset,
+                                 planning_models::KinematicState* kinematic_state,
                                  kinematics::KinematicsBase *kinematics_solver)
 {
   kinematics_solver_ = kinematics_solver;
   group_name_ = group_name;
+  kinematic_state_ = kinematic_state;
+  group_state_ = kinematic_state_->getJointStateGroup(group_name_);
   std::vector<std::string> joint_names = kinematics_solver_->getJointNames();
   for(unsigned int i=0; i < joint_names.size(); ++i)
   {

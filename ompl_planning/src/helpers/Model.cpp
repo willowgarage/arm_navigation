@@ -121,12 +121,6 @@ void ompl_planning::Model::add_planner(boost::shared_ptr<PlannerConfig> &options
 
 void ompl_planning::setupPlanningModels(planning_environment::PlanningMonitor *planningMonitor, ompl_planning::ModelMap &models)
 {
-    std::stringstream ss;
-    ss << "=======================================" << std::endl;
-    planningMonitor->getKinematicModel()->printModelInfo(ss);
-    ss << "=======================================" << std::endl;
-    ROS_DEBUG("%s", ss.str().c_str());
-    
     //create PlannerConfigMap
     //and load the planner configs
     PlannerConfigMap plan_config_map(ros::this_node::getName());

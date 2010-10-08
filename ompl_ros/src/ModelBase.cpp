@@ -49,7 +49,7 @@ ompl_ros::ModelBase::ModelBase(planning_environment::PlanningMonitor *pMonitor, 
   si = NULL;
   groupName = gName;
   planningMonitor = pMonitor;
-  group = planningMonitor->getKinematicModel()->getGroup(groupName);
+  group = planningMonitor->getKinematicModel()->getModelGroup(groupName);
   ROS_DEBUG("Create model for group %s", gName.c_str());
 }
 
@@ -78,21 +78,23 @@ ompl_ros::EnvironmentDescription* ompl_ros::ModelBase::getEnvironmentDescription
         {
           result = new EnvironmentDescription();
           result->collisionSpace = planningMonitor->getEnvironmentModel();
-          result->kmodel = result->collisionSpace->getRobotModel().get();
+          result->kmodel = result->collisionSpace->getRobotModel();
+          result->full_state = new planning_models::KinematicState(result->kmodel);
+          result->group_state = result->full_state->getJointStateGroup(group->getName());
           result->constraintEvaluator = &constraintEvaluator;
-          result->group = group;
         }
       else
         {
           ROS_DEBUG("Cloning collision environment (%d total)", (int)ENVS.size() + 1);
           result = new EnvironmentDescription();
           result->collisionSpace = planningMonitor->getEnvironmentModel()->clone();
-          result->kmodel = result->collisionSpace->getRobotModel().get();
-          result->group = result->kmodel->getGroup(groupName);
+          result->kmodel = result->collisionSpace->getRobotModel();
+          result->full_state = new planning_models::KinematicState(result->kmodel);
+          result->group_state = result->full_state->getJointStateGroup(group->getName());
           planning_environment::KinematicConstraintEvaluatorSet *kce = new planning_environment::KinematicConstraintEvaluatorSet();
-          kce->add(result->kmodel, constraintEvaluator.getPositionConstraints());
-          kce->add(result->kmodel, constraintEvaluator.getOrientationConstraints());
-          kce->add(result->kmodel, constraintEvaluator.getJointConstraints());
+          kce->add(constraintEvaluator.getPositionConstraints());
+          kce->add(constraintEvaluator.getOrientationConstraints());
+          kce->add(constraintEvaluator.getJointConstraints());
           result->constraintEvaluator = kce;
         }
       ENVS[id] = result;
@@ -113,6 +115,7 @@ void ompl_ros::ModelBase::clearEnvironmentDescriptions(void) const
           delete it->second->collisionSpace;
           delete it->second->constraintEvaluator;
         }
+      delete it->second->full_state;
       delete it->second;
     }
   ENVS.clear();

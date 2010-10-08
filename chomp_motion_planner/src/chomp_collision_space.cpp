@@ -173,27 +173,30 @@ void ChompCollisionSpace::setStartState(const ChompRobotModel::ChompPlanningGrou
 
   monitor_->waitForState();
 
+  planning_models::KinematicState state(monitor_->getKinematicModel());
+
   distance_field_->reset();
 
   std::vector<btVector3> all_points;
 
-  monitor_->getKinematicModel()->lock();
   monitor_->getEnvironmentModel()->lock();
-  monitor_->setRobotStateAndComputeTransforms(robot_state);
+  monitor_->setRobotStateAndComputeTransforms(robot_state, state);
 
   monitor_->setCollisionSpace();
   
+  std::string root_name = monitor_->getKinematicModel()->getRoot()->getName();
+
   //now we need to back out this transform
-  const btTransform& cur = monitor_->getKinematicModel()->getRootTransform();
+  const btTransform& cur = state.getJointState(root_name)->getVariableTransform();
   btTransform cur_copy(cur);
   
   //now get the body in the identity transform
   btTransform id;
   id.setIdentity();
-  monitor_->getKinematicModel()->getRoot()->updateVariableTransform(id);
-  monitor_->getKinematicModel()->computeTransforms();
+  state.getJointState(root_name)->setJointStateValues(id);
+  state.updateKinematicLinks();
 
-  updateRobotBodiesPoses();
+  updateRobotBodiesPoses(state);
 
   addAllBodiesButExcludeLinksToPoints(planning_group.name_, all_points);
   addCollisionObjectsToPoints(all_points, cur_copy);
@@ -203,7 +206,6 @@ void ChompCollisionSpace::setStartState(const ChompRobotModel::ChompPlanningGrou
   distance_field_->addPointsToField(all_points);
   distance_field_->visualize(0.0*max_expansion_, 0.01*max_expansion_, monitor_->getWorldFrameId(), cur_copy, ros::Time::now());
 
-  monitor_->getKinematicModel()->unlock();
   monitor_->getEnvironmentModel()->unlock();
 
   ros::WallDuration t_diff = ros::WallTime::now() - start;
@@ -525,9 +527,9 @@ void ChompCollisionSpace::loadRobotBodies() {
     for(std::vector<std::string>::iterator it2 = it1->second.begin();
         it2 != it1->second.end();
         it2++) {
-      const planning_models::KinematicModel::Link* link = monitor_->getCollisionModels()->getKinematicModel()->getLink(*it2);
+      const planning_models::KinematicModel::LinkModel* link = monitor_->getCollisionModels()->getKinematicModel()->getLinkModel(*it2);
       if(link != NULL) {
-        planning_group_bodies_[it1->first].push_back(bodies::createBodyFromShape(link->shape));
+        planning_group_bodies_[it1->first].push_back(bodies::createBodyFromShape(link->getLinkShape()));
       } else {
         ROS_WARN_STREAM("Error - no link for name " << *it2);
       }
@@ -536,14 +538,13 @@ void ChompCollisionSpace::loadRobotBodies() {
   }
 }
 
-void ChompCollisionSpace::updateRobotBodiesPoses() {
+void ChompCollisionSpace::updateRobotBodiesPoses(const planning_models::KinematicState& state) {
   for(std::map<std::string, std::vector<bodies::Body *> >::iterator it1 = planning_group_bodies_.begin();
       it1 != planning_group_bodies_.end();
       it1++) {
     std::vector<std::string>& v = planning_group_link_names_[it1->first];
     for(unsigned int i = 0; i < it1->second.size(); i++) {
-      const planning_models::KinematicModel::Link* link = monitor_->getKinematicModel()->getLink(v[i]);
-      (it1->second)[i]->setPose(link->global_link_transform);
+      (it1->second)[i]->setPose(state.getLinkState(v[i])->getGlobalLinkTransform());
     }
   }
 }

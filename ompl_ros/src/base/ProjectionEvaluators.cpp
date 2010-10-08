@@ -41,7 +41,7 @@ ompl_ros::LinkPositionProjectionEvaluator::LinkPositionProjectionEvaluator(const
 {
     model_ = model;
     linkName_ = linkName;
-    if (model_->planningMonitor->getKinematicModel()->getLink(linkName) == NULL)
+    if (model_->planningMonitor->getKinematicModel()->getLinkModel(linkName) == NULL)
 	ROS_ERROR("Unknown link: '%s'", linkName.c_str());
 }
 
@@ -53,10 +53,9 @@ unsigned int ompl_ros::LinkPositionProjectionEvaluator::getDimension(void) const
 void ompl_ros::LinkPositionProjectionEvaluator::operator()(const ompl::base::State *state, double *projection) const
 {  
     EnvironmentDescription *ed = model_->getEnvironmentDescription();
-    std::vector<double> vals(state->values,state->values+model_->group->joints.size());
-    ed->group->setAllJointsValues(vals);
-    ed->group->computeTransforms();
-    const btVector3 &origin = ed->kmodel->getLink(linkName_)->global_link_transform.getOrigin();
+    std::vector<double> vals(state->values,state->values+ed->group_state->getDimension());
+    ed->group_state->setKinematicState(vals);
+    const btVector3 &origin = ed->full_state->getLinkState(linkName_)->getGlobalLinkTransform().getOrigin();
     projection[0] = origin.x();
     projection[1] = origin.y();
     projection[2] = origin.z();
