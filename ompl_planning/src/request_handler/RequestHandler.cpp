@@ -230,7 +230,7 @@ void ompl_planning::RequestHandler::configure(motion_planning_msgs::GetMotionPla
     std::vector<double> start_vals;
     group_state->getKinematicStateValues(start_vals);
     for(unsigned int i = 0; i < start_vals.size(); i++) {
-      ROS_INFO_STREAM("Before joint " << i << " val " << start_vals[i]);
+      ROS_DEBUG_STREAM("Start states before normalization " << i << " val " << start_vals[i]);
     }
 
     for(unsigned int i = 0; i < group_state->getJointStateVector().size(); i++) {
@@ -247,7 +247,7 @@ void ompl_planning::RequestHandler::configure(motion_planning_msgs::GetMotionPla
     }
 
     for(unsigned int i = 0; i < start_vals.size(); i++) {
-      ROS_INFO_STREAM("After joint " << i << " val " << start_vals[i]);
+      ROS_DEBUG_STREAM("Start states after normalization " << i << " val " << start_vals[i]);
     }
     if(start_vals.size() != dim) {
       ROS_ERROR_STREAM("Kinematic model group has dimension " << start_vals.size() << " and not dimension " << dim);
