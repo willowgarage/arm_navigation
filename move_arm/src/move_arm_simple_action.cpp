@@ -668,6 +668,29 @@ private:
       }
     }
   }
+
+  
+  /** \brief Checks if the last state in a trajectory actually reaches the desired point */
+  bool checkTrajectoryReachesGoal(const trajectory_msgs::JointTrajectory& joint_traj, motion_planning_msgs::ArmNavigationErrorCodes& error_code)
+  {
+    motion_planning_msgs::RobotState last_state_in_trajectory;
+    last_state_in_trajectory.joint_state.header = joint_traj.header;
+    last_state_in_trajectory.joint_state.position = joint_traj.points.back().positions;
+    last_state_in_trajectory.joint_state.name = joint_traj.joint_names;
+    if(!isStateValidAtGoal(last_state_in_trajectory, error_code))
+    {
+      if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
+        ROS_WARN("Checked trajectory does not seem to result in satisfying goal constraints");
+      } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
+        ROS_WARN("Checked trajectory seems to end in collision");
+      } else {
+        ROS_WARN_STREAM("Some other problem with planner path " << error_code.val);
+      }
+      return false;
+    }
+    return true;
+  }
+
   bool isEnvironmentSafe()
   {
     planning_environment_msgs::GetEnvironmentSafety::Request req;
@@ -1021,23 +1044,11 @@ private:
         return false;
       }
       ROS_INFO("Motion planning succeeded");
-      motion_planning_msgs::RobotState last_state_in_trajectory;
-      last_state_in_trajectory.joint_state.header = res.trajectory.joint_trajectory.header;
-      last_state_in_trajectory.joint_state.position = res.trajectory.joint_trajectory.points.back().positions;
-      last_state_in_trajectory.joint_state.name = res.trajectory.joint_trajectory.joint_names;
       motion_planning_msgs::ArmNavigationErrorCodes error_code;
-      if(!isStateValidAtGoal(last_state_in_trajectory, error_code))
-      {
-        if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
-          ROS_WARN("Planner path does not seem to result in satisfying goal constraints");
-        } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
-          ROS_WARN("Planner path seems to end in collision");
-        } else {
-          ROS_WARN_STREAM("Some other problem with planner path " << error_code.val);
-        }
+      if(!checkTrajectoryReachesGoal(res.trajectory.joint_trajectory, error_code)) {
         if(move_arm_parameters_.accept_partial_plans)
         {
-          ROS_WARN("Returned path from planner does not go all the way to goal");
+          ROS_WARN("Returned path from planner does not reach a valid goal");
           return true;
         }
         else
@@ -1367,6 +1378,12 @@ private:
         if(filterTrajectory(current_trajectory_, filtered_trajectory))
         {
           motion_planning_msgs::ArmNavigationErrorCodes error_code;
+          if(!checkTrajectoryReachesGoal(filtered_trajectory, error_code)) {
+            ROS_WARN("Filtered trajectory does not satisfy goal");
+            resetStateMachine();
+            action_server_->setAborted(move_arm_action_result_);
+            return true;
+          }
           if(!isTrajectoryValid(filtered_trajectory, error_code))
           {
             if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
