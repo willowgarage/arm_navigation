@@ -772,7 +772,7 @@ btTransform planning_models::KinematicModel::FloatingJointModel::computeTransfor
     return variable_transform;
   }
   variable_transform.setOrigin(btVector3(joint_values[0], joint_values[1], joint_values[2]));
-  variable_transform.setRotation(btQuaternion(joint_values[4], joint_values[5], joint_values[6], joint_values[7]));
+  variable_transform.setRotation(btQuaternion(joint_values[3], joint_values[4], joint_values[5], joint_values[6]));
   return variable_transform;
 }
 
