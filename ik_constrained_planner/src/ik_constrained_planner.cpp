@@ -255,6 +255,30 @@ void IKConstrainedPlanner::setWorkspaceBounds(motion_planning_msgs::WorkspacePar
     ROS_DEBUG("No workspace bounding volume was set");
 }
 
+bool IKConstrainedPlanner::checkAndCorrectForWrapAround(double &angle, const unsigned int &index)
+{
+  ompl::base::StateComponent state_specification = space_information_->getStateComponent(index);
+  double new_angle = angle - 2*M_PI;
+  if(new_angle >= state_specification.minValue && new_angle <= state_specification.maxValue)
+    {
+      angle = new_angle;
+      return true;
+    }
+  new_angle = angle + 2*M_PI;
+  if(new_angle >= state_specification.minValue && new_angle <= state_specification.maxValue)
+    {
+      angle = new_angle;
+      return true;
+    }
+
+  ROS_ERROR("State component %d with value %f does not lie between limits [%f,%f]",
+	    index,
+	    angle,
+	    state_specification.minValue,
+	    state_specification.maxValue);
+  return false;
+}
+
 bool IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPlan::Request &req, 
                                               planning_models::KinematicState* state, 
                                               ompl::base::SpaceInformation *space_information)
@@ -306,8 +330,22 @@ bool IKConstrainedPlanner::configureOnRequest(motion_planning_msgs::GetMotionPla
   start->values[2] = end_effector_pose.getOrigin().z();
 
   start->values[3] = roll;
+  ompl::base::StateComponent state_specification = space_information_->getStateComponent(3);
+  if(start->values[3] > state_specification.maxValue || start->values[3] < state_specification.minValue)
+    if(!checkAndCorrectForWrapAround(start->values[3],3))
+      return false;
+
   start->values[4] = pitch;
+  state_specification = space_information_->getStateComponent(4);
+  if(start->values[4] > state_specification.maxValue || start->values[4] < state_specification.minValue)
+    if(!checkAndCorrectForWrapAround(start->values[4],4))
+      return false;
+
   start->values[5] = yaw;
+  state_specification = space_information_->getStateComponent(5);
+  if(start->values[5] > state_specification.maxValue || start->values[5] < state_specification.minValue)
+    if(!checkAndCorrectForWrapAround(start->values[5],5))
+      return false;
 
   const std::vector<double>& joint_vals = state->getJointState(redundant_joint_map_[req.motion_plan_request.group_name])->getJointStateValues();
   if(joint_vals.size() > 1) {

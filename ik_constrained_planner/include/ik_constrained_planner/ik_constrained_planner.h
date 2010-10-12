@@ -207,6 +207,7 @@ private:
 					kinematics::KinematicsBase *kinematics_solver,
 					const std::string &redundant_joint_name,
 					double &redundancy);
+  bool checkAndCorrectForWrapAround(double &angle, const unsigned int &index);
 
 };
 }
