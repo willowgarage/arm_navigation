@@ -77,6 +77,7 @@ namespace ik_constrained_planner
                const double &redundant_joint_value);
 
   private:
+    bool checkAndCorrectForWrapAround(double &angle, const unsigned int &index);
     
     constraint_evaluators::PositionConstraintEvaluator position_constraint_evaluator_;
     constraint_evaluators::OrientationConstraintEvaluator orientation_constraint_evaluator_;

@@ -101,12 +101,53 @@ void IKConstrainedGoal::setup(const motion_planning_msgs::Constraints &goal_cons
   state->values[5] = yaw;
   state->values[6] = redundant_joint_value;
 
+  ompl::base::StateComponent state_specification = getSpaceInformation()->getStateComponent(3);
+  if(state->values[3] > state_specification.maxValue || state->values[3] < state_specification.minValue)
+    if(!checkAndCorrectForWrapAround(state->values[3],3))
+      ROS_ERROR("Could not wrap goal state correctly");
+
+
+  state_specification = getSpaceInformation()->getStateComponent(4);
+  if(state->values[4] > state_specification.maxValue || state->values[4] < state_specification.minValue)
+    if(!checkAndCorrectForWrapAround(state->values[4],4))
+      ROS_ERROR("Could not wrap goal state correctly");
+
+  state_specification = getSpaceInformation()->getStateComponent(5);
+  if(state->values[5] > state_specification.maxValue || state->values[5] < state_specification.minValue)
+    if(!checkAndCorrectForWrapAround(state->values[5],5))
+      ROS_ERROR("Could not wrap goal state correctly");
+
 
   ROS_INFO("Goal State:");
   ROS_INFO("Position   : %f %f %f",state->values[0],state->values[1],state->values[2]);
   ROS_INFO("Orientation: %f %f %f %f",state->values[3],state->values[4],state->values[5],state->values[6]);
 
 }
+
+bool IKConstrainedGoal::checkAndCorrectForWrapAround(double &angle, const unsigned int &index)
+{
+  ompl::base::StateComponent state_specification = getSpaceInformation()->getStateComponent(index);
+  double new_angle = angle - 2*M_PI;
+  if(new_angle >= state_specification.minValue && new_angle <= state_specification.maxValue)
+    {
+      angle = new_angle;
+      return true;
+    }
+  new_angle = angle + 2*M_PI;
+  if(new_angle >= state_specification.minValue && new_angle <= state_specification.maxValue)
+    {
+      angle = new_angle;
+      return true;
+    }
+
+  ROS_ERROR("State component %d with value %f does not lie between limits [%f,%f]",
+	    index,
+	    angle,
+	    state_specification.minValue,
+	    state_specification.maxValue);
+  return false;
+}
+
 
 }
 
