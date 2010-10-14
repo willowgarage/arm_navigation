@@ -507,8 +507,6 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
                              tmp_frame, 
                              kinematics_planner_frame_);
 
-  planning_monitor_->getEnvironmentModel()->lock();
-
   geometry_msgs::PointStamped pos;
   pos.point = req.motion_plan_request.goal_constraints.position_constraints[0].position;
   pos.header = req.motion_plan_request.goal_constraints.position_constraints[0].header;
@@ -549,7 +547,6 @@ bool IKConstrainedPlanner::computePlan(motion_planning_msgs::GetMotionPlan::Requ
     delete sol.path;
   }  
   planning_monitor_->revertToDefaultState();
-  planning_monitor_->getEnvironmentModel()->unlock();
   delete kinematic_state_;
   return true;
 }
