@@ -1338,19 +1338,23 @@ private:
             } else if (error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Planner trajectory doesn't reach goal");
             }
-            ROS_ERROR("Move arm will abort this goal.");
-            resetStateMachine();
-            action_server_->setAborted(move_arm_action_result_);
-            return true;
+	    num_planning_attempts_++;
+	    if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
+	      {
+		resetStateMachine();
+		action_server_->setAborted(move_arm_action_result_);
+		return true;
+	      }
           }
           else{
             ROS_DEBUG("Trajectory validity check was successful");
-          }
-          current_trajectory_ = res.trajectory.joint_trajectory;
-          visualizePlan(current_trajectory_);
- //          printTrajectory(current_trajectory_);
-          state_ = START_CONTROL;
-          ROS_INFO("Done planning. Transitioning to control");
+	    
+	    current_trajectory_ = res.trajectory.joint_trajectory;
+	    visualizePlan(current_trajectory_);
+	    //          printTrajectory(current_trajectory_);
+	    state_ = START_CONTROL;
+	    ROS_INFO("Done planning. Transitioning to control");
+	  }
         }
         else if(action_server_->isActive())
         {
@@ -1379,10 +1383,12 @@ private:
         {
           motion_planning_msgs::ArmNavigationErrorCodes error_code;
           if(!checkTrajectoryReachesGoal(filtered_trajectory, error_code)) {
-            ROS_WARN("Filtered trajectory does not satisfy goal");
-            resetStateMachine();
-            action_server_->setAborted(move_arm_action_result_);
-            return true;
+            ROS_WARN("Filtered trajectory does not satisfy goal. Will replan");
+            state_ = PLANNING;
+	    break;
+            //resetStateMachine();
+            //action_server_->setAborted(move_arm_action_result_);
+            //return true;
           }
           if(!isTrajectoryValid(filtered_trajectory, error_code))
           {
@@ -1395,10 +1401,12 @@ private:
             } else if (error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Filtered trajectory doesn't reach goal");
             }
-            ROS_ERROR("Move arm will abort this goal.");
-            resetStateMachine();
-            action_server_->setAborted(move_arm_action_result_);
-            return true;
+            ROS_ERROR("Move arm will abort this goal.  Will replan");
+            state_ = PLANNING;
+            //resetStateMachine();
+            //action_server_->setAborted(move_arm_action_result_);
+	    break;
+            //return true;
           }
           else{
             ROS_DEBUG("Trajectory validity check was successful");
