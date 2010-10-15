@@ -523,6 +523,7 @@ planning_models::KinematicState::JointStateGroup::JointStateGroup(const planning
     }
     JointState* js = kinematic_state->getJointState(joint_model_vector[i]->getName());
     joint_state_vector_.push_back(js);
+    joint_names_.push_back(joint_model_vector[i]->getName());
     joint_state_map_[joint_model_vector[i]->getName()] = js;
     unsigned int joint_dim = joint_state_vector_[i]->getDimension();
     dimension_ += joint_dim;
