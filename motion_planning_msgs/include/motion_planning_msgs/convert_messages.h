@@ -268,9 +268,9 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
    else
      {
        for(unsigned int i=0; i< joint_state.name.size(); i++)
-	 {
-	   ROS_INFO("Joint name: %s, position: %f",joint_state.name[i].c_str(),joint_state.position[i]);
-	 }
+       {
+         ROS_INFO("Joint name: %s, position: %f",joint_state.name[i].c_str(),joint_state.position[i]);
+       }
      }
  } 
 
@@ -361,6 +361,28 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
    return result;
  } 
 
+  /**
+     @brief Extract pose information from a position and orientation constraint into a pose stamped message
+     @param The input position constraint
+     @param The input orientation constraint
+     @return The nominal position and orientation from the constraints are encoded into the output pose message
+   */
+  inline  bool constraintsToPoseStampedVector(const motion_planning_msgs::Constraints &constraints,
+                                              std::vector<geometry_msgs::PoseStamped> &poses)
+  {
+    if(constraints.position_constraints.size() != constraints.orientation_constraints.size())
+    {
+      ROS_ERROR("Number of position constraints does not match number of orientation constraints");
+      return false;
+    }
+    for(unsigned int i =0; i < constraints.position_constraints.size(); i++)
+    {
+      geometry_msgs::PoseStamped pose = poseConstraintsToPoseStamped(constraints.position_constraints[i],
+                                                                     constraints.orientation_constraints[i]);
+      poses.push_back(pose);
+    }
+    return true;
+  }
 }
 
 #endif
