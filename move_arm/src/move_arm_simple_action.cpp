@@ -46,6 +46,7 @@
 #include <pr2_controllers_msgs/JointTrajectoryAction.h>
 
 #include <actionlib/server/simple_action_server.h>
+#include <move_arm_msgs/MoveArmStatistics.h>
 #include <move_arm_msgs/MoveArmAction.h>
 
 #include <trajectory_msgs/JointTrajectory.h>
@@ -156,6 +157,8 @@ public:
     private_handle_.param<double>("head_monitor_max_frequency",head_monitor_max_frequency_, 2.0);
     private_handle_.param<double>("head_monitor_time_offset",head_monitor_time_offset_, 1.0);
 
+    private_handle_.param<bool>("publish_stats",publish_stats_, true);
+
     std::string urdf_xml,full_urdf_xml;
     root_handle_.param("urdf_xml", urdf_xml, std::string("robot_description"));
     if(!root_handle_.getParam(urdf_xml,full_urdf_xml))
@@ -238,7 +241,7 @@ public:
 
     display_path_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_PATH_PUB_TOPIC, 1, true);
     display_joint_goal_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_JOINT_GOAL_PUB_TOPIC, 1, true);
-
+    stats_publisher_ = private_handle_.advertise<move_arm_msgs::MoveArmStatistics>("statistics",1,true);
     motion_planning_msgs::RobotState robot_state;
     trajectory_msgs::JointTrajectory joint_traj;
     getRobotState(robot_state);
@@ -490,8 +493,11 @@ private:
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
     req.link_padding = original_request_.motion_plan_request.link_padding;
     req.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
+    ros::Time smoothing_time = ros::Time::now();
     if(filter_trajectory_client_.call(req,res))
     {
+      move_arm_stats_.trajectory_duration = (res.trajectory.points.back().time_from_start-res.trajectory.points.front().time_from_start).toSec();
+      move_arm_stats_.smoothing_time = (ros::Time::now()-smoothing_time).toSec();
       trajectory_out = res.trajectory;
       return true;
     }
@@ -1300,7 +1306,7 @@ private:
   bool executeCycle(motion_planning_msgs::GetMotionPlan::Request &req)
   {
     motion_planning_msgs::GetMotionPlan::Response res;
-
+    
     switch(state_)
     {
     case PLANNING:
@@ -1323,9 +1329,10 @@ private:
           ROS_INFO("Apparently we reached the goal without planning");
           return true;
         }
-
+        ros::Time planning_time = ros::Time::now();
         if(createPlan(req,res))
         {
+          move_arm_stats_.planning_time = (ros::Time::now()-planning_time).toSec();
           ROS_DEBUG("createPlan succeeded");
           if(!isTrajectoryValid(res.trajectory.joint_trajectory, error_code))
           {
@@ -1432,6 +1439,7 @@ private:
 
 
         ROS_DEBUG("Sending trajectory");
+        move_arm_stats_.time_to_execution = (ros::Time::now() - ros::Time(move_arm_stats_.time_to_execution)).toSec();
         if(sendTrajectory(current_trajectory_))
         {
           state_ = MONITOR;
@@ -1470,7 +1478,8 @@ private:
         motion_planning_msgs::ArmNavigationErrorCodes controller_error_code;
         if(isControllerDone(controller_error_code))
         {
-	  stopMonitoring();
+          stopMonitoring();
+          move_arm_stats_.time_to_result = (ros::Time::now()-ros::Time(move_arm_stats_.time_to_result)).toSec();
 
           motion_planning_msgs::RobotState empty_state;
           motion_planning_msgs::ArmNavigationErrorCodes state_error_code;
@@ -1580,10 +1589,17 @@ private:
     ros::Rate move_arm_rate(move_arm_frequency_);
     move_arm_action_result_.contacts.clear();
     move_arm_action_result_.error_code.val = 0;
+    move_arm_stats_.time_to_execution = ros::Time::now().toSec();
+    move_arm_stats_.time_to_result = ros::Time::now().toSec();
     while(private_handle_.ok())
     {	    	    
       if (action_server_->isPreemptRequested())
       {
+        move_arm_stats_.preempted = true;
+        if(publish_stats_)
+          publishStats();
+        move_arm_stats_.time_to_execution = ros::Time::now().toSec();
+        move_arm_stats_.time_to_result = ros::Time::now().toSec();
         if(action_server_->isNewGoalAvailable())
         {
           move_arm_action_result_.contacts.clear();
@@ -1612,8 +1628,11 @@ private:
       //the real work on pursuing a goal is done here
       bool done = executeCycle(req);
 
+
       if(done)
       {
+        if(publish_stats_)
+          publishStats();
         return;
       }
 
@@ -1633,6 +1652,25 @@ private:
   ///
   /// Visualization and I/O	
   ///
+  void publishStats()
+  {
+    move_arm_stats_.error_code.val = move_arm_action_result_.error_code.val;
+    move_arm_stats_.result = motion_planning_msgs::armNavigationErrorCodeToString(move_arm_action_result_.error_code);
+    stats_publisher_.publish(move_arm_stats_);
+    // Reset
+    move_arm_stats_.error_code.val = 0;
+    move_arm_stats_.result = " ";
+    move_arm_stats_.request_id++;
+    move_arm_stats_.planning_time = -1.0;
+    move_arm_stats_.smoothing_time = -1.0;
+    move_arm_stats_.ik_time = -1.0;
+    move_arm_stats_.time_to_execution = -1.0;
+    move_arm_stats_.time_to_result = -1.0;
+    move_arm_stats_.preempted = false;
+    move_arm_stats_.num_replans = 0.0;
+    move_arm_stats_.trajectory_duration = -1.0;
+  }
+
   void printTrajectory(const trajectory_msgs::JointTrajectory &trajectory)
   {
     for (unsigned int i = 0 ; i < trajectory.points.size() ; ++i)
@@ -1825,6 +1863,9 @@ private:
   ros::Time pause_start_time_;
   bool using_head_monitor_;
 
+  bool publish_stats_;
+  move_arm_msgs::MoveArmStatistics move_arm_stats_;
+  ros::Publisher stats_publisher_;
 };
 }
 
