@@ -857,10 +857,22 @@ void planning_models::KinematicModel::Link::setTransform(const btTransform &tran
 
 void planning_models::KinematicModel::Link::computeTransform(void)
 {
+  if(before->varTrans.getOrigin().x() < .00001 &&
+     before->varTrans.getOrigin().y() < .00001 &&
+     before->varTrans.getOrigin().z() < .00001)
+  {
+    before->varTrans.setOrigin(btVector3(0.0,0.0,0.0));
+  }
+  if(before->varTrans.getRotation().x() < .00001 &&
+     before->varTrans.getRotation().y() < .00001 &&
+     before->varTrans.getRotation().z() < .00001 &&
+     fabs(before->varTrans.getRotation().w()-1.0) < .00001)
+  {
+    before->varTrans.setRotation(btQuaternion(0.0,0.0,0.0,1.0));
+  }
   globalTransFwd.mult(before->before ? before->before->globalTransFwd : owner->getRootTransform(), constTrans);
-  globalTransFwd *= before->varTrans;    
+  globalTransFwd *= before->varTrans;   
   globalTrans.mult(globalTransFwd, constGeomTrans);
-
   for (unsigned int i = 0 ; i < attachedBodies.size() ; ++i)
     attachedBodies[i]->computeTransform();
 }
