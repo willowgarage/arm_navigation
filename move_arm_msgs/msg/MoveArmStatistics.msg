@@ -12,3 +12,5 @@ bool preempted
 
 float64 num_replans
 float64 trajectory_duration
+
+string planner_service_name
