@@ -198,6 +198,8 @@ public:
     FixedJointModel(const std::string name, const MultiDofConfig* multi_dof_config) :
       JointModel(name)
     {
+      std::vector<std::string> local_names;
+      initialize(local_names, multi_dof_config);
     }
 	    
     FixedJointModel(const FixedJointModel* joint): JointModel(joint)

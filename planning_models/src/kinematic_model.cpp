@@ -213,6 +213,8 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
       result = new PlanarJointModel(joint_config->name, joint_config);
     } else if(joint_config->type == "Floating") {
       result = new FloatingJointModel(joint_config->name, joint_config);
+    } else if(joint_config->type == "Fixed"){
+      result = new FixedJointModel(joint_config->name, joint_config);
     } else {
       ROS_ERROR_STREAM("Unrecognized type of multi dof joint " << joint_config->type);
       return NULL;
