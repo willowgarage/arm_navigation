@@ -66,6 +66,8 @@ bool ChompPlannerNode::init()
   node_handle_.param("trajectory_duration", trajectory_duration_, 3.0);
   node_handle_.param("trajectory_discretization", trajectory_discretization_, 0.03);
   node_handle_.param("use_additional_trajectory_filter", use_trajectory_filter_, true);
+  node_handle_.param("minimum_spline_points", minimum_spline_points_, 40);
+  node_handle_.param("maximum_spline_points", maximum_spline_points_, 100);
 
   if(node_handle_.hasParam("joint_velocity_limits")) {
     XmlRpc::XmlRpcValue velocity_limits;
@@ -297,10 +299,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
       ROS_INFO("Chomp can't handle path constraints, and not set up to use additional filter");
     }
     return true;
-  }
-
-  unsigned int num_points = (req.trajectory.points.size() > 100 ? 100 : req.trajectory.points.size());
-  
+  } 
   for (unsigned int i=0; i< req.trajectory.points.size(); i++)
   {
     req.trajectory.points[i].velocities.resize(req.trajectory.joint_names.size(),0.0);
@@ -309,6 +308,13 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   getLimits(req.trajectory, req.limits);
 
   trajectory_msgs::JointTrajectory jtraj;
+
+  int num_points = req.trajectory.points.size();
+  if(num_points > maximum_spline_points_) {
+    num_points = maximum_spline_points_;
+  } else if(num_points < minimum_spline_points_) {
+    num_points = minimum_spline_points_;
+  }
 
   //create a spline from the trajectory
   spline_smoother::CubicTrajectory trajectory_solver;
@@ -323,7 +329,7 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   
   double t = 0.0;
   std::vector<double> times(num_points);
-  for(unsigned int i = 0; i < num_points; i++,t += smoother_time/(1.0*(num_points-1))) {
+  for(int i = 0; i < num_points; i++,t += smoother_time/(1.0*(num_points-1))) {
     times[i] = t;
   }
     

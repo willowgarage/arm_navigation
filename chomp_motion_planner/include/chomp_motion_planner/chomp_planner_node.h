@@ -112,6 +112,8 @@ private:
   ros::Publisher vis_marker_publisher_;                 /**< Publisher for markers */
   std::map<std::string, double> joint_velocity_limits_; /**< Map of joints to velocity limits */
   bool use_trajectory_filter_;
+  int maximum_spline_points_;
+  int minimum_spline_points_;
 
   std::map<std::string, motion_planning_msgs::JointLimits> joint_limits_;
   void getLimits(const trajectory_msgs::JointTrajectory& trajectory, 
