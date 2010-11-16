@@ -65,6 +65,7 @@ bool ChompPlannerNode::init()
   // load in some default parameters
   node_handle_.param("trajectory_duration", trajectory_duration_, 3.0);
   node_handle_.param("trajectory_discretization", trajectory_discretization_, 0.03);
+  node_handle_.param("use_additional_trajectory_filter", use_trajectory_filter_, true);
 
   if(node_handle_.hasParam("joint_velocity_limits")) {
     XmlRpc::XmlRpcValue velocity_limits;
@@ -122,9 +123,11 @@ bool ChompPlannerNode::init()
 
   filter_joint_trajectory_service_ = root_handle_.advertiseService("chomp_planner_longrange/filter_trajectory_with_constraints", &ChompPlannerNode::filterJointTrajectory, this);
 
-  filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("trajectory_filter/filter_trajectory_with_constraints");    
+  if(use_trajectory_filter_) {
+    filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("trajectory_filter/filter_trajectory_with_constraints");    
   
-  ros::service::waitForService("trajectory_filter/filter_trajectory_with_constraints");
+    ros::service::waitForService("trajectory_filter/filter_trajectory_with_constraints");
+  }
 
   ROS_INFO("Initalized CHOMP planning service...");
 
@@ -283,11 +286,15 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
      req.path_constraints.position_constraints.size() > 0 ||
      req.path_constraints.orientation_constraints.size() > 0 ||
      req.path_constraints.visibility_constraints.size() > 0) {
-    ROS_INFO("Chomp can't handle path constraints, passing through to other trajectory filters");
-    if(!filter_trajectory_client_.call(req,res)) {
-      ROS_INFO("Pass through failed");
+    if(use_trajectory_filter_) {
+      ROS_INFO("Chomp can't handle path constraints, passing through to other trajectory filters");
+      if(!filter_trajectory_client_.call(req,res)) {
+        ROS_INFO("Pass through failed");
+      } else {
+        ROS_INFO("Pass through succeeded");
+      }
     } else {
-      ROS_INFO("Pass through succeeded");
+      ROS_INFO("Chomp can't handle path constraints, and not set up to use additional filter");
     }
     return true;
   }
@@ -449,20 +456,24 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request  next_req;
   motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response next_res;
 
-  next_req = req;
-  next_req.trajectory = res.trajectory;  
-  next_req.allowed_time=ros::Duration(1.0);//req.allowed_time/2.0;
-  
-  if(filter_trajectory_client_.call(next_req, next_res)) {
-    ROS_INFO_STREAM("Filter call ok. Sent trajectory had " << res.trajectory.points.size() << " points.  Returned trajectory has " << next_res.trajectory.points.size() << " points ");
+  if(use_trajectory_filter_) {
+    next_req = req;
+    next_req.trajectory = res.trajectory;  
+    next_req.allowed_time=ros::Duration(1.0);//req.allowed_time/2.0;
+    
+    if(filter_trajectory_client_.call(next_req, next_res)) {
+      ROS_INFO_STREAM("Filter call ok. Sent trajectory had " << res.trajectory.points.size() << " points.  Returned trajectory has " << next_res.trajectory.points.size() << " points ");
+    } else {
+      ROS_INFO("Filter call not ok");
+    }
+    
+    res.trajectory = next_res.trajectory;
+    res.error_code = next_res.error_code;
+    res.trajectory.header.stamp = ros::Time::now();
+    res.trajectory.header.frame_id = reference_frame_;
   } else {
-    ROS_INFO("Filter call not ok");
+    res.error_code.val = res.error_code.val = res.error_code.SUCCESS;
   }
-
-  res.trajectory = next_res.trajectory;
-  res.error_code = next_res.error_code;
-  res.trajectory.header.stamp = ros::Time::now();
-  res.trajectory.header.frame_id = reference_frame_;
 
   // for every point in time:
   for (unsigned int i=1; i<res.trajectory.points.size()-1; ++i)
