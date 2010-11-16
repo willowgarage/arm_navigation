@@ -168,6 +168,8 @@ public:
   template <typename Derived>
   void getJointVelocities(int traj_point, Eigen::MatrixBase<Derived>& velocities);
 
+  double getDuration() const;
+
 private:
 
   void init();                                          /**< \brief Allocates memory for the trajectory */
@@ -280,6 +282,9 @@ void ChompTrajectory::getJointVelocities(int traj_point, Eigen::MatrixBase<Deriv
   }
 }
 
+inline double ChompTrajectory::getDuration() const {
+  return duration_;
+}
 
 }
 

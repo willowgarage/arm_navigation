@@ -123,9 +123,7 @@ ChompTrajectory::ChompTrajectory(const ChompRobotModel* robot_model,
   }
   discretization_ = discretization;
 
-  ROS_INFO_STREAM("Num planning joints " << planning_group_->num_joints_ << " num trajectory joints " << traj.joint_names.size());
-  
-  num_points_ = traj.points.size();
+  num_points_ = traj.points.size()+1;
   duration_ = (traj.points.back().time_from_start-traj.points[0].time_from_start).toSec();
   
   start_index_ = 1;
@@ -155,9 +153,9 @@ void ChompTrajectory::overwriteTrajectory(const trajectory_msgs::JointTrajectory
     ind.push_back(kdl_number);
   }
 
-  for(unsigned int i = 0; i < traj.points.size(); i++) {
+  for(unsigned int i = 1; i <= traj.points.size(); i++) {
     for(unsigned int j = 0; j < traj.joint_names.size(); j++) {
-      trajectory_(i,ind[j]) = traj.points[i].positions[j];
+      trajectory_(i,ind[j]) = traj.points[i-1].positions[j];
     }
   }  
 }

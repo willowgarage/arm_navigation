@@ -298,9 +298,9 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
     }
     return true;
   }
-  
-  unsigned int NUM_POINTS=100;
 
+  unsigned int num_points = (req.trajectory.points.size() > 100 ? 100 : req.trajectory.points.size());
+  
   for (unsigned int i=0; i< req.trajectory.points.size(); i++)
   {
     req.trajectory.points[i].velocities.resize(req.trajectory.joint_names.size(),0.0);
@@ -309,37 +309,34 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
   getLimits(req.trajectory, req.limits);
 
   trajectory_msgs::JointTrajectory jtraj;
-  if(req.trajectory.points.size() > NUM_POINTS) {
 
-    //create a spline from the trajectory
-    spline_smoother::CubicTrajectory trajectory_solver;
-    spline_smoother::SplineTrajectory spline;
-    
-    trajectory_solver.parameterize(req.trajectory,req.limits,spline);  
-    
-    double smoother_time;
-    spline_smoother::getTotalTime(spline, smoother_time);
+  //create a spline from the trajectory
+  spline_smoother::CubicTrajectory trajectory_solver;
+  spline_smoother::SplineTrajectory spline;
   
-    double t = 0.0;
-    std::vector<double> times(NUM_POINTS);
-    for(unsigned int i = 0; i < NUM_POINTS; i++,t += smoother_time/(1.0*(NUM_POINTS-1))) {
-      times[i] = t;
-    }
-
-    spline_smoother::sampleSplineTrajectory(spline, times, jtraj);
-
-    double planner_time = req.trajectory.points.back().time_from_start.toSec();
+  trajectory_solver.parameterize(req.trajectory,req.limits,spline);  
   
-    t = 0.0;
-    for(unsigned int i = 0; i < jtraj.points.size(); i++, t += planner_time/(1.0*(NUM_POINTS-1))) {
-      jtraj.points[i].time_from_start = ros::Duration(t);
-    }
-
-    ROS_INFO_STREAM("Sampled trajectory has " << jtraj.points.size() << " points with " << jtraj.points[0].positions.size() << " joints");
-  } else {
-    ROS_INFO_STREAM("Total time is " << req.trajectory.points.back().time_from_start.toSec());
-    jtraj = req.trajectory;
+  double smoother_time;
+  spline_smoother::getTotalTime(spline, smoother_time);
+  
+  ROS_INFO_STREAM("Total time given is " << smoother_time);
+  
+  double t = 0.0;
+  std::vector<double> times(num_points);
+  for(unsigned int i = 0; i < num_points; i++,t += smoother_time/(1.0*(num_points-1))) {
+    times[i] = t;
   }
+    
+  spline_smoother::sampleSplineTrajectory(spline, times, jtraj);
+  
+  //double planner_time = req.trajectory.points.back().time_from_start.toSec();
+  
+  t = 0.0;
+  for(unsigned int i = 0; i < jtraj.points.size(); i++, t += smoother_time/(1.0*(num_points-1))) {
+    jtraj.points[i].time_from_start = ros::Duration(t);
+  }
+  
+  ROS_INFO_STREAM("Sampled trajectory has " << jtraj.points.size() << " points with " << jtraj.points[0].positions.size() << " joints");
 
   //TODO - match joints in the trajectory to planning group name
   std::string group_name;
@@ -395,7 +392,19 @@ bool ChompPlannerNode::filterJointTrajectory(motion_planning_msgs::FilterJointTr
       trajectory(goal_index, kdl_index) = start + angles::shortest_angular_distance(start, end);
     }
   }
-  
+  /*
+    for(int i = 0; i < trajectory.getNumPoints(); i++) {
+    
+    ROS_INFO_STREAM(trajectory(i,group->chomp_joints_[0].kdl_joint_index_) << " " <<
+    trajectory(i,group->chomp_joints_[1].kdl_joint_index_) << " " <<
+    trajectory(i,group->chomp_joints_[2].kdl_joint_index_) << " " <<
+    trajectory(i,group->chomp_joints_[3].kdl_joint_index_) << " " <<
+    trajectory(i,group->chomp_joints_[4].kdl_joint_index_) << " " <<
+    trajectory(i,group->chomp_joints_[5].kdl_joint_index_) << " " <<
+    trajectory(i,group->chomp_joints_[6].kdl_joint_index_) << " ");
+    }
+  ROS_INFO_STREAM("Duration is " << trajectory.getDuration());
+  */
   //sets other joints
   trajectory.fillInMinJerk();
   trajectory.overwriteTrajectory(jtraj);
