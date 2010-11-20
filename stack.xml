@@ -8,10 +8,12 @@
   <url>http://ros.org/wiki/motion_planning_common</url>
   <depend stack="common" /> <!-- filters -->
   <depend stack="common_msgs" /> <!-- geometry_msgs, sensor_msgs -->
-  <depend stack="geometry" /> <!-- tf, bullet -->
+  <depend stack="geometry" /> <!-- tf, angles, bullet -->
+  <depend stack="point_cloud_perception" /> <!-- pcl -->
   <depend stack="pr2_controllers" /> <!-- trajectory_msgs -->
-  <depend stack="robot_model" /> <!-- urdf, resource_retriever -->
-  <depend stack="ros" /> <!-- rosconsole, std_msgs, roscpp -->
+  <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
+  <depend stack="ros" />
+  <depend stack="ros_comm" /> <!-- rosconsole, std_msgs, roscpp -->
   <depend stack="visualization_common" /> <!-- visualization_msgs -->
 
 </stack>
