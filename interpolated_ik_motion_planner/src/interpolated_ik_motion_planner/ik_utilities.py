@@ -43,6 +43,7 @@ from kinematics_msgs.msg import PositionIKRequest
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion, PointStamped, Vector3Stamped
 from visualization_msgs.msg import Marker
 from motion_planning_msgs.msg import RobotState, MultiDOFJointState, ArmNavigationErrorCodes
+from planning_environment_msgs.srv import GetStateValidity, GetStateValidityRequest
 from sensor_msgs.msg import JointState
 import math
 import random
@@ -66,11 +67,12 @@ class IKUtilities:
         #set this to 0 to disable collision-aware IK
         self.perception_running = 1
 
-        self.ik_service = rospy.ServiceProxy(self.srvroot+'get_ik', GetPositionIK)
+        self._ik_service = rospy.ServiceProxy(self.srvroot+'get_ik', GetPositionIK)
         if self.perception_running:
-            self.ik_service_with_collision = rospy.ServiceProxy(self.srvroot+'get_constraint_aware_ik', GetConstraintAwarePositionIK)
-        self.fk_service = rospy.ServiceProxy(self.srvroot+'get_fk', GetPositionFK)
-        self.query_service = rospy.ServiceProxy(self.srvroot+'get_ik_solver_info', GetKinematicSolverInfo)
+            self._ik_service_with_collision = rospy.ServiceProxy(self.srvroot+'get_constraint_aware_ik', GetConstraintAwarePositionIK)
+        self._fk_service = rospy.ServiceProxy(self.srvroot+'get_fk', GetPositionFK)
+        self._query_service = rospy.ServiceProxy(self.srvroot+'get_ik_solver_info', GetKinematicSolverInfo)
+        self._check_state_validity_service = rospy.ServiceProxy('/environment_server/get_state_validity', GetStateValidity)
 
         #wait for IK/FK/query services and get the joint names and limits 
         if wait_for_services:
@@ -172,7 +174,7 @@ class IKUtilities:
     ##get the joint names and limits, and the possible link names for running IK
     def run_query(self):
         try:
-            resp = self.query_service()
+            resp = self._query_service()
         except rospy.ServiceException, e:
             rospy.logerr("GetKinematicSolverInfo service call failed! error msg: %s"%e)
             return (None, None, None)
@@ -200,7 +202,7 @@ class IKUtilities:
         header.frame_id = 'base_link'
         joint_state = JointState(header, self.joint_names, angles, [], [])
         try:
-            resp = self.fk_service(header, [link_name], RobotState(joint_state, MultiDOFJointState())) 
+            resp = self._fk_service(header, [link_name], RobotState(joint_state, MultiDOFJointState())) 
         except rospy.ServiceException, e:
             rospy.logerr("FK service call failed! error msg: %s"%e)
             return None
@@ -250,9 +252,9 @@ class IKUtilities:
                 if link_padding != None:
                     col_free_ik_request.link_padding = link_padding
 
-                resp = self.ik_service_with_collision(col_free_ik_request)
+                resp = self._ik_service_with_collision(col_free_ik_request)
             else:
-                resp = self.ik_service(ik_request, rospy.Duration(10.0))        
+                resp = self._ik_service(ik_request, rospy.Duration(10.0))        
         except rospy.ServiceException, e:
             rospy.logwarn("IK service call failed! error msg: %s"%e)
             return (None, None)
@@ -264,6 +266,34 @@ class IKUtilities:
         
         return (resp.solution.joint_state.position, self.error_code_dict[resp.error_code.val])
 
+
+    ##check whether a set of joint angles is in collision with the environment
+    #allows the same modifications as IK
+    def check_state_validity(self, joint_angles, ordered_collision_operations = None, \
+                                 robot_state = None, link_padding = None):
+        
+        req = GetStateValidityRequest()
+        if robot_state != None:
+            req.robot_state = robot_state
+        req.robot_state.joint_state.name.extend(self.joint_names)
+        req.robot_state.joint_state.position.extend(joint_angles)
+        req.robot_state.joint_state.header.stamp = rospy.Time.now()
+        req.check_collisions = True
+
+        if ordered_collision_operations != None:
+            req.ordered_collision_operations = ordered_collision_operations
+        if link_padding != None:
+            req.link_padding = link_padding
+
+        try:
+            res = self._check_state_validity_service(req)
+        except rospy.ServiceException, e:
+            rospy.logwarn("Check state validity call failed!  error msg: %s"%e)
+            return 0
+        if res.error_code.val == res.error_code.SUCCESS:
+            return 1
+        rospy.loginfo("Check state validity error code: %s"%self.error_code_dict[res.error_code.val])
+        return 0
 
 
     ##convert a pointStamped to a pos list in a desired frame
@@ -731,7 +761,7 @@ if __name__ == '__main__':
 
 
     #test ik and fk using a randomly-generated joint pose
-    def run_ik_and_fk_test(ik_utilities):
+    def run_ik_and_fk_test(ik_utilities, collision_aware = 1):
 
         #check if two lists of numbers are near each other
         trans_near = 1e-4
@@ -755,9 +785,16 @@ if __name__ == '__main__':
 
         #run inverse kinematics on that pose to get a set of angles
         #that also make that Cartesian pose (starting from all 0 angles)
-        (ik_angles, error_code) = ik_utilities.run_ik(fk_pose, [0]*7, ik_utilities.link_name, 1)
+        rospy.loginfo("IK request: pos "+pplist(pos1list)+" rot "+pplist(rot1list))
+        (ik_angles, error_code) = ik_utilities.run_ik(fk_pose, [0]*7, ik_utilities.link_name, collision_aware)
         if not ik_angles:
-            rospy.logerr("no solution!")
+            
+            #test check_state_validity to see if it is in agreement about random_angles being in collision
+            if collision_aware:
+                valid = ik_utilities.check_state_validity(random_angles)
+                if valid:
+                    rospy.logerr("check state validity thinks random_angles is not in collision!")
+
             return 0
 
         #run forward kinematics on the ik solution to see if the
@@ -768,6 +805,12 @@ if __name__ == '__main__':
         pos2list = [pos2.x, pos2.y, pos2.z]
         rot2list = [rot2.x, rot2.y, rot2.z, rot2.w]
 
+        #test check_state_validity to see if it is in agreement about ik_angles not being in collision
+        if collision_aware:
+            valid = ik_utilities.check_state_validity(ik_angles)
+            if not valid:
+                rospy.logerr("check state validity thinks ik_angles is in collision!")
+
         #check the resulting solution 
         if not_near(pos1list, pos2list, trans_near) or \
            not_near(rot1list, rot2list, rot_near):
@@ -776,7 +819,6 @@ if __name__ == '__main__':
         else:
             rospy.loginfo("IK solution good")
             correct = 1
-        rospy.loginfo("IK request: pos "+pplist(pos1list)+" rot "+pplist(rot1list))
         rospy.loginfo("FK response:pos "+pplist(pos2list)+" rot "+pplist(rot2list))
         if not correct:
             return 0
