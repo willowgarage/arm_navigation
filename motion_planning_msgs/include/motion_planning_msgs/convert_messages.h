@@ -383,6 +383,37 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
     }
     return true;
   }
+
+
+  /**
+     @brief Extract pose information from a position and orientation constraint into a multi dof joint state
+     @param The input position constraint
+     @param The input orientation constraint
+     @return The nominal position and orientation from the constraints are encoded into the output pose message
+   */
+  inline motion_planning_msgs::MultiDOFJointState poseConstraintsToMultiDOFJointState(const std::vector<motion_planning_msgs::PositionConstraint> &position_constraints, 
+                                                                                      const std::vector<motion_planning_msgs::OrientationConstraint> &orientation_constraints)
+  {
+    motion_planning_msgs::MultiDOFJointState multi_dof_joint_state;
+    if(position_constraints.size() != orientation_constraints.size())
+      return multi_dof_joint_state;
+    for(unsigned int i=0; i < position_constraints.size(); i++)
+    {
+      if(position_constraints[i].header.frame_id != orientation_constraints[i].header.frame_id)
+      {
+        ROS_ERROR("Frame id for position constraint %d does not match frame id for corresponding orientation constraint",i);
+        return multi_dof_joint_state;
+      }
+      if(position_constraints[i].link_name != orientation_constraints[i].link_name)
+      {
+        ROS_ERROR("Link name for position constraint %d does not match link name for corresponding orientation constraint",i);
+        return multi_dof_joint_state;
+      }
+    }
+    return multi_dof_joint_state;
+  }
+
+
 }
 
 #endif
