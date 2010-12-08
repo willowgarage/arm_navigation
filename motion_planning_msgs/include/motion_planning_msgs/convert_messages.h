@@ -37,10 +37,13 @@
 #include <ros/ros.h>
 #include <tf/tf.h>
 
-#include <trajectory_msgs/JointTrajectory.h>
-#include <sensor_msgs/JointState.h>
+#include <motion_planning_msgs/RobotTrajectory.h>
+#include <motion_planning_msgs/RobotState.h>
+
 #include <motion_planning_msgs/JointConstraint.h>
+#include <trajectory_msgs/JointTrajectory.h>
 #include <motion_planning_msgs/JointPath.h>
+#include <sensor_msgs/JointState.h>
 
 #include <motion_planning_msgs/OrientationConstraint.h>
 #include <motion_planning_msgs/SimplePoseConstraint.h>
@@ -100,11 +103,38 @@ inline  motion_planning_msgs::JointPathPoint jointStateToJointPathPoint(const se
      @param The input joint state message
      @return The output joint trajectory point message only contains position information from the joint state message.
   */
-inline  trajectory_msgs::JointTrajectoryPoint jointStateToJointTrajectoryPoint(const sensor_msgs::JointState &state)
+inline trajectory_msgs::JointTrajectoryPoint jointStateToJointTrajectoryPoint(const sensor_msgs::JointState &state)
   {
     trajectory_msgs::JointTrajectoryPoint point;
     point.positions = state.position;
     return point;
+  }
+
+  /**
+     @brief Convert a multi-dof state to a multi-dof joint trajectory point message
+     @param The input multi-dof state
+     @return The output multi-dof joint trajectory point .
+  */
+inline motion_planning_msgs::MultiDOFJointTrajectoryPoint multiDOFJointStateToMultiDOFJointTrajectoryPoint(const motion_planning_msgs::MultiDOFJointState &state)
+  {
+    motion_planning_msgs::MultiDOFJointTrajectoryPoint point;
+    point.poses = state.poses;
+    point.time_from_start = ros::Duration(0.0);
+    return point;
+  }
+
+  /**
+     @brief Convert a robot state to a robot trajectory message
+     @param The input robot state
+     @return The output robot trajectory point
+  */
+inline void robotStateToRobotTrajectoryPoint(const motion_planning_msgs::RobotState &state,
+                                             trajectory_msgs::JointTrajectoryPoint &point,
+                                             motion_planning_msgs::MultiDOFJointTrajectoryPoint &multi_dof_point)
+  {
+    point = jointStateToJointTrajectoryPoint(state.joint_state);
+    multi_dof_point = multiDOFJointStateToMultiDOFJointTrajectoryPoint(state.multi_dof_joint_state);
+    return;
   }
 
   /**
