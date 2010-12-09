@@ -410,9 +410,10 @@ protected:
   double                    m_radiusB;
   double                    m_radiusBSqr;
   double                    m_meshRadiusB;
-	
+
   btVector3                 m_boxOffset;
   Box                       m_boundingBox;
+  BoundingCylinder          m_boundingCylinder;
 };
     
     

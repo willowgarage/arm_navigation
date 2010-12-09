@@ -788,7 +788,7 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
     shapes::Box *box_shape = new shapes::Box(maxX - minX, maxY - minY, maxZ - minZ);
     m_boundingBox.setDimensions(box_shape);
     delete box_shape;
-    
+ 
     m_boxOffset.setValue((minX + maxX) / 2.0, (minY + maxY) / 2.0, (minZ + maxZ) / 2.0);
     
     m_planes.clear();
@@ -797,13 +797,57 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
     m_meshRadiusB = 0.0;
     m_meshCenter.setValue(btScalar(0), btScalar(0), btScalar(0));
 
+    double xdim = maxX - minX;
+    double ydim = maxY - minY;
+    double zdim = maxZ - minZ;
+    
+    double pose1;
+    double pose2;
+    
+    unsigned int off1;
+    unsigned int off2;
+    
+    double cyl_length;
+    double maxdist = -INFINITY;
+    
+    if(xdim > ydim && xdim > zdim) {
+      
+      off1 = 1;
+      off2 = 2;
+      pose1 = m_boxOffset.y();
+      pose2 = m_boxOffset.z();
+      cyl_length = xdim;
+    } else if(ydim > zdim) {
+      off1 = 0;
+      off2 = 2;
+      pose1 = m_boxOffset.x();
+      pose2 = m_boxOffset.z();
+      cyl_length = ydim;
+    } else {
+      off1 = 0;
+      off2 = 1;
+      pose1 = m_boxOffset.x();
+      pose2 = m_boxOffset.y();
+      cyl_length = zdim;
+    }
+
+
     btVector3 *vertices = new btVector3[mesh->vertexCount];
     for(unsigned int i = 0; i < mesh->vertexCount ; ++i)
     {
-	vertices[i].setX(mesh->vertices[3 * i    ]);
-	vertices[i].setY(mesh->vertices[3 * i + 1]);
-	vertices[i].setZ(mesh->vertices[3 * i + 2]);
+      vertices[i].setX(mesh->vertices[3 * i    ]);
+      vertices[i].setY(mesh->vertices[3 * i + 1]);
+      vertices[i].setZ(mesh->vertices[3 * i + 2]);
+      
+      double dista = mesh->vertices[3 * i + off1]-pose1;
+      double distb = mesh->vertices[3 * i + off2]-pose2;
+      double dist = sqrt(((dista*dista)+(distb*distb)));
+      if(dist > maxdist) {
+        maxdist = dist;
+      }
     }
+    m_boundingCylinder.radius = maxdist;
+    m_boundingCylinder.length = cyl_length;
     
     HullDesc hd(QF_TRIANGLES, mesh->vertexCount, vertices);
     HullResult hr;
@@ -822,14 +866,14 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
 	}
 	
 	m_meshCenter = sum / (double)(hr.m_OutputVertices.size());
-	for (unsigned int j = 0 ; j < m_vertices.size() ; ++j)
+        for (unsigned int j = 0 ; j < m_vertices.size() ; ++j)
 	{
-	    double dist = m_vertices[j].distance2(m_meshCenter);
-	    if (dist > m_meshRadiusB)
-		m_meshRadiusB = dist;
+          double dist = m_vertices[j].distance2(m_meshCenter);
+          if (dist > m_meshRadiusB)
+            m_meshRadiusB = dist;
 	}
+
 	m_meshRadiusB = sqrt(m_meshRadiusB);
-	
 	m_triangles.reserve(hr.m_Indices.size());
 	for (unsigned int j = 0 ; j < hr.mNumFaces ; ++j)
 	{
@@ -888,7 +932,7 @@ void bodies::ConvexMesh::updateInternalData(void)
     m_boundingBox.setPose(pose);
     m_boundingBox.setPadding(m_padding);
     m_boundingBox.setScale(m_scale);
-    
+
     m_iPose = m_pose.inverse();
     m_center = m_pose * m_meshCenter;
     m_radiusB = m_meshRadiusB * m_scale + m_padding;
@@ -911,7 +955,12 @@ void bodies::ConvexMesh::computeBoundingSphere(BoundingSphere &sphere) const
 
 void bodies::ConvexMesh::computeBoundingCylinder(BoundingCylinder &cylinder) const
 {
-  m_boundingBox.computeBoundingCylinder(cylinder);
+  cylinder.length = m_boundingCylinder.length;
+  cylinder.radius = m_boundingCylinder.radius;
+  //need to do rotation correctly to get pose, which bounding box does
+  BoundingCylinder cyl;
+  m_boundingBox.computeBoundingCylinder(cyl);
+  cylinder.pose = cyl.pose;
 }
 
 bool bodies::ConvexMesh::isPointInsidePlanes(const btVector3& point) const
