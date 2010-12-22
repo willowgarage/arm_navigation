@@ -323,7 +323,7 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
    else if (error_code.val == error_code.START_STATE_VIOLATES_PATH_CONSTRAINTS)
      result = "Start state violates path constraints";
    else if (error_code.val == error_code.GOAL_IN_COLLISION)
-     result = "Goal in violation";
+     result = "Goal in collision";
    else if (error_code.val == error_code.GOAL_VIOLATES_PATH_CONSTRAINTS)
      result = "Goal violates path constraints";
    else if (error_code.val == error_code.INVALID_ROBOT_STATE)
