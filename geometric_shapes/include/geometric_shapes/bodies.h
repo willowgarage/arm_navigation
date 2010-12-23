@@ -391,6 +391,18 @@ public:
   virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
   virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
 
+  const std::vector<unsigned int>& getTriangles() const {
+    return m_triangles;
+  }
+
+  const std::vector<btVector3>& getVertices() const {
+    return m_vertices;
+  }
+
+  const std::vector<btVector3>& getScaledVertices() const {
+    return m_scaledVertices;
+  }
+
 protected:
 	
   virtual void useDimensions(const shapes::Shape *shape);
