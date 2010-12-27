@@ -278,7 +278,7 @@ void robot_self_filter::SelfMask::maskContainment(const pcl::PointCloud<pcl::Poi
     std::fill(mask.begin(), mask.end(), (int)OUTSIDE);
   else
   {
-    assumeFrame(data_in.header);
+    assumeFrame(data_in.header.frame_id,data_in.header.stamp);
     maskAuxContainment(data_in, mask);
   }
 }
@@ -292,7 +292,7 @@ void robot_self_filter::SelfMask::maskIntersection(const pcl::PointCloud<pcl::Po
   }
   else
   {
-    assumeFrame(data_in.header, sensor_frame, min_sensor_dist);
+    assumeFrame(data_in.header.frame_id, data_in.header.stamp, sensor_frame, min_sensor_dist);
     if (sensor_frame.empty())
         maskAuxContainment(data_in, mask);
     else
@@ -308,7 +308,7 @@ void robot_self_filter::SelfMask::maskIntersection(const pcl::PointCloud<pcl::Po
     std::fill(mask.begin(), mask.end(), (int)OUTSIDE);
   else
   {
-    assumeFrame(data_in.header, sensor_pos, min_sensor_dist);
+    assumeFrame(data_in.header.frame_id, data_in.header.stamp, sensor_pos, min_sensor_dist);
     maskAuxIntersection(data_in, mask, callback);
   }
 }
@@ -323,20 +323,20 @@ void robot_self_filter::SelfMask::computeBoundingSpheres(void)
   }
 }
 
-void robot_self_filter::SelfMask::assumeFrame(const roslib::Header& header, const btVector3 &sensor_pos, double min_sensor_dist)
+void robot_self_filter::SelfMask::assumeFrame(const std::string& frame_id, const ros::Time& stamp, const btVector3 &sensor_pos, double min_sensor_dist)
 {
-  assumeFrame(header);
+  assumeFrame(frame_id,stamp);
   sensor_pos_ = sensor_pos;
   min_sensor_dist_ = min_sensor_dist;
 }
 
-void robot_self_filter::SelfMask::assumeFrame(const roslib::Header& header, const std::string &sensor_frame, double min_sensor_dist)
+void robot_self_filter::SelfMask::assumeFrame(const std::string& frame_id, const ros::Time& stamp, const std::string &sensor_frame, double min_sensor_dist)
 {
-  assumeFrame(header);
+  assumeFrame(frame_id,stamp);
 
   std::string err;
-  if(!tf_.waitForTransform(header.frame_id, sensor_frame, header.stamp, ros::Duration(.1), ros::Duration(.01), &err)) {
-    ROS_ERROR("WaitForTransform timed out from %s to %s after 100ms.  Error string: %s", sensor_frame.c_str(), header.frame_id.c_str(), err.c_str());
+  if(!tf_.waitForTransform(frame_id, sensor_frame, stamp, ros::Duration(.1), ros::Duration(.01), &err)) {
+    ROS_ERROR("WaitForTransform timed out from %s to %s after 100ms.  Error string: %s", sensor_frame.c_str(), frame_id.c_str(), err.c_str());
     sensor_pos_.setValue(0, 0, 0);
   } 
 
@@ -345,19 +345,19 @@ void robot_self_filter::SelfMask::assumeFrame(const roslib::Header& header, cons
   try
   {
     tf::StampedTransform transf;
-    tf_.lookupTransform(header.frame_id, sensor_frame, header.stamp, transf);
+    tf_.lookupTransform(frame_id, sensor_frame, stamp, transf);
     sensor_pos_ = transf.getOrigin();
   }
   catch(tf::TransformException& ex)
   {
     sensor_pos_.setValue(0, 0, 0);
-    ROS_ERROR("Unable to lookup transform from %s to %s.  Exception: %s", sensor_frame.c_str(), header.frame_id.c_str(), ex.what());
+    ROS_ERROR("Unable to lookup transform from %s to %s.  Exception: %s", sensor_frame.c_str(), frame_id.c_str(), ex.what());
   }
   
   min_sensor_dist_ = min_sensor_dist;
 }
 
-void robot_self_filter::SelfMask::assumeFrame(const roslib::Header& header)
+void robot_self_filter::SelfMask::assumeFrame(const std::string &frame_id, const ros::Time &stamp)
 {
   const unsigned int bs = bodies_.size();
   
@@ -365,21 +365,20 @@ void robot_self_filter::SelfMask::assumeFrame(const roslib::Header& header)
   for (unsigned int i = 0 ; i < bs ; ++i)
   {
     std::string err;
-    if(!tf_.waitForTransform(header.frame_id, bodies_[i].name, header.stamp, ros::Duration(.1), ros::Duration(.01), &err)) {
-      ROS_ERROR("WaitForTransform timed out from %s to %s after 100ms.  Error string: %s", bodies_[i].name.c_str(), header.frame_id.c_str(), err.c_str());
-      
+    if(!tf_.waitForTransform(frame_id, bodies_[i].name, stamp, ros::Duration(.1), ros::Duration(.01), &err)) {
+      ROS_ERROR("WaitForTransform timed out from %s to %s after 100ms.  Error string: %s", bodies_[i].name.c_str(), frame_id.c_str(), err.c_str());      
     } 
     
     // find the transform between the link's frame and the pointcloud frame
     tf::StampedTransform transf;
     try
     {
-      tf_.lookupTransform(header.frame_id, bodies_[i].name, header.stamp, transf);
+      tf_.lookupTransform(frame_id, bodies_[i].name, stamp, transf);
     }
     catch(tf::TransformException& ex)
     {
       transf.setIdentity();
-      ROS_ERROR("Unable to lookup transform from %s to %s. Exception: %s", bodies_[i].name.c_str(), header.frame_id.c_str(), ex.what());	
+      ROS_ERROR("Unable to lookup transform from %s to %s. Exception: %s", bodies_[i].name.c_str(), frame_id.c_str(), ex.what());	
     }
     
     // set it for each body; we also include the offset specified in URDF
