@@ -7,4 +7,4 @@ rosbuild_init()
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
-rosbuild_add_executable(search_state src/search_valid_state.cpp src/SearchRequestHandler.cpp)
+#rosbuild_add_executable(search_state src/search_valid_state.cpp src/SearchRequestHandler.cpp)
