@@ -6,7 +6,7 @@ It generates smooth, collision-free trajectories. For technical, algorithmic det
 please refer to:
 
 "CHOMP: Gradient Optimization Techniques for Efficient Motion Planning".
-Nathan Ratliff, Matthew Zucker, J. Andrew Bagnell anhd Siddhartha Srinivasa.
+Nathan Ratliff, Matthew Zucker, J. Andrew Bagnell and Siddhartha Srinivasa.
 IEEE International Conference on Robotics and Automation, May 2009. 
 
   </description>
