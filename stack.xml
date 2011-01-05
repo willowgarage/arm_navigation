@@ -8,11 +8,11 @@
   <url>http://ros.org/wiki/motion_planning_common</url>
   <depend stack="common" /> <!-- actionlib, filters -->
   <depend stack="common_msgs" /> <!-- geometry_msgs, actionlib_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
-  <depend stack="geometry" /> <!-- tf, angles, bullet -->
+  <depend stack="geometry" /> <!-- tf, bullet, angles -->
   <depend stack="perception_pcl" /> <!-- pcl -->
   <depend stack="physics_ode" /> <!-- opende -->
   <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- rosconsole, std_msgs, roscpp, std_srvs -->
+  <depend stack="ros_comm" /> <!-- std_msgs, rosconsole, std_srvs, roscpp, message_filters -->
 
 </stack>

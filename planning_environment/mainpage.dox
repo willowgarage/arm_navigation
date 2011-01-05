@@ -1,0 +1,250 @@
+/**
+\mainpage
+\htmlinclude manifest.html
+
+@section summary Summary
+
+\b planning_environment is a library that allows users to instantiate
+robot models and collision models based on data from the parameter
+server with minimal user input. Additionally, state information for
+both robot models and collision environments can be monitored.
+
+@section conventions Conventions
+
+A URDF robot description is assumed to be loaded on the parameter
+server. The name of the parameter under which this description exists
+is taken as an argument to class constructors.  Additionally, .yaml
+files describing the collision and planning information should be
+loaded on the parameter server under the same prefix as the robot
+description.
+
+The collision.yaml file should define the follwing:
+
+ - the robot links (same names as in the URDF description) that should be considered for collision checking under @b collision_links ; (padding and scaling for these links is defined by @b robot_padd and @b robot_scale)
+
+ - the self collision groups under @b self_collision_groups
+
+ - the set of robot links that the robot can perceive with its sensors @b self_see ; (scaling and padding for these links is set with @b self_see_scale, @b self_see_padd)
+
+
+An example collision.yaml file:
+
+@verbatim
+
+## links for which collision checking with the environment should be performed
+collision_links:
+  base_link
+  torso_lift_link
+  head_pan_link
+  head_tilt_link
+  laser_tilt_mount_link
+  base_laser_link
+  ...
+
+## self collision is performed between groups of links; the names for the groups can be anything, but they must contain 'a' and 'b' as subgroups
+self_collision_groups: scg_r scg_l
+
+## -- for right arm; self-collision if any link in 'a' collides with some link in 'b'
+scg_r:
+  a: r_forearm_link r_gripper_palm_link r_gripper_l_finger_link r_gripper_r_finger_link r_gripper_l_finger_tip_link r_gripper_r_finger_tip_link
+  b: base_link base_laser_link torso_lift_link laser_tilt_mount_link head_tilt_link
+
+## -- for left arm; self-collision if any link in 'a' collides with some link in 'b'
+scg_l:
+  a: l_forearm_link l_gripper_palm_link l_gripper_l_finger_link l_gripper_r_finger_link l_gripper_l_finger_tip_link l_gripper_r_finger_tip_link
+  b: base_link base_laser_link torso_lift_link laser_tilt_mount_link head_tilt_link 
+
+## list of links that the robot can see with its sensors (used to remove 
+## parts of the robot from scanned data)
+self_see:
+  r_upper_arm_link
+  r_upper_arm_roll_link
+  r_elbow_flex_link
+  r_forearm_link
+  r_forearm_roll_link
+  ...
+
+## The padding to be added for the body parts the robot can see
+self_see_padd: 0.1
+
+## The scaling to be considered for the body parts the robot can see
+self_see_scale: 1.0
+
+## The padding for the robot body parts to be considered when collision checking with the environment
+robot_padd: 0.01
+
+## The scaling for the robot body parts to be considered when collision checking with the environment
+robot_scale: 1.0
+
+@endverbatim
+
+
+The planning.yaml file defines the groups of links/joints motion planning can be performed for and contains the following:
+
+ - the names of the groups (the model ID's) planning is done for, under @b group_list. This is important as motion planners will use these names as input.
+
+ - the definition of each of the groups is under @b groups. Each definition contains 
+    - @b links : the names of the robot links to plan for; the actuated joints are the ones that connect the links with their parents, as described in the URDF
+    - @b planner_configs : these are names of configurations for planners; each planner configuration contains a planner-specific set of parameters. The only parameter that must exist is 'type', which specified the planner to be used.
+
+ - the content of each planning configuration under @b planner_configs
+
+
+An example planning.yaml file:
+
+@verbatim
+
+## the list of groups for which motion planning can be performed
+group_list:
+  base
+  left_arm
+  ...
+
+## the definition of each group
+groups:
+
+  base:
+    links:
+      base_link
+    planner_configs:
+      RRTkConfig1 RRTdConfig1 SBLkConfig1 KPIECEkConfig1
+
+  left_arm:
+    links:
+      l_shoulder_pan_link
+      l_shoulder_lift_link
+      l_upper_arm_roll_link
+      l_upper_arm_link
+      l_elbow_flex_link
+      l_forearm_roll_link
+      l_forearm_link
+      l_wrist_flex_link
+      l_wrist_roll_link
+    planner_configs:
+      SBLkConfig2 LBKPIECEkConfig2l
+
+  ...
+
+## the planner configurations; each config must have a type, which specifies
+## the planner to be used; other parameters can be specified as well, depending 
+## on the planner
+
+planner_configs:
+  
+  RRTkConfig1:
+    type: kinematic::RRT
+    range: 0.75
+
+  RRTdConfig1:
+    type: dynamic::RRT
+    range: 0.75
+
+  SBLkConfig1:
+    type: kinematic::SBL
+    projection: 0 1
+    celldim: 1 1
+    range: 0.5
+
+  KPIECEkConfig1:
+    type: kinematic::KPIECE
+    projection: 0 1
+    celldim: 1 1
+    range: 0.5
+
+  SBLkConfig2:
+    type: kinematic::SBL
+    projection: 5 6
+    celldim: 0.1 0.1
+
+  LBKPIECEkConfig2l:
+    type: kinematic::LBKPIECE
+    projection: link l_wrist_roll_link
+    celldim: 0.1 0.1 0.1
+
+@endverbatim
+
+\section codeapi Code API
+
+The intended use for this package is to instantiante one of the two
+model classes and potentially one of the monitor classes.
+
+The model classes are:
+- \b planning_environment::RobotModels : allows the instantiation of various robot models (for example, a kinematic one) based on data from the parameter server. The URDF robot description and the .yaml files describing collision and planning information are assumed to be loaded.
+
+- \b planning_environment::CollisionModels : allows the instantiation of various robot models (for example, a kinematic one) and various collision spaces, based on data from the parameter server. This class inherits from \b planning_environment::RobotModels. The URDF robot description and the .yaml files describing collision and planning information are assumed to be loaded.
+
+<hr>
+
+The monitor classes are:
+- \b planning_environment::KinematicModelStateMonitor : monitors the kinematic state of the robot. Optionally, monitors the base location. It uses the 'joint_states' topic.
+- \b planning_environment::CollisionSpaceMonitor : same as \b planning_environment::KinematicModelStateMonitor except it also monitors the state of the collision environment. It uses the 'collision_map' topic to receive new full maps and the 'collision_map_update' to receive updates. Attaching objects to robot links is possible using the 'attach_object' topic. 
+- \b planning_environment::PlanningMonitor : same as \b planning_environment::CollisionSpaceMonitor except it also offers the ability to evaluate kinematic constraints and check paths and states for validity.
+
+\section rosapi ROS API
+
+\subsection topics ROS topics
+
+Subscribes to:
+ - @b "joint_states"/JointStates : the parameters describing the robot's current state
+ - @b "collision_map"/CollisionMap : data describing the 3D environment
+ - @b "collision_map_update"/CollisionMap : updates (additive) to data describing the 3D environment
+ - @b "object_in_map"/ObjectInMap : definition of an object identified in the environment (to be used for collision checking)
+ - @b "attach_object"/AttachedObject : data describing an object to be attached to a link
+
+\subsection parameters ROS parameters
+
+Reads the following parameters from the parameter server
+ - @b "~refresh_interval_collision_map"/double : if more than this interval passes, the maintained map is considered invalid
+
+ - @b "~refresh_interval_kinematic_state"/double : if more than this interval passes, the maintained kinematic state is considered invalid
+
+ - @b "~refresh_interval_pose"/double : if more than this interval passes, the maintained pose is considered invalid
+
+ - @b "~bounding_planes"/string : a sequence of plane equations specified as "a1 b1 c1 d1 a2 b2 c2 d2 ..." where each plane is defined by the equation ax+by+cz+d=0
+
+ - @b "~pointcloud_padd"/double : additional padding to be used when collision checking agains pointclouds (the padding for the robot will still be used)
+
+A robot description and its corresponding planning and collision descriptions are assumed to be loaded on the parameter server as well.
+
+Sets the following parameters on the parameter server
+
+ - Sets the parameters it reads to default values
+
+\section tools Tools
+
+\subsection view_state_validity View State Validity
+
+\b view_state_validity is a node that uses planning environment to check whether the current state of the robot is valid or not. This information is also broadcasted on the 'state_validity' topic as a Byte value (1 for collision, 0 for valid state). Verbosity is enabled, so one should be able to see which robot parts cause collision (if any).
+
+ROS topics and parameters are as above. 
+
+\subsection display_planner_collision_model Display Planner Collision Model
+
+\b display_planner_collision_model is a node that monitors the collision space maintained by the planning environment and broadcasts it as visualization markers. Bodies attached to the robot are also displayed. An additional boolean parameter "~skip_collision_map" can be used tp disable sending markers produced by the collision map. This is useful if the use wants to only see what other objects are in the map (on the 'object_in_map' topic, for instance).
+
+ROS topics and parameters are as above. 
+
+\subsection clear_known_objects Clear Known Objects
+
+\b clear_known_objects is a node that filters robot_msgs::PointCloud clouds. The purpose is to remove points in the cloud that correspond to objects that have already been identified. 
+
+\subsubsection cko_topics ROS Topics
+
+ - @b "cloud_in"/PointCloud : the input cloud
+
+ - @b "object_in_map"/ObjectInMap : definition of an object identified in the environment
+
+ - @b "cloud_out"/PointCloud : the output cloud (publishes to)
+
+\subsubsection cko_params ROS Parameters
+
+ - @b "~fixed_frame"/string : a frame that stays fixed for the objects identified in the map
+
+ - @b "~object_scale"/double : the scaling to use for the known object when clearing the point cloud
+
+ - @b "~object_padd"/double : the padding to use for the known object when clearing the point cloud
+
+ A robot description and its corresponding planning and collision descriptions are assumed to be loaded on the parameter server as well.
+
+
+*/
