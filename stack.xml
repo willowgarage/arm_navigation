@@ -6,12 +6,13 @@
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/motion_planning_common</url>
-  <depend stack="common" /> <!-- filters -->
-  <depend stack="common_msgs" /> <!-- geometry_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
+  <depend stack="common" /> <!-- actionlib, filters -->
+  <depend stack="common_msgs" /> <!-- geometry_msgs, actionlib_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
   <depend stack="geometry" /> <!-- tf, angles, bullet -->
   <depend stack="perception_pcl" /> <!-- pcl -->
+  <depend stack="physics_ode" /> <!-- opende -->
   <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- rosconsole, std_msgs, roscpp -->
+  <depend stack="ros_comm" /> <!-- rosconsole, std_msgs, roscpp, std_srvs -->
 
 </stack>

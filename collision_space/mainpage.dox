@@ -1,0 +1,17 @@
+/**
+\mainpage
+\htmlinclude manifest.html
+
+@section summary Summary 
+
+\b collision_space is used to represent collisions between a given
+robot model (as in <a href="../../planning_models/html">planning_models</a>) and the
+environment. Self collision checking is performed and contact
+positions and normals can be computed.
+
+
+An abstract interface (collision_space::EnvironmentModel) is provided
+to a set of collision checking libraries.
+
+
+*/
