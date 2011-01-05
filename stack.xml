@@ -14,5 +14,6 @@
   <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
   <depend stack="ros" />
   <depend stack="ros_comm" /> <!-- std_msgs, rosconsole, std_srvs, roscpp, message_filters -->
+  <depend stack="visualization" /> <!-- rviz -->
 
 </stack>
