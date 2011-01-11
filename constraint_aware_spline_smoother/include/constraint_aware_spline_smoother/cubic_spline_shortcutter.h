@@ -252,7 +252,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
         continue;
       if(!trimTrajectory(trajectory_out.trajectory,segment_start_time,segment_end_time))
         continue;
-      ROS_DEBUG("Trimmed trajectory has %u points",trajectory_out.trajectory.points.size());
+      ROS_DEBUG("Trimmed trajectory has %d points",(int) trajectory_out.trajectory.points.size());
 
       ROS_DEBUG("Shortcut reduced duration from: %f to %f",
                 segment_end_time-segment_start_time,
@@ -316,7 +316,7 @@ void CubicSplineShortCutter<T>::refineTrajectory(T &trajectory) const
     {
       double dq_first = trajectory.trajectory.points[i].positions[j] - trajectory.trajectory.points[i-1].positions[j];
       double dq_second = trajectory.trajectory.points[i+1].positions[j] - trajectory.trajectory.points[i].positions[j];
-      double dq_dot = trajectory.trajectory.points[i].velocities[j];
+      //      double dq_dot = trajectory.trajectory.points[i].velocities[j];
       double dt_first = (trajectory.trajectory.points[i].time_from_start - trajectory.trajectory.points[i-1].time_from_start).toSec();
       double dt_second = (trajectory.trajectory.points[i+1].time_from_start - trajectory.trajectory.points[i].time_from_start).toSec();
       if( (dq_first > 0 && dq_second > 0) || (dq_first < 0 && dq_second < 0)) 
@@ -548,7 +548,7 @@ bool CubicSplineShortCutter<T>::addToTrajectory(trajectory_msgs::JointTrajectory
 {
 
   ROS_DEBUG("Inserting point at time: %f",trajectory_point.time_from_start.toSec());
-  ROS_DEBUG("Old trajectory has %u points",trajectory_out.points.size());
+  ROS_DEBUG("Old trajectory has %d points",(int) trajectory_out.points.size());
 
   if(trajectory_out.points.empty())
   {
@@ -569,17 +569,25 @@ bool CubicSplineShortCutter<T>::addToTrajectory(trajectory_msgs::JointTrajectory
     counter++;
   }
 
+  ROS_DEBUG("Counter is %d",counter);
+  if(counter == old_size)
+  {
+    trajectory_out.points.push_back(trajectory_point);
+    ROS_DEBUG("Added point at end of trajectory");
+    return true;
+  }
+
   if(delta_time == ros::Duration(0.0))
     return true;
-
-  if(counter == old_size)
-    trajectory_out.points.push_back(trajectory_point);
+  if(counter+1 < trajectory_out.points.size())
+  {
+    for(unsigned int i= counter+1; i < trajectory_out.points.size(); i++)
+    {
+      trajectory_out.points[i].time_from_start += delta_time;
+    } 
+  }
   else
-    if(counter+1 < trajectory_out.points.size())
-      for(unsigned int i= counter+1; i < trajectory_out.points.size(); i++)
-      {
-        trajectory_out.points[i].time_from_start += delta_time;
-      } 
+    ROS_ERROR("This should not have happened");
   return true;
 }
 
