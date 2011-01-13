@@ -113,6 +113,10 @@ namespace planning_environment
 	{
           self_collision = default_collision_operations_;
 	}
+      
+      const std::map<std::string,double>& getDefaultLinkPaddingMap() {
+        return link_padding_map_;
+      }
 	
     protected:
 	
@@ -127,6 +131,7 @@ namespace planning_environment
 	double                                               padd_;
 	std::vector<double>                                  boundingPlanes_;
       std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;
+      std::map<std::string, double> link_padding_map_;
     };
     
 	

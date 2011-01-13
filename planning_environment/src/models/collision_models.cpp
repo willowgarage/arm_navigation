@@ -92,7 +92,11 @@ void planning_environment::CollisionModels::setupModel(boost::shared_ptr<collisi
 
   //ROS_INFO_STREAM("Padd is " << padd_);
 
-  std::map<std::string, double> link_padding_map;
+  for(std::vector<std::string>::const_iterator it = links.begin();
+      it != links.end();
+      it++) {
+    link_padding_map_[*it] = padd_;
+  }
 
   if(priv.hasParam("link_padding")) {
     XmlRpc::XmlRpcValue link_padding_xml;
@@ -118,14 +122,23 @@ void planning_environment::CollisionModels::setupModel(boost::shared_ptr<collisi
         for(std::vector<std::string>::iterator it = svec1.begin();
             it != svec1.end();
             it++) {
-          link_padding_map[*it] = padding;
+          link_padding_map_[*it] = padding;
         }
       }
     }
   }
   
   model->lock();
-  model->setRobotModel(kmodel_, links, link_padding_map, padd_,scale_);
+  std::vector<std::string> links_with_collision = links;
+  std::vector<std::string>::iterator lit = links_with_collision.begin();
+  while(lit != links_with_collision.end()) {
+    if(kmodel_->getLinkModel(*lit)->getLinkShape() == NULL) {
+      lit = links_with_collision.erase(lit);
+    } else {
+      lit++;
+    }
+  }
+  model->setRobotModel(kmodel_, links_with_collision, link_padding_map_, padd_,scale_);
 
   for(std::vector<motion_planning_msgs::CollisionOperation>::iterator it = default_collision_operations_.begin();
       it != default_collision_operations_.end();

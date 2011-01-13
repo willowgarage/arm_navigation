@@ -308,9 +308,7 @@ planning_models::KinematicModel::LinkModel* planning_models::KinematicModel::con
   if(urdf_link->collision) {
     result->shape_ = constructShape(urdf_link->collision->geometry.get());
   } else {
-    shapes::Shape *tmp_shape = NULL;
-    tmp_shape = new shapes::Sphere(0.0001);
-    result->shape_ = tmp_shape;   
+    result->shape_ = NULL;
   } 
   return result;
 }
@@ -869,7 +867,11 @@ planning_models::KinematicModel::LinkModel::LinkModel(const LinkModel* link_mode
   joint_origin_transform_(link_model->joint_origin_transform_),
   collision_origin_transform_(link_model->collision_origin_transform_)
 {
-  shape_ = shapes::cloneShape(link_model->shape_);
+  if(link_model->shape_) {
+    shape_ = shapes::cloneShape(link_model->shape_);
+  } else {
+    shape_ = NULL;
+  }
   for (unsigned int i = 0 ; i < link_model->attached_body_models_.size() ; ++i)
   {
     std::vector<shapes::Shape*> shapes;

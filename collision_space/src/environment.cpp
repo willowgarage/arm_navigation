@@ -99,7 +99,7 @@ void collision_space::EnvironmentModel::addSelfCollisionGroup(const std::vector<
       stit1++) {
     if (m_collisionLinkIndex.find(*stit1) == m_collisionLinkIndex.end())
     {
-      ROS_WARN("Unknown link '%s'", (*stit1).c_str());
+      //ROS_WARN("Unknown link '%s'", (*stit1).c_str());
       continue;
     }
     for(std::vector<std::string>::const_iterator stit2 = group2.begin();
@@ -107,7 +107,7 @@ void collision_space::EnvironmentModel::addSelfCollisionGroup(const std::vector<
         stit2++) {
       if (m_collisionLinkIndex.find(*stit2) == m_collisionLinkIndex.end())
       {
-        ROS_WARN("Unknown link '%s'", (*stit2).c_str());
+        //ROS_WARN("Unknown link '%s'", (*stit2).c_str());
         continue;
       }
       m_selfCollisionTest[m_collisionLinkIndex[*stit1]][m_collisionLinkIndex[*stit2]] = false;
@@ -124,7 +124,7 @@ void collision_space::EnvironmentModel::removeSelfCollisionGroup(const std::vect
       stit1++) {
     if (m_collisionLinkIndex.find(*stit1) == m_collisionLinkIndex.end())
     {
-      ROS_WARN("Unknown link '%s'", (*stit1).c_str());
+      //ROS_WARN("Unknown link '%s'", (*stit1).c_str());
       continue;
     }
     for(std::vector<std::string>::const_iterator stit2 = group2.begin();
@@ -132,7 +132,7 @@ void collision_space::EnvironmentModel::removeSelfCollisionGroup(const std::vect
         stit2++) {
       if (m_collisionLinkIndex.find(*stit2) == m_collisionLinkIndex.end())
       {
-        ROS_WARN("Unknown link '%s'", (*stit2).c_str());
+        //ROS_WARN("Unknown link '%s'", (*stit2).c_str());
         continue;
       }
       m_selfCollisionTest[m_collisionLinkIndex[*stit1]][m_collisionLinkIndex[*stit2]] = true;

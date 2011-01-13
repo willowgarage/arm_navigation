@@ -885,7 +885,9 @@ void planning_environment::PlanningMonitor::getChildLinks(const std::vector<std:
         for(std::vector<const planning_models::KinematicModel::LinkModel*>::iterator it = child_links.begin();
             it != child_links.end();
             it++) {
-          links_set.insert((*it)->getName());
+          if((*it)->getLinkShape() != NULL) {
+            links_set.insert((*it)->getName());
+          }
         }
       }
     }
