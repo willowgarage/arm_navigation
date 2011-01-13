@@ -197,7 +197,7 @@ class IKUtilities:
             return None
         self.link_name = link_name
 
-        header = roslib.msg.Header()
+        header = rospy.Header()
         header.stamp = rospy.get_rostime()
         header.frame_id = 'base_link'
         joint_state = JointState(header, self.joint_names, angles, [], [])
