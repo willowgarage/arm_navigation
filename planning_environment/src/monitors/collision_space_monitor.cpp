@@ -757,9 +757,9 @@ bool planning_environment::CollisionSpaceMonitor::attachObjectCallback(const map
 	pose.header.stamp = tm;
 	try {
 	  tf_->transformPose(attached_object->link_name, pose, poseP);
-	} catch(...) {
+	} catch(tf::TransformException& ex) {
 	  err = true;
-	  ROS_ERROR("Unable to transform object to be attached from frame %s to frame %s", obj.header.frame_id.c_str(), attached_object->link_name.c_str());
+	  ROS_ERROR("Unable to transform object to be attached from frame %s to frame %s. TF said: %s", obj.header.frame_id.c_str(), attached_object->link_name.c_str(),ex.what());
 	} 
       } else {
 	ROS_WARN_STREAM("No common time between " << attached_object->link_name << " and " << pose.header.frame_id);
