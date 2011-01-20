@@ -863,7 +863,7 @@ bool collision_space::EnvironmentModelODE::getCollisionContacts(const std::vecto
   return cdata.collides;
 }
 
-bool collision_space::EnvironmentModelODE::isCollision(void)
+bool collision_space::EnvironmentModelODE::isCollision(void) const
 {
   CollisionData cdata;
   cdata.selfSpace = m_modelGeom.space;
@@ -872,7 +872,7 @@ bool collision_space::EnvironmentModelODE::isCollision(void)
   return cdata.collides;
 }
 
-bool collision_space::EnvironmentModelODE::isSelfCollision(void)
+bool collision_space::EnvironmentModelODE::isSelfCollision(void) const
 {
   CollisionData cdata; 
   cdata.selfSpace = m_modelGeom.space;
@@ -881,7 +881,7 @@ bool collision_space::EnvironmentModelODE::isSelfCollision(void)
   return cdata.collides;
 }
 
-void collision_space::EnvironmentModelODE::testSelfCollision(CollisionData *cdata)
+void collision_space::EnvironmentModelODE::testSelfCollision(CollisionData *cdata) const
 { 
   if(use_set_collision_matrix_) {
     cdata->selfCollisionTest = &set_collision_matrix_;
@@ -891,7 +891,7 @@ void collision_space::EnvironmentModelODE::testSelfCollision(CollisionData *cdat
   dSpaceCollide(m_modelGeom.space, cdata, nearCallbackFn);
 }
 
-void collision_space::EnvironmentModelODE::testBodyCollision(CollisionNamespace *cn, CollisionData *cdata)
+void collision_space::EnvironmentModelODE::testBodyCollision(CollisionNamespace *cn, CollisionData *cdata) const
 { 
   if (cn->collide2.empty())
   {
@@ -932,8 +932,8 @@ void collision_space::EnvironmentModelODE::testBodyCollision(CollisionNamespace 
             return;
           }
           
-          unsigned int kg1ind = set_collision_ind_[kg1name];
-          unsigned int kg2ind = set_collision_ind_[kg2name];
+          unsigned int kg1ind = set_collision_ind_.find(kg1name)->second;
+          unsigned int kg2ind = set_collision_ind_.find(kg2name)->second;
           
           if(set_collision_matrix_[kg1ind][kg2ind]) {
             //ROS_DEBUG_STREAM("Not checking collisions between " << kg1name << " and " << kg2name);
@@ -1038,8 +1038,8 @@ void collision_space::EnvironmentModelODE::testBodyCollision(CollisionNamespace 
               return;
             }
             
-            unsigned int kg1ind = set_collision_ind_[kg1name];
-            unsigned int kg2ind = set_collision_ind_[kg2name];
+            unsigned int kg1ind = set_collision_ind_.find(kg1name)->second;
+            unsigned int kg2ind = set_collision_ind_.find(kg2name)->second;
             
             if(set_collision_matrix_[kg1ind][kg2ind]) {
               //ROS_DEBUG_STREAM("Not checking collisions between " << kg1name << " and " << kg2name);
@@ -1095,7 +1095,7 @@ void collision_space::EnvironmentModelODE::testBodyCollision(CollisionNamespace 
   }
 }
 
-void collision_space::EnvironmentModelODE::testCollision(CollisionData *cdata)
+void collision_space::EnvironmentModelODE::testCollision(CollisionData *cdata) const
 {
   /* check self collision */
   if (m_selfCollision)
@@ -1105,7 +1105,7 @@ void collision_space::EnvironmentModelODE::testCollision(CollisionData *cdata)
   {
     cdata->link2 = NULL;
     /* check collision with other ode bodies */
-    for (std::map<std::string, CollisionNamespace*>::iterator it = m_collNs.begin() ; it != m_collNs.end() && !cdata->done ; ++it) {
+    for (std::map<std::string, CollisionNamespace*>::const_iterator it = m_collNs.begin() ; it != m_collNs.end() && !cdata->done ; ++it) {
       testBodyCollision(it->second, cdata);
     }
     cdata->done = true;

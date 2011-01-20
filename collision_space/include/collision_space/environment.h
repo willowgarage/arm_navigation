@@ -177,10 +177,10 @@ public:
 	
 
   /** \brief Check if a model is in collision. Contacts are not computed */
-  virtual bool isCollision(void) = 0;
+  virtual bool isCollision(void) const = 0;
 	
   /** \brief Check for self collision. Contacts are not computed */
-  virtual bool isSelfCollision(void) = 0;
+  virtual bool isSelfCollision(void) const = 0;
 	
   /** \brief Get the list of contacts (collisions). The maximum number of contacts to be returned can be specified. If the value is 0, all found contacts are returned. */
   virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) = 0;

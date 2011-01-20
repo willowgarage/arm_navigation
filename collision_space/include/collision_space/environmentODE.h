@@ -67,10 +67,10 @@ public:
   virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1);
 
   /** \brief Check if a model is in collision */
-  virtual bool isCollision(void);
+  virtual bool isCollision(void) const;
 
   /** \brief Check if a model is in self collision */
-  virtual bool isSelfCollision(void);
+  virtual bool isSelfCollision(void) const;
 	
   /** \brief Remove all objects from collision model */
   virtual void clearObjects(void);
@@ -365,13 +365,13 @@ protected:
 	
 	
   /** \brief Internal function for collision detection */
-  void testCollision(CollisionData *data);
+  void testCollision(CollisionData *data) const;
 
   /** \brief Internal function for collision detection */
-  void testSelfCollision(CollisionData *data);
+  void testSelfCollision(CollisionData *data) const;
 
   /** \brief Internal function for collision detection */
-  void testBodyCollision(CollisionNamespace *cn, CollisionData *data);
+  void testBodyCollision(CollisionNamespace *cn, CollisionData *data) const;
 
   dGeomID copyGeom(dSpaceID space, ODEStorage &storage, dGeomID geom, ODEStorage &sourceStorage) const;
   void    createODERobotModel();	
