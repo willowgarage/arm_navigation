@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-* 
-*  Copyright (c) 2008, Willow Garage, Inc.
-*  All rights reserved.
-* 
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-* 
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-* 
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ * 
+ *  Copyright (c) 2008, Willow Garage, Inc.
+ *  All rights reserved.
+ * 
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ * 
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ * 
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /** \author Ioan Sucan */
 
@@ -46,34 +46,37 @@
 namespace shapes
 {
     
-    /** \brief Load a mesh from a set of vertices. Triangles are
-	constructed using index values from the triangles
-	vector. Triangle k has vertices at index values triangles[3k],
-	triangles[3k+1], triangles[3k+2]  */
-    Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, const std::vector<unsigned int> &triangles);
+/** \brief Load a mesh from a set of vertices. Triangles are
+    constructed using index values from the triangles
+    vector. Triangle k has vertices at index values triangles[3k],
+    triangles[3k+1], triangles[3k+2]  */
+Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, const std::vector<unsigned int> &triangles);
     
-    /** \brief Load a mesh from a set of vertices. Every 3 vertices
-	are considered a triangle. Repeating vertices are identified
-	and the set of triangle indices is constructed. The normal at
-	each triangle is also computed */
-    Mesh* createMeshFromVertices(const std::vector<btVector3> &source);
+/** \brief Load a mesh from a set of vertices. Every 3 vertices
+    are considered a triangle. Repeating vertices are identified
+    and the set of triangle indices is constructed. The normal at
+    each triangle is also computed */
+Mesh* createMeshFromVertices(const std::vector<btVector3> &source);
     
-    /** \brief Load a mesh from an assimp datastructure */
+/** \brief Load a mesh from an assimp datastructure */
 Mesh* createMeshFromAsset(const aiMesh* a, const btVector3& scale);
     
-    /** \brief Load a mesh from a binary STL file. Normals are
-	recomputed and repeating vertices are identified. */
-    __attribute__((deprecated)) Mesh* createMeshFromBinaryStl(const char *filename);
+/** \brief Load a mesh from a binary STL file. Normals are
+    recomputed and repeating vertices are identified. */
+__attribute__((deprecated)) Mesh* createMeshFromBinaryStl(const char *filename);
 
-    /** \brief Load a mesh from a binary STL stream. Normals are
-	recomputed and repeating vertices are identified. */
-    __attribute__((deprecated)) Mesh* createMeshFromBinaryStlData(const char *data, unsigned int size);
+/** \brief Load a mesh from a binary STL stream. Normals are
+    recomputed and repeating vertices are identified. */
+__attribute__((deprecated)) Mesh* createMeshFromBinaryStlData(const char *data, unsigned int size);
 
-    /** \brief Create a copy of a shape */
-    Shape* cloneShape(const Shape *shape);
+/** \brief Create a copy of a shape */
+Shape* cloneShape(const Shape *shape);
 
-    /** \brief Create a copy of a static shape */
-    StaticShape* cloneShape(const StaticShape *shape);
+/** \brief Create a copy of a static shape */
+StaticShape* cloneShape(const StaticShape *shape);
+
+/** \brief Create a copy of a vector of shape */
+std::vector<Shape*> cloneShapeVector(const std::vector<Shape*>& shapes);
     
 }
 

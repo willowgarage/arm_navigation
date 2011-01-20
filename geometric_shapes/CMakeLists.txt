@@ -19,7 +19,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 
 rosbuild_add_library(${PROJECT_NAME} src/shape_operations.cpp
-				     src/bodies.cpp)
+				     src/bodies.cpp
+				     src/body_operations.cpp)
 
 
 # Unit tests

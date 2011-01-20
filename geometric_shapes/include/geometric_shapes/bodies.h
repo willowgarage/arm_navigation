@@ -32,10 +32,10 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/** \author Ioan Sucan */
+/** \author Ioan Sucan, E. Gil Jones */
 
-#ifndef GEOMETRIC_SHAPES_POINT_INCLUSION_
-#define GEOMETRIC_SHAPES_POINT_INCLUSION_
+#ifndef GEOMETRIC_SHAPES_BODIES_
+#define GEOMETRIC_SHAPES_BODIES_
 
 #include "geometric_shapes/shapes.h"
 #include <LinearMath/btTransform.h>
@@ -45,12 +45,10 @@
 
 /**
    This set of classes allows quickly detecting whether a given point
-   is inside an object or not. Only basic (simple) types of objects
-   are supported: spheres, cylinders, boxes. This capability is useful
-   when removing points from inside the robot (when the robot sees its
-   arms, for example).
+   is inside an object or not. This capability is useful when removing
+   points from inside the robot (when the robot sees its arms, for
+   example).  
 */
-
 
 namespace bodies
 {
@@ -434,6 +432,38 @@ Body* createBodyFromShape(const shapes::Shape *shape);
     
 /** \brief Compute a bounding sphere to enclose a set of bounding spheres */
 void mergeBoundingSpheres(const std::vector<BoundingSphere> &spheres, BoundingSphere &mergedSphere);
+
+class BodyVector {
+public:
+
+  BodyVector();
+
+  BodyVector(const std::vector<shapes::Shape*>& shapes, 
+             const std::vector<btTransform>& poses);
+  
+  ~BodyVector();
+
+  void addBody(const shapes::Shape* shape, const btTransform& pose);
+
+  void setPose(unsigned int i, const btTransform& pose);
+
+  unsigned int getSize() const {
+    return bodies_.size();
+  }
+
+  const Body* getBody(unsigned int i) const;
+
+  const BoundingSphere& getBoundingSphere(unsigned int i) const;
+  
+  double getBoundingSphereRadiusSquared(unsigned int i) const;
+
+private:
+
+  std::vector<Body*> bodies_;
+  std::vector<BoundingSphere> bounding_spheres_;
+  std::vector<double> rsqrs_;
+
+};
     
 }
 
