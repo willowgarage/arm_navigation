@@ -204,6 +204,11 @@ bool planning_models::KinematicState::updateKinematicStateWithLinkAt(const std::
   return true;
 }
 
+const btTransform& planning_models::KinematicState::getRootTransform() const
+{
+  return joint_state_vector_[0]->getVariableTransform();
+}
+
 std::vector<planning_models::KinematicState::LinkState*> planning_models::KinematicState::getChildLinkStates(const std::string& link_name) const {
   std::vector<LinkState*> child_link_states;
   std::vector<const KinematicModel::LinkModel*> child_link_models;

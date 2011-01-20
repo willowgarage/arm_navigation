@@ -475,6 +475,8 @@ public:
   void printTransforms(std::ostream &out = std::cout) const;
 
   void printTransform(const std::string &st, const btTransform &t, std::ostream &out = std::cout) const;
+
+  const btTransform& getRootTransform() const;
   
 private:
 

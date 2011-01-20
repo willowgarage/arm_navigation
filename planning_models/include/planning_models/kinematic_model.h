@@ -505,8 +505,6 @@ public:
 
   void copyFrom(const KinematicModel &source);
 
-  void defaultState(void);
-	
   /** \brief General the model name **/
   const std::string& getName(void) const;
 
