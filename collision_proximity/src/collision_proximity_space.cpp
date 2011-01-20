@@ -41,6 +41,13 @@
 
 using collision_proximity::CollisionProximitySpace;
 
+static double gen_rand(double min, double max)
+{
+  int rand_num = rand()%100+1;
+  double result = min + (double)((max-min)*rand_num)/101.0;
+  return result;
+}
+
 static std::string makeStringFromUnsignedInt(unsigned int j)
 {
   std::stringstream ss;
@@ -53,10 +60,10 @@ static std::string makeAttachedObjectId(std::string link, std::string object)
   return link+"_"+object;
 }
 
-CollisionProximitySpace::CollisionProximitySpace(planning_environment::CollisionSpaceMonitor* monitor) :
+CollisionProximitySpace::CollisionProximitySpace(planning_environment::CollisionModels* model) :
   priv_handle_("~")
 {
-  monitor_ = monitor;
+  model_ = model;
 
   priv_handle_.param("size_x", size_x_, 3.0);
   priv_handle_.param("size_y", size_y_, 3.0);
@@ -117,7 +124,7 @@ CollisionProximitySpace::~CollisionProximitySpace()
 void CollisionProximitySpace::loadDefaultCollisionOperations()
 {
   std::map<std::string, bool> all_true_map;
-  boost::shared_ptr<planning_models::KinematicModel> kmodel = monitor_->getKinematicModel();
+  boost::shared_ptr<planning_models::KinematicModel> kmodel = model_->getKinematicModel();
   
   for(unsigned int i = 0; i < kmodel->getLinkModels().size(); i++) {
     all_true_map[kmodel->getLinkModels()[i]->getName()] = true;
@@ -127,7 +134,7 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
   }
 
   //creating lists for each group in planning groups
-  const std::map<std::string, std::vector<std::string> >& pgl = monitor_->getRobotModels()->getPlanningGroupLinks();
+  const std::map<std::string, std::vector<std::string> >& pgl = model_->getPlanningGroupLinks();
   for(std::map<std::string, std::vector<std::string> >::const_iterator it = pgl.begin();
       it != pgl.end();
       it++) {
@@ -201,13 +208,15 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
 
 void CollisionProximitySpace::loadRobotBodyDecompositions()
 {
-  boost::shared_ptr<planning_models::KinematicModel> kmodel = monitor_->getKinematicModel();
+  boost::shared_ptr<planning_models::KinematicModel> kmodel = model_->getKinematicModel();
   
   for(unsigned int i = 0; i < kmodel->getLinkModels().size(); i++) {
     //if(kmodel->getLinkModels()[i]->getName() == "r_upper_arm_link") {
+    if(kmodel->getLinkModels()[i]->getLinkShape() != NULL) {
       body_decomposition_map_[kmodel->getLinkModels()[i]->getName()] = new BodyDecomposition(kmodel->getLinkModels()[i]->getName(),
                                                                                              kmodel->getLinkModels()[i]->getLinkShape(),
                                                                                              resolution_/2.0);
+    }
       //}
   }
 }
@@ -285,7 +294,7 @@ void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name
     }
   }
 
-  planning_models::KinematicState kin_state(monitor_->getKinematicModel());
+  planning_models::KinematicState kin_state(model_->getKinematicModel());
   monitor_->setRobotStateAndComputeTransforms(rob_state, kin_state);
   monitor_->setCollisionSpace();
   setBodyPosesGivenKinematicState(kin_state);
@@ -352,7 +361,7 @@ void CollisionProximitySpace::setBodyPosesGivenKinematicState(const planning_mod
 }
 
 btTransform CollisionProximitySpace::getInverseWorldTransform(const planning_models::KinematicState& state) const {
-  const planning_models::KinematicState::JointState* world_state = state.getJointState(monitor_->getKinematicModel()->getRoot()->getName());
+  const planning_models::KinematicState::JointState* world_state = state.getJointStateVector()[0];//(monitor_->getKinematicModel()->getRoot()->getName());
   if(world_state == NULL) {
     ROS_WARN_STREAM("World state " << monitor_->getKinematicModel()->getRoot()->getName() << " not found");
   }
@@ -549,7 +558,7 @@ void CollisionProximitySpace::prepareDistanceField(const std::vector<std::string
   }
   for(unsigned int i = 0; i < link_names.size(); i++) {
     if(body_decomposition_map_.find(link_names[i]) == body_decomposition_map_.end()) {
-      ROS_WARN_STREAM("No link " << link_names[i] << " for prepareDistanceField");
+      //there is no collision geometry as far as we can tell
       continue;
     }
     //ROS_INFO_STREAM("Adding link " << link_names[i]);
@@ -712,6 +721,16 @@ bool CollisionProximitySpace::getGroupLinkAndAttachedBodyNames(const std::string
     return false;
   }
 
+  //making sure that we have bodies for the links - otherwise they don't have collision geometries
+  std::vector<std::string>::iterator it = link_names.begin();
+  while(it != link_names.end()) {
+    if(body_decomposition_map_.find(*it) == body_decomposition_map_.end()) {
+      it = link_names.erase(it);
+    } else {
+      it++;
+    }
+  }
+
   attached_body_names.clear();
   link_indices.clear();
   attached_body_link_indices.clear();
@@ -822,8 +841,11 @@ bool CollisionProximitySpace::getStateGradients(std::vector<std::string>& link_n
                                                 std::vector<std::string>& attached_body_names,
                                                 std::vector<double>& link_closest_distances, 
                                                 std::vector<std::vector<double> >& closest_distances, 
-                                                std::vector<std::vector<btVector3> >& closest_gradients) const
+                                                std::vector<std::vector<btVector3> >& closest_gradients,
+                                                bool subtract_radii) const
 {
+  link_names = current_link_names_;
+  attached_body_names = current_attached_body_names_;
   std::vector<double> link_closest_distances_intra, link_closest_distances_env;
   std::vector<std::vector<double> > closest_distances_env, closest_distances_intra; 
   std::vector<std::vector<btVector3> > closest_gradients_env, closest_gradients_intra; 
@@ -831,8 +853,8 @@ bool CollisionProximitySpace::getStateGradients(std::vector<std::string>& link_n
   closest_distances_env = closest_distances_intra = closest_distances = current_closest_distances_;
   closest_gradients_env = closest_gradients_intra = closest_gradients = current_closest_gradients_;
 
-  bool env_coll = getEnvironmentProximityGradients(link_closest_distances_env, closest_distances_env, closest_gradients_env);
-  bool intra_coll = getIntraGroupProximityGradients(link_closest_distances_intra, closest_distances_intra, closest_gradients_intra);
+  bool env_coll = getEnvironmentProximityGradients(link_closest_distances_env, closest_distances_env, closest_gradients_env, subtract_radii);
+  bool intra_coll = getIntraGroupProximityGradients(link_closest_distances_intra, closest_distances_intra, closest_gradients_intra, subtract_radii);
 
   for(unsigned int i = 0; i < closest_distances.size(); i++) {
     if(link_closest_distances_intra[i] > link_closest_distances_env[i]) {
@@ -1320,15 +1342,16 @@ void CollisionProximitySpace::visualizeObjectVoxels(const std::vector<std::strin
 void CollisionProximitySpace::visualizeObjectSpheres(const std::vector<std::string>& object_names) const
 {
   visualization_msgs::MarkerArray arr;
+  unsigned int count = 0;
   for(unsigned int i = 0; i < object_names.size(); i++) {
-    visualization_msgs::Marker sphere_list;
-    sphere_list.header.frame_id = monitor_->getRobotFrameId();
-    sphere_list.header.stamp = ros::Time::now();
-    sphere_list.type = sphere_list.SPHERE_LIST;
-    sphere_list.ns = "body_spheres";
-    sphere_list.id = i;
-    sphere_list.color.g = 1.0;
-    sphere_list.color.a = .5;  
+    // visualization_msgs::Marker sphere_list;
+    // sphere_list.header.frame_id = monitor_->getRobotFrameId();
+    // sphere_list.header.stamp = ros::Time::now();
+    // sphere_list.type = sphere_list.SPHERE_LIST;
+    // sphere_list.ns = "body_spheres";
+    // sphere_list.id = i;
+    // sphere_list.color.g = 1.0;
+    // sphere_list.color.a = .5;  
     const std::vector<CollisionSphere>* coll_spheres;
     if(body_decomposition_map_.find(object_names[i]) != body_decomposition_map_.end()) {
       coll_spheres = &(body_decomposition_map_.find(object_names[i])->second)->getCollisionSpheres();
@@ -1340,40 +1363,184 @@ void CollisionProximitySpace::visualizeObjectSpheres(const std::vector<std::stri
       ROS_WARN_STREAM("Don't have object named " << object_names[i]);
       continue;
     }
-    sphere_list.scale.x = (*coll_spheres)[0].radius_*2.0;
-    sphere_list.scale.y = sphere_list.scale.x;
-    sphere_list.scale.z = sphere_list.scale.x;
+    // sphere_list.scale.x = (*coll_spheres)[0].radius_*2.0;
+    // sphere_list.scale.y = sphere_list.scale.x;
+    // sphere_list.scale.z = sphere_list.scale.x;
     for(unsigned int i = 0; i < coll_spheres->size(); i++) {
+      visualization_msgs::Marker sphere;
+      sphere.header.frame_id = monitor_->getRobotFrameId();
+      sphere.header.stamp = ros::Time::now();
+      sphere.type = sphere.SPHERE;
+      sphere.ns = "body_spheres";
+      sphere.id = count++;
+      sphere.color.g = 1.0;
+      sphere.color.a = .5;  
+      sphere.scale.x = (*coll_spheres)[i].radius_*2.0;
+      sphere.scale.y = sphere.scale.x;
+      sphere.scale.z = sphere.scale.x;      
       geometry_msgs::Point p;
-      p.x = (*coll_spheres)[i].center_.x();
-      p.y = (*coll_spheres)[i].center_.y();
-      p.z = (*coll_spheres)[i].center_.z();
-      sphere_list.points.push_back(p);
+      sphere.pose.position.x = (*coll_spheres)[i].center_.x();
+      sphere.pose.position.y = (*coll_spheres)[i].center_.y();
+      sphere.pose.position.z = (*coll_spheres)[i].center_.z();
+      sphere.points.push_back(p);
+      arr.markers.push_back(sphere);
     }
-    arr.markers.push_back(sphere_list);
+  }
+  vis_marker_array_publisher_.publish(arr);
+}
+
+void CollisionProximitySpace::visualizePaddedTrimeshes(const planning_models::KinematicState& state, const std::vector<std::string>& link_names) const {
+  btTransform inv = getInverseWorldTransform(state);
+  visualization_msgs::MarkerArray arr;
+  unsigned int count = 0;
+  for(unsigned int i = 0; i < link_names.size(); i++) {
+    if(state.getLinkState(link_names[i]) == NULL) continue;
+    const planning_models::KinematicModel::LinkModel* lm = state.getLinkState(link_names[i])->getLinkModel();
+    const btTransform& trans = inv*state.getLinkState(link_names[i])->getGlobalCollisionBodyTransform();
+    if(lm == NULL) continue;
+    if(lm->getLinkShape() == NULL) continue;
+    const shapes::Mesh *mesh = dynamic_cast<const shapes::Mesh*>(lm->getLinkShape());
+    if(mesh == NULL) continue;
+    if (mesh->vertexCount > 0 && mesh->triangleCount > 0)
+    {	
+      visualization_msgs::Marker mesh_mark;
+      mesh_mark.header.frame_id = monitor_->getRobotFrameId();
+      mesh_mark.header.stamp = ros::Time::now();
+      mesh_mark.ns = link_names[i]+"_trimesh";
+      mesh_mark.id = count++;
+      mesh_mark.type = mesh_mark.LINE_LIST;
+      mesh_mark.scale.x = mesh_mark.scale.y = mesh_mark.scale.z = .001;	     
+      mesh_mark.color.r = 0.0;
+      mesh_mark.color.g = 0.0;
+      mesh_mark.color.b = 1.0;
+      mesh_mark.color.a = 1.0;
+      double padding = 0.0;
+      if(monitor_->getCollisionModels()->getDefaultLinkPaddingMap().find(link_names[i]) !=
+         monitor_->getCollisionModels()->getDefaultLinkPaddingMap().end()) {
+        padding = monitor_->getCollisionModels()->getDefaultLinkPaddingMap().find(link_names[i])->second;
+      }
+      double *vertices = new double[mesh->vertexCount* 3];
+      double sx = 0.0, sy = 0.0, sz = 0.0;
+      for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
+      {
+        unsigned int i3 = i * 3;
+        vertices[i3] = mesh->vertices[i3];
+        vertices[i3 + 1] = mesh->vertices[i3 + 1];
+        vertices[i3 + 2] = mesh->vertices[i3 + 2];
+        sx += vertices[i3];
+        sy += vertices[i3 + 1];
+        sz += vertices[i3 + 2];
+      }
+      // the center of the mesh
+      sx /= (double)mesh->vertexCount;
+      sy /= (double)mesh->vertexCount;
+      sz /= (double)mesh->vertexCount;
+
+      // scale the mesh
+      for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i) {
+        unsigned int i3 = i * 3;
+          
+        // vector from center to the vertex
+        double dx = vertices[i3] - sx;
+        double dy = vertices[i3 + 1] - sy;
+        double dz = vertices[i3 + 2] - sz;
+	
+        // length of vector
+        //double norm = sqrt(dx * dx + dy * dy + dz * dz);
+	
+        double ndx = ((dx > 0) ? dx+padding : dx-padding);
+        double ndy = ((dy > 0) ? dy+padding : dy-padding);
+        double ndz = ((dz > 0) ? dz+padding : dz-padding);
+        
+        // the new distance of the vertex from the center
+        //double fact = scale + padding/norm;
+        vertices[i3] = sx + ndx; //dx * fact;
+        vertices[i3 + 1] = sy + ndy; //dy * fact;
+        vertices[i3 + 2] = sz + ndz; //dz * fact;		    
+      }
+      for (unsigned int j = 0 ; j < mesh->triangleCount; ++j) {
+        unsigned int t1ind = mesh->triangles[3*j];
+        unsigned int t2ind = mesh->triangles[3*j + 1];
+        unsigned int t3ind = mesh->triangles[3*j + 2];
+
+        btVector3 vec1(vertices[t1ind*3],
+                       vertices[t1ind*3+1],
+                       vertices[t1ind*3+2]);
+        btVector3 vec1_trans = trans*vec1;
+
+        btVector3 vec2(vertices[t2ind*3],
+                       vertices[t2ind*3+1],
+                       vertices[t2ind*3+2]);
+        btVector3 vec2_trans = trans*vec2;
+
+        btVector3 vec3(vertices[t3ind*3],
+                       vertices[t3ind*3+1],
+                       vertices[t3ind*3+2]);
+        btVector3 vec3_trans = trans*vec3;
+
+        geometry_msgs::Point pt1;
+        pt1.x = vec1_trans.x();
+        pt1.y = vec1_trans.y();
+        pt1.z = vec1_trans.z();
+
+        geometry_msgs::Point pt2;
+        pt2.x = vec2_trans.x();
+        pt2.y = vec2_trans.y();
+        pt2.z = vec2_trans.z();
+
+        geometry_msgs::Point pt3;
+        pt3.x = vec3_trans.x();
+        pt3.y = vec3_trans.y();
+        pt3.z = vec3_trans.z();
+        
+        mesh_mark.points.push_back(pt1);
+        mesh_mark.points.push_back(pt2);
+        
+        mesh_mark.points.push_back(pt1);
+        mesh_mark.points.push_back(pt3);
+        
+        mesh_mark.points.push_back(pt2);
+        mesh_mark.points.push_back(pt3);
+      }
+      arr.markers.push_back(mesh_mark);
+      delete[] vertices;
+    }
   }
   vis_marker_array_publisher_.publish(arr);
 }
 
 void CollisionProximitySpace::visualizeConvexMeshes(const std::vector<std::string>& link_names) const {
   visualization_msgs::MarkerArray arr;
+  unsigned int count = 0;
   for(unsigned int i = 0; i < link_names.size(); i++) {
     if(body_decomposition_map_.find(link_names[i]) == body_decomposition_map_.end())
       continue;
     const BodyDecomposition* bsd = body_decomposition_map_.find(link_names[i])->second;
     const bodies::ConvexMesh* mesh = dynamic_cast<const bodies::ConvexMesh*>(bsd->getBody());
     if(mesh) {     
+      // for(unsigned int j = 0; j < bsd->getBodies().size(); j++) {
+      //   const bodies::ConvexMesh* mesh = dynamic_cast<const bodies::ConvexMesh*>(bsd->getBodies()[j]);
+      //   if(!mesh) continue;
       visualization_msgs::Marker mesh_mark;
       mesh_mark.header.frame_id = monitor_->getRobotFrameId();
       mesh_mark.header.stamp = ros::Time::now();
-      mesh_mark.ns = "convex_mesh";
-      mesh_mark.id = i;
+      mesh_mark.ns = link_names[i]+"_convex";
+      mesh_mark.id = count++;
       mesh_mark.type = mesh_mark.LINE_LIST;
       mesh_mark.scale.x = mesh_mark.scale.y = mesh_mark.scale.z = .001;
-      mesh_mark.color.g = 1.0;
+      if(count-1 >= colors_.size()) {
+        std::vector<double> color(3);
+        color[0] = gen_rand(0.0,1.0);
+        color[1] = gen_rand(0.0,1.0);
+        color[2] = gen_rand(0.0,1.0);
+        colors_.push_back(color);
+      }
+      mesh_mark.color.r = colors_[count-1][0];
+      mesh_mark.color.g = colors_[count-1][1];
+      mesh_mark.color.b = colors_[count-1][2];
       mesh_mark.color.a = 1.0;
-      for(unsigned int i = 0; i < mesh->getTriangles().size()/3; i++) {
-        unsigned int v = mesh->getTriangles()[3*i];
+      for(unsigned int k = 0; k < mesh->getTriangles().size()/3; k++) {
+        unsigned int v = mesh->getTriangles()[3*k];
         btVector3 vec1(mesh->getScaledVertices()[v].x(),
                        mesh->getScaledVertices()[v].y(),
                        mesh->getScaledVertices()[v].z());
@@ -1383,7 +1550,7 @@ void CollisionProximitySpace::visualizeConvexMeshes(const std::vector<std::strin
         pt1.y = vec1_trans.y();
         pt1.z = vec1_trans.z();
 
-        v = mesh->getTriangles()[3*i+1];
+        v = mesh->getTriangles()[3*k+1];
         btVector3 vec2(mesh->getScaledVertices()[v].x(),
                        mesh->getScaledVertices()[v].y(),
                        mesh->getScaledVertices()[v].z());
@@ -1393,7 +1560,7 @@ void CollisionProximitySpace::visualizeConvexMeshes(const std::vector<std::strin
         pt2.y = vec2_trans.y();
         pt2.z = vec2_trans.z();
 
-        v = mesh->getTriangles()[3*i+2];
+        v = mesh->getTriangles()[3*k+2];
         btVector3 vec3(mesh->getScaledVertices()[v].x(),
                        mesh->getScaledVertices()[v].y(),
                        mesh->getScaledVertices()[v].z());
@@ -1413,7 +1580,7 @@ void CollisionProximitySpace::visualizeConvexMeshes(const std::vector<std::strin
         mesh_mark.points.push_back(pt3);
       }
       arr.markers.push_back(mesh_mark);
-    }  
+    }
   }
   vis_marker_array_publisher_.publish(arr);
 }

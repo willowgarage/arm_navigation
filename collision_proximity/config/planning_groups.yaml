@@ -65,9 +65,14 @@ groups:
       r_elbow_flex_link
       r_forearm_link
       r_forearm_roll_link
-      r_forearm_cam_frame
       r_wrist_flex_link
       r_wrist_roll_link
+      r_gripper_palm_link
+      r_gripper_l_finger_link
+      r_gripper_r_finger_link
+      r_gripper_l_finger_tip_link
+      r_gripper_r_finger_tip_link
+      r_gripper_motor_accelerometer_link
 
   - name: right_arm_and_end_effector
     joints:
@@ -86,7 +91,6 @@ groups:
       r_elbow_flex_link
       r_forearm_link
       r_forearm_roll_link
-      r_forearm_cam_frame
       r_wrist_flex_link
       r_wrist_roll_link
       r_gripper_palm_link
@@ -94,11 +98,8 @@ groups:
       r_gripper_r_finger_link
       r_gripper_l_finger_tip_link
       r_gripper_r_finger_tip_link
-      r_forearm_cam_optical_frame
       r_gripper_l_finger_tip_frame
-      r_gripper_led_frame
       r_gripper_motor_accelerometer_link
-      r_gripper_tool_frame
 
   - name: left_arm_and_end_effector
     joints:

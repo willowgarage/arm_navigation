@@ -173,21 +173,36 @@ int main(int argc, char** argv)
     if(ode_in_collision) {
       ode_num_in_collision++;
     }
-    if(0){//in_prox_collision && !ode_in_collision) {
-      cps->getStateCollisions(link_names, attached_body_names, in_prox_collision, collisions);
-      ROS_INFO("Prox not ode");
-      cps->visualizeDistanceField();
-      cps->visualizeCollisions(link_names, attached_body_names, collisions);
-      cps->visualizeConvexMeshes(collision_models->getGroupLinkUnion());
-      //cps->visualizeVoxelizedLinks(collision_models->getGroupLinkUnion());
+    if(in_prox_collision && !ode_in_collision) {
+      ros::Rate r(1.0);
+      while(nh.ok()) {
+        cps->getStateCollisions(link_names, attached_body_names, in_prox_collision, collisions);
+        ROS_INFO("Prox not ode");
+        cps->visualizeDistanceField();
+        cps->visualizeCollisions(link_names, attached_body_names, collisions);
+        cps->visualizeConvexMeshes(collision_models->getGroupLinkUnion());
+        std::vector<std::string> objs = link_names;
+        objs.insert(objs.end(), attached_body_names.begin(), attached_body_names.end());
+        cps->visualizeObjectSpheres(objs);
+        //cps->visualizeVoxelizedLinks(collision_models->getGroupLinkUnion());
+        r.sleep();
+      }
       exit(0);
     }
-    if(0){//!in_prox_collision && ode_in_collision) {
-      ROS_INFO("Ode not prox");
-      cps->visualizeDistanceField();
-      cps->getStateCollisions(link_names, attached_body_names, in_prox_collision, collisions);
-      cps->visualizeCollisions(link_names, attached_body_names, collisions);
-      cps->visualizeConvexMeshes(collision_models->getGroupLinkUnion());
+    if(!in_prox_collision && ode_in_collision) {
+      ros::Rate r(1.0);
+      while(nh.ok()) {
+        ROS_INFO("Ode not prox");
+        cps->visualizeDistanceField();
+        cps->getStateCollisions(link_names, attached_body_names, in_prox_collision, collisions);
+        cps->visualizeCollisions(link_names, attached_body_names, collisions);
+        cps->visualizeConvexMeshes(collision_models->getGroupLinkUnion());
+        std::vector<std::string> objs = link_names;
+        objs.insert(objs.end(), attached_body_names.begin(), attached_body_names.end());
+        cps->visualizeObjectSpheres(objs);
+        r.sleep();
+      }
+      exit(0);
       //cps->visualizeVoxelizedLinks(collision_models->getGroupLinkUnion());
       std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
       std::vector<collision_space::EnvironmentModel::Contact> contact;
@@ -211,7 +226,7 @@ int main(int argc, char** argv)
         } else if (!contact[i].object_name.empty()) {
           name2 = contact[i].object_name;
         }
-        ROS_INFO_STREAM("Contact " << i << " between " << name1 << " and " << name2);
+        //ROS_INFO_STREAM("Contact " << i << " between " << name1 << " and " << name2);
       }
       if(0) {
         std::vector<double> prox_link_distances;

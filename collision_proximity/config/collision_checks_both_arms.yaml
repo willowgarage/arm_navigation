@@ -211,11 +211,3 @@ default_collision_operations:
   - object1: l_shoulder_lift_link
     object2: l_shoulder_lift_link
     operation: disable
-
-  - object1: l_upper_arm_link
-    object2: l_upper_arm_link
-    operation: disable
-
-  - object1: l_upper_arm_roll_link
-    object2: l_upper_arm_roll_link
-    operation: disable

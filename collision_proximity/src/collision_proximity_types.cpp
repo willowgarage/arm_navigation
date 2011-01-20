@@ -45,7 +45,7 @@ std::vector<collision_proximity::CollisionSphere> collision_proximity::determine
   unsigned int num_points = ceil(cyl.length/(cyl.radius/2.0));
   double spacing = cyl.length/((num_points*1.0)-1.0);
   btVector3 vec(0.0,0.0,0.0);
-  for(unsigned int i = 0; i < num_points; i++) {
+  for(unsigned int i = 1; i < num_points-1; i++) {
     vec.setZ((-cyl.length/2.0)+i*spacing);
     btVector3 p = cyl.pose*vec;
     collision_proximity::CollisionSphere cs(vec,cyl.radius);

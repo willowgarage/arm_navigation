@@ -76,10 +76,10 @@ int main(int argc, char** argv)
       if(count != 0) {
         cps->revertAfterGroupQueries();
       }
-      cps->setupForGroupQueries("right_arm_and_end_effector", rob_state);
+      cps->setupForGroupQueries("right_arm", rob_state);
       n2 = ros::WallTime::now();
       ROS_INFO_STREAM("Distance field preparation took " << (n2-n1).toSec());
-      //cps->visualizeDistanceField();
+      cps->visualizeDistanceField();
     }
     count++;
     //collision_proximity::CollisionProximitySpace::ProximityInfo prox;
@@ -107,6 +107,13 @@ int main(int argc, char** argv)
       cps->visualizeCollisions(link_names, attached_body_names, collisions);
       cps->getStateGradients(link_names, attached_body_names, link_distances, distances, gradients);
       cps->visualizeProximityGradients(link_names, attached_body_names, link_distances, distances, gradients);
+      std::vector<std::string> objs = link_names;
+      objs.insert(objs.end(), attached_body_names.begin(), attached_body_names.end());
+      cps->visualizeObjectSpheres(objs);
+      std::vector<std::string> all_links = collision_models->getGroupLinkUnion();
+      //cps->visualizeObjectVoxels(all_links);
+      //cps->visualizeConvexMeshes(link_names);
+      cps->visualizePaddedTrimeshes(cur_state, link_names);
     }      
     ros::spinOnce();
     r.sleep();

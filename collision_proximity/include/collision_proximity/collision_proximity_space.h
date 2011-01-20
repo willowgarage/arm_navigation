@@ -89,7 +89,8 @@ public:
                          std::vector<std::string>& attached_body_names,
                          std::vector<double>& link_closest_distances, 
                          std::vector<std::vector<double> >& closest_distances, 
-                         std::vector<std::vector<btVector3> >& closest_gradients) const;
+                         std::vector<std::vector<btVector3> >& closest_gradients,
+                         bool subtract_radii = false) const;
 
   // returns the single closest proximity for the group previously configured
   //bool getEnvironmentProximity(ProximityInfo& prox) const;
@@ -119,6 +120,8 @@ public:
   void visualizeObjectVoxels(const std::vector<std::string>& object_names) const;
 
   void visualizeObjectSpheres(const std::vector<std::string>& object_names) const;
+
+  void visualizePaddedTrimeshes(const planning_models::KinematicState& state, const std::vector<std::string>& link_names) const;
 
   void visualizeConvexMeshes(const std::vector<std::string>& link_names) const;
 
@@ -184,6 +187,8 @@ private:
   //configuration convenience functions
   void loadRobotBodyDecompositions();
   void loadDefaultCollisionOperations();
+
+  mutable std::vector<std::vector<double> > colors_;
 
   distance_field::PropagationDistanceField* distance_field_;
 

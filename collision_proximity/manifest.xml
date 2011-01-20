@@ -14,7 +14,9 @@
   <depend package="planning_environment"/>
   <depend package="bullet"/>
   <depend package="kinematics_msgs"/>
-  
+  <!--<depend package="mesh_convex_decomposition"/>-->
+  <depend package="spline_smoother"/>
+
  <export>
     <cpp cflags="-I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lcollision_proximity" />
   </export>
