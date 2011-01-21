@@ -42,47 +42,46 @@
 
 void planning_environment::RobotModels::reload(void)
 {
-    kmodel_.reset();
-    urdf_.reset();
-    for(std::map<std::string, GroupConfig*>::iterator it = group_config_map_.begin();
-        it != group_config_map_.end();
-        it++) {
-      delete it->second;
-    }
-    group_config_map_.clear();
-    planning_group_joints_.clear();
-    planning_group_links_.clear();
-    group_joint_union_.clear();
-    group_link_union_.clear();
+  urdf_.reset();
+  for(std::map<std::string, GroupConfig*>::iterator it = group_config_map_.begin();
+      it != group_config_map_.end();
+      it++) {
+    delete it->second;
+  }
+  group_config_map_.clear();
+  planning_group_joints_.clear();
+  planning_group_links_.clear();
+  group_joint_union_.clear();
+  group_link_union_.clear();
 
-    loadRobot();
+  loadRobot();
 }
 
 void planning_environment::RobotModels::loadRobot(void)
 {
-    std::string content;
-    if (nh_.getParam(description_, content))
+  std::string content;
+  if (nh_.getParam(description_, content))
+  {
+    urdf_ = boost::shared_ptr<urdf::Model>(new urdf::Model());
+    if (urdf_->initString(content))
     {
-	urdf_ = boost::shared_ptr<urdf::Model>(new urdf::Model());
-	if (urdf_->initString(content))
-	{
-	    loaded_models_ = true;
-            readGroupConfigs();
-            bool hasMulti = readMultiDofConfigs();
-            if(hasMulti) {
-              kmodel_ = boost::shared_ptr<planning_models::KinematicModel>(new planning_models::KinematicModel(*urdf_, planning_group_joints_, multi_dof_configs_));
-            } else {
-              ROS_WARN("Can't do anything without a root transform");
-            }
-	}
-	else
-	{
-	    urdf_.reset();
-	    ROS_ERROR("Unable to parse URDF description!");
-	}
+      loaded_models_ = true;
+      readGroupConfigs();
+      bool hasMulti = readMultiDofConfigs();
+      if(hasMulti) {
+        kmodel_ = new planning_models::KinematicModel(*urdf_, planning_group_joints_, multi_dof_configs_);
+      } else {
+        ROS_WARN("Can't do anything without a root transform");
+      }
     }
     else
-	ROS_ERROR("Robot model '%s' not found! Did you remap 'robot_description'?", description_.c_str());
+    {
+      urdf_.reset();
+      ROS_ERROR("Unable to parse URDF description!");
+    }
+  }
+  else
+    ROS_ERROR("Robot model '%s' not found! Did you remap 'robot_description'?", description_.c_str());
 }
 
 bool planning_environment::RobotModels::readMultiDofConfigs() {

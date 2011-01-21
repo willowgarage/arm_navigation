@@ -38,101 +38,190 @@
 #define PLANNING_ENVIRONMENT_MODELS_COLLISION_MODELS_
 
 #include "planning_environment/models/robot_models.h"
+
 #include <collision_space/environment.h>
+#include <motion_planning_msgs/AllowedContactSpecification.h>
 #include <motion_planning_msgs/OrderedCollisionOperations.h>
+#include <motion_planning_msgs/LinkPadding.h>
+#include <mapping_msgs/CollisionMap.h>
+#include <mapping_msgs/CollisionObject.h>
+#include <mapping_msgs/AttachedCollisionObject.h>
+#include <geometric_shapes_msgs/Shape.h>
+#include <planning_environment_msgs/AllowedCollisionMatrix.h>
+#include <geometric_shapes/bodies.h>
+#include <trajectory_msgs/JointTrajectory.h>
+#include <motion_planning_msgs/RobotState.h>
+#include <motion_planning_msgs/Constraints.h>
+#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+
+
+static const std::string COLLISION_MAP_NAME="collision_map";
 
 namespace planning_environment
 {
 
-    /** \brief A class capable of loading a robot model from the parameter server */
+/** \brief A class capable of loading a robot model from the parameter server */
     
-    class CollisionModels : public RobotModels
-    {
-    public:
+class CollisionModels : public RobotModels
+{
+public:
+
+  //
+  // Constructors
+  //
 	
-	CollisionModels(const std::string &description, double scale, double padd) : RobotModels(description), scale_(scale), padd_(padd)
-	{
-	    loadCollision(group_link_union_);
-	}
+  CollisionModels(const std::string &description);
 
-	CollisionModels(const std::string &description, const std::vector<std::string> &links, double scale, double padd) : RobotModels(description), scale_(scale), padd_(padd)
-	{
-	    loadCollision(links);
-	}
+  CollisionModels(const std::string &description, const std::vector<std::string> &links);
 	
-	CollisionModels(const std::string &description) : RobotModels(description)
-	{
-	    loadParams();
-	    loadCollision(group_link_union_);
-	}
+  virtual ~CollisionModels(void);
+ 
+  /** \brief Reload the robot description and recreate the model */	
+  virtual void reload(void);
 
-	CollisionModels(const std::string &description, const std::vector<std::string> &links) : RobotModels(description)
-	{
-	    loadParams();
-	    loadCollision(links);
-	}
+  //
+  // Manipulating bodies and objects
+  //
+
+  bool setPlanningScene(const motion_planning_msgs::RobotState& complete_robot_state,
+                        const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
+                        const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
+                        const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
+                        const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
+                        const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
+                        const mapping_msgs::CollisionMap& unmasked_collision_map,
+                        planning_models::KinematicState& state);
+    
+  void updateRobotModelPose(const planning_models::KinematicState& state);
+
+  //this function will fail if the header is not in the world frame
+  bool addStaticObject(const mapping_msgs::CollisionObject& obj);
+
+  void addStaticObject(const std::string& name,
+                       std::vector<shapes::Shape*>& shapes,
+                       const std::vector<btTransform>& poses);
+
+  void deleteStaticObject(const std::string& name);
+  
+  void deleteAllStaticObjects();
+
+  //this function will fail if the header is not in the world frame
+  void setCollisionMap(const mapping_msgs::CollisionMap& map,
+                       bool mask_before_insertion=true);
+
+  void setCollisionMap(std::vector<shapes::Shape*>& shapes,
+                       const std::vector<btTransform>& poses,
+                       bool mask_before_insertion=true);
+  
+  void remaskCollisionMap();
+
+  void maskAndDeleteShapeVector(std::vector<shapes::Shape*>& shapes,
+                                std::vector<btTransform>& poses);
+  
+  //this function will fail if the header is not in the world frame
+  bool addAttachedObject(const mapping_msgs::AttachedCollisionObject& att);
+
+  void addAttachedObject(const std::string& object_name,
+                         const std::string& link_name,
+                         std::vector<shapes::Shape*>& shapes,
+                         const std::vector<btTransform>& poses,
+                         const std::vector<std::string>& touch_links);
+
+  void deleteAttachedObject(const std::string& object_id,
+                            const std::string& link_name);
+
+  void deleteAllAttachedObjects(const std::string& link_name="");
+
+  void convertStaticObjectToAttachedObject(const std::string& object_name,
+                                           const std::string& link_name,
+                                           const std::vector<std::string>& touch_links);
+  
+  void convertAttachedObjectToStaticObject(const std::string& object_name,
+                                           const std::string& link_name);
+
+  void applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding);
+
+  void revertCollisionSpacePaddingToDefault();
+  void revertAllowedCollisionToDefault();
+
+  bool expandOrderedCollisionOperations(const motion_planning_msgs::OrderedCollisionOperations& ord,
+                                        motion_planning_msgs::OrderedCollisionOperations& ex) const;
+
+  bool applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord,
+                                                       bool print=false);
+
+  void addAttachedCollisionObjects(std::vector<std::string>& svec) const;
+  
+  bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& al,
+                             collision_space::EnvironmentModel::AllowedContact& allowed_contact) const;
+
+  void getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const;
+
+  
+  void getCollisionSpaceAllowedCollisions(planning_environment_msgs::AllowedCollisionMatrix& matrix) const;
+
+  void getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject>& omap) const;
+
+  void getCollisionSpaceAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject>& avec) const;
+  
+  bool isKinematicStateInCollision(const planning_models::KinematicState& state);
+
+  bool isTrajectoryValid(const trajectory_msgs::JointTrajectory &trajectory,
+                         const motion_planning_msgs::RobotState& robot_state,
+                         const motion_planning_msgs::Constraints& path_constraints,
+                         const motion_planning_msgs::Constraints& goal_constraints, 
+                         motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                         std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                         const bool evaluate_entire_trajectory);
+  
+  /** \brief Return the instance of the constructed ODE collision model */
+  const boost::shared_ptr<const collision_space::EnvironmentModel> getODECollisionModel(void) const
+  {
+    return ode_collision_model_;
+  }
+
+  /** \brief Get the scaling to be used for the robot parts when inserted in the collision space */
+  double getDefaultScale(void)
+  {
+    return default_scale_;
+  }
 	
-	virtual ~CollisionModels(void)
-	{
-	}
+  /** \brief Get the padding to be used for the robot parts when inserted in the collision space */
+  double getDefaultPadding(void)
+  {
+    return default_padd_;
+  }
 
-	/** \brief Reload the robot description and recreate the model */	
-	virtual void reload(void)
-	{
-	    RobotModels::reload();
-	    ode_collision_model_.reset();
-	    //bullet_collision_model_.reset();
-	    loadCollision(group_link_union_);
-	}
-	
-	/** \brief Return the instance of the constructed ODE collision model */
-	const boost::shared_ptr<collision_space::EnvironmentModel> &getODECollisionModel(void) const
-	{
-	    return ode_collision_model_;
-	}
-
-	/** \brief Return the instance of the constructed Bullet collision model */
-	// const boost::shared_ptr<collision_space::EnvironmentModel> &getBulletCollisionModel(void) const
-	// {
-	//     return bullet_collision_model_;
-	// }
-
-	/** \brief Get the scaling to be used for the robot parts when inserted in the collision space */
-	double getScale(void)
-	{
-	    return scale_;
-	}
-	
-	/** \brief Get the padding to be used for the robot parts when inserted in the collision space */
-	double getPadding(void)
-	{
-	    return padd_;
-	}
-
-	void getDefaultOrderedCollisionOperations(std::vector<motion_planning_msgs::CollisionOperation> &self_collision)
-	{
-          self_collision = default_collision_operations_;
-	}
+  void getDefaultOrderedCollisionOperations(std::vector<motion_planning_msgs::CollisionOperation> &self_collision)
+  {
+    self_collision = default_collision_operations_;
+  }
       
-      const std::map<std::string,double>& getDefaultLinkPaddingMap() {
-        return link_padding_map_;
-      }
-	
-    protected:
-	
-	void loadParams();
-	void loadCollision(const std::vector<std::string> &links);
-	void setupModel(boost::shared_ptr<collision_space::EnvironmentModel> &model, const std::vector<std::string> &links);
-	
-	boost::shared_ptr<collision_space::EnvironmentModel> ode_collision_model_;
-      //boost::shared_ptr<collision_space::EnvironmentModel> bullet_collision_model_;
+  const std::map<std::string,double>& getDefaultLinkPaddingMap() {
+    return default_link_padding_map_;
+  }
+  
+protected:
 
-	double                                               scale_;
-	double                                               padd_;
-	std::vector<double>                                  boundingPlanes_;
-      std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;
-      std::map<std::string, double> link_padding_map_;
-    };
+  std::vector<shapes::Shape*> collision_map_shapes_;
+  std::vector<btTransform> collision_map_poses_;
+
+  std::map<std::string, bodies::BodyVector*> static_object_map_;
+
+  std::map<std::string, std::map<std::string, bodies::BodyVector*> > link_attached_objects_;
+	
+  void loadCollision(const std::vector<std::string> &links);
+  void setupModel(boost::shared_ptr<collision_space::EnvironmentModel> &model, const std::vector<std::string> &links);
+	
+  boost::shared_ptr<collision_space::EnvironmentModel> ode_collision_model_;
+
+  double default_scale_;
+  double default_padd_;
+  std::vector<double> bounding_planes_;
+
+  std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;
+  std::map<std::string, double> default_link_padding_map_;
+};
     
 	
 }

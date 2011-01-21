@@ -150,7 +150,7 @@ public:
       bodies (multiplicative factor). The padding can be used to
       increase or decrease the robot's bodies with by an
       additive term */
-  virtual void setRobotModel(const boost::shared_ptr<const planning_models::KinematicModel> &model, 
+  virtual void setRobotModel(const planning_models::KinematicModel* model, 
                              const std::vector<std::string> &links,
                              const std::map<std::string, double>& link_padding_map,
                              double default_padding = 0.0,
@@ -169,7 +169,7 @@ public:
   virtual void updateAttachedBodies() = 0;
 		
   /** \brief Get the robot model */
-  const boost::shared_ptr<const planning_models::KinematicModel>& getRobotModel(void) const;
+  const planning_models::KinematicModel* getRobotModel(void) const;
 	
   /**********************************************************************/
   /* Collision Checking Routines                                        */
@@ -282,7 +282,7 @@ protected:
   bool                                                     m_verbose;
 
   /** \brief Loaded robot model */	
-  boost::shared_ptr<const planning_models::KinematicModel>       m_robotModel;
+  const planning_models::KinematicModel*       m_robotModel;
 
   /** \brief List of objects contained in the environment */
   EnvironmentObjects                                      *m_objects;

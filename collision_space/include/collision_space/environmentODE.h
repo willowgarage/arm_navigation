@@ -103,7 +103,7 @@ public:
       bodies (multiplicative factor). The padding can be used to
       increase or decrease the robot's bodies with by an
       additive term */
-  virtual void setRobotModel(const boost::shared_ptr<const planning_models::KinematicModel> &model, 
+  virtual void setRobotModel(const planning_models::KinematicModel* model, 
                              const std::vector<std::string> &links, 
                              const std::map<std::string, double>& link_padding_map,
                              double default_padding = 0.0,

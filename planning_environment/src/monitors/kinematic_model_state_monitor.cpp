@@ -36,21 +36,22 @@
 
 #include "planning_environment/monitors/kinematic_model_state_monitor.h"
 #include "planning_environment/util/construct_object.h"
+#include "planning_environment/models/model_utils.h"
 #include <angles/angles.h>
 #include <sstream>
 
 void planning_environment::KinematicModelStateMonitor::setupRSM(void)
 {
-  stateMonitorStarted_ = false;
+  state_monitor_started_ = false;
   onStateUpdate_ = NULL;
-  havePose_ = haveJointState_ = false;
+  have_pose_ = have_joint_state_ = false;
   robotVelocity_ = 0.0;
     
   printed_out_of_date_ = false;
   if (rm_->loadedModels())
   {
     kmodel_ = rm_->getKinematicModel();
-    robot_frame_ = kmodel_->getRoot()->getChildLinkModel()->getName();
+    robot_frame_ = rm_->getRobotFrameId();
     ROS_INFO("Robot frame is '%s'", robot_frame_.c_str());
     startStateMonitor();
   } else {
@@ -64,35 +65,35 @@ void planning_environment::KinematicModelStateMonitor::setupRSM(void)
 
 void planning_environment::KinematicModelStateMonitor::startStateMonitor(void)
 {   
-  if (stateMonitorStarted_)
+  if (state_monitor_started_)
     return;
     
   if (rm_->loadedModels())
   {
-    jointStateSubscriber_ = root_handle_.subscribe("joint_states", 25, &KinematicModelStateMonitor::jointStateCallback, this);
+    joint_state_subscriber_ = root_handle_.subscribe("joint_states", 25, &KinematicModelStateMonitor::jointStateCallback, this);
     ROS_DEBUG("Listening to joint states");
 	
   }
-  stateMonitorStarted_ = true;
+  state_monitor_started_ = true;
 }
 
 void planning_environment::KinematicModelStateMonitor::stopStateMonitor(void)
 {
-  if (!stateMonitorStarted_)
+  if (!state_monitor_started_)
     return;
     
-  jointStateSubscriber_.shutdown();
+  joint_state_subscriber_.shutdown();
 
   joint_state_map_cache_.clear();
     
   ROS_DEBUG("Kinematic state is no longer being monitored");
     
-  stateMonitorStarted_ = false;
+  state_monitor_started_ = false;
 }
 
 void planning_environment::KinematicModelStateMonitor::jointStateCallback(const sensor_msgs::JointStateConstPtr &jointState)
 {
-  //bool change = !haveJointState_;
+  //bool change = !have_joint_state_;
 
   planning_models::KinematicState state(kmodel_);
 
@@ -162,8 +163,8 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
         // ROS_INFO_STREAM("transform is to " << transf.getRotation().x() << " " 
         //                 << transf.getRotation().y() << " z " << transf.getRotation().z()
         //                 << " w " << transf.getRotation().w());
-        havePose_ = tfSets;
-        lastPoseUpdate_ = tm;
+        have_pose_ = tfSets;
+        last_pose_update_ = tm;
       }
     }
     //now we update from joint state
@@ -182,8 +183,8 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
   state.getKinematicStateValues(current_joint_state_map_);
 
   if(allJointsUpdated()) {
-    haveJointState_ = true;
-    lastJointStateUpdate_ = jointState->header.stamp;
+    have_joint_state_ = true;
+    last_joint_state_update_ = jointState->header.stamp;
     
     if(!joint_state_map_cache_.empty()) {
       if(jointState->header.stamp-joint_state_map_cache_.back().first > ros::Duration(joint_state_cache_allowed_difference_)) {
@@ -195,7 +196,7 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
                                                                                           current_joint_state_map_));
   } 
 
-  if(haveJointState_) {
+  if(have_joint_state_) {
     while(1) {
       if(joint_state_map_cache_.empty()) {
         ROS_WARN("Empty joint state map cache");
@@ -257,41 +258,13 @@ void planning_environment::KinematicModelStateMonitor::setStateValuesFromCurrent
   current_joint_values_lock_.unlock();
 }
 
-void planning_environment::KinematicModelStateMonitor::setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotState &robot_state,
-                                                                                         planning_models::KinematicState& state) const
-{
-  setStateValuesFromCurrentValues(state);
-  std::map<std::string, double> joint_state_map;
-  for (unsigned int i = 0 ; i < robot_state.joint_state.name.size(); ++i)
-  {
-    joint_state_map[robot_state.joint_state.name[i]] = robot_state.joint_state.position[i];
-  }
-
-  //first we are going to apply transforms
-  for(unsigned int i = 0; i < robot_state.multi_dof_joint_state.joint_names.size(); i++) {
-    std::string joint_name = robot_state.multi_dof_joint_state.joint_names[i];
-    if(!state.hasJointState(joint_name)) {
-      ROS_WARN_STREAM("No joint matching multi-dof joint " << joint_name);
-      continue;
-    }
-    planning_models::KinematicState::JointState* joint_state = state.getJointState(joint_name);
-    if(robot_state.multi_dof_joint_state.frame_ids[i] != joint_state->getParentFrameId() ||
-       robot_state.multi_dof_joint_state.child_frame_ids[i] != joint_state->getChildFrameId()) {
-      ROS_WARN_STREAM("Robot state msg has bad multi_dof transform");
-    } else {
-      tf::StampedTransform transf;
-      tf::poseMsgToTF(robot_state.multi_dof_joint_state.poses[i], transf);
-      joint_state->setJointStateValues(transf);
-    }
-  }
-  state.setKinematicState(joint_state_map);
-}
 
 bool planning_environment::KinematicModelStateMonitor::getCurrentRobotState(motion_planning_msgs::RobotState& robot_state) const
 {
   planning_models::KinematicState state(kmodel_);
   setStateValuesFromCurrentValues(state);
-  return(convertKinematicStateToRobotState(state,robot_state));
+  convertKinematicStateToRobotState(state, last_joint_state_update_, rm_->getWorldFrameId(), robot_state);
+  return true;
 }
 
 bool planning_environment::KinematicModelStateMonitor::setKinematicStateToTime(const ros::Time& time,
@@ -302,38 +275,6 @@ bool planning_environment::KinematicModelStateMonitor::setKinematicStateToTime(c
     return false;
   }
   state.setKinematicState(joint_value_map);
-  return true;
-}
-
-bool planning_environment::KinematicModelStateMonitor::convertKinematicStateToRobotState(const planning_models::KinematicState& kinematic_state,
-                                                                                         motion_planning_msgs::RobotState &robot_state) const
-{
-  robot_state.joint_state.position.clear();
-  robot_state.joint_state.name.clear();
-
-  const std::vector<planning_models::KinematicState::JointState*> joints = kinematic_state.getJointStateVector();
-  for(std::vector<planning_models::KinematicState::JointState*>::const_iterator it = joints.begin();
-      it != joints.end();
-      it++) {
-    const std::vector<double>& joint_state_values = (*it)->getJointStateValues();
-    const std::vector<std::string>& joint_state_value_names = (*it)->getJointStateNameOrder();
-    for(unsigned int i = 0; i < joint_state_values.size(); i++) {
-      robot_state.joint_state.name.push_back(joint_state_value_names[i]);
-      robot_state.joint_state.position.push_back(joint_state_values[i]);
-    }
-    if(!(*it)->getParentFrameId().empty() && !(*it)->getChildFrameId().empty()) {
-      robot_state.multi_dof_joint_state.stamp = lastPoseUpdate();
-      robot_state.multi_dof_joint_state.joint_names.push_back((*it)->getName());
-      robot_state.multi_dof_joint_state.frame_ids.push_back((*it)->getParentFrameId());
-      robot_state.multi_dof_joint_state.child_frame_ids.push_back((*it)->getChildFrameId());
-      tf::Pose p((*it)->getVariableTransform());
-      geometry_msgs::Pose pose;
-      tf::poseTFToMsg(p, pose);
-      robot_state.multi_dof_joint_state.poses.push_back(pose);
-    }
-  }
-  robot_state.joint_state.header.stamp = lastJointStateUpdate();
-  robot_state.joint_state.header.frame_id = getWorldFrameId();
   return true;
 }
 
@@ -398,7 +339,7 @@ void planning_environment::KinematicModelStateMonitor::waitForState(void) const
     if (s == 0)
     {
       ROS_INFO("Waiting for robot state ...");
-      if (!haveJointState_)
+      if (!have_joint_state_)
         ROS_INFO("Waiting for joint state ...");
     }
     s = (s + 1) % 40;
@@ -411,7 +352,7 @@ void planning_environment::KinematicModelStateMonitor::waitForState(void) const
 
 bool planning_environment::KinematicModelStateMonitor::isJointStateUpdated(double sec) const
 {  
-  //ROS_ERROR_STREAM("Here " << sec << " time " << lastJointStateUpdate_.toSec() << " now " << (ros::Time::now().toSec()));
+  //ROS_ERROR_STREAM("Here " << sec << " time " << last_joint_state_update_.toSec() << " now " << (ros::Time::now().toSec()));
 
   //three cases
   //1. interval to small - less than 10us is considered 0
@@ -420,18 +361,18 @@ bool planning_environment::KinematicModelStateMonitor::isJointStateUpdated(doubl
     return false;
   }
 
-  //ROS_ERROR_STREAM("cond 1 " << (sec > 1e-5) << " cond 2 " << (lastJointStateUpdate_ > ros::TIME_MIN) << " cond 3 " << (ros::Time::now() < ros::Time(sec)));
+  //ROS_ERROR_STREAM("cond 1 " << (sec > 1e-5) << " cond 2 " << (last_joint_state_update_ > ros::TIME_MIN) << " cond 3 " << (ros::Time::now() < ros::Time(sec)));
 
   //2. it hasn't yet been a full second interval but we've updated
-  if(sec > 1e-5 && lastJointStateUpdate_ > ros::TIME_MIN && ros::Time::now() < ros::Time(sec)) 
+  if(sec > 1e-5 && last_joint_state_update_ > ros::TIME_MIN && ros::Time::now() < ros::Time(sec)) 
   {
     return true;
   }
 
-  ROS_DEBUG("Last joint update %g interval begins %g", lastJointStateUpdate_.toSec(), (ros::Time::now()-ros::Duration(sec)).toSec());
+  ROS_DEBUG("Last joint update %g interval begins %g", last_joint_state_update_.toSec(), (ros::Time::now()-ros::Duration(sec)).toSec());
 
   //3. Been longer than sec interval, so we check that the update has happened in the indicated interval
-  if (lastJointStateUpdate_ < ros::Time::now()-ros::Duration(sec)) 
+  if (last_joint_state_update_ < ros::Time::now()-ros::Duration(sec)) 
   {
     return false;
   }
@@ -448,13 +389,13 @@ bool planning_environment::KinematicModelStateMonitor::isPoseUpdated(double sec)
   }
 
   //2. it hasn't yet been a full second interval but we've updated
-  if(lastPoseUpdate_ > ros::TIME_MIN && ros::Time::now() < ros::Time(sec)) 
+  if(last_pose_update_ > ros::TIME_MIN && ros::Time::now() < ros::Time(sec)) 
   {
     return true;
   }
 
   //3. Been longer than sec interval, so we check that the update has happened in the indicated interval
-  if (lastPoseUpdate_ < ros::Time::now()-ros::Duration(sec)) 
+  if (last_pose_update_ < ros::Time::now()-ros::Duration(sec)) 
   {
     return false;
   }

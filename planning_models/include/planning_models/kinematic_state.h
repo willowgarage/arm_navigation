@@ -377,7 +377,7 @@ public:
     std::vector<LinkState*> updated_links_;	    
   };
 
-  KinematicState(const boost::shared_ptr<const KinematicModel> kinematic_model);
+  KinematicState(const KinematicModel* kinematic_model);
   
   KinematicState(const KinematicState* state);
 
@@ -395,7 +395,7 @@ public:
 
   bool updateKinematicStateWithLinkAt(const std::string& link_name, const btTransform& transform);
 
-  const boost::shared_ptr<const KinematicModel> getKinematicModel() const 
+  const KinematicModel* getKinematicModel() const 
   {
     return kinematic_model_;
   } 
@@ -482,7 +482,7 @@ private:
 
   void setLinkStatesParents();
 
-  const boost::shared_ptr<const KinematicModel> kinematic_model_;
+  const KinematicModel* kinematic_model_;
 
   unsigned int dimension_;
   std::map<std::string, unsigned int> kinematic_state_index_map_;

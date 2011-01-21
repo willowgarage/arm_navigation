@@ -36,7 +36,7 @@
 
 #include <planning_models/kinematic_state.h>
 
-planning_models::KinematicState::KinematicState(const boost::shared_ptr<const KinematicModel> kinematic_model) :
+planning_models::KinematicState::KinematicState(const KinematicModel* kinematic_model) :
   kinematic_model_(kinematic_model), dimension_(0)
 {
   kinematic_model_->sharedLock();

@@ -146,7 +146,7 @@ public:
   /** \brief Return true if  map has been received */
   bool haveMap(void) const
   {
-    return haveMap_;
+    return have_map_;
   }
 	
   /** \brief Return true if a map update has been received in the last sec seconds. If sec < 10us, this function always returns true. */
@@ -158,7 +158,7 @@ public:
   /** \brief Return the last update time for the map */
   const ros::Time& lastMapUpdate(void) const
   {
-    return lastMapUpdate_;
+    return last_map_update_;
   }
 	
   /** \brief Returns the padding used for pointclouds (for collision checking) */
@@ -167,40 +167,6 @@ public:
     return pointcloud_padd_;
   }
 	
-  /** \brief Convert an allowed contact message into the structure accepted by the collision space */
-  //	bool computeAllowedContact(const motion_planning_msgs::AcceptableContact &allowedContactMsg, collision_space::EnvironmentModel::AllowedContact &allowedContact) const;
-  bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification &region,
-                             collision_space::EnvironmentModel::AllowedContact &allowedContact) const;
-	
-  /** \brief This function provides the means to obtain a collision map (the set of boxes)
-   *  from the current environment model */
-  void recoverCollisionMap(mapping_msgs::CollisionMap &cmap);
-
-  /** \brief If the user modified some instance of an environment model, this function provides the means to obtain a collision map (the set of boxes)
-   *  from that environment model */
-  void recoverCollisionMap(const collision_space::EnvironmentModel *env, mapping_msgs::CollisionMap &cmap);
-
-	
-  /** \brief This function provides the means to
-      obtain a set of objects in map (all objects that are not
-      in the namespace the collision map was added to) from the current environment */
-  void recoverCollisionObjects(std::vector<mapping_msgs::CollisionObject> &omap);
-	
-  /** \brief If the user modified some instance of an
-      environment model, this function provides the means to
-      obtain a set of objects in map (all objects that are not
-      in the namespace the collision map was added to) */
-  void recoverCollisionObjects(const collision_space::EnvironmentModel *env, std::vector<mapping_msgs::CollisionObject> &omap);
-
-  /** \brief This function provides the means to
-      obtain a set of attached objects in map from the current environment */
-  void recoverAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject> &avec);
-	
-  /** \brief If the user modified some instance of an
-      environment model, this function provides the means to
-      obtain a set of attached objects in map */
-  void recoverAttachedCollisionObjects(const collision_space::EnvironmentModel *env, std::vector<mapping_msgs::AttachedCollisionObject> &avec);
-  
   bool getObjectsService(planning_environment_msgs::GetCollisionObjects::Request &req,
                          planning_environment_msgs::GetCollisionObjects::Response &res);    
   /** \brief This function changes the allowed collisions 
@@ -208,7 +174,6 @@ public:
       message.  This allowed collison set will be in place
       until revert is called.
    */
-  bool applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord, bool print = false);
 
   /** \brief This function gets whatever allowed collision matrix is currently in use
       by the collision space */
@@ -220,89 +185,21 @@ public:
   bool setAllowedCollisionsService(planning_environment_msgs::SetAllowedCollisions::Request& req,
                                    planning_environment_msgs::SetAllowedCollisions::Response& res);
 
-  /** \brief Applies ordered collision operations to a matrix with entries and indices specified
-   */
-  bool applyOrderedCollisionOperationsToMatrix(const motion_planning_msgs::OrderedCollisionOperations &ord,
-                                               std::vector<std::vector<bool> > &curAllowed,
-                                               std::map<std::string, unsigned int> &vecIndices);
-  /** \brief Helper function for expanding collision operations given groups and attached bodies*/
-  bool expandOrderedCollisionOperations(const motion_planning_msgs::OrderedCollisionOperations &ord,
-                                        motion_planning_msgs::OrderedCollisionOperations &ex);
-
-  /** \brief Service for reverting the allowed collision matrix to the default */
   bool revertAllowedCollisionMatrixToDefaultService(std_srvs::Empty::Request& req,
                                                     std_srvs::Empty::Response& res);
-    
-  /** \brief Applies indicated padding to links */  
-  void applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding);
-
-  /** \brief Applies indicated padding to links */  
-  void revertCollisionSpacePaddingToDefault(); 
-  
-  /** \brief This function reverts the allowed collisions in the 
-      collision space to the default
-   */
-  void revertAllowedCollisionToDefault();
-  
-  /** \brief This gets the allowed collision information from the environment
-      and prints it to std::out for debug purposes */
-  void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &curAllowed,
-                                   const std::map<std::string, unsigned int> &vecIndices) const;
 
   void setUseCollisionMap(bool use);
 
-  void setCollisionSpace();
-
 protected:
-
-  struct KnownObject
-  {
-    KnownObject(void)
-    {
-    }
-    
-    ~KnownObject(void) {
-      deleteBodies();
-    }
-    
-    void deleteBodies() {
-      for(unsigned int i = 0; i < bodies.size(); i++) {
-        delete bodies[i];
-      }
-      bodies.clear();
-    }
-    
-    void addBodyWithPose(bodies::Body* body, const btTransform &pose) {
-      body->setPose(pose);
-      bodies::BoundingSphere bsphere;
-      body->computeBoundingSphere(bsphere);
-      bodies.push_back(body);
-      double rsquare = bsphere.radius * bsphere.radius;
-      bspheres.push_back(bsphere);
-      rsquares.push_back(rsquare);
-    }
-    
-    void usePose(const unsigned int i, const btTransform &pose) {
-      if(i >= bodies.size()) {
-        ROS_WARN("Not enough bodies");
-        return;
-      }
-      bodies[i]->setPose(pose);
-      bodies[i]->computeBoundingSphere(bspheres[i]);
-      rsquares[i] = bspheres[i].radius*bspheres[i].radius;
-    }
-    
-    std::vector<bodies::Body*> bodies;
-    std::vector<bodies::BoundingSphere>  bspheres;
-    std::vector<double>                  rsquares;
-  };
-
-  void maskCollisionMapForCollisionObjects(std::vector<shapes::Shape*> &all_shapes,
-                                           std::vector<btTransform> &all_poses,
-                                           std::vector<bool> &mask);
-
-  void updateStaticObjectBodies(const mapping_msgs::CollisionObjectConstPtr &collisionObject);
   
+  bool createAndPoseShapes(const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
+                           const std::vector<geometry_msgs::Pose>& orig_poses,
+                           const std_msgs::Header& header, 
+                           const std::string& frame_to,
+                           std::vector<shapes::Shape*>& conv_shapes,
+                           std::vector<btTransform>& conv_poses);
+  
+
   void setupCSM(void);
   void updateCollisionSpace(const mapping_msgs::CollisionMapConstPtr &collisionMap, bool clear);
   void collisionMapAsSpheres(const mapping_msgs::CollisionMapConstPtr &collisionMap,
@@ -324,8 +221,8 @@ protected:
 	
   bool                                                            envMonitorStarted_;
 	
-  bool                                                            haveMap_;
-  ros::Time                                                       lastMapUpdate_;	
+  bool                                                            have_map_;
+  ros::Time                                                       last_map_update_;	
 	
   message_filters::Subscriber<mapping_msgs::CollisionMap>        *collisionMapSubscriber_;
   tf::MessageFilter<mapping_msgs::CollisionMap>                  *collisionMapFilter_;
@@ -342,8 +239,6 @@ protected:
   ros::ServiceServer revert_allowed_collisions_service_;
 
   bool use_collision_map_;
-  std::map<std::string, KnownObject*>                                 collisionObjects_;
-  boost::recursive_mutex                                              collision_objects_lock_;
 
   boost::recursive_mutex collision_map_lock_;
   std::vector<shapes::Shape*> last_collision_map_shapes_;

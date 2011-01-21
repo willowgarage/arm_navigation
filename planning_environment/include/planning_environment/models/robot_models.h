@@ -88,6 +88,7 @@ public:
         it++) {
       delete it->second;
     }
+    delete kmodel_;
   }
        
   /** \brief Return the name of the description */
@@ -97,7 +98,7 @@ public:
   }
 	
   /** \brief Return the instance of the constructed kinematic model */
-  const boost::shared_ptr<planning_models::KinematicModel> &getKinematicModel(void) const
+  const planning_models::KinematicModel* getKinematicModel(void) const
   {
     return kmodel_;
   }
@@ -134,10 +135,24 @@ public:
   {
     return loaded_models_;
   }
-	
+
   /** \brief Reload the robot description and recreate the model */
   virtual void reload(void);
 	
+  //new functions from the monitors
+
+  /** \brief Return the frame id of the state */
+  const std::string& getRobotFrameId(void) const
+  {
+    return kmodel_->getRoot()->getChildLinkModel()->getName();
+  }
+
+  /** \brief Return the world frame id */
+  const std::string& getWorldFrameId(void) const
+  {
+    return kmodel_->getRoot()->getParentFrameId();
+  }
+
 protected:
 	
   void loadRobot(void);
@@ -151,7 +166,7 @@ protected:
   std::string                                        description_;
 	
   bool                                               loaded_models_;
-  boost::shared_ptr<planning_models::KinematicModel> kmodel_;
+  planning_models::KinematicModel* kmodel_;
   
   boost::shared_ptr<urdf::Model>                     urdf_;
 	

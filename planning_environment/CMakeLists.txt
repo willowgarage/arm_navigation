@@ -17,7 +17,8 @@ rosbuild_add_library(planning_environment src/models/robot_models.cpp
 					 src/monitors/planning_monitor.cpp
 					 src/util/kinematic_state_constraint_evaluator.cpp
 					 src/util/construct_object.cpp
-                                         src/monitors/joint_state_monitor.cpp)
+#                                         src/monitors/joint_state_monitor.cpp)
+)
 rosbuild_add_openmp_flags(planning_environment)
 rosbuild_link_boost(planning_environment thread)
 
@@ -26,26 +27,26 @@ rosbuild_link_boost(environment_server thread)
 target_link_libraries(environment_server planning_environment)
  
 # Utility apps
-rosbuild_add_executable(view_state_validity src/tools/view_state_validity.cpp) 
-target_link_libraries(view_state_validity planning_environment)
-rosbuild_link_boost(view_state_validity thread)
-rosbuild_add_openmp_flags(view_state_validity)
+#rosbuild_add_executable(view_state_validity src/tools/view_state_validity.cpp) 
+#target_link_libraries(view_state_validity planning_environment)
+#rosbuild_link_boost(view_state_validity thread)
+#rosbuild_add_openmp_flags(view_state_validity)
 
-rosbuild_add_executable(clear_known_objects src/tools/clear_known_objects.cpp) 
-target_link_libraries(clear_known_objects planning_environment)
-rosbuild_link_boost(clear_known_objects thread)
-rosbuild_add_openmp_flags(clear_known_objects)
+#rosbuild_add_executable(clear_known_objects src/tools/clear_known_objects.cpp) 
+#target_link_libraries(clear_known_objects planning_environment)
+#rosbuild_link_boost(clear_known_objects thread)
+#rosbuild_add_openmp_flags(clear_known_objects)
 
-rosbuild_add_executable(display_planner_collision_model src/tools/display_planner_collision_model.cpp) 
-target_link_libraries(display_planner_collision_model planning_environment)
-rosbuild_link_boost(display_planner_collision_model thread)
-rosbuild_add_openmp_flags(display_planner_collision_model)
+#rosbuild_add_executable(display_planner_collision_model src/tools/display_planner_collision_model.cpp) 
+#target_link_libraries(display_planner_collision_model planning_environment)
+#rosbuild_link_boost(display_planner_collision_model thread)
+#rosbuild_add_openmp_flags(display_planner_collision_model)
 
 # Examples
-rosbuild_add_executable(remove_object_example src/examples/remove_object_example.cpp) 
-target_link_libraries(remove_object_example planning_environment)
-rosbuild_link_boost(remove_object_example thread)
-rosbuild_add_openmp_flags(remove_object_example)
+#rosbuild_add_executable(remove_object_example src/examples/remove_object_example.cpp) 
+#target_link_libraries(remove_object_example planning_environment)
+#rosbuild_link_boost(remove_object_example thread)
+#rosbuild_add_openmp_flags(remove_object_example)
 
 # Tests - these have moved into pr2_arm_navigation_tests
 
@@ -55,11 +56,11 @@ rosbuild_add_openmp_flags(remove_object_example)
 #rosbuild_add_executable(path_constraints_test test/path_constraints_test.cpp)
 #target_link_libraries(path_constraints_test gtest)
 
-rosbuild_add_executable(joint_state_decumulator test/joint_state_decumulator.cpp)
-target_link_libraries(joint_state_decumulator planning_environment)
+#rosbuild_add_executable(joint_state_decumulator test/joint_state_decumulator.cpp)
+#target_link_libraries(joint_state_decumulator planning_environment)
 
-rosbuild_add_executable(test_robot_models test/test_robot_models.cpp) 
+#rosbuild_add_executable(test_robot_models test/test_robot_models.cpp) 
 #rosbuild_declare_test(test_robot_models)
 #rosbuild_add_gtest_build_flags(test_robot_models)
-target_link_libraries(test_robot_models planning_environment)
-target_link_libraries(test_robot_models gtest)
+#target_link_libraries(test_robot_models planning_environment)
+#target_link_libraries(test_robot_models gtest)
