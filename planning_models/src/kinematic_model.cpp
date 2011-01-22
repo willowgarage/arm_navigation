@@ -566,6 +566,16 @@ void planning_models::KinematicModel::clearAllAttachedBodyModels()
   exclusiveUnlock();
 }
 
+std::vector<const planning_models::KinematicModel::AttachedBodyModel*> planning_models::KinematicModel::getAttachedBodyModels(void) const
+{
+  std::vector<const planning_models::KinematicModel::AttachedBodyModel*> ret_vec;
+  for(unsigned int i =0; i < link_model_vector_.size(); i++) {
+    ret_vec.insert(ret_vec.end(), link_model_vector_[i]->getAttachedBodyModels().begin(),
+                   link_model_vector_[i]->getAttachedBodyModels().end());
+  }
+  return ret_vec;
+}
+
 void planning_models::KinematicModel::clearLinkAttachedBodyModels(const std::string& link_name)
 {
   exclusiveLock();
@@ -945,6 +955,7 @@ planning_models::KinematicModel::AttachedBodyModel::AttachedBodyModel(const Link
     id_(nid)
 {
   attach_trans_ = attach_trans;
+  ROS_INFO_STREAM("Attach trans x " << attach_trans_[0].getRotation().x());
   touch_links_ = touch_links;
   shapes_ = shapes;
 }

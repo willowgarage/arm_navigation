@@ -585,6 +585,8 @@ public:
   void replaceAttachedBodyModels(const std::string& link_name, std::vector<AttachedBodyModel*>& attached_body_vector);
 
   void addAttachedBodyModel(const std::string& link_name, AttachedBodyModel* att_body_model);
+
+  std::vector<const AttachedBodyModel*> getAttachedBodyModels() const;
 	
 private:
 	
