@@ -63,12 +63,11 @@ planning_environment::CollisionModels::~CollisionModels(void)
 void planning_environment::CollisionModels::reload(void)
 {
   RobotModels::reload();
-  ode_collision_model_.reset();
   loadCollision(group_link_union_);
 }
 
 
-void planning_environment::CollisionModels::setupModel(boost::shared_ptr<collision_space::EnvironmentModel> &model, const std::vector<std::string>& links)
+void planning_environment::CollisionModels::setupModel(collision_space::EnvironmentModel* model, const std::vector<std::string>& links)
 {
   XmlRpc::XmlRpcValue coll_ops;
 
@@ -193,7 +192,7 @@ void planning_environment::CollisionModels::setupModel(boost::shared_ptr<collisi
   {
     shapes::Plane *plane = new shapes::Plane(bounding_planes_[i * 4], bounding_planes_[i * 4 + 1], bounding_planes_[i * 4 + 2], bounding_planes_[i * 4 + 3]);
     model->addObject("bounds", plane);
-    ROS_INFO("Added static plane %fx + %fy + %fz + %f = 0 for model %p", bounding_planes_[i * 4], bounding_planes_[i * 4 + 1], bounding_planes_[i * 4 + 2], bounding_planes_[i * 4 + 3], model.get());
+    ROS_INFO("Added static plane %fx + %fy + %fz + %f = 0 for model", bounding_planes_[i * 4], bounding_planes_[i * 4 + 1], bounding_planes_[i * 4 + 2], bounding_planes_[i * 4 + 3]);
   }
   
   model->unlock();    
@@ -223,7 +222,7 @@ void planning_environment::CollisionModels::loadCollision(const std::vector<std:
     
   if (loadedModels())
   {
-    ode_collision_model_ = boost::shared_ptr<collision_space::EnvironmentModel>(new collision_space::EnvironmentModelODE());
+    ode_collision_model_ = new collision_space::EnvironmentModelODE();
     setupModel(ode_collision_model_,links);
 	
     //	bullet_collision_model_ = boost::shared_ptr<collision_space::EnvironmentModel>(new collision_space::EnvironmentModelBullet());
@@ -237,45 +236,51 @@ void planning_environment::CollisionModels::loadCollision(const std::vector<std:
 /// Functions for updating state
 ///
 
-bool planning_environment::CollisionModels::setPlanningScene(const motion_planning_msgs::RobotState& complete_robot_state,
-                                                             const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
-                                                             const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
-                                                             const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
-                                                             const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
-                                                             const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
-                                                             const mapping_msgs::CollisionMap& unmasked_collision_map,
-                                                             planning_models::KinematicState& state){
-  bool complete = setRobotStateAndComputeTransforms(complete_robot_state, state);
-  if(!complete) {
-    ROS_WARN_STREAM("Incomplete robot state in setPlanningScene");
-    return false;
-  }
+planning_models::KinematicState* 
+planning_environment::CollisionModels::setPlanningScene(const motion_planning_msgs::RobotState& complete_robot_state,
+                                                        const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
+                                                        const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
+                                                        const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
+                                                        const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
+                                                        const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
+                                                        const mapping_msgs::CollisionMap& unmasked_collision_map)
+{
   for(unsigned int i = 0; i < all_collision_objects.size(); i++) {
     if(all_collision_objects[i].header.frame_id != getWorldFrameId()) {
       ROS_WARN_STREAM("Can't cope with objects not in " << getWorldFrameId());
-      return false;
+      return NULL;
     }
     if(all_collision_objects[i].operation.operation != mapping_msgs::CollisionObjectOperation::ADD) {
       ROS_WARN_STREAM("Planning scene shouldn't have collision operations other than add");
-      return false;
+      return NULL;
     }
     addStaticObject(all_collision_objects[i]);
   }
   for(unsigned int i = 0; i < all_attached_collision_objects.size(); i++) {
-    if(all_attached_collision_objects[i].object.header.frame_id != getWorldFrameId()) {
-      ROS_WARN_STREAM("Can't cope with objects not in " << getWorldFrameId());
-      return false;
+    if(all_attached_collision_objects[i].object.header.frame_id != all_attached_collision_objects[i].link_name) {
+      ROS_WARN_STREAM("All attached objects must be in their attached link frame");
+      return NULL;
     }
     if(all_attached_collision_objects[i].object.operation.operation != mapping_msgs::CollisionObjectOperation::ADD) {
       ROS_WARN_STREAM("Planning scene shouldn't have collision operations other than add");
-      return false;
+      return NULL;
     }
     addAttachedObject(all_attached_collision_objects[i]);
+  }
+
+  planning_models::KinematicState* state = new planning_models::KinematicState(kmodel_);
+
+  bool complete = setRobotStateAndComputeTransforms(complete_robot_state, *state);
+
+  if(!complete) {
+    ROS_WARN_STREAM("Incomplete robot state in setPlanningScene");
+    delete state;
+    return NULL;
   }
   applyLinkPaddingToCollisionSpace(all_link_paddings);
   //TODO - allowed contacts, allowed collision matrix
   setCollisionMap(unmasked_collision_map, true);
-  return true;
+  return state;
 }
 
 void planning_environment::CollisionModels::updateRobotModelPose(const planning_models::KinematicState& state)
@@ -476,7 +481,6 @@ void planning_environment::CollisionModels::addAttachedObject(const std::string&
   if(find(touch_links.begin(), touch_links.end(), link_name) == touch_links.end()) {
     modded_touch_links.push_back(link_name);
   }
-
   planning_models::KinematicModel::AttachedBodyModel* ab = 
     new planning_models::KinematicModel::AttachedBodyModel(link, object_name,
                                                            poses,
@@ -916,11 +920,11 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
 {
   avec.clear();
 
-  const std::vector<const planning_models::KinematicModel::AttachedBodyModel*>& att_vec = ode_collision_model_->getAttachedBodies();
+  std::vector<const planning_models::KinematicModel::AttachedBodyModel*> att_vec = kmodel_->getAttachedBodyModels();
   for(unsigned int i = 0; i < att_vec.size(); i++) 
   {
     mapping_msgs::AttachedCollisionObject ao;
-    ao.object.header.frame_id = getWorldFrameId();
+    ao.object.header.frame_id = att_vec[i]->getAttachedLinkModel()->getName();
     ao.object.header.stamp = ros::Time::now();
     ao.link_name = att_vec[i]->getAttachedLinkModel()->getName();
     double attached_padd = ode_collision_model_->getCurrentLinkPadding("attached");
@@ -928,12 +932,7 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
       geometric_shapes_msgs::Shape shape;
       constructObjectMsg(att_vec[i]->getShapes()[j], shape, attached_padd);
       geometry_msgs::Pose pose;
-      //TODO - fix this!!!
-      //planning_models::KinematicState::AttachedBodyState* att_state = state.getAttachedBodyState(att_vec[i]->getName());
-      //if(att_state == NULL) {
-      //  ROS_WARN_STREAM("No attached body state for attached body model " << att_vec[i]->getName());
-      //}
-      //tf::poseTFToMsg(att_state->getGlobalCollisionBodyTransforms()[j], pose);
+      tf::poseTFToMsg(att_vec[i]->getAttachedBodyFixedTransforms()[j], pose);
       ao.object.shapes.push_back(shape);
       ao.object.poses.push_back(pose);
     }

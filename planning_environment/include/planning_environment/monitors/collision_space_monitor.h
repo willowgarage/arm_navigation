@@ -108,9 +108,9 @@ public:
   }	
 
   /** \brief Return the instance of the environment model maintained */
-  collision_space::EnvironmentModel* getEnvironmentModel(void) const
+  const collision_space::EnvironmentModel* getEnvironmentModel(void) const
   {
-    return collisionSpace_;
+    return cm_->getCollisionSpace();
   }
 	
   /** \brief Return the instance of collision models that is being used */
@@ -215,7 +215,6 @@ protected:
   void addAttachedCollisionObjects(std::vector<std::string>& svec) const;
 
   CollisionModels                                                *cm_;
-  collision_space::EnvironmentModel                              *collisionSpace_;
   boost::mutex                                                    mapUpdateLock_;
   double                                                          pointcloud_padd_;
 	

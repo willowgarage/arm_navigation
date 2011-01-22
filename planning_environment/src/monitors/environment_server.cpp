@@ -66,13 +66,10 @@ public:
     setup_(setup)
   {
     planning_monitor_ = setup_.planning_monitor_;
-    planning_monitor_->getEnvironmentModel()->setVerbose(false);
 
     planning_monitor_->waitForState();
     planning_monitor_->startEnvironmentMonitor();
-    while(!planning_monitor_->haveMap()){
-      ros::Duration().fromSec(0.05).sleep();
-    }
+    planning_monitor_->waitForMap();
 
     tf_ = &setup_.tf_;
 
@@ -83,7 +80,7 @@ public:
 
     //get_group_info_service_ = private_handle_.advertiseService("get_group_info", &EnvironmentServer::getGroupInfo, this);
 
-    //get_robot_state_service_ = private_handle_.advertiseService("get_robot_state", &EnvironmentServer::getRobotState, this);
+    get_robot_state_service_ = private_handle_.advertiseService("get_robot_state", &EnvironmentServer::getRobotState, this);
     //get_state_validity_service_ = private_handle_.advertiseService("get_state_validity", &EnvironmentServer::getStateValidity, this);
     //allowed_contact_regions_publisher_ = private_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
 
@@ -203,12 +200,12 @@ private:
 //     return true;
 //   }
 
-//   bool getRobotState(planning_environment_msgs::GetRobotState::Request &req, 
-//                      planning_environment_msgs::GetRobotState::Response &res)
-//   {
-//     planning_monitor_->getCurrentRobotState(res.robot_state);
-//     return true;    
-//   }
+  bool getRobotState(planning_environment_msgs::GetRobotState::Request &req, 
+                     planning_environment_msgs::GetRobotState::Response &res)
+  {
+    planning_monitor_->getCurrentRobotState(res.robot_state);
+    return true;    
+  }
 
 //   bool getJointsInGroup(planning_environment_msgs::GetJointsInGroup::Request &req, 
 //                         planning_environment_msgs::GetJointsInGroup::Response &res)

@@ -83,14 +83,14 @@ public:
   // Manipulating bodies and objects
   //
 
-  bool setPlanningScene(const motion_planning_msgs::RobotState& complete_robot_state,
-                        const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
-                        const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
-                        const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
-                        const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
-                        const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
-                        const mapping_msgs::CollisionMap& unmasked_collision_map,
-                        planning_models::KinematicState& state);
+  planning_models::KinematicState* 
+  setPlanningScene(const motion_planning_msgs::RobotState& complete_robot_state,
+                   const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
+                   const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
+                   const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
+                   const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
+                   const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
+                   const mapping_msgs::CollisionMap& unmasked_collision_map);
     
   void updateRobotModelPose(const planning_models::KinematicState& state);
 
@@ -173,10 +173,9 @@ public:
                          motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                          std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                          const bool evaluate_entire_trajectory);
-  
-  /** \brief Return the instance of the constructed ODE collision model */
-  const boost::shared_ptr<const collision_space::EnvironmentModel> getODECollisionModel(void) const
-  {
+
+  /** \brief Return the instance of the constructed ODE collision model */  
+  const collision_space::EnvironmentModel* getCollisionSpace() const {
     return ode_collision_model_;
   }
 
@@ -211,9 +210,9 @@ protected:
   std::map<std::string, std::map<std::string, bodies::BodyVector*> > link_attached_objects_;
 	
   void loadCollision(const std::vector<std::string> &links);
-  void setupModel(boost::shared_ptr<collision_space::EnvironmentModel> &model, const std::vector<std::string> &links);
+  void setupModel(collision_space::EnvironmentModel* model, const std::vector<std::string> &links);
 	
-  boost::shared_ptr<collision_space::EnvironmentModel> ode_collision_model_;
+  collision_space::EnvironmentModel* ode_collision_model_;
 
   double default_scale_;
   double default_padd_;

@@ -400,8 +400,9 @@ bool planning_environment::CollisionSpaceMonitor::createAndPoseShapes(const std:
     shapes::Shape *shape = constructObject(orig_shapes[i]);
     if(shape == NULL) {
       shapes_ok = false;
-      continue;
+      break;
     }
+    conv_shapes.push_back(shape);
     std::string err_string;
     ros::Time tm;
     geometry_msgs::PoseStamped temp_pose;
@@ -411,21 +412,20 @@ bool planning_environment::CollisionSpaceMonitor::createAndPoseShapes(const std:
     if (tf_->getLatestCommonTime(frame_to, temp_pose.header.frame_id, tm, &err_string) == tf::NO_ERROR) {
       temp_pose.header.stamp = tm;
       try {
-        tf_->transformPose(frame_to, trans_pose, temp_pose);
-      } catch(...) {
-        ROS_ERROR_STREAM("Unable to transform object from frame " << temp_pose.header.frame_id << " to " << frame_to);
+        tf_->transformPose(frame_to, temp_pose, trans_pose);
+      } catch(tf::TransformException& ex) {
+        ROS_ERROR_STREAM("Unable to transform object from frame " << temp_pose.header.frame_id << " to " << frame_to << " error is " << ex.what());
         shapes_ok = false;
-        delete shape;
         break;
       }
       btTransform pose;
       tf::poseMsgToTF(trans_pose.pose, pose);
       ROS_DEBUG_STREAM("Object is at " << pose.getOrigin().x() << " " << pose.getOrigin().y());
-      conv_shapes.push_back(shape);
       conv_poses.push_back(pose);
     } else {
       ROS_ERROR_STREAM("Something wrong with tf");
       shapes_ok = false;
+      break;
     }
   }
   if(!shapes_ok) {
