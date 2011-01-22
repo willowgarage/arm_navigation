@@ -38,6 +38,7 @@
 #include <visualization_msgs/MarkerArray.h>
 
 #include <collision_proximity/collision_proximity_space.h>
+#include <tf/tf.h>
 
 using collision_proximity::CollisionProximitySpace;
 
@@ -60,10 +61,10 @@ static std::string makeAttachedObjectId(std::string link, std::string object)
   return link+"_"+object;
 }
 
-CollisionProximitySpace::CollisionProximitySpace(planning_environment::CollisionModels* model) :
+CollisionProximitySpace::CollisionProximitySpace(const std::string& robot_description_name) :
   priv_handle_("~")
 {
-  model_ = model;
+  cmodel_ = new planning_environment::CollisionModels(robot_description_name);
 
   priv_handle_.param("size_x", size_x_, 3.0);
   priv_handle_.param("size_y", size_y_, 3.0);
@@ -95,14 +96,11 @@ CollisionProximitySpace::CollisionProximitySpace(planning_environment::Collision
     bdv->addToVector(bd);
     static_object_map_["base_box"] = bdv;
   */
-
-  monitor_->setOnAfterCollisionObjectCallback(boost::bind(&CollisionProximitySpace::staticObjectUpdateEvent, this, _1));
-  monitor_->setOnAfterAttachCollisionObjectCallback(boost::bind(&CollisionProximitySpace::attachedObjectUpdateEvent, this, _1));
-  monitor_->startEnvironmentMonitor();
 }
 
 CollisionProximitySpace::~CollisionProximitySpace()
 {
+  delete cmodel_;
   delete distance_field_;
   for(std::map<std::string, BodyDecomposition*>::iterator it = body_decomposition_map_.begin();
       it != body_decomposition_map_.end();
@@ -124,7 +122,7 @@ CollisionProximitySpace::~CollisionProximitySpace()
 void CollisionProximitySpace::loadDefaultCollisionOperations()
 {
   std::map<std::string, bool> all_true_map;
-  boost::shared_ptr<planning_models::KinematicModel> kmodel = model_->getKinematicModel();
+  const planning_models::KinematicModel* kmodel = cmodel_->getKinematicModel();
   
   for(unsigned int i = 0; i < kmodel->getLinkModels().size(); i++) {
     all_true_map[kmodel->getLinkModels()[i]->getName()] = true;
@@ -134,7 +132,7 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
   }
 
   //creating lists for each group in planning groups
-  const std::map<std::string, std::vector<std::string> >& pgl = model_->getPlanningGroupLinks();
+  const std::map<std::string, std::vector<std::string> >& pgl = cmodel_->getPlanningGroupLinks();
   for(std::map<std::string, std::vector<std::string> >::const_iterator it = pgl.begin();
       it != pgl.end();
       it++) {
@@ -208,7 +206,7 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
 
 void CollisionProximitySpace::loadRobotBodyDecompositions()
 {
-  boost::shared_ptr<planning_models::KinematicModel> kmodel = model_->getKinematicModel();
+  const planning_models::KinematicModel* kmodel = cmodel_->getKinematicModel();
   
   for(unsigned int i = 0; i < kmodel->getLinkModels().size(); i++) {
     //if(kmodel->getLinkModels()[i]->getName() == "r_upper_arm_link") {
@@ -221,12 +219,36 @@ void CollisionProximitySpace::loadRobotBodyDecompositions()
   }
 }
 
-void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name,
-                                                   const motion_planning_msgs::RobotState& rob_state) {
+planning_models::KinematicState* 
+CollisionProximitySpace::setupForGroupQueries(const std::string& group_name,
+                                              const motion_planning_msgs::RobotState& rob_state,
+                                              const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
+                                              const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
+                                              const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
+                                              const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
+                                              const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
+                                              const mapping_msgs::CollisionMap& unmasked_collision_map)
+  
+{
+  planning_models::KinematicState* state = cmodel_->setPlanningScene(rob_state,
+                                                                     allowed_collision_matrix,
+                                                                     transformed_allowed_contacts,
+                                                                     all_link_paddings,
+                                                                     all_collision_objects,
+                                                                     all_attached_collision_objects,
+                                                                     unmasked_collision_map);
+  if(state == NULL) {
+    return NULL;
+  }
+
   group_queries_lock_.lock();
+
+  syncObjectsWithCollisionSpace(*state);
+
   //setting up current info
   current_group_name_ = group_name;
   getGroupLinkAndAttachedBodyNames(current_group_name_, 
+                                   *state,
                                    current_link_names_, 
                                    current_link_indices_,
                                    current_attached_body_names_,
@@ -293,25 +315,34 @@ void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name
       }
     }
   }
-
-  planning_models::KinematicState kin_state(model_->getKinematicModel());
-  monitor_->setRobotStateAndComputeTransforms(rob_state, kin_state);
-  monitor_->setCollisionSpace();
-  setBodyPosesGivenKinematicState(kin_state);
-  setDistanceFieldForGroupQueries(current_group_name_, kin_state);
+  setBodyPosesGivenKinematicState(*state);
+  setDistanceFieldForGroupQueries(current_group_name_, *state);
+  return state;
 }
 
 void CollisionProximitySpace::revertAfterGroupQueries()
 {
   current_group_name_ = "";
-  group_queries_lock_.unlock();
-}
+  for(std::map<std::string, BodyDecompositionVector*>::iterator it = static_object_map_.begin();
+      it != static_object_map_.end();
+      it++) {
+    delete it->second;
+  }
+  static_object_map_.clear();
 
-void CollisionProximitySpace::setBodyPosesToCurrent()
-{
-  planning_models::KinematicState state(monitor_->getKinematicModel());
-  monitor_->setStateValuesFromCurrentValues(state);
-  setBodyPosesGivenKinematicState(state);
+  for(std::map<std::string, BodyDecompositionVector*>::iterator it = attached_object_map_.begin();
+      it != attached_object_map_.end();
+      it++) {
+    delete it->second;
+  }
+  attached_object_map_.clear();
+
+  link_attached_objects_.clear();
+
+  //note - calling process must have deleted kinematic state for this to not hang
+  cmodel_->deleteAllAttachedObjects();;
+
+  group_queries_lock_.unlock();
 }
 
 void CollisionProximitySpace::setCurrentGroupState(const planning_models::KinematicState& state)
@@ -326,7 +357,8 @@ void CollisionProximitySpace::setCurrentGroupState(const planning_models::Kinema
     for(unsigned int j = 0; j < ls->getAttachedBodyStateVector().size(); j++) {
       const planning_models::KinematicState::AttachedBodyState* att_state = ls->getAttachedBodyStateVector()[j];
       for(unsigned int k = 0; k < att_state->getGlobalCollisionBodyTransforms().size(); k++) {
-        current_attached_body_decompositions_[i]->updateBodyPose(k, inv*att_state->getGlobalCollisionBodyTransforms()[k]);
+        btTransform test = inv*att_state->getGlobalCollisionBodyTransforms()[k];
+        current_attached_body_decompositions_[i]->updateSpheresPose(k, inv*att_state->getGlobalCollisionBodyTransforms()[k]);
       }
     }
   }
@@ -350,10 +382,13 @@ void CollisionProximitySpace::setBodyPosesGivenKinematicState(const planning_mod
         continue;
       }
       if(attached_object_map_[id]->getSize() != att_state->getGlobalCollisionBodyTransforms().size()) {
-        ROS_WARN_STREAM("Bodies number not equal to state number. Not updating");
+        ROS_WARN_STREAM("For attached object bodies number " << attached_object_map_[id]->getSize() 
+                        << " not equal to state number " << att_state->getGlobalCollisionBodyTransforms().size() << ". Not updating");
         continue;
       }
       for(unsigned int k = 0; k < att_state->getGlobalCollisionBodyTransforms().size(); k++) {
+        btTransform test = inv*att_state->getGlobalCollisionBodyTransforms()[k];
+        ROS_INFO_STREAM("Setting x value to " << test.getOrigin().x());
         attached_object_map_[id]->updateBodyPose(k, inv*att_state->getGlobalCollisionBodyTransforms()[k]);
       }
     }
@@ -363,156 +398,47 @@ void CollisionProximitySpace::setBodyPosesGivenKinematicState(const planning_mod
 btTransform CollisionProximitySpace::getInverseWorldTransform(const planning_models::KinematicState& state) const {
   const planning_models::KinematicState::JointState* world_state = state.getJointStateVector()[0];//(monitor_->getKinematicModel()->getRoot()->getName());
   if(world_state == NULL) {
-    ROS_WARN_STREAM("World state " << monitor_->getKinematicModel()->getRoot()->getName() << " not found");
+    ROS_WARN_STREAM("World state " << cmodel_->getKinematicModel()->getRoot()->getName() << " not found");
   }
   const btTransform& world_trans = world_state->getVariableTransform();
   btTransform ret(world_trans);
   return ret.inverse();
 }
 
-void CollisionProximitySpace::staticObjectUpdateEvent(const mapping_msgs::CollisionObjectConstPtr &coll)
+void CollisionProximitySpace::syncObjectsWithCollisionSpace(const planning_models::KinematicState& state)
 {
-  group_queries_lock_.lock();
-  monitor_->getEnvironmentModel()->lock();
-  planning_models::KinematicState state(monitor_->getKinematicModel());
-  monitor_->setStateValuesFromCurrentValues(state);
   btTransform inv = getInverseWorldTransform(state);
-  if(coll->operation.operation == coll->operation.ADD) {
-    if(static_object_map_.find(coll->id) != static_object_map_.end()) {
-      delete static_object_map_[coll->id];
-      static_object_map_.erase(coll->id);
-    }
+  const collision_space::EnvironmentObjects *eo = cmodel_->getCollisionSpace()->getObjects();
+  std::vector<std::string> ns = eo->getNamespaces();
+  for(unsigned int i = 0; i < ns.size(); i++) {
+    const collision_space::EnvironmentObjects::NamespaceObjects &no = eo->getObjects(ns[i]);
     BodyDecompositionVector* bdv = new BodyDecompositionVector();
-    const collision_space::EnvironmentObjects *eo = monitor_->getEnvironmentModel()->getObjects();
-    std::vector<std::string> ns = eo->getNamespaces();
-    bool found = false;
-    for(unsigned int i = 0; i < ns.size(); i++) {
-      if(ns[i] == coll->id) {
-        found = true;
-        const collision_space::EnvironmentObjects::NamespaceObjects &no = eo->getObjects(ns[i]);
-        for(unsigned int j = 0; j < no.shape.size(); j++) {
-          BodyDecomposition* bd = new BodyDecomposition(coll->id+"_"+makeStringFromUnsignedInt(j), no.shape[j], resolution_);
-          bd->updatePose(no.shapePose[j]);
-          ROS_INFO_STREAM("Pose is " << no.shapePose[j].getOrigin().x() << " " 
-                          << no.shapePose[j].getOrigin().y() << " " 
-                          << no.shapePose[j].getOrigin().z());
-          bdv->addToVector(bd); 
-        }
-        break;
-      }
+    for(unsigned int j = 0; j < no.shape.size(); j++) {
+      BodyDecomposition* bd = new BodyDecomposition(ns[i]+"_"+makeStringFromUnsignedInt(j), no.shape[j], resolution_);
+      bd->updatePose(inv*no.shapePose[j]);
+      bdv->addToVector(bd); 
     }
-    if(!found) {
-      ROS_WARN_STREAM("Added object named " << coll->id << " not found in collision space");
-    } else {
-      static_object_map_[coll->id] = bdv;
-    }
-  } else if(coll->operation.operation == coll->operation.REMOVE){
-    if(coll->id == "all") {
-      for(std::map<std::string, BodyDecompositionVector*>::iterator it = static_object_map_.begin();
-          it != static_object_map_.end();
-          it++) {
-        delete it->second;
-      }
-      static_object_map_.clear();
-    } else if(static_object_map_.find(coll->id) != static_object_map_.end()) {
-      delete static_object_map_[coll->id];
-      static_object_map_.erase(coll->id);
-    }
+    static_object_map_[ns[i]] = bdv;
   }
-  monitor_->getEnvironmentModel()->unlock();
-  group_queries_lock_.unlock();
-  ROS_INFO_STREAM("Done adding static object");
-}
-
-void CollisionProximitySpace::attachedObjectUpdateEvent(const mapping_msgs::AttachedCollisionObjectConstPtr &coll)
-{
-  ROS_INFO("In attached object update");
-  group_queries_lock_.lock();
-  monitor_->getEnvironmentModel()->lock();
-  //getting state to invoke lock
-  planning_models::KinematicState state(monitor_->getKinematicModel());
-  monitor_->setStateValuesFromCurrentValues(state);
-  std::string id = makeAttachedObjectId(coll->link_name,coll->object.id);
-  if(coll->object.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
-    if(attached_object_map_.find(id) == attached_object_map_.end()) {
-      ROS_WARN_STREAM("No object named " << id << " to detach");
-      monitor_->getEnvironmentModel()->unlock();
-      group_queries_lock_.unlock();
-      return;
-    }
-    BodyDecompositionVector* vec = attached_object_map_.find(id)->second;
-    link_attached_objects_[coll->link_name].erase(id);
-    attached_object_map_.erase(id);
-    static_object_map_[id] = vec;
-  } else if (coll->object.operation.operation == mapping_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
-    if(static_object_map_.find(id) == static_object_map_.end()) {
-      ROS_WARN_STREAM("No object named " << id << " to attach");
-      monitor_->getEnvironmentModel()->unlock();
-      group_queries_lock_.unlock();
-      return;
-    }
-    BodyDecompositionVector* vec = static_object_map_.find(id)->second;
-    static_object_map_.erase(id);
-    attached_object_map_[id] = vec;
-    link_attached_objects_[coll->link_name][id] = true;
-    for(unsigned int i = 0; i < coll->touch_links.size(); i++) {
-      attached_object_collision_links_[id][coll->touch_links[i]] = false;
-    }
-  } else if (coll->object.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
-    if(coll->object.id == "all") {
-      for(std::map<std::string, BodyDecompositionVector*>::iterator it = attached_object_map_.begin();
-          it != attached_object_map_.end();
-          it++) {
-        delete it->second;
+  
+  const std::vector<planning_models::KinematicState::LinkState*> link_states = state.getLinkStateVector();
+  for(unsigned int i = 0; i < link_states.size(); i++) {
+    const planning_models::KinematicState::LinkState* ls = link_states[i];
+    for(unsigned int j = 0; j < ls->getAttachedBodyStateVector().size(); j++) {
+      BodyDecompositionVector* bdv = new BodyDecompositionVector();
+      const planning_models::KinematicState::AttachedBodyState* abs = ls->getAttachedBodyStateVector()[j];
+      std::string id = makeAttachedObjectId(ls->getName(),abs->getName());
+      for(unsigned int k = 0; k < abs->getAttachedBodyModel()->getShapes().size(); k++) {
+        BodyDecomposition* bd = new BodyDecomposition(id+makeStringFromUnsignedInt(j), abs->getAttachedBodyModel()->getShapes()[k], resolution_);
+        bd->updatePose(inv*abs->getGlobalCollisionBodyTransforms()[k]);
+        bdv->addToVector(bd);
       }
-      link_attached_objects_.clear();
-      attached_object_map_.clear();
-      attached_object_collision_links_.clear();
-    } else {
-      if(attached_object_map_.find(id) != attached_object_map_.end()) {
-        delete attached_object_map_[id];
-        attached_object_map_.erase(id);
-        attached_object_collision_links_.erase(id);
-        link_attached_objects_[coll->link_name].erase(id);
+      attached_object_map_[id] = bdv;
+      link_attached_objects_[ls->getName()][id] = true;
+      for(unsigned int k = 0; k < abs->getAttachedBodyModel()->getTouchLinks().size(); k++) {
+        attached_object_collision_links_[id][abs->getAttachedBodyModel()->getTouchLinks()[k]] = false;
       }
     }
-  } else {
-    //must be add
-    const planning_models::KinematicModel::LinkModel* lm = monitor_->getKinematicModel()->getLinkModel(coll->link_name);
-    const planning_models::KinematicModel::AttachedBodyModel* abm = NULL;
-    for(unsigned int j = 0; j < lm->getAttachedBodyModels().size(); j++) {
-      if(lm->getAttachedBodyModels()[j]->getName() == coll->object.id) {
-        abm = lm->getAttachedBodyModels()[j];
-        break;
-      }
-    }
-    if(abm == NULL) {
-      ROS_WARN_STREAM("Can't find attached object named " << coll->object.id << " for link " << coll->link_name);
-      monitor_->getEnvironmentModel()->unlock();
-      group_queries_lock_.unlock();
-      return;
-    }
-    BodyDecompositionVector* bdv = new BodyDecompositionVector();
-    ROS_INFO_STREAM("Adding attached body with id " << id);
-    for(unsigned int j = 0; j < abm->getShapes().size(); j++) {
-      BodyDecomposition* bd = new BodyDecomposition(id+makeStringFromUnsignedInt(j), abm->getShapes()[j], resolution_);
-      bdv->addToVector(bd);
-    }
-    attached_object_map_[id] = bdv;
-    link_attached_objects_[coll->link_name][id] = true;
-    for(unsigned int i = 0; i < coll->touch_links.size(); i++) {
-      attached_object_collision_links_[id][coll->touch_links[i]] = false;
-    }
-  }
-  setBodyPosesToCurrent();
-  monitor_->getEnvironmentModel()->unlock();
-  //TODO - retain robot state some way
-  if(current_group_name_ != "") {
-    std::string group_name = current_group_name_;
-    group_queries_lock_.unlock();
-    revertAfterGroupQueries();
-    motion_planning_msgs::RobotState rob_state;
-    setupForGroupQueries(group_name, rob_state);
   }
 }
 
@@ -577,7 +503,7 @@ void CollisionProximitySpace::prepareDistanceField(const std::vector<std::string
     }
   }
   //now we need to add the points 
-  const collision_space::EnvironmentObjects *eo = monitor_->getEnvironmentModel()->getObjects();
+  const collision_space::EnvironmentObjects *eo = cmodel_->getCollisionSpace()->getObjects();
   std::vector<std::string> ns = eo->getNamespaces();
   for (unsigned int i = 0 ; i < ns.size() ; ++i)
   {
@@ -707,14 +633,14 @@ bool CollisionProximitySpace::getEnvironmentCollision(const std::vector<std::str
 }
 */
 bool CollisionProximitySpace::getGroupLinkAndAttachedBodyNames(const std::string& group_name,
+                                                               const planning_models::KinematicState& state,
                                                                std::vector<std::string>& link_names,
                                                                std::vector<unsigned int>& link_indices,
                                                                std::vector<std::string>& attached_body_names,
                                                                std::vector<unsigned int>& attached_body_link_indices) const
 {
-  planning_models::KinematicState state(monitor_->getKinematicModel());
   ros::WallTime n1 = ros::WallTime::now();
-  const std::map<std::string, std::vector<std::string> >& pgl = monitor_->getRobotModels()->getPlanningGroupLinks();
+  const std::map<std::string, std::vector<std::string> >& pgl = cmodel_->getPlanningGroupLinks();
 
   link_names = pgl.find(group_name)->second;
   if(link_names.size() == 0) {
@@ -936,7 +862,9 @@ bool CollisionProximitySpace::getIntraGroupProximityGradients(std::vector<double
   for(unsigned int i = 0; i < tot; i++) {
     for(unsigned int j = i; j < tot; j++) {
       if(i == j) continue;
-      if(!current_intra_group_collision_links_[i][j]) continue;
+      if(!current_intra_group_collision_links_[i][j]) {
+        continue;
+      }
       const std::vector<CollisionSphere>* lcs1;
       const std::vector<CollisionSphere>* lcs2; 
       if(i < num_links) {
@@ -961,7 +889,6 @@ bool CollisionProximitySpace::getIntraGroupProximityGradients(std::vector<double
           count++;
           if(dist < closest_distances[i][k]) {
             closest_distances[i][k] = dist;
-            //ROS_INFO_STREAM("Setting dist for " << name1 << " sphere " << k << " to " << dist << " closest " << name2 << " sphere " << l);
             closest_gradients[i][k] = (*lcs1)[k].center_-(*lcs2)[l].center_;
           }
           if(dist < link_closest_distances[i]) {
@@ -1070,7 +997,7 @@ void CollisionProximitySpace::visualizeProximityGradients(const std::vector<std:
     }
     for(unsigned int j = 0; j < closest_gradients[i].size(); j++) {
       visualization_msgs::Marker arrow_mark;
-      arrow_mark.header.frame_id = monitor_->getRobotFrameId();
+      arrow_mark.header.frame_id = cmodel_->getRobotFrameId();
       arrow_mark.header.stamp = ros::Time::now();
       arrow_mark.ns = "self_coll_gradients";
       arrow_mark.id = i*1000+j;
@@ -1116,7 +1043,7 @@ void CollisionProximitySpace::visualizeDistanceField() const
 {
   btTransform ident;
   ident.setIdentity();
-  distance_field_->visualize(0.0, 0.0, monitor_->getRobotFrameId(), ident, ros::Time::now());
+  distance_field_->visualize(0.0, 0.0, cmodel_->getRobotFrameId(), ident, ros::Time::now());
 }
 
 /*
@@ -1215,7 +1142,7 @@ void CollisionProximitySpace::visualizeCollisions(const std::vector<std::string>
   for(unsigned int i = 0; i < link_names.size(); i++) {
     std::string name = link_names[i];
     //if(collisions[i] != NONE) {
-      boost::shared_ptr<const urdf::Link> urdf_link = monitor_->getRobotModels()->getParsedDescription()->getLink(name);
+      boost::shared_ptr<const urdf::Link> urdf_link = cmodel_->getParsedDescription()->getLink(name);
       if(urdf_link == NULL) {
         ROS_INFO_STREAM("No entry in urdf for link " << name);
         continue;
@@ -1232,7 +1159,7 @@ void CollisionProximitySpace::visualizeCollisions(const std::vector<std::string>
       if(mesh) {
         if (!mesh->filename.empty()) {
           visualization_msgs::Marker mark;
-          mark.header.frame_id = monitor_->getRobotFrameId();
+          mark.header.frame_id = cmodel_->getRobotFrameId();
           mark.header.stamp = ros::Time::now();
           mark.ns = "proximity_collisions";
           mark.id = i;
@@ -1270,7 +1197,7 @@ void CollisionProximitySpace::visualizeCollisions(const std::vector<std::string>
     for(unsigned int j = 0; j < bdv->getSize(); j++) {
       const BodyDecomposition* bd = bdv->getBodyDecomposition(j);
       visualization_msgs::Marker mark;
-      mark.header.frame_id = monitor_->getRobotFrameId();
+      mark.header.frame_id = cmodel_->getRobotFrameId();
       mark.header.stamp = ros::Time::now();
       mark.ns = "proximity_collisions";
       mark.id = i+link_names.size();      
@@ -1306,7 +1233,7 @@ void CollisionProximitySpace::visualizeCollisions(const std::vector<std::string>
 void CollisionProximitySpace::visualizeObjectVoxels(const std::vector<std::string>& object_names) const
 {
   visualization_msgs::Marker cube_list;
-  cube_list.header.frame_id = monitor_->getRobotFrameId();
+  cube_list.header.frame_id = cmodel_->getRobotFrameId();
   cube_list.header.stamp = ros::Time::now();
   cube_list.type = cube_list.CUBE_LIST;
   cube_list.ns = "body_voxels";
@@ -1368,7 +1295,7 @@ void CollisionProximitySpace::visualizeObjectSpheres(const std::vector<std::stri
     // sphere_list.scale.z = sphere_list.scale.x;
     for(unsigned int i = 0; i < coll_spheres->size(); i++) {
       visualization_msgs::Marker sphere;
-      sphere.header.frame_id = monitor_->getRobotFrameId();
+      sphere.header.frame_id = cmodel_->getRobotFrameId();
       sphere.header.stamp = ros::Time::now();
       sphere.type = sphere.SPHERE;
       sphere.ns = "body_spheres";
@@ -1404,7 +1331,7 @@ void CollisionProximitySpace::visualizePaddedTrimeshes(const planning_models::Ki
     if (mesh->vertexCount > 0 && mesh->triangleCount > 0)
     {	
       visualization_msgs::Marker mesh_mark;
-      mesh_mark.header.frame_id = monitor_->getRobotFrameId();
+      mesh_mark.header.frame_id = cmodel_->getRobotFrameId();
       mesh_mark.header.stamp = ros::Time::now();
       mesh_mark.ns = link_names[i]+"_trimesh";
       mesh_mark.id = count++;
@@ -1415,9 +1342,9 @@ void CollisionProximitySpace::visualizePaddedTrimeshes(const planning_models::Ki
       mesh_mark.color.b = 1.0;
       mesh_mark.color.a = 1.0;
       double padding = 0.0;
-      if(monitor_->getCollisionModels()->getDefaultLinkPaddingMap().find(link_names[i]) !=
-         monitor_->getCollisionModels()->getDefaultLinkPaddingMap().end()) {
-        padding = monitor_->getCollisionModels()->getDefaultLinkPaddingMap().find(link_names[i])->second;
+      if(cmodel_->getDefaultLinkPaddingMap().find(link_names[i]) !=
+         cmodel_->getDefaultLinkPaddingMap().end()) {
+        padding = cmodel_->getDefaultLinkPaddingMap().find(link_names[i])->second;
       }
       double *vertices = new double[mesh->vertexCount* 3];
       double sx = 0.0, sy = 0.0, sz = 0.0;
@@ -1522,7 +1449,7 @@ void CollisionProximitySpace::visualizeConvexMeshes(const std::vector<std::strin
       //   const bodies::ConvexMesh* mesh = dynamic_cast<const bodies::ConvexMesh*>(bsd->getBodies()[j]);
       //   if(!mesh) continue;
       visualization_msgs::Marker mesh_mark;
-      mesh_mark.header.frame_id = monitor_->getRobotFrameId();
+      mesh_mark.header.frame_id = cmodel_->getRobotFrameId();
       mesh_mark.header.stamp = ros::Time::now();
       mesh_mark.ns = link_names[i]+"_convex";
       mesh_mark.id = count++;
@@ -1590,7 +1517,7 @@ void CollisionProximitySpace::visualizeBoundingCylinders(const std::vector<std::
   visualization_msgs::MarkerArray arr;
   for(unsigned int i = 0; i < object_names.size(); i++) {
     visualization_msgs::Marker mark;
-    mark.header.frame_id = monitor_->getRobotFrameId();
+    mark.header.frame_id = cmodel_->getRobotFrameId();
     mark.header.stamp = ros::Time::now();
     mark.type = mark.CYLINDER;
     mark.ns = "body_cylinders";

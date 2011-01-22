@@ -46,7 +46,7 @@
 
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
-#include <planning_environment/monitors/collision_space_monitor.h>
+#include <planning_environment/models/collision_models.h>
 
 #include <collision_proximity/collision_proximity_types.h>
 
@@ -60,13 +60,20 @@ class CollisionProximitySpace
 
 public:
 
-  CollisionProximitySpace(planning_environment::CollisionSpaceMonitor* monitor);
+  CollisionProximitySpace(const std::string& robot_description_name);
   ~CollisionProximitySpace();
 
   //this function sets up the collision proximity space for making a series of 
   //proximity collision or gradient queries for the indicated group
-  void setupForGroupQueries(const std::string& group_name,
-                            const motion_planning_msgs::RobotState& state);
+  planning_models::KinematicState* 
+  setupForGroupQueries(const std::string& group_name,
+                       const motion_planning_msgs::RobotState& rob_state,
+                       const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
+                       const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
+                       const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
+                       const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
+                       const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
+                       const mapping_msgs::CollisionMap& unmasked_collision_map);
 
   //returns the updating objects lock and destroys the current kinematic state
   void revertAfterGroupQueries();
@@ -162,6 +169,7 @@ private:
                                         bool subtract_radii = false) const;
 
   bool getGroupLinkAndAttachedBodyNames(const std::string& group_name,
+                                        const planning_models::KinematicState& state,
                                         std::vector<std::string>& link_names,
                                         std::vector<unsigned int>& link_indices,
                                         std::vector<std::string>& attached_body_names,
@@ -181,8 +189,7 @@ private:
 
   btTransform getInverseWorldTransform(const planning_models::KinematicState& state) const;
 
-  void staticObjectUpdateEvent(const mapping_msgs::CollisionObjectConstPtr &collisionObject);
-  void attachedObjectUpdateEvent(const mapping_msgs::AttachedCollisionObjectConstPtr &attachedObject);
+  void syncObjectsWithCollisionSpace(const planning_models::KinematicState& state);
 
   //configuration convenience functions
   void loadRobotBodyDecompositions();
@@ -192,7 +199,7 @@ private:
 
   distance_field::PropagationDistanceField* distance_field_;
 
-  planning_environment::CollisionSpaceMonitor* monitor_;
+  planning_environment::CollisionModels* cmodel_;
 
   ros::NodeHandle root_handle_, priv_handle_;
 

@@ -204,6 +204,19 @@ public:
     }
   }
 
+  void updateSpheresPose(unsigned int ind, const btTransform& pose) {
+    if(ind < decomp_vector_.size()) {
+      decomp_vector_[ind]->updateSpheresPose(pose);
+    } else {
+      ROS_WARN("Can't update pose");
+      return;
+    }
+    const std::vector<CollisionSphere>& spheres = decomp_vector_[ind]->getCollisionSpheres();
+    for(unsigned j = 0; j < spheres.size(); j++) {
+      collision_spheres_[sphere_index_map_[ind]+j] = spheres[j];
+    }
+  }
+
 private:
   std::map<unsigned int, unsigned int> sphere_index_map_;
   std::map<unsigned int, unsigned int> point_index_map_;

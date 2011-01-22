@@ -38,6 +38,12 @@
 #include <tf/transform_listener.h>
 #include <planning_environment/monitors/planning_monitor.h>
 #include <collision_proximity/collision_proximity_space.h>
+#include <planning_environment_msgs/GetPlanningScene.h>
+#include <planning_environment_msgs/GetRobotState.h>
+#include <planning_environment/models/model_utils.h>
+
+static const std::string planning_scene_name = "/environment_server/get_planning_scene";      
+static const std::string robot_state_name = "/environment_server/get_robot_state";      
 
 int main(int argc, char** argv)
 {
@@ -45,84 +51,86 @@ int main(int argc, char** argv)
  
   ros::NodeHandle nh;
   
-  tf::TransformListener tf;
-
   std::string robot_description_name = nh.resolveName("robot_description", true);
-  
-  // monitor robot
-  planning_environment::CollisionModels* collision_models = new planning_environment::CollisionModels(robot_description_name);
-  planning_environment::PlanningMonitor* planning_monitor = new planning_environment::PlanningMonitor(collision_models, &tf);
-  planning_monitor->setUseCollisionMap(true);
-  if (!collision_models->loadedModels())
-    return false;
-  planning_monitor->startEnvironmentMonitor();
 
   ros::WallTime n1 = ros::WallTime::now();
-  collision_proximity::CollisionProximitySpace* cps = new collision_proximity::CollisionProximitySpace(planning_monitor);
+  collision_proximity::CollisionProximitySpace* cps = new collision_proximity::CollisionProximitySpace(robot_description_name);
   ros::WallTime n2 = ros::WallTime::now();
 
   ROS_INFO_STREAM("Creation took " << (n2-n1).toSec());
+
+  ros::ServiceClient planning_scene_client = nh.serviceClient<planning_environment_msgs::GetPlanningScene>(planning_scene_name, true);      
+  ros::service::waitForService(planning_scene_name);
+
+  ros::ServiceClient robot_state_service = nh.serviceClient<planning_environment_msgs::GetRobotState>(robot_state_name, true);      
+  ros::service::waitForService(robot_state_name);
+
+  planning_environment_msgs::GetRobotState::Request rob_state_req;
+  planning_environment_msgs::GetRobotState::Response rob_state_res;
+
+  planning_environment_msgs::GetPlanningScene::Request req;
+  planning_environment_msgs::GetPlanningScene::Response res;
+
+  n1 = ros::WallTime::now();
+  planning_scene_client.call(req,res);
+  n2 = ros::WallTime::now();
+
+  ROS_INFO_STREAM("Service call took " << (n2-n1).toSec());
+  
+  n1 = ros::WallTime::now();
+  planning_models::KinematicState* state = cps->setupForGroupQueries("right_arm",
+                                                                     res.complete_robot_state,
+                                                                     res.allowed_collision_matrix,
+                                                                     res.transformed_allowed_contacts,
+                                                                     res.all_link_padding,
+                                                                     res.all_collision_objects,
+                                                                     res.all_attached_collision_objects,
+                                                                     res.unmasked_collision_map);
+  n2 = ros::WallTime::now();
+  
+  ROS_INFO_STREAM("Setup took "  << (n2-n1).toSec());
 
   ros::Rate r(10.0);
   
   unsigned int count_max = 50;
   unsigned int count = 0;
 
-  while(nh.ok()) {
-    if(count%count_max == 0) {
-      
-      motion_planning_msgs::RobotState rob_state;
-      n1 = ros::WallTime::now();
-      if(count != 0) {
-        cps->revertAfterGroupQueries();
-      }
-      cps->setupForGroupQueries("right_arm", rob_state);
-      n2 = ros::WallTime::now();
-      ROS_INFO_STREAM("Distance field preparation took " << (n2-n1).toSec());
-      cps->visualizeDistanceField();
-    }
-    count++;
-    //collision_proximity::CollisionProximitySpace::ProximityInfo prox;
-    //cps->getEnvironmentProximity(pubs, state, prox);
-    //n2 = ros::WallTime::now();
-    //ROS_INFO_STREAM("Proximity query took " << (n2-n1).toSec()/1000.0);
-    //ROS_INFO_STREAM("Distance is " << prox.proximity);
+  std::vector<double> link_distances;
+  std::vector<std::vector<double> > distances;
+  std::vector<std::vector<btVector3> > gradients;
+  std::vector<std::string> link_names;
+  std::vector<std::string> attached_body_names;
+  std::vector<collision_proximity::CollisionType> collisions;
 
-    //n1 = ros::WallTime::now();
-    //bool coll = cps->getEnvironmentCollision(pubs);
-    //n2 = ros::WallTime::now();
-    //ROS_INFO_STREAM("Collision check took " << (n2-n1).toSec());
-    std::vector<double> link_distances;
-    std::vector<std::vector<double> > distances;
-    std::vector<std::vector<btVector3> > gradients;
-    std::vector<std::string> link_names;
-    std::vector<std::string> attached_body_names;
-    std::vector<collision_proximity::CollisionType> collisions;
-    {
-      planning_models::KinematicState cur_state(planning_monitor->getKinematicModel());
-      planning_monitor->setStateValuesFromCurrentValues(cur_state);
-      cps->setCurrentGroupState(cur_state);
-      bool in_collision; 
-      cps->getStateCollisions(link_names, attached_body_names, in_collision, collisions);
-      cps->visualizeCollisions(link_names, attached_body_names, collisions);
-      cps->getStateGradients(link_names, attached_body_names, link_distances, distances, gradients);
-      cps->visualizeProximityGradients(link_names, attached_body_names, link_distances, distances, gradients);
-      std::vector<std::string> objs = link_names;
-      objs.insert(objs.end(), attached_body_names.begin(), attached_body_names.end());
-      cps->visualizeObjectSpheres(objs);
-      std::vector<std::string> all_links = collision_models->getGroupLinkUnion();
-      //cps->visualizeObjectVoxels(all_links);
-      //cps->visualizeConvexMeshes(link_names);
-      cps->visualizePaddedTrimeshes(cur_state, link_names);
-    }      
+  cps->visualizeDistanceField();
+  
+  while(nh.ok()) {
+    
+    n1 = ros::WallTime::now();
+    robot_state_service.call(rob_state_req,rob_state_res);
+    n2 = ros::WallTime::now();
+    //ROS_INFO_STREAM("Get state req took " << (n2-n1).toSec());
+
+    planning_environment::setRobotStateAndComputeTransforms(rob_state_res.robot_state, *state);
+
+    cps->setCurrentGroupState(*state);
+    bool in_collision; 
+    cps->getStateCollisions(link_names, attached_body_names, in_collision, collisions);
+    cps->visualizeCollisions(link_names, attached_body_names, collisions);
+    cps->getStateGradients(link_names, attached_body_names, link_distances, distances, gradients);
+    cps->visualizeProximityGradients(link_names, attached_body_names, link_distances, distances, gradients);
+    std::vector<std::string> objs = link_names;
+    objs.insert(objs.end(), attached_body_names.begin(), attached_body_names.end());
+    cps->visualizeObjectSpheres(objs);
+    //std::vector<std::string> all_links = cps->->getGroupLinkUnion();
+    //cps->visualizeObjectVoxels(all_links);
+    //cps->visualizeConvexMeshes(link_names);
+    //cps->visualizePaddedTrimeshes(cur_state, link_names);
     ros::spinOnce();
     r.sleep();
   }
 
   ros::shutdown();
-
-  delete collision_models;
-  delete planning_monitor;
   delete cps;
 
 }
