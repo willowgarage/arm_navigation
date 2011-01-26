@@ -4,13 +4,11 @@
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/motion_planners</url>
-  <depend stack="collision_environment" /> <!-- collision_space, distance_field -->
   <depend stack="common" /> <!-- filters, pluginlib -->
   <depend stack="common_msgs" /> <!-- geometry_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
   <depend stack="geometry" /> <!-- tf, kdl, eigen, angles -->
   <depend stack="kinematics" /> <!-- kinematics_base, kinematics_msgs -->
-  <depend stack="motion_planning_common" /> <!-- planning_models, mapping_msgs, motion_planning_msgs, geometric_shapes -->
-  <depend stack="motion_planning_environment" /> <!-- planning_environment, planning_environment_msgs -->
+  <depend stack="motion_planning_common" /> <!-- planning_models, planning_environment, motion_planning_msgs, distance_field, planning_environment_msgs, collision_space, mapping_msgs, geometric_shapes -->
   <depend stack="robot_model" /> <!-- kdl_parser -->
   <depend stack="ros" /> <!-- roslib -->
   <depend stack="ros_comm" /> <!-- rosconsole, rospy, roscpp -->
