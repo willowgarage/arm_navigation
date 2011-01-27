@@ -843,7 +843,7 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
 }
 }
 
-bool collision_space::EnvironmentModelODE::getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count)
+bool collision_space::EnvironmentModelODE::getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count) const
 {
   contacts.clear();
   CollisionData cdata;

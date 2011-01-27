@@ -183,8 +183,8 @@ public:
   virtual bool isSelfCollision(void) const = 0;
 	
   /** \brief Get the list of contacts (collisions). The maximum number of contacts to be returned can be specified. If the value is 0, all found contacts are returned. */
-  virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) = 0;
-  bool getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count = 1);
+  virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) const = 0;
+  bool getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count = 1) const;
 	
   /**********************************************************************/
   /* Collision Bodies                                                   */

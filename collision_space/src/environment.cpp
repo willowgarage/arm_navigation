@@ -37,7 +37,7 @@
 #include "collision_space/environment.h"
 #include <ros/console.h>
 
-bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count)
+bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count) const
 {
   std::vector<AllowedContact> allowed;
   return getCollisionContacts(allowed, contacts, max_count);
