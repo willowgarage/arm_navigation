@@ -32,7 +32,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/** \author Ioan Sucan */
+/** \author Ioan Sucan, E. Gil Jones */
 
 #ifndef PLANNING_ENVIRONMENT_MONITORS_PLANNING_MONITOR_
 #define PLANNING_ENVIRONMENT_MONITORS_PLANNING_MONITOR_
@@ -46,7 +46,7 @@
 
 namespace planning_environment
 {
-/** \breif @b PlanningMonitor is a class which in addition to being aware
+/** \brief @b PlanningMonitor is a class which in addition to being aware
     of a robot model, and the collision model is also aware of
     constraints and can check the validity of states and paths.
 */    
@@ -264,7 +264,34 @@ protected:
 
   /** \brief Load ROS parameters */
   void loadParams(void);
- 
+
+  void convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
+                                                     mapping_msgs::AttachedCollisionObject& att_obj) const;
+  
+  void convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
+                                             mapping_msgs::CollisionObject& obj) const;
+  
+  void convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
+                                                motion_planning_msgs::Constraints& constraints) const;
+  
+  geometry_msgs::PoseStamped 
+  convertPoseGivenWorldTransform(const planning_models::KinematicState& state,
+                                 const std::string& des_frame_id,
+                                 const std_msgs::Header& header,
+                                 const geometry_msgs::Pose& pose) const;
+
+  geometry_msgs::PointStamped 
+  convertPointGivenWorldTransform(const planning_models::KinematicState& state,
+                                  const std::string& des_frame_id,
+                                  const std_msgs::Header& header,
+                                  const geometry_msgs::Point& point) const;
+  
+  geometry_msgs::QuaternionStamped 
+  convertQuaternionGivenWorldTransform(const planning_models::KinematicState& state,
+                                       const std::string& des_frame_id,
+                                       const std_msgs::Header& header,
+                                       const geometry_msgs::Quaternion& quat) const;
+  
   // /** \brief Transform the joint parameters (if needed) to a target frame */
   // bool transformJoint(const std::string &name, 
   //                     unsigned int index, 

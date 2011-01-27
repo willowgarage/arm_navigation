@@ -45,13 +45,13 @@ TEST(Loading, Simple)
 {
     planning_environment::RobotModels m("robot_description");
 
-    EXPECT_TRUE(m.getKinematicModel().get() != NULL);
+    EXPECT_TRUE(m.getKinematicModel() != NULL);
 
     //now we test that the root transform has all the expected values
-    boost::shared_ptr<planning_models::KinematicModel> kmodel = m.getKinematicModel();
+    const planning_models::KinematicModel* kmodel = m.getKinematicModel();
 
     const planning_models::KinematicModel::JointModel* j = kmodel->getRoot();
-
+    
     //check if it's the right type - this means that yaml parsing also works
     const planning_models::KinematicModel::FloatingJointModel* pj = dynamic_cast<const planning_models::KinematicModel::FloatingJointModel*>(j);
     EXPECT_TRUE(pj != NULL);
@@ -60,7 +60,7 @@ TEST(Loading, Simple)
 TEST(SetGetOperations, Simple)
 {
   planning_environment::RobotModels m("robot_description");
-  boost::shared_ptr<planning_models::KinematicModel> kmodel = m.getKinematicModel();
+  const planning_models::KinematicModel* kmodel = m.getKinematicModel();
 
   planning_models::KinematicState state(kmodel);
 
@@ -130,7 +130,7 @@ TEST(SetGetBounds,Simple)
 TEST(ForwardKinematics, RuntimeArm)
 {
   planning_environment::RobotModels m("robot_description");
-  boost::shared_ptr<planning_models::KinematicModel> kmodel = m.getKinematicModel();
+  const planning_models::KinematicModel* kmodel = m.getKinematicModel();
   
   planning_models::KinematicState state(kmodel);
   
