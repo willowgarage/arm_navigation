@@ -71,6 +71,51 @@ int main(int argc, char** argv)
   planning_environment_msgs::GetPlanningScene::Request req;
   planning_environment_msgs::GetPlanningScene::Response res;
 
+  mapping_msgs::CollisionObject obj1;
+  obj1.header.stamp = ros::Time::now();
+  obj1.header.frame_id = "odom_combined";
+  obj1.id = "obj1";
+  obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  obj1.shapes.resize(1);
+  obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  obj1.shapes[0].dimensions.resize(3);
+  obj1.shapes[0].dimensions[0] = .1;
+  obj1.shapes[0].dimensions[1] = .1;
+  obj1.shapes[0].dimensions[2] = .75;
+  obj1.poses.resize(1);
+  obj1.poses[0].position.x = .6;
+  obj1.poses[0].position.y = -.6;
+  obj1.poses[0].position.z = .375;
+  obj1.poses[0].orientation.w = 1.0;
+
+  mapping_msgs::AttachedCollisionObject att_obj;
+  att_obj.object = obj1;
+  att_obj.object.header.stamp = ros::Time::now();
+  att_obj.object.header.frame_id = "r_gripper_palm_link";
+  att_obj.link_name = "r_gripper_palm_link";
+  att_obj.touch_links.push_back("r_gripper_palm_link");
+  att_obj.touch_links.push_back("r_gripper_r_finger_link");
+  att_obj.touch_links.push_back("r_gripper_l_finger_link");
+  att_obj.touch_links.push_back("r_gripper_r_finger_tip_link");
+  att_obj.touch_links.push_back("r_gripper_l_finger_tip_link");
+  att_obj.touch_links.push_back("r_wrist_roll_link");
+  att_obj.touch_links.push_back("r_wrist_flex_link");
+  att_obj.touch_links.push_back("r_forearm_link");
+  att_obj.touch_links.push_back("r_gripper_motor_accelerometer_link");
+  att_obj.object.id = "obj2";
+  att_obj.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  att_obj.object.shapes[0].dimensions.resize(2);
+  att_obj.object.shapes[0].dimensions[0] = .025;
+  att_obj.object.shapes[0].dimensions[1] = .5;
+  att_obj.object.poses.resize(1);
+  att_obj.object.poses[0].position.x = .12;
+  att_obj.object.poses[0].position.y = 0.0;
+  att_obj.object.poses[0].position.z = 0.0;
+  att_obj.object.poses[0].orientation.w = 1.0;
+
+  req.collision_object_diffs.push_back(obj1);
+  req.attached_collision_object_diffs.push_back(att_obj);
+
   n1 = ros::WallTime::now();
   planning_scene_client.call(req,res);
   n2 = ros::WallTime::now();
@@ -91,10 +136,6 @@ int main(int argc, char** argv)
   ROS_INFO_STREAM("Setup took "  << (n2-n1).toSec());
 
   ros::Rate r(10.0);
-  
-  unsigned int count_max = 50;
-  unsigned int count = 0;
-
   std::vector<double> link_distances;
   std::vector<std::vector<double> > distances;
   std::vector<std::vector<btVector3> > gradients;

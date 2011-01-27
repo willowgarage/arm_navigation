@@ -36,6 +36,14 @@ default_collision_operations:
     object2: right_arm
     operation: enable
 
+  - object1: r_end_effector
+    object2: r_end_effector
+    operation: disable
+
+  - object1: l_end_effector
+    object2: l_end_effector
+    operation: disable
+
   - object1: l_end_effector
     object2: r_end_effector
     operation: enable

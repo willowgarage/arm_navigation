@@ -134,7 +134,10 @@ public:
 
   void visualizeBoundingCylinders(const std::vector<std::string>& object_names) const;
 
-  
+  planning_environment::CollisionModels* getCollisionModels() const {
+    return cmodel_;
+  }
+
 private:
 
   // returns true if current setup is in environment collision

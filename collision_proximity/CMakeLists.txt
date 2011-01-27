@@ -29,8 +29,8 @@ rosbuild_add_library(collision_proximity src/collision_proximity_types.cpp src/c
 rosbuild_add_executable(collision_proximity_test src/collision_proximity_test.cpp)
 target_link_libraries(collision_proximity_test collision_proximity)
 
-#rosbuild_add_executable(collision_proximity_speed_test src/collision_proximity_speed_test.cpp)
-#target_link_libraries(collision_proximity_speed_test collision_proximity)
+rosbuild_add_executable(collision_proximity_speed_test src/collision_proximity_speed_test.cpp)
+target_link_libraries(collision_proximity_speed_test collision_proximity)
 
 #rosbuild_add_executable(collision_metrics src/collision_metrics.cpp)
 #target_link_libraries(collision_metrics collision_proximity)
