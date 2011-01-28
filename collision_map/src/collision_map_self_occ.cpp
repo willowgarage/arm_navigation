@@ -606,6 +606,15 @@ private:
 
 	    updateBuffer(currentMaps_[topic_name+"_static"], settings.static_buffer_size_, settings.static_buffer_duration_, topic_name+"_static");
 
+            if(settings.dynamic_until_static_publish_) {
+              //now if we are supposed to stop publishing dynamic maps get ride of the dynamic map for this topic
+              std::list<StampedCMap*>& dyn_list = currentMaps_[topic_name+"_dynamic"];
+              for(std::list<StampedCMap*>::iterator it = dyn_list.begin(); it != dyn_list.end(); it++) {
+                delete (*it);
+              }
+              currentMaps_.erase(topic_name+"_dynamic");
+            }
+
             CMap uni;
             composeMapUnion(currentMaps_, uni);
 
@@ -758,6 +767,11 @@ private:
 
     currentMaps_.clear();
     tempMaps_.clear();
+
+    CMap uni;
+    composeMapUnion(currentMaps_, uni);
+
+    publishCollisionMap(uni, robotFrame_, ros::Time::now(), cmapPublisher_);
 
     return true;
   }
