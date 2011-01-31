@@ -90,6 +90,28 @@ public:
     /** \brief The mapping between internally defined DOF names and externally defined DOF names */
     std::map<std::string, std::string> name_equivalents;
   };
+
+  struct GroupConfig
+  {
+    GroupConfig(std::string name, 
+                std::string base_link,
+                std::string tip_link) 
+      : name_(name), base_link_(base_link), tip_link_(tip_link)
+    {
+    }
+
+    GroupConfig(std::string name,
+                std::vector<std::string> joints) 
+      : name_(name)
+    {
+      joints_ = joints;
+    }
+
+    std::string name_;
+    std::string base_link_;
+    std::string tip_link_;
+    std::vector<std::string> joints_;
+  };
   
   /** \brief A joint from the robot. Contains the transform applied by the joint type */
   class JointModel
@@ -434,9 +456,10 @@ public:
     friend class KinematicModel;
   public:
 	    
-    JointModelGroup(
-                    const std::string& groupName, 
-                    const std::vector<const JointModel*> &groupJoints);
+    JointModelGroup(const std::string& name,
+                    const std::vector<const JointModel*>& joint_vector,
+                    const KinematicModel* parent_model);
+    
     ~JointModelGroup(void);
 
     const std::string& getName() const
@@ -460,17 +483,19 @@ public:
       return joint_model_name_vector_;
     }
 
+    const std::vector<const JointModel*>& getJointRoots() const
+    {
+      return joint_roots_;
+    }
+
     const std::vector<const LinkModel*>& getUpdatedLinkModels() const
     {
       return updated_link_model_vector_;
     }
 
-    const std::vector<const JointModel*>& getJointRoots() const
-    {
-      return joint_roots_;
-    }
-    
   private:
+
+    bool is_valid_;
 
     /** \brief Name of group */
     std::string name_;
@@ -497,7 +522,7 @@ public:
 
   /** \brief Construct a kinematic model from a parsed description and a list of planning groups */
   KinematicModel(const urdf::Model &model, 
-                 const std::map< std::string, std::vector<std::string> > &groups, 
+                 const std::vector<GroupConfig>& group_configs,
                  const std::vector<MultiDofConfig>& multi_dof_configs);
 	
   /** \brief Destructor. Clear all memory. */
@@ -517,9 +542,30 @@ public:
   /** \brief Get the link names in the order they should be updated */
   void getLinkModelNames(std::vector<std::string> &links) const;
 
-  /** \brief Get the set of links that follow a parent link in the kinematic chain */
+  /** \brief Get the set of link models that follow a parent link in the kinematic chain */
   void getChildLinkModels(const LinkModel* parent, std::vector<const LinkModel*> &links) const;
+
+  /** \brief Get the set of link models that follow a parent joint in the kinematic chain */
+  void getChildLinkModels(const JointModel* parent, std::vector<const LinkModel*> &links) const;
+
+  /** \brief Get the set of joint models that follow a parent link in the kinematic chain */
+  void getChildJointModels(const LinkModel* parent, std::vector<const JointModel*> &links) const;
+
+  /** \brief Get the set of joint models that follow a parent joint in the kinematic chain */
+  void getChildJointModels(const JointModel* parent, std::vector<const JointModel*> &links) const;
   
+  /** \brief Get the set of link names that follow a parent link in the kinematic chain */
+  std::vector<std::string> getChildLinkModelNames(const LinkModel* parent) const;
+
+  /** \brief Get the set of joint names that follow a parent link in the kinematic chain */
+  std::vector<std::string> getChildJointModelNames(const LinkModel* parent) const;
+
+  /** \brief Get the set of joint names that follow a parent joint in the kinematic chain */
+  std::vector<std::string> getChildJointModelNames(const JointModel* parent) const;
+
+  /** \brief Get the set of link names that follow a parent link in the kinematic chain */
+  std::vector<std::string> getChildLinkModelNames(const JointModel* parent) const;
+
   /** \brief Get a joint by its name */
   const JointModel* getJointModel(const std::string &joint) const;
 
@@ -613,7 +659,7 @@ private:
 	
   std::map<std::string, JointModelGroup*> joint_model_group_map_;
 
-  void buildGroups(const std::map< std::string, std::vector<std::string> > &groups);
+  void buildGroups(const std::vector<GroupConfig>&);
   JointModel* buildRecursive(LinkModel *parent, const urdf::Link *link, 
                              const std::vector<MultiDofConfig>& multi_dof_configs);
   JointModel* constructJointModel(const urdf::Joint *urdfJointModel,  const urdf::Link *child_link,
