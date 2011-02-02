@@ -35,7 +35,6 @@
 /** \author E. Gil Jones */
 
 #include <ros/ros.h>
-#include <tf/transform_listener.h>
 #include <planning_environment/monitors/planning_monitor.h>
 #include <collision_proximity/collision_proximity_space.h>
 #include <planning_environment_msgs/GetPlanningScene.h>
@@ -132,7 +131,6 @@ int main(int argc, char** argv)
                                                                      res.all_attached_collision_objects,
                                                                      res.unmasked_collision_map);
   n2 = ros::WallTime::now();
-  
   ROS_INFO_STREAM("Setup took "  << (n2-n1).toSec());
 
   ros::Rate r(10.0);

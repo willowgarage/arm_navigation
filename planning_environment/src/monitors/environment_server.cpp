@@ -69,7 +69,9 @@ public:
 
     planning_monitor_->waitForState();
     planning_monitor_->startEnvironmentMonitor();
-    planning_monitor_->waitForMap();
+    while(!planning_monitor_->haveMap() && setup_.use_collision_map_){
+      ros::Duration().fromSec(0.05).sleep();
+    }
 
     tf_ = &setup_.tf_;
 

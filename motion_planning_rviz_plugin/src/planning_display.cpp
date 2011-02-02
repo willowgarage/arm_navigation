@@ -348,11 +348,28 @@ void PlanningDisplay::update(float wall_dt, float ros_dt)
 
       if ((size_t) current_state_ < displaying_kinematic_path_message_->trajectory.joint_trajectory.points.size())
       {
-        std::map<std::string, double> vals;
         for(unsigned int i = 0; i < displaying_kinematic_path_message_->trajectory.joint_trajectory.joint_names.size(); i++) {
           joint_state_map[displaying_kinematic_path_message_->trajectory.joint_trajectory.joint_names[i]] = displaying_kinematic_path_message_->trajectory.joint_trajectory.points[current_state_].positions[i];
         }
+
         state.setKinematicState(joint_state_map);
+	bool updKstate = false;	
+	for(unsigned int i = 0; i < displaying_kinematic_path_message_->trajectory.multi_dof_joint_trajectory.joint_names.size(); i++) {
+	    planning_models::KinematicState::JointState* js = state.getJointState(displaying_kinematic_path_message_->trajectory.multi_dof_joint_trajectory.joint_names[i]);
+	    if(!js) continue;
+	    if(displaying_kinematic_path_message_->trajectory.multi_dof_joint_trajectory.frame_ids[i] != js->getParentFrameId() ||
+	       displaying_kinematic_path_message_->trajectory.multi_dof_joint_trajectory.child_frame_ids[i] != js->getChildFrameId()) {
+		ROS_WARN_STREAM("Robot state msg has bad multi_dof transform");
+	    } else {
+		updKstate = true;	
+		tf::StampedTransform transf;
+		tf::poseMsgToTF(displaying_kinematic_path_message_->trajectory.multi_dof_joint_trajectory.points[current_state_].poses[i], transf);
+		js->setJointStateValues(transf);
+	    }
+	}
+	if (updKstate)
+	    state.updateKinematicLinks();
+	
         robot_->update(PlanningLinkUpdater(&state));
         causeRender();
       }
