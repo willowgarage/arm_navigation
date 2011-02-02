@@ -45,32 +45,32 @@ bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact
 
 bool collision_space::EnvironmentModel::getVerbose(void) const
 {
-  return m_verbose;
+  return verbose_;
 }
 
 void collision_space::EnvironmentModel::setVerbose(bool verbose)
 {
-  m_verbose = verbose;
+  verbose_ = verbose;
 }
 
 const collision_space::EnvironmentObjects* collision_space::EnvironmentModel::getObjects(void) const
 {
-  return m_objects;
+  return objects_;
 }
 
 const planning_models::KinematicModel* collision_space::EnvironmentModel::getRobotModel(void) const
 {
-  return m_robotModel;
+  return robot_model_;
 }
 
 double collision_space::EnvironmentModel::getRobotScale(void) const
 {
-  return m_robotScale;
+  return robot_scale_;
 }
 
 double collision_space::EnvironmentModel::getRobotPadding(void) const
 {
-  return m_robotPadd;
+  return default_robot_padding_;
 }
 	
 void collision_space::EnvironmentModel::setRobotModel(const planning_models::KinematicModel* model, 
@@ -79,25 +79,27 @@ void collision_space::EnvironmentModel::setRobotModel(const planning_models::Kin
                                                       double default_padding,
                                                       double scale) 
 {
-  m_robotModel = model;
-  m_collisionLinks = links;
-  m_selfCollisionTest.resize(links.size());
+  robot_model_ = model;
+  collision_links_ = links;
+  self_collision_test_.resize(links.size());
+  //default is that no collisions are allowed
   for (unsigned int i = 0 ; i < links.size() ; ++i)
   {
-    m_selfCollisionTest[i].resize(links.size(), true);
-    m_collisionLinkIndex[links[i]] = i;
+    self_collision_test_[i].resize(links.size(), false);
+    collision_link_index_[links[i]] = i;
   }
-  m_robotScale = scale;
-  m_robotPadd = default_padding;
+  robot_scale_ = scale;
+  default_robot_padding_ = default_padding;
 }
 
-void collision_space::EnvironmentModel::addSelfCollisionGroup(const std::vector<std::string>& group1,
-                                                              const std::vector<std::string>& group2) 
+void collision_space::EnvironmentModel::setAllCollisionPairs(const std::vector<std::string>& group1,
+                                                             const std::vector<std::string>& group2,
+                                                             bool disable) 
 {
   for(std::vector<std::string>::const_iterator stit1 = group1.begin();
       stit1 != group1.end();
       stit1++) {
-    if (m_collisionLinkIndex.find(*stit1) == m_collisionLinkIndex.end())
+    if (collision_link_index_.find(*stit1) == collision_link_index_.end())
     {
       //ROS_WARN("Unknown link '%s'", (*stit1).c_str());
       continue;
@@ -105,60 +107,35 @@ void collision_space::EnvironmentModel::addSelfCollisionGroup(const std::vector<
     for(std::vector<std::string>::const_iterator stit2 = group2.begin();
         stit2 != group2.end();
         stit2++) {
-      if (m_collisionLinkIndex.find(*stit2) == m_collisionLinkIndex.end())
+      if (collision_link_index_.find(*stit2) == collision_link_index_.end())
       {
         //ROS_WARN("Unknown link '%s'", (*stit2).c_str());
         continue;
       }
-      m_selfCollisionTest[m_collisionLinkIndex[*stit1]][m_collisionLinkIndex[*stit2]] = false;
-      m_selfCollisionTest[m_collisionLinkIndex[*stit2]][m_collisionLinkIndex[*stit1]] = false;
-    }
-  }
-}
-
-void collision_space::EnvironmentModel::removeSelfCollisionGroup(const std::vector<std::string>& group1,
-                                                                 const std::vector<std::string>& group2) 
-{
-  for(std::vector<std::string>::const_iterator stit1 = group1.begin();
-      stit1 != group1.end();
-      stit1++) {
-    if (m_collisionLinkIndex.find(*stit1) == m_collisionLinkIndex.end())
-    {
-      //ROS_WARN("Unknown link '%s'", (*stit1).c_str());
-      continue;
-    }
-    for(std::vector<std::string>::const_iterator stit2 = group2.begin();
-        stit2 != group2.end();
-        stit2++) {
-      if (m_collisionLinkIndex.find(*stit2) == m_collisionLinkIndex.end())
-      {
-        //ROS_WARN("Unknown link '%s'", (*stit2).c_str());
-        continue;
-      }
-      m_selfCollisionTest[m_collisionLinkIndex[*stit1]][m_collisionLinkIndex[*stit2]] = true;
-      m_selfCollisionTest[m_collisionLinkIndex[*stit2]][m_collisionLinkIndex[*stit1]] = true;
+      self_collision_test_[collision_link_index_[*stit1]][collision_link_index_[*stit2]] = disable;
+      self_collision_test_[collision_link_index_[*stit2]][collision_link_index_[*stit1]] = disable;
     }
   }
 }
 
 void collision_space::EnvironmentModel::lock(void)
 {
-  m_lock.lock();
+  lock_.lock();
 }
 
 void collision_space::EnvironmentModel::unlock(void)
 {
-  m_lock.unlock();
+  lock_.unlock();
 }
 
-void collision_space::EnvironmentModel::setSelfCollision(bool selfCollision)
+void collision_space::EnvironmentModel::setCheckSelfCollision(bool check_self_collision)
 {
-  m_selfCollision = selfCollision;
+  check_self_collision = check_self_collision;
 }
 
-bool collision_space::EnvironmentModel::getSelfCollision(void) const
+bool collision_space::EnvironmentModel::getCheckSelfCollision(void) const
 {
-  return m_selfCollision;
+  return check_self_collision_;
 }
 
 void collision_space::EnvironmentModel::setAllowedCollisionMatrix(const std::vector<std::vector<bool> > &matrix,
@@ -185,23 +162,34 @@ void collision_space::EnvironmentModel::getCurrentAllowedCollisionMatrix(std::ve
 }
 
 void collision_space::EnvironmentModel::setRobotLinkPadding(const std::map<std::string, double>& new_link_padding) {
+  current_link_padding_map_ = default_link_padding_map_;
   for(std::map<std::string, double>::const_iterator it = new_link_padding.begin();
       it != new_link_padding.end();
       it++) {
-    altered_link_padding_[it->first] = it->second;
+    if(current_link_padding_map_.find(it->first) == current_link_padding_map_.end()) {
+      //don't have this currently
+      continue;
+    }
+    //only putting in altered padding if it's different
+    if(current_link_padding_map_.find(it->first)->second != it->second) {
+      altered_link_padding_map_[it->first] = it->second;
+      current_link_padding_map_[it->first] = it->second;
+    }
   }
 }
 
 void collision_space::EnvironmentModel::revertRobotLinkPadding() {
-  altered_link_padding_.clear();
+  altered_link_padding_map_.clear();
+  current_link_padding_map_ = default_link_padding_map_;
+}
+
+const std::map<std::string, double>& collision_space::EnvironmentModel::getCurrentLinkPaddingMap() const {
+  return current_link_padding_map_;
 }
 
 double collision_space::EnvironmentModel::getCurrentLinkPadding(std::string name) const {
-  if(altered_link_padding_.find(name) != altered_link_padding_.end()) {
-    return altered_link_padding_.find(name)->second;
-  }
-  if(link_padding_map_.find(name) != link_padding_map_.end()) {
-    return link_padding_map_.find(name)->second;
+  if(current_link_padding_map_.find(name) != current_link_padding_map_.end()) {
+    return current_link_padding_map_.find(name)->second;
   }
   return 0.0;
 }

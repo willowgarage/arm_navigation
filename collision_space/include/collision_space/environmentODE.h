@@ -56,15 +56,15 @@ public:
   virtual ~EnvironmentModelODE(void);
 
   /** \brief Add a group of links to be checked for self collision */
-  virtual void addSelfCollisionGroup(const std::vector<std::string> &group1,
-                                     const std::vector<std::string> &group2);
-
-  /** \brief Remove a group of links to be checked for self collision */
-  virtual void removeSelfCollisionGroup(const std::vector<std::string> &group1,
-                                        const std::vector<std::string> &group2);
+  virtual void setAllCollisionPairs(const std::vector<std::string> &group1,
+                                    const std::vector<std::string> &group2,
+                                    bool disable);
 
   /** \brief Get the list of contacts (collisions) */
   virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) const;
+
+  /** \brief This function will get the complete list of contacts between any two potentially colliding bodies.  The num per contacts specifies the number of contacts per pair that will be returned */
+  virtual bool getAllCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int num_per_contact = 1) const;
 
   /** \brief Check if a model is in collision */
   virtual bool isCollision(void) const;
@@ -97,6 +97,8 @@ public:
 
   virtual const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> getAttachedBodies(const std::string link_name) const;
 	
+  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const;
+
   /** \brief Add a robot model. Ignore robot links if their name is not
       specified in the string vector. The scale argument can be
       used to increase or decrease the size of the robot's
@@ -143,6 +145,10 @@ public:
 
   void updateAllowedTouch(void);
   
+  virtual void setAttachedBodiesLinkPadding();
+
+  virtual void revertAttachedBodiesLinkPadding();
+
   virtual void getDefaultAllowedCollisionMatrix(std::vector<std::vector<bool> > &matrix,
                                                 std::map<std::string, unsigned int> &ind) const;
   
@@ -161,7 +167,7 @@ protected:
 	    
     ODECollide2(dSpaceID space = NULL)
     {	
-      m_setup = false;
+      setup_ = false;
       if (space)
         registerSpace(space);
     }
@@ -248,10 +254,10 @@ protected:
       }
     };
 	    
-    bool               m_setup;
-    std::vector<Geom*> m_geomsX;
-    std::vector<Geom*> m_geomsY;
-    std::vector<Geom*> m_geomsZ;
+    bool setup_;
+    std::vector<Geom*> geoms_x;
+    std::vector<Geom*> geoms_y;
+    std::vector<Geom*> geoms_z;
 	    
     void checkColl(std::vector<Geom*>::const_iterator posStart, std::vector<Geom*>::const_iterator posEnd,
                    Geom *g, void *data, dNearCallback *nearCallback) const;
@@ -259,12 +265,13 @@ protected:
 
   struct kGeom
   {
-    std::vector<dGeomID>                   geom;
-    std::map<dGeomID, unsigned int> geomAttachedBodyMap;
-    std::vector< std::vector<bool> >       allowedTouch;
-    bool                                   enabled;
+    std::vector<dGeomID> geom;
+    std::vector<dGeomID> padded_geom;
+    std::map<dGeomID, unsigned int> geom_attached_body_map;
+    std::vector< std::vector<bool> > allowed_touch;
+    bool enabled;
     const planning_models::KinematicModel::LinkModel *link;
-    unsigned int                           index;
+    unsigned int index;
   };
 
   /** \brief Structure for maintaining ODE temporary data */
@@ -272,11 +279,11 @@ protected:
   {	
     struct Element
     {
-      double         *vertices;
-      dTriIndex      *indices;
-      dTriMeshDataID  data;
-      int             nIndices;
-      int             nVertices;
+      double *vertices;
+      dTriIndex *indices;
+      dTriMeshDataID data;
+      int n_indices;
+      int n_vertices;
     };
 	    
     ~ODEStorage(void)
@@ -301,9 +308,10 @@ protected:
 	
   struct ModelInfo
   {
-    std::vector< kGeom* > linkGeom;
-    dSpaceID              space;
-    ODEStorage            storage;
+    std::vector< kGeom* > link_geom;
+    dSpaceID env_space;
+    dSpaceID self_space;
+    ODEStorage storage;
   };
 	
   struct CollisionNamespace
@@ -329,11 +337,11 @@ protected:
       storage.clear();
     }
 	    
-    std::string          name;
-    dSpaceID             space;
+    std::string name;
+    dSpaceID space;
     std::vector<dGeomID> geoms;
-    ODECollide2          collide2;
-    ODEStorage           storage;
+    ODECollide2 collide2;
+    ODEStorage storage;
   };
     
   struct CollisionData
@@ -344,28 +352,33 @@ protected:
       collides = false;
       max_contacts = 0;
       contacts = NULL;
-      selfCollisionTest = NULL;
+      self_collision_test = NULL;
       link1 = link2 = NULL;
       allowed = NULL;
+      exhaustive = false;
     }
 	    
-    bool                                       done;
+    bool done;
+    bool exhaustive;
 	    
-    bool                                       collides;
-    unsigned int                               max_contacts;
+    bool collides;
+    unsigned int max_contacts;
     std::vector<EnvironmentModelODE::Contact> *contacts;
-    const std::vector< std::vector<bool> >    *selfCollisionTest;
-    dSpaceID                                   selfSpace;
+    const std::vector< std::vector<bool> > *self_collision_test;
+    dSpaceID space_id;
 	    
-    const std::vector<AllowedContact>         *allowed;
+    const std::vector<AllowedContact> *allowed;
 	    
-    const planning_models::KinematicModel::LinkModel     *link1;
-    const planning_models::KinematicModel::LinkModel     *link2;
+    const planning_models::KinematicModel::LinkModel *link1;
+    const planning_models::KinematicModel::LinkModel *link2;
   };
 	
 	
   /** \brief Internal function for collision detection */
   void testCollision(CollisionData *data) const;
+
+  /** \brief Internal function for getting all collisions */
+  void testAllCollisions(CollisionData *data) const;
 
   /** \brief Internal function for collision detection */
   void testSelfCollision(CollisionData *data) const;
@@ -374,18 +387,18 @@ protected:
   void testBodyCollision(CollisionNamespace *cn, CollisionData *data) const;
 
   dGeomID copyGeom(dSpaceID space, ODEStorage &storage, dGeomID geom, ODEStorage &sourceStorage) const;
-  void    createODERobotModel();	
+  void createODERobotModel();	
   dGeomID createODEGeom(dSpaceID space, ODEStorage &storage, const shapes::Shape *shape, double scale, double padding);
   dGeomID createODEGeom(dSpaceID space, ODEStorage &storage, const shapes::StaticShape *shape);
-  void    updateGeom(dGeomID geom, const btTransform &pose) const;	
-  void    removeCollidingObjects(const dGeomID geom);
+  void updateGeom(dGeomID geom, const btTransform &pose) const;	
+  void removeCollidingObjects(const dGeomID geom);
 
   /** \brief Check if thread-specific routines have been called */
-  void    checkThreadInit(void) const;	
-  void    freeMemory(void);	
+  void checkThreadInit(void) const;	
+  void freeMemory(void);	
 	
-  ModelInfo                                   m_modelGeom;
-  std::map<std::string, CollisionNamespace*>  m_collNs;
+  ModelInfo model_geom_;
+  std::map<std::string, CollisionNamespace*> coll_namespaces_;
   std::vector<bool> stored_collision_check;
 	
 };

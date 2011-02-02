@@ -66,11 +66,11 @@ public:
   struct Contact
   {
     /** \brief contact position */
-    btVector3                              pos;     
+    btVector3 pos;     
     /** \brief normal unit vector at contact */
-    btVector3                              normal;  
+    btVector3 normal;  
     /** \brief depth (penetration between bodies) */
-    double                                 depth;
+    double depth;
     /** \brief first link involved in contact */
     const planning_models::KinematicModel::LinkModel *link1; 
 
@@ -94,24 +94,24 @@ public:
     boost::shared_ptr<bodies::Body> bound;
 	    
     /// the set of link names that are allowed to make contact
-    std::vector<std::string>        links;
+    std::vector<std::string> links;
 
     /// tha maximum depth for the contact
-    double                          depth;
+    double depth;
   };
     
   EnvironmentModel(void)
   {
-    m_selfCollision = true;
-    m_verbose = false;
-    m_objects = new EnvironmentObjects();
+    check_self_collision_ = true;
+    verbose_ = false;
+    objects_ = new EnvironmentObjects();
     use_set_collision_matrix_ = false;
   }
 	
   virtual ~EnvironmentModel(void)
   {
-    if (m_objects)
-      delete m_objects;
+    if (objects_)
+      delete objects_;
   }
 
   /**********************************************************************/
@@ -119,18 +119,15 @@ public:
   /**********************************************************************/
 	
   /** \brief Set the status of self collision */
-  void setSelfCollision(bool selfCollision);
+  void setCheckSelfCollision(bool check_self_collision);
 	
   /** \brief Check if self collision is enabled */
-  bool getSelfCollision(void) const;
+  bool getCheckSelfCollision(void) const;
 			
   /** \brief Enable self-collision between all links in group 1 and all links in group 2 */
-  virtual void addSelfCollisionGroup(const std::vector<std::string> &group1,
-                                     const std::vector<std::string> &group2);
-
-  /** \brief Disable self-collision between all links in group 1 and all links in group 2 */
-  virtual void removeSelfCollisionGroup(const std::vector<std::string> &group1,
-                                        const std::vector<std::string> &group2);
+  virtual void setAllCollisionPairs(const std::vector<std::string> &group1,
+                                    const std::vector<std::string> &group2,
+                                    bool disable);
 
   /** \brief Enable/Disable collision checking for specific links. Return the previous value of the state (1 or 0) if succesful; -1 otherwise */
   virtual int setCollisionCheck(const std::string &link, bool state) = 0;
@@ -184,6 +181,10 @@ public:
 	
   /** \brief Get the list of contacts (collisions). The maximum number of contacts to be returned can be specified. If the value is 0, all found contacts are returned. */
   virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) const = 0;
+
+  /** \brief This function will get the complete list of contacts between any two potentially colliding bodies.  The num per contacts specifies the number of contacts per pair that will be returned */
+  virtual bool getAllCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int num_per_contact = 1) const = 0;
+
   bool getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count = 1) const;
 	
   /**********************************************************************/
@@ -217,11 +218,15 @@ public:
   /** \brief Gets a vector of all the bodies currently attached to a link.*/
   virtual const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> getAttachedBodies(const std::string link_name) const = 0;
 
+  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const = 0;
+
   /** \briefs Sets a temporary robot padding on the indicated links */
   virtual void setRobotLinkPadding(const std::map<std::string, double>& link_padding_map);
 
   /** \briefs Reverts link padding to that set at robot initialization */
   virtual void revertRobotLinkPadding();
+
+  const std::map<std::string,double>& getCurrentLinkPaddingMap() const;
 
   double getCurrentLinkPadding(std::string name) const;
 		
@@ -263,43 +268,44 @@ public:
 protected:
         
   /** \brief Mutex used to lock the datastructure */
-  boost::recursive_mutex                                             m_lock;
+  boost::recursive_mutex lock_;
 
   /** \brief List of links (names) from the robot model that are considered for collision checking */
-  std::vector<std::string>                                 m_collisionLinks;
+  std::vector<std::string> collision_links_;
 
   /** \brief Map used internally to find the index of a link that we do collision checking for */
-  std::map<std::string, unsigned int>                      m_collisionLinkIndex;
+  std::map<std::string, unsigned int> collision_link_index_;
 
   /** \brief Matrix of booleans indicating whether pairs of links can self collide */
   /* true means they can collide */
-  std::vector< std::vector<bool> >                         m_selfCollisionTest;
+  std::vector< std::vector<bool> > self_collision_test_;
 	
   /** \brief Flag to indicate whether self collision checking is enabled */
-  bool                                                     m_selfCollision;
+  bool check_self_collision_;
 	
   /** \brief Flag to indicate whether verbose mode is on */
-  bool                                                     m_verbose;
+  bool verbose_;
 
   /** \brief Loaded robot model */	
-  const planning_models::KinematicModel*       m_robotModel;
+  const planning_models::KinematicModel* robot_model_;
 
   /** \brief List of objects contained in the environment */
-  EnvironmentObjects                                      *m_objects;
+  EnvironmentObjects *objects_;
 	
   /** \brief Scaling used for robot links */
-  double                                                   m_robotScale;
+  double robot_scale_;
 
-  /** \brief Padding used for robot links */
-  double                                                   m_robotPadd;	
+  /** \brief padding used for robot links */
+  double default_robot_padding_;	
 
   std::vector<std::vector<bool> > set_collision_matrix_;
   std::map<std::string, unsigned int> set_collision_ind_;
 
   bool use_set_collision_matrix_;
 
-  std::map<std::string, double> link_padding_map_;
-  std::map<std::string, double> altered_link_padding_;
+  std::map<std::string, double> default_link_padding_map_;
+  std::map<std::string, double> altered_link_padding_map_;
+  std::map<std::string, double> current_link_padding_map_;
 	
 };
 }

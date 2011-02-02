@@ -32,7 +32,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/** \author Ioan Sucan */
+/** \author Ioan Sucan, E. Gil Jones */
 
 #ifndef COLLISION_SPACE_ENVIRONMENT_OBJECTS_
 #define COLLISION_SPACE_ENVIRONMENT_OBJECTS_
@@ -47,69 +47,69 @@
 namespace collision_space
 {
     
-    /** \brief List of objects contained in the environment (not including robot links) */
-    class EnvironmentObjects
-    {
-    public:
-	EnvironmentObjects(void)
-	{
-	}
+/** \brief List of objects contained in the environment (not including robot links) */
+class EnvironmentObjects
+{
+public:
+  EnvironmentObjects(void)
+  {
+  }
 	
-	~EnvironmentObjects(void)
-	{
-	    clearObjects();
-	}
+  ~EnvironmentObjects(void)
+  {
+    clearObjects();
+  }
 	
-	struct NamespaceObjects
-	{
-	    /** \brief An array of static shapes */
-	    std::vector< shapes::StaticShape* > staticShape;
+  struct NamespaceObjects
+  {
+    /** \brief An array of static shapes */
+    std::vector< shapes::StaticShape* > static_shape;
 	    
-	    /** \brief An array of shapes */
-	    std::vector< shapes::Shape* >       shape;
+    /** \brief An array of shapes */
+    std::vector< shapes::Shape* > shape;
 
-	    /** \brief An array of shape poses */
-	    std::vector< btTransform >          shapePose;
-	};
+    /** \brief An array of shape poses */
+    std::vector< btTransform > shape_pose;
+  };
 	
-	/** \brief Get the list of namespaces */
-	std::vector<std::string> getNamespaces(void) const;
+  /** \brief Get the list of namespaces */
+  std::vector<std::string> getNamespaces(void) const;
 
-	/** \brief Get the list of objects */
-	const NamespaceObjects& getObjects(const std::string &ns) const;
+  /** \brief Get the list of objects */
+  const NamespaceObjects& getObjects(const std::string &ns) const;
 
-	/** \brief Get the list of objects */
-	NamespaceObjects& getObjects(const std::string &ns);
+  /** \brief Get the list of objects */
+  NamespaceObjects& getObjects(const std::string &ns);
 	
-	/** \brief Add a static object to the namespace. The user releases ownership of the object. */
-	void addObject(const std::string &ns, shapes::StaticShape *shape);
+  /** \brief Add a static object to the namespace. The user releases ownership of the object. */
+  void addObject(const std::string &ns, shapes::StaticShape *shape);
 
-	/** \brief Add an object to the namespace. The user releases ownership of the object. */
-	void addObject(const std::string &ns, shapes::Shape *shape, const btTransform &pose);
+  /** \brief Add an object to the namespace. The user releases ownership of the object. */
+  void addObject(const std::string &ns, shapes::Shape *shape, const btTransform &pose);
 	
-	/** \brief Remove object. Object equality is verified by comparing pointers. Ownership of the object is renounced upon. Returns true on success. */
-	bool removeObject(const std::string &ns, const shapes::Shape *shape);
+  /** \brief Remove object. Object equality is verified by comparing pointers. Ownership of the object is renounced upon. Returns true on success. */
+  bool removeObject(const std::string &ns, const shapes::Shape *shape);
 	
-	/** \brief Remove object. Object equality is verified by comparing pointers. Ownership of the object is renounced upon. Returns true on success. */
-	bool removeObject(const std::string &ns, const shapes::StaticShape *shape);
+  /** \brief Remove object. Object equality is verified by comparing pointers. Ownership of the object is renounced upon. Returns true on success. */
+  bool removeObject(const std::string &ns, const shapes::StaticShape *shape);
 	
-	/** \brief Clear the objects in a specific namespace. Memory is freed. */
-	void clearObjects(const std::string &ns);
+  /** \brief Clear the objects in a specific namespace. Memory is freed. */
+  void clearObjects(const std::string &ns);
 	
-	/** \brief Clear all objects. Memory is freed. */
-	void clearObjects(void);
+  /** \brief Clear all objects. Memory is freed. */
+  void clearObjects(void);
 
-      /** \brief Adds namespace without necessary adding a shape. */
-      void addObjectNamespace(const std::string ns);
+  /** \brief Adds namespace without necessary adding a shape. */
+  void addObjectNamespace(const std::string ns);
 
-	/** \brief Clone this instance of the class */
-	EnvironmentObjects* clone(void) const;
+  /** \brief Clone this instance of the class */
+  EnvironmentObjects* clone(void) const;
 	
-    private:
+private:
 	
-	std::map<std::string, NamespaceObjects> m_objects;
-	NamespaceObjects                        m_empty;
-    };
+  std::map<std::string, NamespaceObjects> objects_;
+  NamespaceObjects empty_;
+};
     
 }
 
