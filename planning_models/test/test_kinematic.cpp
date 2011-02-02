@@ -461,7 +461,18 @@ TEST(FK, OneRobot)
     EXPECT_NEAR(0.0, state.getLinkState("link_c")->getGlobalLinkTransform().getRotation().y(), 1e-5);
     EXPECT_NEAR(0.0, state.getLinkState("link_c")->getGlobalLinkTransform().getRotation().z(), 1e-5);
     EXPECT_NEAR(1.0, state.getLinkState("link_c")->getGlobalLinkTransform().getRotation().w(), 1e-5);
+
+    //bonus bounds lookup test
+    std::vector<std::string> jn;
+    jn.push_back("planar_x");
+    jn.push_back("planar_th");
+    jn.push_back("base_joint");
+    EXPECT_TRUE(state.areJointsWithinBounds(jn));
+    
+    jn.push_back("monkey");
+    EXPECT_FALSE(state.areJointsWithinBounds(jn));
   }
+
   delete model;
 }
 int main(int argc, char **argv)
