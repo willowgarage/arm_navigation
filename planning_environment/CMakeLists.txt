@@ -25,6 +25,10 @@ rosbuild_link_boost(planning_environment thread)
 rosbuild_add_executable(environment_server src/monitors/environment_server.cpp src/monitors/environment_server_setup.cpp)
 rosbuild_link_boost(environment_server thread)
 target_link_libraries(environment_server planning_environment)
+
+rosbuild_add_executable(visualize_all_collisions test/visualize_all_collisions.cpp)
+rosbuild_link_boost(visualize_all_collisions thread)
+target_link_libraries(visualize_all_collisions planning_environment)
  
 # Utility apps
 #rosbuild_add_executable(view_state_validity src/tools/view_state_validity.cpp) 

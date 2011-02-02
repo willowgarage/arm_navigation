@@ -38,7 +38,6 @@
 #include "planning_environment/models/model_utils.h"
 #include "planning_environment/util/construct_object.h"
 #include <collision_space/environmentODE.h>
-#include <collision_space/environmentBullet.h>
 #include <sstream>
 #include <vector>
 #include <geometric_shapes/shape_operations.h>
@@ -46,12 +45,7 @@
 
 planning_environment::CollisionModels::CollisionModels(const std::string &description) : RobotModels(description)
 {
-  loadCollision(group_link_union_);
-}
-
-planning_environment::CollisionModels::CollisionModels(const std::string &description, const std::vector<std::string> &links) : RobotModels(description)
-{
-  loadCollision(links);
+  loadCollision();
 }
 
 planning_environment::CollisionModels::~CollisionModels(void)
@@ -63,11 +57,11 @@ planning_environment::CollisionModels::~CollisionModels(void)
 void planning_environment::CollisionModels::reload(void)
 {
   RobotModels::reload();
-  loadCollision(group_link_union_);
+  loadCollision();
 }
 
 
-void planning_environment::CollisionModels::setupModel(collision_space::EnvironmentModel* model, const std::vector<std::string>& links)
+void planning_environment::CollisionModels::setupModel(collision_space::EnvironmentModel* model)
 {
   XmlRpc::XmlRpcValue coll_ops;
 
@@ -119,10 +113,12 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
 
   //ROS_INFO_STREAM("Padd is " << padd_);
 
-  for(std::vector<std::string>::const_iterator it = links.begin();
-      it != links.end();
-      it++) {
-    default_link_padding_map_[*it] = default_padd_;
+  const std::vector<planning_models::KinematicModel::LinkModel*>& coll_links = kmodel_->getLinkModelsWithCollisionGeometry();
+  
+  std::vector<std::string> coll_names;
+  for(unsigned int i = 0; i < coll_links.size(); i++) {
+    default_link_padding_map_[coll_links[i]->getName()] = default_padd_;
+    coll_names.push_back(coll_links[i]->getName());
   }
 
   if(priv.hasParam("link_padding")) {
@@ -140,53 +136,30 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
         }
         std::string link = std::string(link_padding_xml[i]["link"]);
         double padding = link_padding_xml[i]["padding"];
-        std::vector<std::string> svec1;
-        if(planning_group_links_.find(link) != planning_group_links_.end()) {
-          svec1 = planning_group_links_[link];
-        } else {
-          svec1.push_back(link);
-        }
-        for(std::vector<std::string>::iterator it = svec1.begin();
-            it != svec1.end();
-            it++) {
-          default_link_padding_map_[*it] = padding;
-        }
+        //we don't care if this is a group or what, we're shoving it in
+        default_link_padding_map_[link] = padding;
       }
     }
   }
-  
   model->lock();
-  std::vector<std::string> links_with_collision = links;
-  std::vector<std::string>::iterator lit = links_with_collision.begin();
-  while(lit != links_with_collision.end()) {
-    if(kmodel_->getLinkModel(*lit)->getLinkShape() == NULL) {
-      lit = links_with_collision.erase(lit);
-    } else {
-      lit++;
-    }
-  }
-  model->setRobotModel(kmodel_, links_with_collision, default_link_padding_map_, default_padd_,default_scale_);
+  model->setRobotModel(kmodel_, coll_names, default_link_padding_map_, default_padd_, default_scale_);
 
   for(std::vector<motion_planning_msgs::CollisionOperation>::iterator it = default_collision_operations_.begin();
       it != default_collision_operations_.end();
       it++) {
     std::vector<std::string> svec1;
     std::vector<std::string> svec2;
-    if(planning_group_links_.find((*it).object1) != planning_group_links_.end()) {
-      svec1 = planning_group_links_[(*it).object1];
+    if(kmodel_->getModelGroup((*it).object1)) {
+      svec1 = kmodel_->getModelGroup((*it).object1)->getConstituentLinkNames();
     } else {
       svec1.push_back((*it).object1);
     }
-    if(planning_group_links_.find((*it).object2) != planning_group_links_.end()) {
-      svec2 = planning_group_links_[(*it).object2];
+    if(kmodel_->getModelGroup((*it).object2)) {
+      svec2 = kmodel_->getModelGroup((*it).object2)->getConstituentLinkNames();
     } else {
       svec2.push_back((*it).object2);
     }
-    if((*it).operation == motion_planning_msgs::CollisionOperation::ENABLE) {
-      model->addSelfCollisionGroup(svec1,svec2);
-    } else {
-      model->removeSelfCollisionGroup(svec1,svec2);
-    }
+    model->setAllCollisionPairs(svec1,svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
   }
   for (unsigned int i = 0 ; i < bounding_planes_.size() / 4 ; ++i)
   {
@@ -198,7 +171,7 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
   model->unlock();    
 }
 
-void planning_environment::CollisionModels::loadCollision(const std::vector<std::string> &links)
+void planning_environment::CollisionModels::loadCollision()
 {
   // a list of static planes bounding the environment
   bounding_planes_.clear();
@@ -223,7 +196,7 @@ void planning_environment::CollisionModels::loadCollision(const std::vector<std:
   if (loadedModels())
   {
     ode_collision_model_ = new collision_space::EnvironmentModelODE();
-    setupModel(ode_collision_model_,links);
+    setupModel(ode_collision_model_);
 	
     //	bullet_collision_model_ = boost::shared_ptr<collision_space::EnvironmentModel>(new collision_space::EnvironmentModelBullet());
     //	setupModel(bullet_collision_model_, links);
@@ -568,7 +541,7 @@ void planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
       const collision_space::EnvironmentObjects::NamespaceObjects &no = eo->getObjects(ns[i]);
       for(unsigned int j = 0; j < no.shape.size(); j++) {
         shapes.push_back(cloneShape(no.shape[j]));
-        poses.push_back(no.shapePose[j]);
+        poses.push_back(no.shape_pose[j]);
       }
     }
   }        
@@ -629,15 +602,14 @@ void planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
 void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding) {
   if(link_padding.empty()) return;
   
-  const std::map<std::string, std::vector<std::string > >& group_link_map = getPlanningGroupLinks();
   std::map<std::string, double> link_padding_map;
 
   for(std::vector<motion_planning_msgs::LinkPadding>::const_iterator it = link_padding.begin();
       it != link_padding.end();
       it++) {
     std::vector<std::string> svec1;
-    if(group_link_map.find((*it).link_name) != group_link_map.end()) {
-      svec1 = group_link_map.find((*it).link_name)->second;
+    if(kmodel_->getModelGroup((*it).link_name)) {
+      svec1 = kmodel_->getModelGroup((*it).link_name)->getConstituentLinkNames();
     } else {
       svec1.push_back((*it).link_name);
     }
@@ -647,9 +619,13 @@ void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(con
       link_padding_map[(*stit1)] = (*it).padding;
     }
   }
-
+  
   ode_collision_model_->setRobotLinkPadding(link_padding_map);  
+}
 
+void planning_environment::CollisionModels::getCurrentLinkPadding(std::vector<motion_planning_msgs::LinkPadding>& link_padding)
+{
+  convertFromLinkPaddingMapToLinkPaddingVector(ode_collision_model_->getCurrentLinkPaddingMap(), link_padding);
 }
 
 bool planning_environment::CollisionModels::expandOrderedCollisionOperations(const motion_planning_msgs::OrderedCollisionOperations &ord,
@@ -671,8 +647,6 @@ bool planning_environment::CollisionModels::expandOrderedCollisionOperations(con
     a_strings.push_back(att_vec[i]->getName());
   }
   kmodel_->sharedUnlock();
-  
-  const std::map<std::string, std::vector<std::string > >& group_link_map = getPlanningGroupLinks();
   
   ex = ord;
   std::vector<motion_planning_msgs::CollisionOperation>::iterator it = ex.collision_operations.begin();
@@ -707,12 +681,12 @@ bool planning_environment::CollisionModels::expandOrderedCollisionOperations(con
       }
       special2 = true;
     }
-    if(group_link_map.find((*it).object1) != group_link_map.end()) {
-      svec1 = group_link_map.find((*it).object1)->second;
+    if(kmodel_->getModelGroup((*it).object1)) {
+      svec1 = kmodel_->getModelGroup((*it).object1)->getConstituentLinkNames();
       special1 = true;
     }
-    if(group_link_map.find((*it).object2) != group_link_map.end()) {
-      svec2 = group_link_map.find((*it).object2)->second;
+    if(kmodel_->getModelGroup((*it).object2)) {
+      svec2 = kmodel_->getModelGroup((*it).object1)->getConstituentLinkNames();
       special2 = true;
     }
     if(!special1) {
@@ -837,11 +811,11 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mappin
       obb.extents.x = box->size[0];
       obb.extents.y = box->size[1];
       obb.extents.z = box->size[2];
-      const btVector3 &c = no.shapePose[i].getOrigin();
+      const btVector3 &c = no.shape_pose[i].getOrigin();
       obb.center.x = c.x();
       obb.center.y = c.y();
       obb.center.z = c.z();
-      const btQuaternion q = no.shapePose[i].getRotation();
+      const btQuaternion q = no.shape_pose[i].getRotation();
       obb.angle = q.getAngle();
       const btVector3 axis = q.getAxis();
       obb.axis.x = axis.x();
@@ -907,7 +881,7 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(st
       geometric_shapes_msgs::Shape obj;
       if (constructObjectMsg(no.shape[j], obj)) {
         geometry_msgs::Pose pose;
-        tf::poseTFToMsg(no.shapePose[j], pose);
+        tf::poseTFToMsg(no.shape_pose[j], pose);
         o.shapes.push_back(obj);
         o.poses.push_back(pose);
       }
@@ -946,6 +920,76 @@ bool planning_environment::CollisionModels::isKinematicStateInCollision(const pl
 {
   ode_collision_model_->updateRobotModel(&state);
   return(ode_collision_model_->isCollision());
+}
+
+bool planning_environment::CollisionModels::isKinematicStateInSelfCollision(const planning_models::KinematicState& state)
+{
+  ode_collision_model_->updateRobotModel(&state);
+  return(ode_collision_model_->isSelfCollision());
+}
+
+void planning_environment::CollisionModels::getAllCollisionsForState(const planning_models::KinematicState& state,
+                                                                     std::vector<planning_environment_msgs::ContactInformation>& contacts,
+                                                                     unsigned int num_per_pair) 
+{
+  ode_collision_model_->updateRobotModel(&state);
+  std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+  std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+  ros::WallTime n1 = ros::WallTime::now();
+  ode_collision_model_->getAllCollisionContacts(allowed_contacts,
+                                                coll_space_contacts,
+                                                num_per_pair);
+  ros::WallTime n2 = ros::WallTime::now();
+  ROS_INFO_STREAM("Got " << coll_space_contacts.size() << " collisions in " << (n2-n1).toSec());
+  for(unsigned int i = 0; i < coll_space_contacts.size(); i++) {
+    planning_environment_msgs::ContactInformation contact_info;
+    contact_info.header.frame_id = getWorldFrameId();
+    collision_space::EnvironmentModel::Contact& contact = coll_space_contacts[i];
+    if(contact.link1 != NULL) {
+      //ROS_INFO_STREAM("Link 1 is " << contact.link2->name);
+      if(contact.link1_attached_body_index == 0) {
+        contact_info.contact_body_1 = contact.link1->getName();
+        contact_info.attached_body_1 = "";
+        contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+      } else {
+        if(contact.link1->getAttachedBodyModels().size() < contact.link1_attached_body_index) {
+          ROS_ERROR("Link doesn't have attached body with indicated index");
+        } else {
+          contact_info.contact_body_1 = contact.link1->getName();
+          contact_info.attached_body_1 = contact.link1->getAttachedBodyModels()[contact.link1_attached_body_index-1]->getName();
+          contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+        }
+      }
+    } 
+    
+    if(contact.link2 != NULL) {
+      //ROS_INFO_STREAM("Link 2 is " << contact.link2->name);
+      if(contact.link2_attached_body_index == 0) {
+        contact_info.contact_body_2 = contact.link2->getName();
+        contact_info.attached_body_2 = "";
+        contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+      } else {
+        if(contact.link2->getAttachedBodyModels().size() < contact.link2_attached_body_index) {
+          ROS_ERROR("Link doesn't have attached body with indicated index");
+        } else {
+          contact_info.contact_body_2 = contact.link2->getName();
+          contact_info.attached_body_2 = contact.link2->getAttachedBodyModels()[contact.link2_attached_body_index-1]->getName();
+          contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+        }
+      }
+    } 
+    
+    if(!contact.object_name.empty()) {
+      //ROS_INFO_STREAM("Object is " << contact.object_name);
+      contact_info.contact_body_2 = contact.object_name;
+      contact_info.attached_body_2 = "";
+      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::OBJECT;
+    }
+    contact_info.position.x = contact.pos.x();
+    contact_info.position.y = contact.pos.y();
+    contact_info.position.z = contact.pos.z();
+    contacts.push_back(contact_info);
+  }
 }
 
 bool planning_environment::CollisionModels::isTrajectoryValid(const trajectory_msgs::JointTrajectory &trajectory,
@@ -1063,4 +1107,142 @@ bool planning_environment::CollisionModels::isTrajectoryValid(const trajectory_m
   }
   return(error_code.val == error_code.SUCCESS);
 }
+
+//visualization functions
+
+void planning_environment::CollisionModels::getAllCollisionPointMarkers(const planning_models::KinematicState& state,
+                                                                        visualization_msgs::MarkerArray& arr,
+                                                                        const std_msgs::ColorRGBA color,
+                                                                        const ros::Duration& lifetime)
+{
+  std::vector<planning_environment_msgs::ContactInformation> coll_info_vec;
+  getAllCollisionsForState(state,coll_info_vec,1);
+
+  std::map<std::string, unsigned> ns_counts;
+  for(unsigned int i = 0; i < coll_info_vec.size(); i++) {
+    std::string ns_name;
+    if(coll_info_vec[i].body_type_1 == planning_environment_msgs::ContactInformation::ROBOT_LINK ||
+       coll_info_vec[i].body_type_1 == planning_environment_msgs::ContactInformation::OBJECT) {
+      ns_name = coll_info_vec[i].contact_body_1;
+    } else {
+      ns_name = coll_info_vec[i].attached_body_1;
+    }
+    ns_name +="+";
+    if(coll_info_vec[i].body_type_2 == planning_environment_msgs::ContactInformation::ROBOT_LINK ||
+       coll_info_vec[i].body_type_2 == planning_environment_msgs::ContactInformation::OBJECT) {
+      ns_name += coll_info_vec[i].contact_body_2;
+    } else {
+      ns_name += coll_info_vec[i].attached_body_2;
+    }
+    if(ns_counts.find(ns_name) == ns_counts.end()) {
+      ns_counts[ns_name] = 0;
+    } else {
+      ns_counts[ns_name]++;
+    }
+    visualization_msgs::Marker mk;
+    mk.header.stamp = ros::Time::now();
+    mk.header.frame_id = getWorldFrameId();
+    mk.ns = ns_name;
+    mk.id = ns_counts[ns_name];
+    mk.type = visualization_msgs::Marker::SPHERE;
+    mk.action = visualization_msgs::Marker::ADD;
+    mk.pose.position.x = coll_info_vec[i].position.x;
+    mk.pose.position.y = coll_info_vec[i].position.y;
+    mk.pose.position.z = coll_info_vec[i].position.z;
+    mk.pose.orientation.w = 1.0;
+    
+    mk.scale.x = mk.scale.y = mk.scale.z = 0.01;
+
+    mk.color.a = color.a;
+    if(mk.color.a == 0.0) {
+      mk.color.a = 1.0;
+    }
+    mk.color.r = color.r;
+    mk.color.g = color.g;
+    mk.color.b = color.b;
+    
+    mk.lifetime = lifetime;
+    arr.markers.push_back(mk);
+  }
+}
+
+void planning_environment::CollisionModels::getStaticCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
+                                                                            const std_msgs::ColorRGBA color,
+                                                                            const ros::Duration& lifetime) const
+{
+  std::vector<mapping_msgs::CollisionObject> static_objects;
+  getCollisionSpaceCollisionObjects(static_objects);
+  
+  for(unsigned int i = 0; i < static_objects.size(); i++) {
+    for(unsigned int j = 0; j < static_objects[i].shapes.size(); j++) {
+      visualization_msgs::Marker mk;
+      mk.header.frame_id = getWorldFrameId();
+      mk.header.stamp = ros::Time::now();
+      mk.ns = static_objects[i].id;
+      mk.id = j;
+      mk.action = visualization_msgs::Marker::ADD;
+      mk.pose = static_objects[i].poses[j];
+      mk.color.a = color.a;
+      if(mk.color.a == 0.0) {
+        mk.color.a = 1.0;
+      }
+      mk.color.r = color.r;
+      mk.color.g = color.g;
+      mk.color.b = color.b;
+      setMarkerShapeFromShape(static_objects[i].shapes[j], mk);
+      arr.markers.push_back(mk);
+    }
+  }
+}
+void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
+                                                                              const std_msgs::ColorRGBA color,
+                                                                              const ros::Duration& lifetime) const
+{
+  std::vector<mapping_msgs::AttachedCollisionObject> attached_objects;
+  getCollisionSpaceAttachedCollisionObjects(attached_objects);
+
+  std::map<std::string, std::vector<btTransform> > att_pose_map;
+  ode_collision_model_->getAttachedBodyPoses(att_pose_map);
+
+  for(unsigned int i = 0; i < attached_objects.size(); i++) {
+    if(att_pose_map.find(attached_objects[i].object.id) == att_pose_map.end()) {
+      ROS_WARN_STREAM("No collision space poses for " << attached_objects[i].object.id); 
+      continue;
+    }
+    if(att_pose_map[attached_objects[i].object.id].size() !=
+       attached_objects[i].object.shapes.size()) {
+      ROS_WARN_STREAM("Size mismatch between poses size " << att_pose_map[attached_objects[i].object.id].size()
+                      << " and shapes size " << attached_objects[i].object.shapes.size());
+      continue;
+    }
+    for(unsigned int j = 0; j < attached_objects[i].object.shapes.size(); j++) {
+      visualization_msgs::Marker mk;
+      mk.header.frame_id = getWorldFrameId();
+      mk.header.stamp = ros::Time::now();
+      mk.ns = attached_objects[i].object.id;
+      mk.id = j;
+      mk.action = visualization_msgs::Marker::ADD;
+      tf::poseTFToMsg(att_pose_map[attached_objects[i].object.id][j], mk.pose);
+      mk.color.a = color.a;
+      if(mk.color.a == 0.0) {
+        mk.color.a = 1.0;
+      }
+      mk.color.r = color.r;
+      mk.color.g = color.g;
+      mk.color.b = color.b;
+      setMarkerShapeFromShape(attached_objects[i].object.shapes[j], mk);
+      arr.markers.push_back(mk);
+    }
+  }
+}
+
+void planning_environment::CollisionModels::getAllCollisionSpaceObjectMarkers(visualization_msgs::MarkerArray& arr,
+                                                                              const std_msgs::ColorRGBA static_color,
+                                                                              const std_msgs::ColorRGBA attached_color,
+                                                                              const ros::Duration& lifetime) const
+{
+  getStaticCollisionObjectMarkers(arr, static_color, lifetime);
+  getAttachedCollisionObjectMarkers(arr, attached_color, lifetime);
+}
+
 

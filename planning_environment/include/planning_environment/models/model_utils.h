@@ -44,6 +44,9 @@
 #include <motion_planning_msgs/OrderedCollisionOperations.h>
 
 #include <planning_environment/util/kinematic_state_constraint_evaluator.h>
+#include <geometric_shapes_msgs/Shape.h>
+#include <visualization_msgs/Marker.h>
+#include <motion_planning_msgs/LinkPadding.h>
 
 namespace planning_environment {
 
@@ -194,6 +197,134 @@ inline bool doesKinematicStateObeyConstraints(const planning_models::KinematicSt
   constraint_evaluator.add(constraints.orientation_constraints);
   constraint_evaluator.add(constraints.visibility_constraints);
   return(constraint_evaluator.decide(&state, verbose));
+}
+
+inline void setMarkerShapeFromShape(const geometric_shapes_msgs::Shape &obj, visualization_msgs::Marker &mk)
+{
+  switch (obj.type)
+  {
+  case geometric_shapes_msgs::Shape::SPHERE:
+    mk.type = visualization_msgs::Marker::SPHERE;
+    mk.scale.x = mk.scale.y = mk.scale.z = obj.dimensions[0] * 2.0;
+    break;
+    
+  case geometric_shapes_msgs::Shape::BOX:
+    mk.type = visualization_msgs::Marker::CUBE;
+    mk.scale.x = obj.dimensions[0];
+    mk.scale.y = obj.dimensions[1];
+    mk.scale.z = obj.dimensions[2];
+    break;
+    
+  case geometric_shapes_msgs::Shape::CYLINDER:
+    mk.type = visualization_msgs::Marker::CYLINDER;
+    mk.scale.x = obj.dimensions[0] * 2.0;
+    mk.scale.y = obj.dimensions[0] * 2.0;
+    mk.scale.z = obj.dimensions[1];
+    break;
+    
+  case geometric_shapes_msgs::Shape::MESH:
+    mk.type = visualization_msgs::Marker::LINE_LIST;
+    mk.scale.x = mk.scale.y = mk.scale.z = 0.001;
+    {
+      unsigned int nt = obj.triangles.size() / 3;
+      for (unsigned int i = 0 ; i < nt ; ++i)
+      {
+        mk.points.push_back(obj.vertices[obj.triangles[3*i]]);
+        mk.points.push_back(obj.vertices[obj.triangles[3*i+ 1]]);
+        mk.points.push_back(obj.vertices[obj.triangles[3*i]]);
+        mk.points.push_back(obj.vertices[obj.triangles[3*i+2]]);
+        mk.points.push_back(obj.vertices[obj.triangles[3*i+1]]);
+        mk.points.push_back(obj.vertices[obj.triangles[3*i+2]]);
+      }
+    }
+    
+    break;
+    
+  default:
+    ROS_ERROR("Unknown object type: %d", (int)obj.type);
+  }
+}
+
+inline void setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marker &mk)
+{
+  switch (obj->type)
+  {
+  case shapes::SPHERE:
+    mk.type = visualization_msgs::Marker::SPHERE;
+    mk.scale.x = mk.scale.y = mk.scale.z = static_cast<const shapes::Sphere*>(obj)->radius * 2.0;
+    break;
+    
+  case shapes::BOX:
+    mk.type = visualization_msgs::Marker::CUBE;
+    {
+      const double *size = static_cast<const shapes::Box*>(obj)->size;
+      mk.scale.x = size[0];
+      mk.scale.y = size[1];
+      mk.scale.z = size[2];
+    }
+    break;
+    
+  case shapes::CYLINDER:
+    mk.type = visualization_msgs::Marker::CYLINDER;
+    mk.scale.x = static_cast<const shapes::Cylinder*>(obj)->radius * 2.0;
+    mk.scale.y = mk.scale.x;
+    mk.scale.z = static_cast<const shapes::Cylinder*>(obj)->length;
+    break;
+    
+  case shapes::MESH:
+    mk.type = visualization_msgs::Marker::LINE_LIST;
+    mk.scale.x = mk.scale.y = mk.scale.z = 0.001;
+    {	   
+      const shapes::Mesh *mesh = static_cast<const shapes::Mesh*>(obj);
+      unsigned int nt = mesh->triangleCount / 3;
+      for (unsigned int i = 0 ; i < nt ; ++i)
+      {
+        unsigned int v = mesh->triangles[3*i];
+        geometry_msgs::Point pt1;
+        pt1.x = mesh->vertices[v];
+        pt1.y = mesh->vertices[v+1];
+        pt1.z = mesh->vertices[v+2];
+        mk.points.push_back(pt1);
+        
+        v = mesh->triangles[3*i + 1];
+        geometry_msgs::Point pt2;
+        pt2.x = mesh->vertices[v];
+        pt2.y = mesh->vertices[v+1];
+        pt2.z = mesh->vertices[v+2];
+        mk.points.push_back(pt2);
+        
+        mk.points.push_back(pt1);
+        
+        v = mesh->triangles[3*i + 2];
+        geometry_msgs::Point pt3;
+        pt3.x = mesh->vertices[v];
+        pt3.y = mesh->vertices[v+1];
+        pt3.z = mesh->vertices[v+2];
+        mk.points.push_back(pt3);
+        
+        mk.points.push_back(pt2);
+        mk.points.push_back(pt3);
+      }
+    }
+    
+    break;
+    
+  default:
+    ROS_ERROR("Unknown object type: %d", (int)obj->type);
+  }
+}
+
+inline void convertFromLinkPaddingMapToLinkPaddingVector(const std::map<std::string, double>& link_padding_map,
+                                                         std::vector<motion_planning_msgs::LinkPadding>& link_padding_vector)
+{
+  for(std::map<std::string, double>::const_iterator it = link_padding_map.begin();
+      it != link_padding_map.end();
+      it++) {
+    motion_planning_msgs::LinkPadding lp;
+    lp.link_name = it->first;
+    lp.padding = it->second;
+    link_padding_vector.push_back(lp);
+  }
 }
 
 }

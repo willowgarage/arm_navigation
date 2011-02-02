@@ -196,12 +196,28 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
       }
     }
   }
+
+  std::map<std::string, double> cur_link_padding = cm_->getCollisionSpace()->getCurrentLinkPaddingMap();
+  for(unsigned int i = 0; i < link_padding_diff.size(); i++) {
+    //note - for things like attached objects this might just add them to the mix, but that's fine
+    cur_link_padding[link_padding_diff[i].link_name] = link_padding_diff[i].padding;
+  }
+  convertFromLinkPaddingMapToLinkPaddingVector(cur_link_padding, all_link_paddings);
+
+  //now we deal with the allowed_collision_matrix
+  //first we need to get the default collision matrix - this is all that should ever be held in the collision space
+
+  std::vector<std::vector<bool> > matrix;
+  std::map<std::string, unsigned int> ind;
+  
+  cm_->getCollisionSpace()->getCurrentAllowedCollisionMatrix(matrix, ind);
+
+
+  cm_->getCollisionSpaceAllowedCollisions(allowed_collision_matrix);
     
   //NOTE - this should be unmasked in collision_space_monitor;
   cm_->getCollisionSpaceCollisionMap(unmasked_collision_map);
-    
-  //TODO - deal with allowed collision matrix
-  cm_->getCollisionSpaceAllowedCollisions(allowed_collision_matrix);
+
 }   
 
 void planning_environment::PlanningMonitor::convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,

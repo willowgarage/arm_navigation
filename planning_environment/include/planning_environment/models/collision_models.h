@@ -53,7 +53,9 @@
 #include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/Constraints.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-
+#include <planning_environment_msgs/ContactInformation.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 static const std::string COLLISION_MAP_NAME="collision_map";
 
@@ -72,8 +74,6 @@ public:
 	
   CollisionModels(const std::string &description);
 
-  CollisionModels(const std::string &description, const std::vector<std::string> &links);
-	
   virtual ~CollisionModels(void);
  
   /** \brief Reload the robot description and recreate the model */	
@@ -141,7 +141,10 @@ public:
 
   void applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding);
 
+  void getCurrentLinkPadding(std::vector<motion_planning_msgs::LinkPadding>& link_padding);
+
   void revertCollisionSpacePaddingToDefault();
+
   void revertAllowedCollisionToDefault();
 
   bool expandOrderedCollisionOperations(const motion_planning_msgs::OrderedCollisionOperations& ord,
@@ -166,6 +169,12 @@ public:
   
   bool isKinematicStateInCollision(const planning_models::KinematicState& state);
 
+  bool isKinematicStateInSelfCollision(const planning_models::KinematicState& state);
+
+  void getAllCollisionsForState(const planning_models::KinematicState& state,
+                                std::vector<planning_environment_msgs::ContactInformation>& contacts,
+                                unsigned int num_per_pair = 1);
+
   bool isTrajectoryValid(const trajectory_msgs::JointTrajectory &trajectory,
                          const motion_planning_msgs::RobotState& robot_state,
                          const motion_planning_msgs::Constraints& path_constraints,
@@ -173,6 +182,25 @@ public:
                          motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                          std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                          const bool evaluate_entire_trajectory);
+
+  void getAllCollisionSpaceObjectMarkers(visualization_msgs::MarkerArray& arr,
+                                         const std_msgs::ColorRGBA static_color,
+                                         const std_msgs::ColorRGBA attached_color,
+                                         const ros::Duration& lifetime) const;
+
+  void getAttachedCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
+                                         const std_msgs::ColorRGBA color,
+                                         const ros::Duration& lifetime) const;;
+  
+  void getStaticCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
+                                       const std_msgs::ColorRGBA color,
+                                       const ros::Duration& lifetime) const;
+  
+  //can't be const because it poses in state
+  void getAllCollisionPointMarkers(const planning_models::KinematicState& state,
+                                   visualization_msgs::MarkerArray& arr,
+                                   const std_msgs::ColorRGBA color,
+                                   const ros::Duration& lifetime);
 
   /** \brief Return the instance of the constructed ODE collision model */  
   const collision_space::EnvironmentModel* getCollisionSpace() const {
@@ -209,8 +237,8 @@ protected:
 
   std::map<std::string, std::map<std::string, bodies::BodyVector*> > link_attached_objects_;
 	
-  void loadCollision(const std::vector<std::string> &links);
-  void setupModel(collision_space::EnvironmentModel* model, const std::vector<std::string> &links);
+  void loadCollision();
+  void setupModel(collision_space::EnvironmentModel* model);
 	
   collision_space::EnvironmentModel* ode_collision_model_;
 

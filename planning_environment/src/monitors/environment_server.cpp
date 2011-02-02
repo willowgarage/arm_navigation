@@ -176,7 +176,7 @@ private:
 //     mk.color.g = 0.8;
 //     mk.color.b = 0.04;
     
-//     //mk.lifetime = ros::Duration(30.0);
+//     //mk.lifetime = ros::Duration5o(30.0);
 //     contact_info.position.x = contact.pos.x();
 //     contact_info.position.y = contact.pos.y();
 //     contact_info.position.z = contact.pos.z();
