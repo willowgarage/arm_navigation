@@ -118,10 +118,11 @@ void planning_models::KinematicModel::copyFrom(const KinematicModel &source)
     const std::map<std::string, JointModelGroup*>& source_group_map = source.getJointModelGroupMap();
     std::map< std::string, std::vector<std::string> > groupContent;
     std::vector<GroupConfig> group_configs;
+    std::vector<std::string> empty_strings;
     for(std::map<std::string, JointModelGroup*>::const_iterator it = source_group_map.begin();
         it != source_group_map.end();
         it++) {
-      group_configs.push_back(GroupConfig(it->first, it->second->getJointModelNames()));
+      group_configs.push_back(GroupConfig(it->first, it->second->getJointModelNames(), empty_strings));
     }
     buildGroups(group_configs);
   } else 
@@ -132,70 +133,131 @@ void planning_models::KinematicModel::copyFrom(const KinematicModel &source)
 
 void planning_models::KinematicModel::buildGroups(const std::vector<GroupConfig>& group_configs) 
 {
-  for(unsigned int i = 0; i < group_configs.size(); i++) {
-    std::vector<const JointModel*> jointv;
-    if(!group_configs[i].tip_link_.empty() && !group_configs[i].base_link_.empty()) {
-      bool base_link_is_world_link = (group_configs[i].base_link_ == getRoot()->getParentFrameId());
-      const LinkModel* base_link = NULL;
-      if(!base_link_is_world_link) {
-        base_link = getLinkModel(group_configs[i].base_link_);
-        if(base_link == NULL) {
-          ROS_WARN_STREAM("Group config " << group_configs[i].name_ << " has invalid base link " << group_configs[i].base_link_);
-          continue;
-        }
-      }
-      const LinkModel* tip_link = getLinkModel(group_configs[i].tip_link_);
-      if(tip_link == NULL) {
-        ROS_WARN_STREAM("Group config " << group_configs[i].name_ << " has invalid tip link " << group_configs[i].tip_link_);
-        continue;
-      }
-      const LinkModel* lm = tip_link;
-      bool ok = false;
-      while(true) {
-        if(lm == NULL) {
-          if(base_link_is_world_link) {
-            ok = true;
+  //the only thing tricky is dealing with subgroups
+  std::vector<bool> processed(group_configs.size(), false);
+  while(true) {
+    //going to make passes until we can't do anything else
+    bool added = false;
+    for(unsigned int i = 0; i < group_configs.size(); i++) {
+      if(!processed[i]) {
+        //if we haven't processed, check and see if the dependencies are met yet
+        bool all_subgroups_added = true;
+        for(unsigned int j = 0; j < group_configs[i].subgroups_.size(); j++) {
+          if(joint_model_group_map_.find(group_configs[i].subgroups_[j]) ==
+             joint_model_group_map_.end()) {
+            all_subgroups_added = false;
+            break;
           }
-          break;
         }
-        if(lm == base_link) {
-          ok = true;
-          break;
+        if(all_subgroups_added) {
+          //only get one chance to do it right
+          addModelGroup(group_configs[i]);
+          processed[i] = true;
+          added = true;
         }
-        if(lm->getParentJointModel() == NULL) {
-          break;
-        }
-        jointv.push_back(lm->getParentJointModel());
-        lm = lm->getParentJointModel()->getParentLinkModel();
-      }
-      if(!ok) {
-        ROS_WARN_STREAM("For group " << group_configs[i].name_ 
-                        << " base link " << group_configs[i].base_link_ 
-                        << " does not appear to be a direct descendent of " << group_configs[i].tip_link_);
-        continue;
-      }
-      //need to reverse jointv to get things in right order
-      std::reverse(jointv.begin(), jointv.end());
-    } else {
-      if(group_configs[i].joints_.size() == 0) {
-        ROS_WARN_STREAM("Group " << group_configs[i].name_ << " must have tip/base links or more than one joint");
-        continue;
-      }
-      for(unsigned int j = 0; j < group_configs[i].joints_.size(); j++) {
-        const JointModel* joint = getJointModel(group_configs[i].joints_[j]);
-        if(joint == NULL) {
-          ROS_ERROR_STREAM("Group " << group_configs[i].name_ << " has invalid joint " << group_configs[i].joints_[j]);
-          continue;
-        }
-        jointv.push_back(joint);
       }
     }
-    if(jointv.size() == 0) {
-      ROS_WARN_STREAM("Group " << group_configs[i].name_ << " must have at least one valid joint");
-      continue;
+    if(!added) {
+      for(unsigned int i = 0; i < processed.size(); i++) {
+        if(!processed[i]) {
+          ROS_WARN_STREAM("Could not process group " << group_configs[i].name_ << " due to unmet subgroup dependencies");
+        }
+      }
+      return;
     }
-    joint_model_group_map_[group_configs[i].name_] = new JointModelGroup(group_configs[i].name_, jointv, this);
   }
+}
+
+bool planning_models::KinematicModel::addModelGroup(const planning_models::KinematicModel::GroupConfig& gc)
+{
+  if(joint_model_group_map_.find(gc.name_) != joint_model_group_map_.end()) {
+    ROS_WARN_STREAM("Already have a model group named " << gc.name_ <<". Not adding.");
+    return false;
+  }
+  std::vector<const JointModel*> jointv;
+  if(!gc.tip_link_.empty() && !gc.base_link_.empty()) {
+    if(!gc.subgroups_.empty()) {
+      ROS_WARN_STREAM("Ignoring subgroups as tip and base are defined for group " << gc.name_);
+    }
+    bool base_link_is_world_link = (gc.base_link_ == getRoot()->getParentFrameId());
+    const LinkModel* base_link = NULL;
+    if(!base_link_is_world_link) {
+      base_link = getLinkModel(gc.base_link_);
+      if(base_link == NULL) {
+        ROS_WARN_STREAM("Group config " << gc.name_ << " has invalid base link " << gc.base_link_);
+        return false;
+      }
+    }
+    const LinkModel* tip_link = getLinkModel(gc.tip_link_);
+    if(tip_link == NULL) {
+      ROS_WARN_STREAM("Group config " << gc.name_ << " has invalid tip link " << gc.tip_link_);
+      return false;
+    }
+    const LinkModel* lm = tip_link;
+    bool ok = false;
+    while(true) {
+      if(lm == NULL) {
+        if(base_link_is_world_link) {
+          ok = true;
+        }
+        break;
+      }
+      if(lm == base_link) {
+        ok = true;
+        break;
+      }
+      if(lm->getParentJointModel() == NULL) {
+        break;
+      }
+      jointv.push_back(lm->getParentJointModel());
+      lm = lm->getParentJointModel()->getParentLinkModel();
+    }
+    if(!ok) {
+      ROS_WARN_STREAM("For group " << gc.name_ 
+                      << " base link " << gc.base_link_ 
+                      << " does not appear to be a direct descendent of " << gc.tip_link_);
+      return false;
+    }
+    //need to reverse jointv to get things in right order
+    std::reverse(jointv.begin(), jointv.end());
+  } else {
+    if(!gc.subgroups_.empty()) {
+      std::set<const JointModel*> joint_set;
+      for(unsigned int i = 0; i < gc.subgroups_.size(); i++) {
+        if(joint_model_group_map_.find(gc.subgroups_[i]) == joint_model_group_map_.end()) {
+          ROS_INFO_STREAM("Subgroup " << gc.subgroups_[i] << " not defined so can't add group " << gc.name_);
+          return false;
+        }
+        const JointModelGroup* jmg = joint_model_group_map_.find(gc.subgroups_[i])->second;
+        for(unsigned int j = 0; j < jmg->getJointModels().size(); j++) {
+          joint_set.insert(jmg->getJointModels()[j]);
+        }
+      }
+      for(std::set<const JointModel*>::iterator it = joint_set.begin();
+          it != joint_set.end();
+          it++) {
+        jointv.push_back((*it));
+      }
+    }
+    if(gc.joints_.size() == 0 && gc.subgroups_.empty()) {
+      ROS_WARN_STREAM("Group " << gc.name_ << " must have tip/base links, subgroups, or one or more joints");
+      return false;
+    }
+    for(unsigned int j = 0; j < gc.joints_.size(); j++) {
+      const JointModel* joint = getJointModel(gc.joints_[j]);
+      if(joint == NULL) {
+        ROS_ERROR_STREAM("Group " << gc.name_ << " has invalid joint " << gc.joints_[j]);
+        return false;
+      }
+      jointv.push_back(joint);
+    }
+  }
+  if(jointv.size() == 0) {
+    ROS_WARN_STREAM("Group " << gc.name_ << " must have at least one valid joint");
+    return false;
+  }
+  joint_model_group_map_[gc.name_] = new JointModelGroup(gc.name_, jointv, this);
+  return true;
 }
 
 planning_models::KinematicModel::JointModel* planning_models::KinematicModel::buildRecursive(LinkModel *parent, const urdf::Link *link, 
@@ -215,6 +277,9 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::bu
     joint->child_link_model_->joint_origin_transform_.setIdentity();
   link_model_map_[joint->child_link_model_->name_] = joint->child_link_model_;
   link_model_vector_.push_back(joint->child_link_model_);
+  if(joint->child_link_model_->shape_ != NULL) {
+    link_models_with_collision_geometry_vector_.push_back(joint->child_link_model_);
+  }
   joint->child_link_model_->parent_joint_model_ = joint;
   
   for (unsigned int i = 0 ; i < link->child_links.size() ; ++i)
@@ -1100,17 +1165,22 @@ planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::str
                                                                   const KinematicModel* parent_model) :
   name_(group_name)
 {
+  ROS_DEBUG_STREAM("\nGroup " << group_name);
+
   joint_model_vector_ = group_joints;
   joint_model_name_vector_.resize(group_joints.size());
-    
+
+  ROS_DEBUG_STREAM("Joints:");    
   for (unsigned int i = 0 ; i < group_joints.size() ; ++i)
   {
+    ROS_DEBUG_STREAM(group_joints[i]->getName());
     joint_model_name_vector_[i] = group_joints[i]->getName();
     joint_model_map_[group_joints[i]->getName()] = group_joints[i];
   }
 
   //now we need to find all the set of joints within this group
   //that root distinct subtrees
+  std::map<std::string, bool> is_root;
   for (unsigned int i = 0 ; i < group_joints.size() ; ++i)
   {
     bool found = false;
@@ -1122,14 +1192,39 @@ planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::str
       if (hasJointModel(joint->name_))
       {
         found = true;
-        break;
       }
     }
 	
-    if (!found)
+    if(!found) {
       joint_roots_.push_back(joint_model_vector_[i]);
+      is_root[joint_model_vector_[i]->getName()] = true;
+    } else {
+      is_root[joint_model_vector_[i]->getName()] = false;
+    }
   }
 
+  //now we need to make another pass for constituent links
+  std::set<const LinkModel*> con_links;
+  for(unsigned int i = 0; i < group_joints.size(); i++) {
+    const JointModel *joint = joint_model_vector_[i];
+    while (joint->getParentLinkModel() != NULL)
+    {
+      if(is_root.find(joint->getName()) != is_root.end() &&
+         is_root[joint->getName()]) {
+        break;
+      }
+      con_links.insert(joint->getParentLinkModel());
+      joint = joint->getParentLinkModel()->getParentJointModel();
+    }
+  }
+
+  ROS_DEBUG("Constituent links:");
+  for(std::set<const LinkModel*>::iterator it = con_links.begin();
+      it != con_links.end();
+      it++) {
+    constituent_links_.push_back(*it);
+    ROS_DEBUG_STREAM((*it)->getName());
+  }
   //these subtrees are distinct, so we can stack their updated links on top of each other
   for (unsigned int i = 0 ; i < joint_roots_.size() ; ++i)
   {

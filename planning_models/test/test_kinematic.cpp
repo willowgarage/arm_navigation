@@ -155,8 +155,9 @@ TEST(LoadingAndFK, SimpleRobot)
 
   std::vector<std::string> gc_joints;
   gc_joints.push_back("base_joint");
+  std::vector<std::string> empty;
   std::vector<planning_models::KinematicModel::GroupConfig> gcs;
-  gcs.push_back(planning_models::KinematicModel::GroupConfig("base", gc_joints));
+  gcs.push_back(planning_models::KinematicModel::GroupConfig("base", gc_joints, empty));
 
   planning_models::KinematicModel* model(new planning_models::KinematicModel(urdfModel,gcs,multi_dof_configs));
 
@@ -307,9 +308,11 @@ TEST(FK, OneRobot)
     "Complete model state dimension = 5\n"
     "State bounds: [-3.14159, 3.14159] [-DBL_MAX, DBL_MAX] [-DBL_MAX, DBL_MAX] [-3.14159, 3.14159] [0.00000, 0.08900]\n"
     "Root joint : base_joint \n"
-    "Available groups: base_from_base_to_tip base_from_joints \n"
+    "Available groups: base_from_base_to_tip base_from_joints base_with_subgroups \n"
     "Group base_from_base_to_tip has 1 roots: base_joint  \n"
-    "Group base_from_joints has 1 roots: base_joint \n";
+    "Group base_from_joints has 1 roots: base_joint \n"
+    "Group base_with_subgroups has 1 roots: base_joint \n";
+    
 
   urdf::Model urdfModel;
   urdfModel.initString(MODEL2);
@@ -319,10 +322,22 @@ TEST(FK, OneRobot)
   gc_joints.push_back("joint_a");
   gc_joints.push_back("joint_b");
   gc_joints.push_back("joint_c");
+  std::vector<std::string> subgroups;
   std::vector<planning_models::KinematicModel::GroupConfig> gcs;
-  gcs.push_back(planning_models::KinematicModel::GroupConfig("base_from_joints", gc_joints));
+  gcs.push_back(planning_models::KinematicModel::GroupConfig("base_from_joints", gc_joints, subgroups));
+
+  //defining this in the list before the actual subgroup to make sure that works
+  std::vector<std::string> extra_joint;
+  extra_joint.push_back("joint_c");
+  subgroups.push_back("base_from_base_to_tip");
+  gcs.push_back(planning_models::KinematicModel::GroupConfig("base_with_subgroups", extra_joint, subgroups));
     
-  gcs.push_back(planning_models::KinematicModel::GroupConfig("base_from_base_to_tip","odom_combined","link_c"));
+  //not making this all the way to joint_c intentionally
+  gcs.push_back(planning_models::KinematicModel::GroupConfig("base_from_base_to_tip","odom_combined","link_b"));
+
+  //now adding a fake one
+  subgroups.push_back("monkey_group");
+  gcs.push_back(planning_models::KinematicModel::GroupConfig("base_with_bad_subgroups", extra_joint, subgroups));
 
   std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
   planning_models::KinematicModel::MultiDofConfig config("base_joint");
@@ -336,12 +351,22 @@ TEST(FK, OneRobot)
   //testing that the two planning groups are the same
   const planning_models::KinematicModel::JointModelGroup* g_one = model->getModelGroup("base_from_joints");
   const planning_models::KinematicModel::JointModelGroup* g_two = model->getModelGroup("base_from_base_to_tip");
+  const planning_models::KinematicModel::JointModelGroup* g_three = model->getModelGroup("base_with_subgroups");
+  const planning_models::KinematicModel::JointModelGroup* g_four = model->getModelGroup("base_with_bad_subgroups");
 
   ASSERT_TRUE(g_one != NULL);
   ASSERT_TRUE(g_two != NULL);
+  ASSERT_TRUE(g_three != NULL);
+  ASSERT_TRUE(g_four == NULL);
 
   ASSERT_EQ(g_one->getJointModelNames().size(), 4); 
-  ASSERT_EQ(g_two->getJointModelNames().size(), 4); 
+  ASSERT_EQ(g_two->getJointModelNames().size(), 3); 
+  ASSERT_EQ(g_three->getJointModelNames().size(), 4); 
+
+  //only the links in between the joints
+  ASSERT_EQ(g_one->getConstituentLinks().size(), 3);
+  ASSERT_EQ(g_two->getConstituentLinks().size(), 2);
+  ASSERT_EQ(g_three->getConstituentLinks().size(), 3);
     
   EXPECT_EQ(g_one->getJointModelNames()[0],"base_joint");
   EXPECT_EQ(g_one->getJointModelNames()[1],"joint_a");
@@ -350,10 +375,15 @@ TEST(FK, OneRobot)
   EXPECT_EQ(g_two->getJointModelNames()[0],"base_joint");
   EXPECT_EQ(g_two->getJointModelNames()[1],"joint_a");
   EXPECT_EQ(g_two->getJointModelNames()[2],"joint_b");
-  EXPECT_EQ(g_two->getJointModelNames()[3],"joint_c");
+  EXPECT_EQ(g_three->getJointModelNames()[0],"base_joint");
+  EXPECT_EQ(g_three->getJointModelNames()[1],"joint_a");
+  EXPECT_EQ(g_three->getJointModelNames()[2],"joint_b");
+  EXPECT_EQ(g_three->getJointModelNames()[3],"joint_c");
 
+  //but they should have the same links to be updated
   ASSERT_EQ(g_one->getUpdatedLinkModels().size(), 4);
   ASSERT_EQ(g_two->getUpdatedLinkModels().size(), 4);
+  ASSERT_EQ(g_three->getUpdatedLinkModels().size(), 4);
 
   EXPECT_EQ(g_one->getUpdatedLinkModels()[0]->getName(),"base_link");
   EXPECT_EQ(g_one->getUpdatedLinkModels()[1]->getName(),"link_a");
@@ -364,6 +394,11 @@ TEST(FK, OneRobot)
   EXPECT_EQ(g_two->getUpdatedLinkModels()[1]->getName(),"link_a");
   EXPECT_EQ(g_two->getUpdatedLinkModels()[2]->getName(),"link_b");
   EXPECT_EQ(g_two->getUpdatedLinkModels()[3]->getName(),"link_c");
+
+  EXPECT_EQ(g_three->getUpdatedLinkModels()[0]->getName(),"base_link");
+  EXPECT_EQ(g_three->getUpdatedLinkModels()[1]->getName(),"link_a");
+  EXPECT_EQ(g_three->getUpdatedLinkModels()[2]->getName(),"link_b");
+  EXPECT_EQ(g_three->getUpdatedLinkModels()[3]->getName(),"link_c");
 
   //bracketing so the state gets destroyed before we bring down the model
   {

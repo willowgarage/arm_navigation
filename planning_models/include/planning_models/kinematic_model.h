@@ -101,16 +101,19 @@ public:
     }
 
     GroupConfig(std::string name,
-                std::vector<std::string> joints) 
+                std::vector<std::string> joints,
+                std::vector<std::string> subgroups) 
       : name_(name)
     {
       joints_ = joints;
+      subgroups_ = subgroups;
     }
 
     std::string name_;
     std::string base_link_;
     std::string tip_link_;
     std::vector<std::string> joints_;
+    std::vector<std::string> subgroups_;
   };
   
   /** \brief A joint from the robot. Contains the transform applied by the joint type */
@@ -488,6 +491,20 @@ public:
       return joint_roots_;
     }
 
+    const std::vector<const LinkModel*>& getConstituentLinks() const
+    {
+      return constituent_links_;
+    }
+
+    std::vector<std::string> getConstituentLinkNames() const
+    {
+      std::vector<std::string> ret_vec;
+      for(unsigned int i = 0; i < constituent_links_.size(); i++) {
+        ret_vec.push_back(constituent_links_[i]->getName());
+      }
+      return ret_vec;
+    }
+
     const std::vector<const LinkModel*>& getUpdatedLinkModels() const
     {
       return updated_link_model_vector_;
@@ -509,12 +526,16 @@ public:
     /** \brief A map from joint names to their instances */
     std::map<std::string, const JointModel*> joint_model_map_;
 
-     /** \brief The list of joint models that are roots in this group */
+    /** \brief The list of joint models that are roots in this group */
     std::vector<const JointModel*> joint_roots_;
 
-    /** \brief The list of child link_models in the order they should be updated */
+    /** \brief The links that are on the direct lineage between joints and joint_roots_.
+        May not be in any particular order */
+    std::vector<const LinkModel*> constituent_links_;
+
+    /** \brief The list of downstream link models in the order they should be updated */
     std::vector<const LinkModel*> updated_link_model_vector_;
-	    
+
   };
 
   /** \brief Construct a kinematic model from another one */
@@ -584,6 +605,11 @@ public:
   {
     return link_model_vector_;
   }
+
+  const std::vector<LinkModel*>& getLinkModelsWithCollisionGeometry() const
+  {
+    return link_models_with_collision_geometry_vector_;
+  }
 	
   /** \brief Get the array of joint names, in the order they
       appear in the robot state. */
@@ -608,6 +634,8 @@ public:
   void printModelInfo(std::ostream &out = std::cout) const;
 
   bool hasModelGroup(const std::string& group) const;
+
+  bool addModelGroup(const GroupConfig& group);
 
   const JointModelGroup* getModelGroup(const std::string& name) const
   {
@@ -654,6 +682,9 @@ private:
   /** \brief The vector of links that are updated when computeTransforms() is called, in the order they are updated */
   std::vector<LinkModel*> link_model_vector_;	
 	
+  /** \brief Only links that have collision geometry specified */
+  std::vector<LinkModel*> link_models_with_collision_geometry_vector_;
+
   /** \brief The root joint */
   JointModel *root_;
 	
