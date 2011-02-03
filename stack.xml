@@ -9,5 +9,6 @@
   <depend stack="common_msgs" /> <!-- trajectory_msgs, geometry_msgs -->
   <depend stack="motion_planning_common" /> <!-- motion_planning_msgs -->
   <depend stack="ros" />
+  <depend stack="ros_comm" /> <!-- trajectory_msgs, geometry_msgs, motion_planning_msgs -->
 
 </stack>
