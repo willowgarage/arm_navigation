@@ -11,10 +11,9 @@
   <depend stack="geometry" /> <!-- tf, tf_conversions -->
   <depend stack="joystick_drivers" /> <!-- joy -->
   <depend stack="kinematics" /> <!-- kinematics_msgs -->
-  <depend stack="motion_planning_common" /> <!-- planning_models, geometric_shapes, motion_planning_msgs, mapping_msgs, geometric_shapes_msgs -->
-  <depend stack="motion_planning_environment" /> <!-- planning_environment, planning_environment_msgs -->
+  <depend stack="motion_planning_common" /> <!-- planning_environment_msgs, planning_environment, planning_models, geometric_shapes_msgs, mapping_msgs, geometric_shapes, motion_planning_msgs -->
   <depend stack="pr2_controllers" /> <!-- pr2_controllers_msgs -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- rosconsole, std_msgs, roscpp -->
+  <depend stack="ros_comm" /> <!-- rosconsole, motion_planning_msgs, planning_environment_msgs, roscpp, joy, actionlib, trajectory_msgs, std_msgs, geometric_shapes_msgs, kinematics_msgs, visualization_msgs, tf, geometry_msgs, mapping_msgs, actionlib_msgs, pr2_controllers_msgs -->
 
 </stack>
