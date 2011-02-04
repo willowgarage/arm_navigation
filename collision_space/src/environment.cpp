@@ -81,6 +81,8 @@ void collision_space::EnvironmentModel::setRobotModel(const planning_models::Kin
 {
   robot_model_ = model;
   collision_links_ = links;
+  self_collision_test_.clear();
+  collision_link_index_.clear();
   self_collision_test_.resize(links.size());
   //default is that no collisions are allowed
   for (unsigned int i = 0 ; i < links.size() ; ++i)

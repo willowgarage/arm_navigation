@@ -99,12 +99,14 @@ void collision_space::EnvironmentModelODE::freeMemory(void)
 { 
   for (unsigned int j = 0 ; j < model_geom_.link_geom.size() ; ++j)
     delete model_geom_.link_geom[j];
+  model_geom_.link_geom.clear();
   if (model_geom_.env_space)
     dSpaceDestroy(model_geom_.env_space);
   if (model_geom_.self_space)
     dSpaceDestroy(model_geom_.self_space);
   for (std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() ; ++it)
     delete it->second;
+  coll_namespaces_.clear();
 }
 
 void collision_space::EnvironmentModelODE::setRobotModel(const planning_models::KinematicModel* model, 
@@ -188,7 +190,6 @@ void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::st
 
 void collision_space::EnvironmentModelODE::createODERobotModel()
 {
-  ROS_INFO_STREAM("Padding is " << default_robot_padding_);
   for (unsigned int i = 0 ; i < collision_links_.size() ; ++i)
   {
     /* skip this link if we have no geometry or if the link
