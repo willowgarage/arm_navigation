@@ -40,24 +40,122 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <ros/package.h>
 
-TEST(Loading, Simple)
+static const std::string rel_path = "/test_urdf/robot.xml";
+
+static const std::string FLOATING_JOINT_XML = 
+  "<value>"
+  "<array>"
+  "<data>"
+  "<value>"
+  "<struct>"
+  "<member>"
+  "<name>name</name>"
+  "<value><string>base_joint</string></value>"
+  "</member>"
+  "<member>"
+  "<name>parent_frame_id</name>"
+  "<value><string>base_footprint</string></value>"
+  "</member>"
+  "<member>"
+  "<name>child_frame_id</name>"
+  "<value><string>base_footprint</string></value>"
+  "</member>"
+  "<member>"
+  "<name>type</name>"
+  "<value><string>Floating</string></value>"
+  "</member>"
+  "</struct>"
+  "</value>"
+  "</data>"
+  "</array>"
+  "</value>";
+
+static const std::string RIGHT_ARM_GROUP_XML = 
+  "<value>"
+  "<array>"
+  "<data>"
+  "<value>"
+  "<struct>"
+  "<member>"
+  "<name>name</name>"
+  "<value><string>right_arm</string></value>"
+  "</member>"
+  "<member>"
+  "<name>base_link</name>"
+  "<value><string>torso_lift_link</string></value>"
+  "</member>"
+  "<member>"
+  "<name>tip_link</name>"
+  "<value><string>r_wrist_roll_link</string></value>"
+  "</member>"
+  "</struct>"
+  "</value>"
+  "</data>"
+  "</array>"
+  "</value>";
+
+class TestRobotModels : public testing::Test 
 {
-    planning_environment::RobotModels m("robot_description");
+protected:
+  
+  virtual void SetUp() {
 
-    EXPECT_TRUE(m.getKinematicModel() != NULL);
-
-    //now we test that the root transform has all the expected values
-    const planning_models::KinematicModel* kmodel = m.getKinematicModel();
-
-    const planning_models::KinematicModel::JointModel* j = kmodel->getRoot();
+    full_path_ = ros::package::getPath("planning_models")+rel_path;
     
-    //check if it's the right type - this means that yaml parsing also works
-    const planning_models::KinematicModel::FloatingJointModel* pj = dynamic_cast<const planning_models::KinematicModel::FloatingJointModel*>(j);
-    EXPECT_TRUE(pj != NULL);
+    std::string com = "rosparam set robot_description -t "+full_path_;
+
+    int ok = system(com.c_str());
+    
+    if(ok != 0) {
+      ROS_WARN_STREAM("Setting parameter system call not ok");
+    }
+  }
+  
+protected:
+
+  ros::NodeHandle nh_;
+  std::string full_path_;
+};
+
+TEST_F(TestRobotModels, Loading)
+{
+  int offset1=0;
+
+  //this will be used by other tests unless another joint is pushed
+  XmlRpc::XmlRpcValue floating_multi_dof_joint(FLOATING_JOINT_XML, &offset1);
+
+  ASSERT_TRUE(floating_multi_dof_joint.valid());
+  ASSERT_EQ(floating_multi_dof_joint.getType(),XmlRpc::XmlRpcValue::TypeArray); 
+
+  nh_.setParam("robot_description_planning/multi_dof_joints", floating_multi_dof_joint);
+
+  //and these groups
+  offset1 = 0;
+  XmlRpc::XmlRpcValue planning_groups(RIGHT_ARM_GROUP_XML, &offset1);
+
+  ASSERT_TRUE(planning_groups.valid());
+  ASSERT_EQ(planning_groups.getType(),XmlRpc::XmlRpcValue::TypeArray); 
+
+  nh_.setParam("robot_description_planning/groups", planning_groups);
+  
+  planning_environment::RobotModels m("robot_description");
+
+  EXPECT_TRUE(m.getKinematicModel() != NULL);
+
+  //now we test that the root transform has all the expected values
+  const planning_models::KinematicModel* kmodel = m.getKinematicModel();
+
+  const planning_models::KinematicModel::JointModel* j = kmodel->getRoot();
+    
+  //check if it's the right type - this means that yaml parsing also works
+  const planning_models::KinematicModel::FloatingJointModel* pj = dynamic_cast<const planning_models::KinematicModel::FloatingJointModel*>(j);
+  EXPECT_TRUE(pj != NULL);
 }
 
-TEST(SetGetOperations, Simple)
+TEST_F(TestRobotModels, SetGetOperations)
 {
   planning_environment::RobotModels m("robot_description");
   const planning_models::KinematicModel* kmodel = m.getKinematicModel();
@@ -122,12 +220,12 @@ TEST(SetGetOperations, Simple)
   EXPECT_LE(fabs(test_vals["floating_rot_z"]-.7071), .001); 
 }
 
-TEST(SetGetBounds,Simple)
+TEST_F(TestRobotModels, SetGetBounds)
 {
   //TODO
 }
 
-TEST(ForwardKinematics, RuntimeArm)
+TEST_F(TestRobotModels, ForwardKinematics)
 {
   planning_environment::RobotModels m("robot_description");
   const planning_models::KinematicModel* kmodel = m.getKinematicModel();
@@ -138,6 +236,8 @@ TEST(ForwardKinematics, RuntimeArm)
 
   planning_models::KinematicState::JointStateGroup *group = state.getJointStateGroup("right_arm");
   
+  ASSERT_TRUE(group != NULL);
+
   std::map<std::string, double> vals;
   group->getKinematicStateValues(vals);
   for(std::map<std::string, double>::iterator it = vals.begin();
@@ -183,8 +283,8 @@ TEST(ForwardKinematics, RuntimeArm)
 
 int main(int argc, char **argv)
 {
-    testing::InitGoogleTest(&argc, argv);
-    ros::init(argc, argv, "test_robot_models");
+  testing::InitGoogleTest(&argc, argv);
+  ros::init(argc, argv, "test_robot_models");
     
-    return RUN_ALL_TESTS();
+  return RUN_ALL_TESTS();
 }

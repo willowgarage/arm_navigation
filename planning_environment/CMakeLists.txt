@@ -63,11 +63,8 @@ target_link_libraries(visualize_all_collisions planning_environment)
 #rosbuild_add_executable(joint_state_decumulator test/joint_state_decumulator.cpp)
 #target_link_libraries(joint_state_decumulator planning_environment)
 
-rosbuild_add_executable(test_robot_models test/test_robot_models.cpp) 
-rosbuild_declare_test(test_robot_models)
-rosbuild_add_gtest_build_flags(test_robot_models)
+rosbuild_add_gtest(test_robot_models test/test_robot_models.cpp) 
 target_link_libraries(test_robot_models planning_environment)
-target_link_libraries(test_robot_models gtest)
 
 rosbuild_add_executable(test_planning_monitor test/test_planning_monitor.cpp) 
 rosbuild_declare_test(test_planning_monitor)

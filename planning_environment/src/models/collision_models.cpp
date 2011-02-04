@@ -150,12 +150,12 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
     std::vector<std::string> svec1;
     std::vector<std::string> svec2;
     if(kmodel_->getModelGroup((*it).object1)) {
-      svec1 = kmodel_->getModelGroup((*it).object1)->getConstituentLinkNames();
+      svec1 = kmodel_->getModelGroup((*it).object1)->getGroupLinkNames();
     } else {
       svec1.push_back((*it).object1);
     }
     if(kmodel_->getModelGroup((*it).object2)) {
-      svec2 = kmodel_->getModelGroup((*it).object2)->getConstituentLinkNames();
+      svec2 = kmodel_->getModelGroup((*it).object2)->getGroupLinkNames();
     } else {
       svec2.push_back((*it).object2);
     }
@@ -609,7 +609,7 @@ void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(con
       it++) {
     std::vector<std::string> svec1;
     if(kmodel_->getModelGroup((*it).link_name)) {
-      svec1 = kmodel_->getModelGroup((*it).link_name)->getConstituentLinkNames();
+      svec1 = kmodel_->getModelGroup((*it).link_name)->getGroupLinkNames();
     } else {
       svec1.push_back((*it).link_name);
     }
@@ -682,11 +682,11 @@ bool planning_environment::CollisionModels::expandOrderedCollisionOperations(con
       special2 = true;
     }
     if(kmodel_->getModelGroup((*it).object1)) {
-      svec1 = kmodel_->getModelGroup((*it).object1)->getConstituentLinkNames();
+      svec1 = kmodel_->getModelGroup((*it).object1)->getGroupLinkNames();
       special1 = true;
     }
     if(kmodel_->getModelGroup((*it).object2)) {
-      svec2 = kmodel_->getModelGroup((*it).object1)->getConstituentLinkNames();
+      svec2 = kmodel_->getModelGroup((*it).object1)->getGroupLinkNames();
       special2 = true;
     }
     if(!special1) {
