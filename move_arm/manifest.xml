@@ -9,7 +9,6 @@ The move_arm package provides an implementation of a action (see the <a href="ht
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/move_arm</url>
 
-  <depend package="joy"/>
   <depend package="roscpp"/>
   <depend package="rosconsole"/>
   <depend package="std_msgs"/>
