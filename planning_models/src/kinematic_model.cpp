@@ -209,7 +209,11 @@ bool planning_models::KinematicModel::addModelGroup(const planning_models::Kinem
       if(lm->getParentJointModel() == NULL) {
         break;
       }
-      jointv.push_back(lm->getParentJointModel());
+      //only adding non-fixed joint models
+      const FixedJointModel* fjm = dynamic_cast<const FixedJointModel*>(lm->getParentJointModel());
+      if(fjm == NULL) {
+        jointv.push_back(lm->getParentJointModel());
+      }
       lm = lm->getParentJointModel()->getParentLinkModel();
     }
     if(!ok) {
@@ -264,6 +268,9 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::bu
                                                                                              const std::vector<MultiDofConfig>& multi_dof_configs)
 {  
   JointModel *joint = constructJointModel(link->parent_joint.get(), link, multi_dof_configs);
+  if(joint == NULL) {
+    return NULL;
+  }
   joint_model_map_[joint->name_] = joint;
   for(JointModel::js_type::const_iterator it = joint->getJointStateEquivalents().begin();
       it != joint->getJointStateEquivalents().end();
@@ -282,9 +289,13 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::bu
   }
   joint->child_link_model_->parent_joint_model_ = joint;
   
-  for (unsigned int i = 0 ; i < link->child_links.size() ; ++i)
-    joint->child_link_model_->child_joint_models_.push_back(buildRecursive(joint->child_link_model_, link->child_links[i].get(), multi_dof_configs));
-  
+  for (unsigned int i = 0 ; i < link->child_links.size() ; ++i) {
+    JointModel* jm = buildRecursive(joint->child_link_model_, link->child_links[i].get(), multi_dof_configs);
+    if(jm != NULL) {
+      joint->child_link_model_->child_joint_models_.push_back(jm);
+    }
+  }
+
   return joint;
 }
 
@@ -1203,26 +1214,28 @@ planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::str
     }
   }
 
-  //now we need to make another pass for constituent links
-  std::set<const LinkModel*> con_links;
+  //now we need to make another pass for group links
+  std::set<const LinkModel*> group_links_set;
   for(unsigned int i = 0; i < group_joints.size(); i++) {
     const JointModel *joint = joint_model_vector_[i];
+    //push children in directly
+    group_links_set.insert(joint->getChildLinkModel());
     while (joint->getParentLinkModel() != NULL)
     {
       if(is_root.find(joint->getName()) != is_root.end() &&
          is_root[joint->getName()]) {
         break;
       }
-      con_links.insert(joint->getParentLinkModel());
+      group_links_set.insert(joint->getParentLinkModel());
       joint = joint->getParentLinkModel()->getParentJointModel();
     }
   }
 
-  ROS_DEBUG("Constituent links:");
-  for(std::set<const LinkModel*>::iterator it = con_links.begin();
-      it != con_links.end();
+  ROS_DEBUG("Group links:");
+  for(std::set<const LinkModel*>::iterator it = group_links_set.begin();
+      it != group_links_set.end();
       it++) {
-    constituent_links_.push_back(*it);
+    group_link_model_vector_.push_back(*it);
     ROS_DEBUG_STREAM((*it)->getName());
   }
   //these subtrees are distinct, so we can stack their updated links on top of each other

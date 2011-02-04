@@ -12,3 +12,7 @@ rosbuild_link_boost(planning_models thread)
 rosbuild_add_gtest(test_kinematic test/test_kinematic.cpp)
 target_link_libraries(test_kinematic planning_models)
 rosbuild_link_boost(test_kinematic thread)
+
+rosbuild_add_gtest(test_kinematic_complicated test/test_kinematic_complicated.cpp)
+target_link_libraries(test_kinematic_complicated planning_models)
+rosbuild_link_boost(test_kinematic_complicated thread)

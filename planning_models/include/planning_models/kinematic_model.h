@@ -491,16 +491,16 @@ public:
       return joint_roots_;
     }
 
-    const std::vector<const LinkModel*>& getConstituentLinks() const
+    const std::vector<const LinkModel*>& getGroupLinkModels() const
     {
-      return constituent_links_;
+      return group_link_model_vector_;
     }
 
-    std::vector<std::string> getConstituentLinkNames() const
+    std::vector<std::string> getGroupLinkNames() const
     {
       std::vector<std::string> ret_vec;
-      for(unsigned int i = 0; i < constituent_links_.size(); i++) {
-        ret_vec.push_back(constituent_links_[i]->getName());
+      for(unsigned int i = 0; i < group_link_model_vector_.size(); i++) {
+        ret_vec.push_back(group_link_model_vector_[i]->getName());
       }
       return ret_vec;
     }
@@ -529,9 +529,10 @@ public:
     /** \brief The list of joint models that are roots in this group */
     std::vector<const JointModel*> joint_roots_;
 
-    /** \brief The links that are on the direct lineage between joints and joint_roots_.
+    /** \brief The links that are on the direct lineage between joints
+        and joint_roots_, as well as the children of the joint leafs.
         May not be in any particular order */
-    std::vector<const LinkModel*> constituent_links_;
+    std::vector<const LinkModel*> group_link_model_vector_;
 
     /** \brief The list of downstream link models in the order they should be updated */
     std::vector<const LinkModel*> updated_link_model_vector_;

@@ -320,7 +320,6 @@ TEST(FK, OneRobot)
   std::vector<std::string> gc_joints;
   gc_joints.push_back("base_joint");
   gc_joints.push_back("joint_a");
-  gc_joints.push_back("joint_b");
   gc_joints.push_back("joint_c");
   std::vector<std::string> subgroups;
   std::vector<planning_models::KinematicModel::GroupConfig> gcs;
@@ -359,26 +358,25 @@ TEST(FK, OneRobot)
   ASSERT_TRUE(g_three != NULL);
   ASSERT_TRUE(g_four == NULL);
 
-  ASSERT_EQ(g_one->getJointModelNames().size(), 4); 
-  ASSERT_EQ(g_two->getJointModelNames().size(), 3); 
-  ASSERT_EQ(g_three->getJointModelNames().size(), 4); 
+  //joint_b is a fixed joint, so no one should have it
+  ASSERT_EQ(g_one->getJointModelNames().size(), 3); 
+  ASSERT_EQ(g_two->getJointModelNames().size(), 2); 
+  ASSERT_EQ(g_three->getJointModelNames().size(), 3); 
 
-  //only the links in between the joints
-  ASSERT_EQ(g_one->getConstituentLinks().size(), 3);
-  ASSERT_EQ(g_two->getConstituentLinks().size(), 2);
-  ASSERT_EQ(g_three->getConstituentLinks().size(), 3);
+  //only the links in between the joints, and the children of the leafs
+  ASSERT_EQ(g_one->getGroupLinkModels().size(), 4);
+  //g_two only has two links as it only contains base_joint and joint_a as joint_b is fixed
+  ASSERT_EQ(g_two->getGroupLinkModels().size(), 2);
+  ASSERT_EQ(g_three->getGroupLinkModels().size(), 4);
     
   EXPECT_EQ(g_one->getJointModelNames()[0],"base_joint");
   EXPECT_EQ(g_one->getJointModelNames()[1],"joint_a");
-  EXPECT_EQ(g_one->getJointModelNames()[2],"joint_b");
-  EXPECT_EQ(g_one->getJointModelNames()[3],"joint_c");
+  EXPECT_EQ(g_one->getJointModelNames()[2],"joint_c");
   EXPECT_EQ(g_two->getJointModelNames()[0],"base_joint");
   EXPECT_EQ(g_two->getJointModelNames()[1],"joint_a");
-  EXPECT_EQ(g_two->getJointModelNames()[2],"joint_b");
   EXPECT_EQ(g_three->getJointModelNames()[0],"base_joint");
   EXPECT_EQ(g_three->getJointModelNames()[1],"joint_a");
-  EXPECT_EQ(g_three->getJointModelNames()[2],"joint_b");
-  EXPECT_EQ(g_three->getJointModelNames()[3],"joint_c");
+  EXPECT_EQ(g_three->getJointModelNames()[2],"joint_c");
 
   //but they should have the same links to be updated
   ASSERT_EQ(g_one->getUpdatedLinkModels().size(), 4);
