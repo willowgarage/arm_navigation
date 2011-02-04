@@ -1002,6 +1002,15 @@ std::vector<double> planning_models::KinematicModel::FloatingJointModel::compute
   return ret;
 }
 
+void planning_models::KinematicModel::FloatingJointModel::getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const 
+{
+  //the only reasonable default quaternion is (0,0,0,1) - doesn't matter what the bounds are
+  ret_map[getEquiv("floating_rot_x")] = 0.0;
+  ret_map[getEquiv("floating_rot_y")] = 0.0;
+  ret_map[getEquiv("floating_rot_z")] = 0.0;
+  ret_map[getEquiv("floating_rot_w")] = 1.0;
+}
+
 planning_models::KinematicModel::PrismaticJointModel::PrismaticJointModel(const std::string& name,
                                                                           const MultiDofConfig* multi_dof_config) 
   : JointModel(name), 

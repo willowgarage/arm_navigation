@@ -175,6 +175,22 @@ public:
     /** \brief Sets the lower and upper bounds for a variable */
     void setVariableBounds(std::string variable, double low, double high);
 
+    /** \brief Provides a default value for the joint given the joint bounds.
+        Most joints will use the default, but the quaternion for floating
+        point values needs something else */
+    virtual void getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const
+    {
+      for(std::map<std::string, std::pair<double, double> >::const_iterator it = joint_state_bounds_.begin();
+          it != joint_state_bounds_.end();
+          it++) {
+        if(it->second.first <= 0 && it->second.second >= 0.0) {
+          ret_map[it->first] = 0.0;
+        } else {
+          ret_map[it->first] = (it->second.first + it->second.second)/2.0;
+        }
+      }
+    }
+
     const std::map<std::string, std::pair<double, double> >& getAllVariableBounds() const {
       return joint_state_bounds_;
     }
@@ -275,6 +291,8 @@ public:
     virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
     
     virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+
+    virtual void getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const;
 
   };
 

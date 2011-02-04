@@ -230,20 +230,11 @@ std::vector<planning_models::KinematicState::LinkState*> planning_models::Kinema
 void planning_models::KinematicState::setKinematicStateToDefault(void)
 {
   std::map<std::string, double> default_joint_states;
-
+  
   const unsigned int js = joint_state_vector_.size();
   for (unsigned int i = 0  ; i < js ; ++i)
   {
-    for(std::map<std::string, std::pair<double,double> >::const_iterator it = joint_state_vector_[i]->getAllJointValueBounds().begin();
-        it != joint_state_vector_[i]->getAllJointValueBounds().end();
-        it++) {
-      std::pair<double,double> bounds = it->second;
-      if(bounds.first <= 0.0 && bounds.second >= 0.0) {
-        default_joint_states[it->first] = 0.0;
-      } else {
-        default_joint_states[it->first] = (bounds.first+bounds.second)/2.0;
-      }
-    }
+    joint_state_vector_[i]->getJointModel()->getVariableDefaultValuesGivenBounds(default_joint_states);
   }
   setKinematicState(default_joint_states);
 }
@@ -620,16 +611,7 @@ void planning_models::KinematicState::JointStateGroup::setKinematicStateToDefaul
   const unsigned int js = joint_state_vector_.size();
   for (unsigned int i = 0  ; i < js ; ++i)
   {
-    for(std::map<std::string, std::pair<double,double> >::const_iterator it = joint_state_vector_[i]->getAllJointValueBounds().begin();
-        it != joint_state_vector_[i]->getAllJointValueBounds().end();
-        it++) {
-      std::pair<double,double> bounds = it->second;
-      if(bounds.first <= 0.0 && bounds.second >= 0.0) {
-        default_joint_states[it->first] = 0.0;
-      } else {
-        default_joint_states[it->first] = (bounds.first+bounds.second)/2.0;
-      }
-    }
+    joint_state_vector_[i]->getJointModel()->getVariableDefaultValuesGivenBounds(default_joint_states);
   }
   setKinematicState(default_joint_states);
 }

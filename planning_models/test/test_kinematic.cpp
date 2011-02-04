@@ -78,7 +78,7 @@ TEST(Loading, SimpleRobot)
 
   std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
   planning_models::KinematicModel::MultiDofConfig config("base_joint");
-  config.type = "Planar";
+  config.type = "Floating";
   config.parent_frame_id = "odom_combined";
   config.child_frame_id = "base_link";
   multi_dof_configs.push_back(config);
@@ -92,9 +92,17 @@ TEST(Loading, SimpleRobot)
   //bracketing so the state gets destroyed before we bring down the model
   {
     planning_models::KinematicState state(model);
-    
+
+    state.setKinematicStateToDefault();
+
+    //(0,0,0,0) isn't a valid quaternion, so the w should be 1
+    std::map<std::string, double> state_values;
+    state.getKinematicStateValues(state_values);
+
+    EXPECT_EQ(state_values["floating_rot_w"], 1.0);
+
     EXPECT_EQ(std::string("myrobot"), model->getName());
-    EXPECT_EQ((unsigned int)3, state.getDimension());
+    EXPECT_EQ((unsigned int)7, state.getDimension());
     
     const std::vector<planning_models::KinematicModel::LinkModel*>& links = model->getLinkModels();
     EXPECT_EQ((unsigned int)1, links.size());
@@ -168,7 +176,7 @@ TEST(LoadingAndFK, SimpleRobot)
     EXPECT_EQ((unsigned int)3, state.getDimension());
     
     state.setKinematicStateToDefault();
-    
+
     const std::vector<planning_models::KinematicState::JointState*>& joint_states = state.getJointStateVector();
     EXPECT_EQ((unsigned int)1, joint_states.size());
     EXPECT_EQ((unsigned int)3, joint_states[0]->getJointStateValues().size());
@@ -403,7 +411,9 @@ TEST(FK, OneRobot)
     planning_models::KinematicState state(model);
     
     EXPECT_EQ((unsigned int)5, state.getDimension());
-    
+
+    state.setKinematicStateToDefault();
+
     std::map<std::string, double> joint_values;
     joint_values["planar_x"]=1.0;
     joint_values["planar_y"]=1.0;
