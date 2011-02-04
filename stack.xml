@@ -13,7 +13,7 @@
   <depend stack="physics_ode" /> <!-- opende -->
   <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- std_msgs, rosconsole, std_srvs, roscpp, message_filters -->
+  <depend stack="ros_comm" /> <!-- rosconsole, std_srvs, roscpp, message_filters, std_msgs, actionlib, trajectory_msgs, sensor_msgs, geometry_msgs, pcl, visualization_msgs, tf, actionlib_msgs -->
   <depend stack="visualization" /> <!-- rviz -->
 
 </stack>
