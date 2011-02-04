@@ -11,7 +11,7 @@
   <depend stack="motion_planning_common" /> <!-- planning_models, planning_environment, motion_planning_msgs, distance_field, planning_environment_msgs, collision_space, mapping_msgs, geometric_shapes -->
   <depend stack="robot_model" /> <!-- kdl_parser -->
   <depend stack="ros" /> <!-- roslib -->
-  <depend stack="ros_comm" /> <!-- rosconsole, rospy, roscpp -->
+  <depend stack="ros_comm" /> <!-- rosconsole, planning_environment_msgs, roscpp, trajectory_msgs, motion_planning_msgs, sensor_msgs, geometry_msgs, spline_smoother, rospy, visualization_msgs, tf, kinematics_msgs, mapping_msgs -->
   <depend stack="trajectory_filters" /> <!-- spline_smoother -->
 
 </stack>
