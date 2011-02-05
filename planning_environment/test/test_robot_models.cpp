@@ -143,13 +143,15 @@ TEST_F(TestRobotModels, Loading)
   
   planning_environment::RobotModels m("robot_description");
 
-  EXPECT_TRUE(m.getKinematicModel() != NULL);
+  ASSERT_TRUE(m.getKinematicModel() != NULL);
 
   //now we test that the root transform has all the expected values
   const planning_models::KinematicModel* kmodel = m.getKinematicModel();
 
   const planning_models::KinematicModel::JointModel* j = kmodel->getRoot();
     
+  ASSERT_TRUE(j != NULL);
+  
   //check if it's the right type - this means that yaml parsing also works
   const planning_models::KinematicModel::FloatingJointModel* pj = dynamic_cast<const planning_models::KinematicModel::FloatingJointModel*>(j);
   EXPECT_TRUE(pj != NULL);
@@ -253,7 +255,7 @@ TEST_F(TestRobotModels, ForwardKinematics)
     it->second = .1;
   }
   ros::WallTime tm = ros::WallTime::now();
-  const unsigned int NT = 1000000;  
+  const unsigned int NT = 100000;  
   for (unsigned int i = 0 ; i < NT ; ++i) {
     if(i%2 == 0) {
       group->setKinematicState(vals);

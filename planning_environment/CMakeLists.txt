@@ -29,6 +29,10 @@ target_link_libraries(environment_server planning_environment)
 rosbuild_add_executable(visualize_all_collisions test/visualize_all_collisions.cpp)
 rosbuild_link_boost(visualize_all_collisions thread)
 target_link_libraries(visualize_all_collisions planning_environment)
+
+rosbuild_add_executable(visualize_collision_models test/visualize_collision_models.cpp)
+rosbuild_link_boost(visualize_collision_models thread)
+target_link_libraries(visualize_collision_models planning_environment)
  
 # Utility apps
 #rosbuild_add_executable(view_state_validity src/tools/view_state_validity.cpp) 
@@ -65,6 +69,9 @@ target_link_libraries(visualize_all_collisions planning_environment)
 
 rosbuild_add_gtest(test_robot_models test/test_robot_models.cpp) 
 target_link_libraries(test_robot_models planning_environment)
+
+rosbuild_add_gtest(test_collision_models test/test_collision_models.cpp) 
+target_link_libraries(test_collision_models planning_environment)
 
 rosbuild_add_executable(test_planning_monitor test/test_planning_monitor.cpp) 
 rosbuild_declare_test(test_planning_monitor)

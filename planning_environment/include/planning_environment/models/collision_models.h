@@ -202,6 +202,11 @@ public:
                                    const std_msgs::ColorRGBA color,
                                    const ros::Duration& lifetime);
 
+  void getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
+                                        visualization_msgs::MarkerArray& arr,
+                                        bool use_default_padding,
+                                        const ros::Duration& lifetime) const;
+  
   /** \brief Return the instance of the constructed ODE collision model */  
   const collision_space::EnvironmentModel* getCollisionSpace() const {
     return ode_collision_model_;
@@ -224,7 +229,7 @@ public:
     self_collision = default_collision_operations_;
   }
       
-  const std::map<std::string,double>& getDefaultLinkPaddingMap() {
+  const std::map<std::string,double>& getDefaultLinkPaddingMap() const{
     return default_link_padding_map_;
   }
   

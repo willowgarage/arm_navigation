@@ -1245,4 +1245,125 @@ void planning_environment::CollisionModels::getAllCollisionSpaceObjectMarkers(vi
   getAttachedCollisionObjectMarkers(arr, attached_color, lifetime);
 }
 
+void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
+                                                                             visualization_msgs::MarkerArray& arr,
+                                                                             bool use_default_padding,
+                                                                             const ros::Duration& lifetime) const
+{
+  unsigned int count = 0;
+  for(unsigned int i = 0; i < state.getLinkStateVector().size(); i++) {
+    const planning_models::KinematicState::LinkState* ls = state.getLinkStateVector()[i];
+    if(ls->getLinkModel()->getLinkShape() == NULL) continue;
+    const shapes::Mesh *mesh = dynamic_cast<const shapes::Mesh*>(ls->getLinkModel()->getLinkShape());
+    if(mesh == NULL) continue;
+    if (mesh->vertexCount > 0 && mesh->triangleCount > 0)
+    {	
+      const btTransform& trans = ls->getGlobalCollisionBodyTransform();
 
+      visualization_msgs::Marker mesh_mark;
+      mesh_mark.header.frame_id = getWorldFrameId();
+      mesh_mark.header.stamp = ros::Time::now();
+      mesh_mark.ns = ls->getName()+"_trimesh";
+      mesh_mark.id = count++;
+      mesh_mark.type = mesh_mark.LINE_LIST;
+      mesh_mark.scale.x = mesh_mark.scale.y = mesh_mark.scale.z = .001;	     
+      mesh_mark.color.r = 0.0;
+      mesh_mark.color.g = 0.0;
+      mesh_mark.color.b = 1.0;
+      mesh_mark.color.a = 1.0;
+      double padding = 0.0;
+      if(use_default_padding) {
+        if(getDefaultLinkPaddingMap().find(ls->getName()) !=
+           getDefaultLinkPaddingMap().end()) {
+          padding = getDefaultLinkPaddingMap().find(ls->getName())->second;
+        }
+      }
+      double *vertices = new double[mesh->vertexCount* 3];
+      double sx = 0.0, sy = 0.0, sz = 0.0;
+      for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
+      {
+        unsigned int i3 = i * 3;
+        vertices[i3] = mesh->vertices[i3];
+        vertices[i3 + 1] = mesh->vertices[i3 + 1];
+        vertices[i3 + 2] = mesh->vertices[i3 + 2];
+        sx += vertices[i3];
+        sy += vertices[i3 + 1];
+        sz += vertices[i3 + 2];
+      }
+      // the center of the mesh
+      sx /= (double)mesh->vertexCount;
+      sy /= (double)mesh->vertexCount;
+      sz /= (double)mesh->vertexCount;
+
+      // scale the mesh
+      for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i) {
+        unsigned int i3 = i * 3;
+          
+        // vector from center to the vertex
+        double dx = vertices[i3] - sx;
+        double dy = vertices[i3 + 1] - sy;
+        double dz = vertices[i3 + 2] - sz;
+	
+        // length of vector
+        //double norm = sqrt(dx * dx + dy * dy + dz * dz);
+	
+        double ndx = ((dx > 0) ? dx+padding : dx-padding);
+        double ndy = ((dy > 0) ? dy+padding : dy-padding);
+        double ndz = ((dz > 0) ? dz+padding : dz-padding);
+        
+        // the new distance of the vertex from the center
+        //double fact = scale + padding/norm;
+        vertices[i3] = sx + ndx; //dx * fact;
+        vertices[i3 + 1] = sy + ndy; //dy * fact;
+        vertices[i3 + 2] = sz + ndz; //dz * fact;		    
+      }
+      for (unsigned int j = 0 ; j < mesh->triangleCount; ++j) {
+        unsigned int t1ind = mesh->triangles[3*j];
+        unsigned int t2ind = mesh->triangles[3*j + 1];
+        unsigned int t3ind = mesh->triangles[3*j + 2];
+
+        btVector3 vec1(vertices[t1ind*3],
+                       vertices[t1ind*3+1],
+                       vertices[t1ind*3+2]);
+
+        btVector3 vec2(vertices[t2ind*3],
+                       vertices[t2ind*3+1],
+                       vertices[t2ind*3+2]);
+
+        btVector3 vec3(vertices[t3ind*3],
+                       vertices[t3ind*3+1],
+                       vertices[t3ind*3+2]);
+
+        vec1 = trans*vec1;
+        vec2 = trans*vec2;
+        vec3 = trans*vec3;
+
+        geometry_msgs::Point pt1;
+        pt1.x = vec1.x();
+        pt1.y = vec1.y();
+        pt1.z = vec1.z();
+
+        geometry_msgs::Point pt2;
+        pt2.x = vec2.x();
+        pt2.y = vec2.y();
+        pt2.z = vec2.z();
+
+        geometry_msgs::Point pt3;
+        pt3.x = vec3.x();
+        pt3.y = vec3.y();
+        pt3.z = vec3.z();
+        
+        mesh_mark.points.push_back(pt1);
+        mesh_mark.points.push_back(pt2);
+        
+        mesh_mark.points.push_back(pt1);
+        mesh_mark.points.push_back(pt3);
+        
+        mesh_mark.points.push_back(pt2);
+        mesh_mark.points.push_back(pt3);
+      }
+      arr.markers.push_back(mesh_mark);
+      delete[] vertices;
+    }
+  }
+}
