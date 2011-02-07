@@ -1,0 +1,17 @@
+## This file should be loaded under <robot description>_planning
+
+## the definition of each group
+groups:
+
+  - name: left_arm
+    base_link: torso_lift_link
+    tip_link: l_wrist_roll_link
+
+  - name: right_arm
+    base_link: torso_lift_link
+    tip_link: r_wrist_roll_link
+      
+  - name: arms
+    subgroups:
+      left_arm
+      right_arm

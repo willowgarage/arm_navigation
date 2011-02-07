@@ -67,6 +67,9 @@ target_link_libraries(visualize_collision_models planning_environment)
 #rosbuild_add_executable(joint_state_decumulator test/joint_state_decumulator.cpp)
 #target_link_libraries(joint_state_decumulator planning_environment)
 
+rosbuild_add_executable(default_joint_state_publisher test/default_joint_state_publisher.cpp)
+target_link_libraries(default_joint_state_publisher planning_environment)
+
 rosbuild_add_gtest(test_robot_models test/test_robot_models.cpp) 
 target_link_libraries(test_robot_models planning_environment)
 
@@ -74,7 +77,12 @@ rosbuild_add_gtest(test_collision_models test/test_collision_models.cpp)
 target_link_libraries(test_collision_models planning_environment)
 
 rosbuild_add_executable(test_planning_monitor test/test_planning_monitor.cpp) 
+target_link_libraries(test_planning_monitor planning_environment)
+target_link_libraries(test_planning_monitor gtest)
+
+rosbuild_add_executable(test_planning_monitor test/test_planning_monitor.cpp) 
 rosbuild_declare_test(test_planning_monitor)
 rosbuild_add_gtest_build_flags(test_planning_monitor)
 target_link_libraries(test_planning_monitor planning_environment)
 target_link_libraries(test_planning_monitor gtest)
+rosbuild_add_rostest(test/test_monitors.launch)
