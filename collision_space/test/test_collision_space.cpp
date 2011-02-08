@@ -91,19 +91,26 @@ protected:
 
 TEST_F(TestCollisionSpace, TestInit) {
   std::vector<std::string> links;
-  std::map<std::string, double> link_padding_map;
-  coll_space_.setRobotModel(kinematic_model_, links, link_padding_map);
-
-  //no links, so no collision
-  ASSERT_FALSE(coll_space_.isCollision());
-
-  //all links, should be collision
   kinematic_model_->getLinkModelNames(links);
+  std::map<std::string, double> link_padding_map;
 
-  coll_space_.setRobotModel(kinematic_model_, links, link_padding_map);
+  {
+    collision_space::EnvironmentModel::AllowedCollisionMatrix acm(links,true);
+    
+    coll_space_.setRobotModel(kinematic_model_, acm, link_padding_map);
+    
+    //all AllowedCollisions set to true, so no collision
+    ASSERT_FALSE(coll_space_.isCollision());
+  }
+
+  {
+    collision_space::EnvironmentModel::AllowedCollisionMatrix acm(links,false);
+
+    coll_space_.setRobotModel(kinematic_model_, acm, link_padding_map);
   
-  //now we are in collision with no default collision operations
-  ASSERT_TRUE(coll_space_.isCollision());
+    //now we are in collision with nothing disabled
+    ASSERT_TRUE(coll_space_.isCollision());
+  }
 }
 
 int main(int argc, char **argv)
