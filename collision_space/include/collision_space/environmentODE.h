@@ -392,12 +392,12 @@ protected:
   void setAttachedBodiesLinkPadding();
   void revertAttachedBodiesLinkPadding();
 
-  /** \brief Check if thread-specific routines have been called */
-  void checkThreadInit(void) const;	
   void freeMemory(void);	
 	
   ModelInfo model_geom_;
   std::map<std::string, CollisionNamespace*> coll_namespaces_;
+
+  bool previous_set_robot_model_;
 	
 };
 }

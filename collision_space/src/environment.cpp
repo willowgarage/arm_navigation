@@ -176,6 +176,30 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::addEntry(const s
   return true;
 }
 
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::string& name1,
+                                                                            const std::string& name2,
+                                                                            bool allowed) {
+  entry_type::left_const_iterator it1 = allowed_entries_bimap_.left.find(name1);
+  if(it1 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  entry_type::left_const_iterator it2 = allowed_entries_bimap_.left.find(name2);
+  if(it2 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  allowed_entries_[it1->second][it2->second] = allowed;
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(unsigned int i, unsigned int j,
+                                                                            bool allowed) 
+{
+  if(i > allowed_entries_.size() || j > allowed_entries_[i].size()) {
+    return false;
+  }
+  allowed_entries_[i][j] = allowed;
+  return true;
+}
 bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::string& name, 
                                                                             bool allowed)
 {

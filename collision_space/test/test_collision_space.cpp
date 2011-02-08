@@ -74,10 +74,12 @@ protected:
     kinematic_model_ = new planning_models::KinematicModel(urdf_model_,
                                                            gcs,
                                                            multi_dof_configs);
+    coll_space_ = new collision_space::EnvironmentModelODE();
   };
 
   virtual void TearDown() {
     delete kinematic_model_;
+    delete coll_space_;
   }
 
 protected:
@@ -85,9 +87,10 @@ protected:
   urdf::Model urdf_model_;
   bool urdf_ok_;
   std::string full_path_;
-  collision_space::EnvironmentModelODE coll_space_;
+  collision_space::EnvironmentModelODE* coll_space_;
   planning_models::KinematicModel* kinematic_model_;
 };
+
 
 TEST_F(TestCollisionSpace, TestInit) {
   std::vector<std::string> links;
@@ -97,19 +100,72 @@ TEST_F(TestCollisionSpace, TestInit) {
   {
     collision_space::EnvironmentModel::AllowedCollisionMatrix acm(links,true);
     
-    coll_space_.setRobotModel(kinematic_model_, acm, link_padding_map);
+    coll_space_->setRobotModel(kinematic_model_, acm, link_padding_map);
     
     //all AllowedCollisions set to true, so no collision
-    ASSERT_FALSE(coll_space_.isCollision());
+    ASSERT_FALSE(coll_space_->isCollision());
   }
 
   {
     collision_space::EnvironmentModel::AllowedCollisionMatrix acm(links,false);
 
-    coll_space_.setRobotModel(kinematic_model_, acm, link_padding_map);
+    coll_space_->setRobotModel(kinematic_model_, acm, link_padding_map);
   
     //now we are in collision with nothing disabled
-    ASSERT_TRUE(coll_space_.isCollision());
+    ASSERT_TRUE(coll_space_->isCollision());
+  }
+
+  //one more time for good measure
+  {
+    collision_space::EnvironmentModel::AllowedCollisionMatrix acm(links,false);
+
+    coll_space_->setRobotModel(kinematic_model_, acm, link_padding_map);
+  
+    //now we are in collision with nothing disabled
+    ASSERT_TRUE(coll_space_->isCollision());
+  }
+}
+
+
+TEST_F(TestCollisionSpace, TestACM) {
+  std::vector<std::string> links;
+  kinematic_model_->getLinkModelNames(links);
+  std::map<std::string, double> link_padding_map;
+  
+  //first we get
+  {
+    collision_space::EnvironmentModel::AllowedCollisionMatrix acm(links, false);
+    coll_space_->setRobotModel(kinematic_model_, acm, link_padding_map);
+
+    planning_models::KinematicState state(kinematic_model_);
+    state.setKinematicStateToDefault();
+
+    coll_space_->updateRobotModel(&state);
+
+    //at default state in collision
+    ASSERT_TRUE(coll_space_->isCollision());
+
+    //now we get the full set of collisions in the default state
+    std::vector<collision_space::EnvironmentModel::AllowedContact> ac;
+    std::vector<collision_space::EnvironmentModel::Contact> contacts;
+      
+    coll_space_->getAllCollisionContacts(ac, contacts, 1);
+
+    ASSERT_TRUE(contacts.size() > 1);
+    //now we change all these pairwise to true
+    for(unsigned int i = 0; i < contacts.size(); i++) {
+      ASSERT_TRUE(contacts[i].body_type_1 == collision_space::EnvironmentModel::LINK);
+      ASSERT_TRUE(contacts[i].body_type_2 == collision_space::EnvironmentModel::LINK);
+      ASSERT_TRUE(acm.changeEntry(contacts[i].body_name_1,contacts[i].body_name_2, true));
+    }
+
+    coll_space_->setAlteredCollisionMatrix(acm);
+    
+    //with all of these disabled, no more collisions
+    ASSERT_FALSE(coll_space_->isCollision());
+
+    coll_space_->revertAlteredCollisionMatrix();
+    ASSERT_TRUE(coll_space_->isCollision());
   }
 }
 

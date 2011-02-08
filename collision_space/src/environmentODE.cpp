@@ -44,55 +44,23 @@
 #include <algorithm>
 #include <map>
 
-static int          ODEInitCount = 0;
-static boost::mutex ODEInitCountLock;
-
-static std::map<boost::thread::id, int> ODEThreadMap;
-static boost::mutex                     ODEThreadMapLock;
-
 static const unsigned int MAX_ODE_CONTACTS = 128;
 
 collision_space::EnvironmentModelODE::EnvironmentModelODE(void) : EnvironmentModel()
 {
-  ODEInitCountLock.lock();
-  if (ODEInitCount == 0)
-  {
-    ROS_DEBUG("Initializing ODE");
-    dInitODE2(0);
-  }
-  ODEInitCount++;
-  ODEInitCountLock.unlock();
-    
-  checkThreadInit();
+  ROS_DEBUG("Initializing ODE");
+  dInitODE();
 
   model_geom_.env_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
   model_geom_.self_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
+  
+  previous_set_robot_model_ = false;
 }
 
 collision_space::EnvironmentModelODE::~EnvironmentModelODE(void)
 {
   freeMemory();
-  ODEInitCountLock.lock();
-  ODEInitCount--;
-  if (ODEInitCount == 0)
-  {
-    ROS_DEBUG("Closing ODE");
-    dCloseODE();
-  }
-  ODEInitCountLock.unlock();
-}
-
-void collision_space::EnvironmentModelODE::checkThreadInit(void) const
-{
-  boost::thread::id id = boost::this_thread::get_id();
-  ODEThreadMapLock.lock();
-  if (ODEThreadMap.find(id) == ODEThreadMap.end())
-  {
-    ODEThreadMap[id] = 1;
-    ROS_DEBUG("Initializing new thread (%d total)", (int)ODEThreadMap.size());
-    dAllocateODEDataForThread(dAllocateMaskAll);
-  }
-  ODEThreadMapLock.unlock();
+  dCloseODE();
 }
 
 void collision_space::EnvironmentModelODE::freeMemory(void)
@@ -116,7 +84,17 @@ void collision_space::EnvironmentModelODE::setRobotModel(const planning_models::
                                                          double scale) 
 {
   collision_space::EnvironmentModel::setRobotModel(model, allowed_collision_matrix, link_padding_map, default_padding, scale);
+  if(previous_set_robot_model_) {
+    for (unsigned int j = 0 ; j < model_geom_.link_geom.size() ; ++j)
+      delete model_geom_.link_geom[j];
+    model_geom_.link_geom.clear();
+    dSpaceDestroy(model_geom_.env_space);
+    dSpaceDestroy(model_geom_.self_space);
+    model_geom_.env_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
+    model_geom_.self_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
+  }
   createODERobotModel();
+  previous_set_robot_model_ = true;
 }
 
 void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const
@@ -755,9 +733,9 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
   num_contacts = std::max(num_contacts, (unsigned int)1);
   
   dContactGeom contactGeoms[num_contacts];
-  int numc = dCollide (o1, o2, num_contacts,
-                       &(contactGeoms[0]), sizeof(dContactGeom));
-
+  int numc = dCollide(o1, o2, num_contacts,
+                      &(contactGeoms[0]), sizeof(dContactGeom));
+  
   if(!cdata->contacts) {
     //we don't care about contact information, so just set to true if there's been collision
     if (numc) {
@@ -837,7 +815,6 @@ bool collision_space::EnvironmentModelODE::getCollisionContacts(const std::vecto
   if (!allowedContacts.empty())
     cdata.allowed = &allowedContacts;
   contacts.clear();
-  checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
 }
@@ -853,7 +830,6 @@ bool collision_space::EnvironmentModelODE::getAllCollisionContacts(const std::ve
     cdata.allowed = &allowedContacts;
   cdata.exhaustive = true;
   contacts.clear();
-  checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
 }
@@ -862,7 +838,6 @@ bool collision_space::EnvironmentModelODE::isCollision(void) const
 {
   CollisionData cdata;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
-  checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
 }
@@ -871,7 +846,6 @@ bool collision_space::EnvironmentModelODE::isSelfCollision(void) const
 {
   CollisionData cdata; 
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
-  checkThreadInit();
   testSelfCollision(&cdata);
   return cdata.collides;
 }
@@ -880,7 +854,6 @@ bool collision_space::EnvironmentModelODE::isEnvironmentCollision(void) const
 {
   CollisionData cdata; 
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
-  checkThreadInit();
   testEnvironmentCollision(&cdata);
   return cdata.collides;
 }

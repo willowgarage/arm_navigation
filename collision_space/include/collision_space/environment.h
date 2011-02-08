@@ -138,6 +138,14 @@ public:
     
     bool changeEntry(const std::string& name, bool allowed);
 
+    bool changeEntry(const std::string& name1,
+                     const std::string& name2,
+                     bool allowed);
+
+    bool changeEntry(const unsigned int ind_1,
+                     const unsigned int ind_2,
+                     bool allowed);
+
     bool changeEntry(const std::string& name, 
                      const std::vector<std::string>& change_names,
                      bool allowed);
