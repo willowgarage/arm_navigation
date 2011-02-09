@@ -134,7 +134,9 @@ public:
 
     bool removeEntry(const std::string& name);
 
-    bool addEntry(const std::string& name, bool allowed = false);
+    bool addEntry(const std::string& name, bool allowed);
+
+    bool changeEntry(bool allowed);
     
     bool changeEntry(const std::string& name, bool allowed);
 
@@ -161,12 +163,17 @@ public:
     unsigned int getSize() const {
       return allowed_entries_.size();
     }
+
+    typedef boost::bimap<std::string, unsigned int> entry_type;
+
+    const entry_type& getEntriesBimap() const {
+      return allowed_entries_bimap_;
+    }
     
   private:
 
     bool valid_;
     std::vector<std::vector<bool> > allowed_entries_;
-    typedef boost::bimap<std::string, unsigned int> entry_type;
 
     entry_type allowed_entries_bimap_;
   };

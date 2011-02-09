@@ -92,6 +92,7 @@ void collision_space::EnvironmentModelODE::setRobotModel(const planning_models::
     dSpaceDestroy(model_geom_.self_space);
     model_geom_.env_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
     model_geom_.self_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
+    attached_bodies_in_collision_matrix_.clear();
   }
   createODERobotModel();
   previous_set_robot_model_ = true;
@@ -298,11 +299,21 @@ void collision_space::EnvironmentModelODE::updateAttachedBodies()
 
 void collision_space::EnvironmentModelODE::updateAttachedBodies(const std::map<std::string, double>& link_padding_map)
 {
+  //getting rid of all entries associated with the current attached bodies
+  for(std::map<std::string, bool>::iterator it = attached_bodies_in_collision_matrix_.begin();
+      it != attached_bodies_in_collision_matrix_.end();
+      it++) {
+    if(!default_collision_matrix_.removeEntry(it->first)) {
+      ROS_WARN_STREAM("No entry in default collision matrix for attached body " << it->first <<
+                      " when there really should be.");
+    }
+  }
+  attached_bodies_in_collision_matrix_.clear();
   for (unsigned int i = 0 ; i < model_geom_.link_geom.size() ; ++i) {
     LinkGeom *lg = model_geom_.link_geom[i];
 
     lg->deleteAttachedBodies();
-	
+
     /* create new set of attached bodies */
     const std::vector<planning_models::KinematicModel::AttachedBodyModel*>& attached_bodies = lg->link->getAttachedBodyModels();
     for (unsigned int j = 0 ; j < attached_bodies.size(); ++j) {
@@ -325,9 +336,17 @@ void collision_space::EnvironmentModelODE::addAttachedBody(LinkGeom* lg,
   AttGeom* attg = new AttGeom();
   attg->att = attm;
 
-  if(!default_collision_matrix_.getEntryIndex(attm->getName(), attg->index)) {
-    ROS_WARN_STREAM("Attached body " << attm->getName() << " not in provided collision matrix");
+  if(!default_collision_matrix_.addEntry(attm->getName(), false)) {
+    ROS_WARN_STREAM("Must already have an entry in allowed collision matrix for " << attm->getName());
   } 
+  attached_bodies_in_collision_matrix_[attm->getName()] = true;
+  default_collision_matrix_.getEntryIndex(attm->getName(), attg->index);
+  //setting touch links
+  for(unsigned int i = 0; i < attm->getTouchLinks().size(); i++) {
+    if(!default_collision_matrix_.changeEntry(attm->getName(), attm->getTouchLinks()[i], true)) {
+      ROS_WARN_STREAM("No entry in allowed collision matrix for " << attm->getName() << " and " << attm->getTouchLinks()[i]);
+    }
+  }
   for(unsigned int i = 0; i < attm->getShapes().size(); i++) {
     dGeomID ga = createODEGeom(model_geom_.self_space, model_geom_.storage, attm->getShapes()[i], 0.0, 0.0);
     assert(ga);

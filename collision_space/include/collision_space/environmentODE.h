@@ -389,6 +389,8 @@ protected:
   void addAttachedBody(LinkGeom* lg, const planning_models::KinematicModel::AttachedBodyModel* attm,
                        double padd);
 
+  std::map<std::string, bool> attached_bodies_in_collision_matrix_;
+
   void setAttachedBodiesLinkPadding();
   void revertAttachedBodiesLinkPadding();
 

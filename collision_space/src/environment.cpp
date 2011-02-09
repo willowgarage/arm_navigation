@@ -176,6 +176,16 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::addEntry(const s
   return true;
 }
 
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(bool allowed)
+{
+  for(unsigned int i = 0; i < allowed_entries_.size(); i++) {
+    for(unsigned int j = 0; j < allowed_entries_[i].size(); j++) {
+      allowed_entries_[i][j] = allowed;
+    }
+  }
+  return true;
+}
+
 bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::string& name1,
                                                                             const std::string& name2,
                                                                             bool allowed) {
