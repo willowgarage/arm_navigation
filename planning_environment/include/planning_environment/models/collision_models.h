@@ -147,13 +147,8 @@ public:
 
   void revertAllowedCollisionToDefault();
 
-  bool expandOrderedCollisionOperations(const motion_planning_msgs::OrderedCollisionOperations& ord,
-                                        motion_planning_msgs::OrderedCollisionOperations& ex) const;
-
   bool applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord,
                                                        bool print=false);
-
-  void addAttachedCollisionObjects(std::vector<std::string>& svec) const;
   
   bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& al,
                              collision_space::EnvironmentModel::AllowedContact& allowed_contact) const;

@@ -47,6 +47,8 @@
 #include <geometric_shapes_msgs/Shape.h>
 #include <visualization_msgs/Marker.h>
 #include <motion_planning_msgs/LinkPadding.h>
+#include <collision_space/environment.h>
+#include <planning_environment_msgs/AllowedCollisionMatrix.h>
 
 namespace planning_environment {
 
@@ -115,22 +117,14 @@ inline void convertKinematicStateToRobotState(const planning_models::KinematicSt
 }
 
 inline void applyOrderedCollisionOperationsToMatrix(const motion_planning_msgs::OrderedCollisionOperations &ord,
-                                             std::vector<std::vector<bool> > &curAllowed,
-                                             std::map<std::string, unsigned int> &vecIndices) {
-  size_t all_size = curAllowed.size();
-
+                                                    collision_space::EnvironmentModel::AllowedCollisionMatrix& acm) {
   for(size_t i = 0; i < ord.collision_operations.size(); i++) {
     
     bool allowed = (ord.collision_operations[i].operation == motion_planning_msgs::CollisionOperation::DISABLE);
     
     if(ord.collision_operations[i].object1 == ord.collision_operations[i].COLLISION_SET_ALL &&
        ord.collision_operations[i].object2 == ord.collision_operations[i].COLLISION_SET_ALL) {
-      //first case - both all
-      for(size_t j = 0; j < all_size; j++) {
-        for(size_t k = 0; k < all_size; k++) {
-          curAllowed[j][k] = allowed;
-        }
-      }
+      acm.changeEntry(allowed);
     } else if(ord.collision_operations[i].object1 == ord.collision_operations[i].COLLISION_SET_ALL ||
               ord.collision_operations[i].object2 == ord.collision_operations[i].COLLISION_SET_ALL) {
       //second case - only one all
@@ -140,28 +134,118 @@ inline void applyOrderedCollisionOperationsToMatrix(const motion_planning_msgs::
       } else {
         other = ord.collision_operations[i].object1;
       }
-      if(vecIndices.find(other) == vecIndices.end()) {
-        continue;
-      }
-      unsigned int obj_ind = vecIndices.find(other)->second;
-      for(size_t j = 0; j < all_size; j++) {
-        curAllowed[obj_ind][j] = allowed;
-        curAllowed[j][obj_ind] = allowed;
+      bool ok = acm.changeEntry(other,allowed);
+      if(!ok) {
+        ROS_WARN_STREAM("No allowed collision entry for " << other);
       }
     } else {
       //third case - must be both objects
-      if(vecIndices.find(ord.collision_operations[i].object1) == vecIndices.end() ||
-         vecIndices.find(ord.collision_operations[i].object2) == vecIndices.end()) {
-        continue;
+      bool ok = acm.changeEntry(ord.collision_operations[i].object1,
+                                 ord.collision_operations[i].object2,
+                                 allowed);
+      if(!ok) {
+        ROS_WARN_STREAM("No entry in allowed collision matrix for at least one of " 
+                        << ord.collision_operations[i].object1 << " and " 
+                        << ord.collision_operations[i].object2);
       }
-      unsigned int obj1ind = vecIndices.find(ord.collision_operations[i].object1)->second;
-      unsigned int obj2ind = vecIndices.find(ord.collision_operations[i].object2)->second;
-      curAllowed[obj1ind][obj2ind] = allowed;
-      curAllowed[obj2ind][obj1ind] = allowed;
     }
   }
 }
 
+inline void convertFromACMToACMMsg(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm,
+                                   planning_environment_msgs::AllowedCollisionMatrix& matrix) {
+  if(!acm.getValid()) return;
+  matrix.link_names.resize(acm.getSize());
+  matrix.entries.resize(acm.getSize());
+  const collision_space::EnvironmentModel::AllowedCollisionMatrix::entry_type& bm = acm.getEntriesBimap();
+  for(collision_space::EnvironmentModel::AllowedCollisionMatrix::entry_type::right_const_iterator it = bm.right.begin();
+      it != bm.right.end();
+      it++) {
+    matrix.link_names[it->first] = it->second;
+    for(unsigned int i = 0; i < acm.getSize(); i++) {
+      bool allowed;
+      acm.getAllowedCollision(it->first, i, allowed); 
+      matrix.entries[it->first].enabled[i] = allowed;
+    }
+  }
+}
+
+inline collision_space::EnvironmentModel::AllowedCollisionMatrix convertFromACMMsgToACM(const planning_environment_msgs::AllowedCollisionMatrix& matrix)
+{
+  std::map<std::string, unsigned int> indices;
+  std::vector<std::vector<bool> > vecs;
+  unsigned int ns = matrix.link_names.size();
+  if(matrix.entries.size() != ns) {
+    ROS_WARN_STREAM("Matrix messed up");
+  }
+  vecs.resize(ns);
+  for(unsigned int i = 0; i < std::min(ns, (unsigned int) matrix.entries.size()); i++) {
+    indices[matrix.link_names[i]] = i;
+    if(matrix.entries[i].enabled.size() != ns) {
+      ROS_WARN_STREAM("Matrix messed up");
+    }
+    vecs[i].resize(ns);
+    for(unsigned int j = 0; j < std::min(ns, (unsigned int) matrix.entries[i].enabled.size()); j++) {
+      vecs[i][j] = matrix.entries[i].enabled[j];
+    }
+  }
+  collision_space::EnvironmentModel::AllowedCollisionMatrix acm(vecs,indices);
+  return acm;
+}
+
+inline bool applyOrderedCollisionOperationsListToACM(const motion_planning_msgs::OrderedCollisionOperations& ordered_coll,
+                                                     const std::vector<std::string>& object_names,
+                                                     const std::vector<std::string>& att_names,
+                                                     const planning_models::KinematicModel* model,
+                                                     collision_space::EnvironmentModel::AllowedCollisionMatrix& matrix)
+{
+  bool all_ok = true;
+  for(std::vector<motion_planning_msgs::CollisionOperation>::const_iterator it = ordered_coll.collision_operations.begin();
+      it != ordered_coll.collision_operations.end();
+      it++) {
+    std::vector<std::string> svec1, svec2;
+    bool special1 = false;
+    bool special2 = false;
+    if((*it).object1 == (*it).COLLISION_SET_OBJECTS) {
+      svec1 = object_names;
+      special1 = true;
+    }
+    if((*it).object2 == (*it).COLLISION_SET_OBJECTS) {
+      svec2 = object_names;
+      special2 = true;
+    }
+    if((*it).object1 == (*it).COLLISION_SET_ATTACHED_OBJECTS) {
+      svec1 = att_names;
+      special1 = true;
+    }
+    if((*it).object2 == (*it).COLLISION_SET_ATTACHED_OBJECTS) {
+      svec2 = att_names;
+      special2 = true;
+    }
+    if(model->getModelGroup((*it).object1) != NULL) {
+      svec1 = model->getModelGroup((*it).object1)->getGroupLinkNames();
+      special1 = true;
+    }
+    if(model->getModelGroup((*it).object2)) {
+      svec2 = model->getModelGroup((*it).object1)->getGroupLinkNames();
+      special2 = true;
+    }
+    if(!special1) {
+      svec1.push_back((*it).object1);
+    }
+    if(!special2) {
+      svec2.push_back((*it).object2);
+    }
+    bool ok = matrix.changeEntry(svec1, svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
+    if(!ok) {
+      ROS_INFO_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
+      all_ok = false;
+    }
+  }
+  return all_ok;
+}               
+       
+/*
 inline void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &curAllowed,
                                  const std::map<std::string, unsigned int> &vecIndices) {
   size_t all_size = curAllowed.size();
@@ -186,7 +270,7 @@ inline void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &c
     std::cout << std::endl;
   }
 }
-
+*/
 inline bool doesKinematicStateObeyConstraints(const planning_models::KinematicState& state,
                                        const motion_planning_msgs::Constraints& constraints,
                                        bool verbose = false) {

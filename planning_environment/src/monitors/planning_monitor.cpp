@@ -95,6 +95,8 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
   transformed_path_constraints = path_constraints;
   convertConstraintsGivenNewWorldTransform(set_state,
                                            transformed_path_constraints);
+
+  collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm_->getCollisionSpace()->getDefaultAllowedCollisionMatrix();
   
   //first we deal with collision object diffs
   cm_->getCollisionSpaceCollisionObjects(all_collision_objects);
@@ -102,6 +104,9 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
     std::string object_name = collision_object_diffs[i].id;
     if(object_name == "all") {
       if(collision_object_diffs[i].operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+        for(unsigned int j = 0; j < all_collision_objects.size(); i++) {
+          acm.removeEntry(all_collision_objects[j].id);
+        }
         all_collision_objects.clear();
         continue;
       } else {
@@ -123,11 +128,15 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
         ROS_WARN_STREAM("Diff remove specified for object " << object_name << " which we don't seem to have");
         continue;
       }
+      acm.removeEntry(object_name);
       all_collision_objects.erase(it);
     } else {
       //must be an add
       if(already_have) {
+        //if we already have it don't need to add to the matrix
         all_collision_objects.erase(it);
+      } else {
+        acm.addEntry(object_name, false);
       }
       all_collision_objects.push_back(collision_object_diffs[i]);
       convertCollisionObjectToNewWorldFrame(set_state,
@@ -146,6 +155,9 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
     }
     if(link_name == "all") {
       if(attached_collision_object_diffs[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+        for(unsigned int j = 0; j < all_attached_collision_objects.size(); i++) {
+          acm.removeEntry(all_attached_collision_objects[j].object.id);
+        }
         all_attached_collision_objects.clear();
         continue;
       } else {
@@ -158,6 +170,7 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
           std::vector<mapping_msgs::AttachedCollisionObject>::iterator it = all_attached_collision_objects.begin();
           while(it != all_attached_collision_objects.end()) {
             if((*it).link_name == link_name) {
+              acm.removeEntry((*it).object.id);
               it == all_attached_collision_objects.erase(it);
             } else {
               it++;
@@ -184,11 +197,18 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
           ROS_WARN_STREAM("Diff remove specified for object " << object_name << " which we don't seem to have");
           continue;
         }
+        acm.removeEntry((*it).object.id);
         all_attached_collision_objects.erase(it);
       } else {
         //must be an add
         if(already_have) {
           all_attached_collision_objects.erase(it);
+        } else {
+          acm.addEntry((*it).object.id, false);
+        }
+        acm.changeEntry((*it).object.id, (*it).link_name, true);
+        for(unsigned int j = 0; j < attached_collision_object_diffs[i].touch_links.size(); j++) {
+          acm.changeEntry((*it).object.id, attached_collision_object_diffs[i].touch_links[j], true);
         }
         all_attached_collision_objects.push_back(attached_collision_object_diffs[i]);
         convertAttachedCollisionObjectToNewWorldFrame(set_state,
@@ -204,17 +224,25 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
   }
   convertFromLinkPaddingMapToLinkPaddingVector(cur_link_padding, all_link_paddings);
 
-  //now we deal with the allowed_collision_matrix
-  //first we need to get the default collision matrix - this is all that should ever be held in the collision space
+  //now we need to apply the allowed collision operations to the modified ACM
+  std::vector<std::string> o_strings;
+  for(unsigned int i = 0; i < all_collision_objects.size(); i++) {
+    o_strings.push_back(all_collision_objects[i].id);
+  }
 
-  std::vector<std::vector<bool> > matrix;
-  std::map<std::string, unsigned int> ind;
-  
-  cm_->getCollisionSpace()->getCurrentAllowedCollisionMatrix(matrix, ind);
+  std::vector<std::string> a_strings;
+  for(unsigned int i = 0; i < all_attached_collision_objects.size(); i++) {
+    a_strings.push_back(all_attached_collision_objects[i].object.id);
+  }
 
+  applyOrderedCollisionOperationsListToACM(ordered_collision_operations_diff,
+                                           o_strings,
+                                           a_strings,
+                                           cm_->getKinematicModel(),
+                                           acm);
 
-  cm_->getCollisionSpaceAllowedCollisions(allowed_collision_matrix);
-    
+  convertFromACMToACMMsg(acm, allowed_collision_matrix);
+
   //NOTE - this should be unmasked in collision_space_monitor;
   cm_->getCollisionSpaceCollisionMap(unmasked_collision_map);
 

@@ -141,8 +141,9 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
       }
     }
   }
-  model->lock();
-  model->setRobotModel(kmodel_, coll_names, default_link_padding_map_, default_padd_, default_scale_);
+  
+  //no allowed collisions by default
+  collision_space::EnvironmentModel::AllowedCollisionMatrix default_collision_matrix(coll_names,false);
 
   for(std::vector<motion_planning_msgs::CollisionOperation>::iterator it = default_collision_operations_.begin();
       it != default_collision_operations_.end();
@@ -159,8 +160,12 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
     } else {
       svec2.push_back((*it).object2);
     }
-    model->setAllCollisionPairs(svec1,svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
+    default_collision_matrix.changeEntry(svec1, svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
   }
+
+  model->lock();
+  model->setRobotModel(kmodel_, default_collision_matrix, default_link_padding_map_, default_padd_, default_scale_);
+
   for (unsigned int i = 0 ; i < bounding_planes_.size() / 4 ; ++i)
   {
     shapes::Plane *plane = new shapes::Plane(bounding_planes_[i * 4], bounding_planes_[i * 4 + 1], bounding_planes_[i * 4 + 2], bounding_planes_[i * 4 + 3]);
@@ -251,7 +256,8 @@ planning_environment::CollisionModels::setPlanningScene(const motion_planning_ms
     return NULL;
   }
   applyLinkPaddingToCollisionSpace(all_link_paddings);
-  //TODO - allowed contacts, allowed collision matrix
+  ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(allowed_collision_matrix));
+  //TODO - allowed contacts
   setCollisionMap(unmasked_collision_map, true);
   return state;
 }
@@ -620,7 +626,7 @@ void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(con
     }
   }
   
-  ode_collision_model_->setRobotLinkPadding(link_padding_map);  
+  ode_collision_model_->setAlteredLinkPadding(link_padding_map);  
 }
 
 void planning_environment::CollisionModels::getCurrentLinkPadding(std::vector<motion_planning_msgs::LinkPadding>& link_padding)
@@ -628,8 +634,11 @@ void planning_environment::CollisionModels::getCurrentLinkPadding(std::vector<mo
   convertFromLinkPaddingMapToLinkPaddingVector(ode_collision_model_->getCurrentLinkPaddingMap(), link_padding);
 }
 
-bool planning_environment::CollisionModels::expandOrderedCollisionOperations(const motion_planning_msgs::OrderedCollisionOperations &ord,
-                                                                             motion_planning_msgs::OrderedCollisionOperations &ex) const {
+bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord, bool print) {
+
+  ode_collision_model_->lock();
+  collision_space::EnvironmentModel::AllowedCollisionMatrix acm = ode_collision_model_->getDefaultAllowedCollisionMatrix();;
+  ode_collision_model_->unlock();
 
   std::vector<std::string> o_strings;
   for(std::map<std::string, bodies::BodyVector*>::const_iterator it = static_object_map_.begin();
@@ -641,136 +650,25 @@ bool planning_environment::CollisionModels::expandOrderedCollisionOperations(con
   
   kmodel_->sharedLock();  
   std::vector<std::string> a_strings;
-  const std::vector<const planning_models::KinematicModel::AttachedBodyModel*>& att_vec = ode_collision_model_->getAttachedBodies();
+  const std::vector<const planning_models::KinematicModel::AttachedBodyModel*>& att_vec = kmodel_->getAttachedBodyModels();
   for(unsigned int i = 0; i < att_vec.size(); i++) 
   {
     a_strings.push_back(att_vec[i]->getName());
   }
   kmodel_->sharedUnlock();
-  
-  ex = ord;
-  std::vector<motion_planning_msgs::CollisionOperation>::iterator it = ex.collision_operations.begin();
-  while(it != ex.collision_operations.end()) {
-    std::vector<std::string> svec1;
-    std::vector<std::string> svec2;
-    bool special1 = false;
-    bool special2 = false;
-    if((*it).object1 == (*it).COLLISION_SET_OBJECTS) {
-      svec1 = o_strings;
-      special1 = true;
-    }
-    if((*it).object2 == (*it).COLLISION_SET_OBJECTS) {
-      svec2 = o_strings;
-      special2 = true;
-    }
-    if((*it).object1 == (*it).COLLISION_SET_ATTACHED_OBJECTS) {
-      svec1 = a_strings;
-      if(a_strings.empty()) {
-        ROS_DEBUG_STREAM("No attached bodies");
-      } else {
-        ROS_DEBUG_STREAM("Setting first vec to all attached bodies, first entry " << a_strings[0]);
-      }
-      special1 = true;
-    }
-    if((*it).object2 == (*it).COLLISION_SET_ATTACHED_OBJECTS) {
-      svec2 = a_strings;
-      if(a_strings.empty()) {
-        ROS_DEBUG_STREAM("No attached bodies");
-      } else {
-        ROS_DEBUG_STREAM("Setting second vec to all attached bodies, first entry " << a_strings[0]);
-      }
-      special2 = true;
-    }
-    if(kmodel_->getModelGroup((*it).object1)) {
-      svec1 = kmodel_->getModelGroup((*it).object1)->getGroupLinkNames();
-      special1 = true;
-    }
-    if(kmodel_->getModelGroup((*it).object2)) {
-      svec2 = kmodel_->getModelGroup((*it).object1)->getGroupLinkNames();
-      special2 = true;
-    }
-    if(!special1) {
-      svec1.push_back((*it).object1);
-    }
-    if(!special2) {
-      svec2.push_back((*it).object2);
-    }
 
-    int32_t op = (*it).operation;
-      
-    //we erase the original operation
-    it = ex.collision_operations.erase(it);
+  bool ok = applyOrderedCollisionOperationsListToACM(ord, o_strings, a_strings, kmodel_, acm);
 
-    //EGJ 05/24/2010 Actually adding in attached bodies by default
-    //addAttachedCollisionObjects(svec1);
-    //addAttachedCollisionObjects(svec2);
-
-    //now we need to add all the new pairwise constraints
-    for(std::vector<std::string>::iterator stit1 = svec1.begin();
-        stit1 != svec1.end();
-        stit1++) {
-      for(std::vector<std::string>::iterator stit2 = svec2.begin();
-          stit2 != svec2.end();
-          stit2++) {
-        motion_planning_msgs::CollisionOperation coll;
-        coll.object1 = (*stit1);
-        coll.object2 = (*stit2);
-        coll.operation = op;
-        it = ex.collision_operations.insert(it,coll);
-        it++;
-      }
-    }
+  if(!ok) {
+    ROS_WARN_STREAM("Bad collision operations");
   }
-  for(it = ex.collision_operations.begin(); it != ex.collision_operations.end();it++) {
-    ROS_DEBUG_STREAM("Expanded coll " << (*it).object1 << " " << (*it).object2 << " op " << (*it).operation);
-  }
-  ode_collision_model_->unlock();
-  return true;
-}
-
-bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord, bool print) {
-
-  //getting the default set of enabled collisions
-  std::vector<std::vector<bool> > curAllowed;
-  std::map<std::string, unsigned int> vecIndices;
-  ode_collision_model_->lock();
-  ode_collision_model_->getDefaultAllowedCollisionMatrix(curAllowed, vecIndices);
-  ode_collision_model_->unlock();
-
-  motion_planning_msgs::OrderedCollisionOperations expanded;
-  expandOrderedCollisionOperations(ord, expanded);
-
-  //std::cout << "Default:\n";
-  //printAllowedCollisionMatrix(curAllowed, vecIndices);
-
-  applyOrderedCollisionOperationsToMatrix(expanded, curAllowed, vecIndices);
 
   if(print) {
-    printAllowedCollisionMatrix(curAllowed, vecIndices);
+    //printAllowedCollisionMatrix(acm);
   }
 
-  ode_collision_model_->setAllowedCollisionMatrix(curAllowed, vecIndices);
+  ode_collision_model_->setAlteredCollisionMatrix(acm);
   return true;
-}
-
-void planning_environment::CollisionModels::addAttachedCollisionObjects(std::vector<std::string>& svec) const {
-
-  kmodel_->sharedLock();
-  
-  std::vector<std::string>::iterator stit = svec.begin();
-  while(stit != svec.end()) {
-    const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> att_vec = ode_collision_model_->getAttachedBodies(*stit);
-    //these get inserted after the link
-    stit++;
-    for(std::vector<const planning_models::KinematicModel::AttachedBodyModel*>::const_iterator ait = att_vec.begin();
-        ait != att_vec.end();
-        ait++) {
-      ROS_DEBUG_STREAM("Adding attached collision object " << (*ait)->getName() << " to list");
-      stit = svec.insert(stit,(*ait)->getName());
-    }
-  }
-
-  kmodel_->sharedUnlock();
 }
 
 bool planning_environment::CollisionModels::computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& allowed_contact,
@@ -827,37 +725,17 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mappin
 }
 
 void planning_environment::CollisionModels::revertAllowedCollisionToDefault() {
-  ode_collision_model_->revertAllowedCollisionMatrix();
+  ode_collision_model_->revertAlteredCollisionMatrix();
 }
 
 void planning_environment::CollisionModels::revertCollisionSpacePaddingToDefault() {
-  ode_collision_model_->revertRobotLinkPadding();
+  ode_collision_model_->revertAlteredLinkPadding();
 }
 
 void planning_environment::CollisionModels::getCollisionSpaceAllowedCollisions(planning_environment_msgs::AllowedCollisionMatrix& ret_matrix) const {
 
-  std::vector<std::vector<bool> > matrix;
-  std::map<std::string, unsigned int> ind;
-  
-  ode_collision_model_->getCurrentAllowedCollisionMatrix(matrix, ind);
-
-  //printAllowedCollisionMatrix(matrix, ind);
-
-  unsigned int i = 0;
-  ret_matrix.link_names.resize(ind.size());
-  ret_matrix.entries.resize(ind.size());
-  for(std::map<std::string, unsigned int>::iterator it = ind.begin();
-      it != ind.end();
-      it++,i++) {
-    ret_matrix.link_names[i] = it->first;
-    ret_matrix.entries[i].enabled.resize(matrix[it->second].size());
-    unsigned int j = 0;
-    for(std::map<std::string, unsigned int>::iterator it2 = ind.begin();
-        it2 != ind.end();
-        it2++,j++) {
-      ret_matrix.entries[i].enabled[j] = matrix[it->second][it2->second];
-    }
-  }
+  convertFromACMToACMMsg(ode_collision_model_->getCurrentAllowedCollisionMatrix(),
+                         ret_matrix);
 }
 
 void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject> &omap) const
@@ -945,45 +823,21 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
     planning_environment_msgs::ContactInformation contact_info;
     contact_info.header.frame_id = getWorldFrameId();
     collision_space::EnvironmentModel::Contact& contact = coll_space_contacts[i];
-    if(contact.link1 != NULL) {
-      //ROS_INFO_STREAM("Link 1 is " << contact.link2->name);
-      if(contact.link1_attached_body_index == 0) {
-        contact_info.contact_body_1 = contact.link1->getName();
-        contact_info.attached_body_1 = "";
-        contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
-      } else {
-        if(contact.link1->getAttachedBodyModels().size() < contact.link1_attached_body_index) {
-          ROS_ERROR("Link doesn't have attached body with indicated index");
-        } else {
-          contact_info.contact_body_1 = contact.link1->getName();
-          contact_info.attached_body_1 = contact.link1->getAttachedBodyModels()[contact.link1_attached_body_index-1]->getName();
-          contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
-        }
-      }
-    } 
-    
-    if(contact.link2 != NULL) {
-      //ROS_INFO_STREAM("Link 2 is " << contact.link2->name);
-      if(contact.link2_attached_body_index == 0) {
-        contact_info.contact_body_2 = contact.link2->getName();
-        contact_info.attached_body_2 = "";
-        contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
-      } else {
-        if(contact.link2->getAttachedBodyModels().size() < contact.link2_attached_body_index) {
-          ROS_ERROR("Link doesn't have attached body with indicated index");
-        } else {
-          contact_info.contact_body_2 = contact.link2->getName();
-          contact_info.attached_body_2 = contact.link2->getAttachedBodyModels()[contact.link2_attached_body_index-1]->getName();
-          contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
-        }
-      }
-    } 
-    
-    if(!contact.object_name.empty()) {
-      //ROS_INFO_STREAM("Object is " << contact.object_name);
-      contact_info.contact_body_2 = contact.object_name;
-      contact_info.attached_body_2 = "";
-      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::OBJECT;
+    contact_info.contact_body_1 = contact.body_name_1;
+    contact_info.contact_body_2 = contact.body_name_2;
+    if(contact.body_type_1 == collision_space::EnvironmentModel::LINK) {
+      contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+    } else if(contact.body_type_1 == collision_space::EnvironmentModel::ATTACHED) {
+      contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+    } else {
+      contact_info.body_type_1 = planning_environment_msgs::ContactInformation::OBJECT;      
+    }
+    if(contact.body_type_2 == collision_space::EnvironmentModel::LINK) {
+      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+    } else if(contact.body_type_2 == collision_space::EnvironmentModel::ATTACHED) {
+      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+    } else {
+      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::OBJECT;      
     }
     contact_info.position.x = contact.pos.x();
     contact_info.position.y = contact.pos.y();
