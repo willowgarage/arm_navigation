@@ -93,6 +93,7 @@ void collision_space::EnvironmentModelODE::setRobotModel(const planning_models::
     model_geom_.env_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
     model_geom_.self_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
     attached_bodies_in_collision_matrix_.clear();
+    geom_lookup_map_.clear();
   }
   createODERobotModel();
   previous_set_robot_model_ = true;
@@ -107,21 +108,18 @@ void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::st
   {
     LinkGeom *lg = model_geom_.link_geom[i];
     
-    unsigned int count = 1; 
-    
     /* create new set of attached bodies */	
-    const unsigned int nab = lg->link->getAttachedBodyModels().size();
+    const unsigned int nab = lg->att_bodies.size();
     std::vector<btTransform> nbt;
     for (unsigned int j = 0 ; j < nab ; ++j)
     {
-      for(unsigned int k = 0; k < lg->link->getAttachedBodyModels()[j]->getShapes().size(); k++) {
-        const dReal *pos = dGeomGetPosition(lg->geom[count+k]);
+      for(unsigned int k = 0; k < lg->att_bodies[i]->geom.size(); k++) {
+        const dReal *pos = dGeomGetPosition(lg->att_bodies[i]->geom[k]);
         dQuaternion q;
-        dGeomGetQuaternion(lg->geom[count+k], q);
+        dGeomGetQuaternion(lg->att_bodies[i]->geom[k], q);
         nbt.push_back(btTransform(btQuaternion(q[0], q[1], q[2], q[3]), btVector3(pos[0], pos[1], pos[2])));
       }
-      count += lg->link->getAttachedBodyModels()[j]->getShapes().size();
-      pose_map[lg->link->getAttachedBodyModels()[j]->getName()] = nbt;
+      pose_map[lg->att_bodies[j]->att->getName()] = nbt;
     }
   }
 }
@@ -148,15 +146,15 @@ void collision_space::EnvironmentModelODE::createODERobotModel()
     }
     ROS_DEBUG_STREAM("Link " << link->getName() << " padding " << padd);
 
-    dGeomID unpadd_g = createODEGeom(model_geom_.self_space, model_geom_.storage, link->getLinkShape(), 0.0, 0.0);
+    dGeomID unpadd_g = createODEGeom(model_geom_.self_space, model_geom_.storage, link->getLinkShape(), 1.0, 0.0);
     assert(unpadd_g);
-    dGeomSetData(unpadd_g, reinterpret_cast<void*>(lg));
     lg->geom.push_back(unpadd_g);
+    geom_lookup_map_[unpadd_g] = std::pair<std::string, BodyType>(link->getName(), LINK);
 
     dGeomID padd_g = createODEGeom(model_geom_.env_space, model_geom_.storage, link->getLinkShape(), robot_scale_, padd);
     assert(padd_g);
-    dGeomSetData(padd_g, reinterpret_cast<void*>(lg));
     lg->padded_geom.push_back(padd_g);
+    geom_lookup_map_[padd_g] = std::pair<std::string, BodyType>(link->getName(), LINK);
     const std::vector<planning_models::KinematicModel::AttachedBodyModel*>& attached_bodies = link->getAttachedBodyModels();
     for (unsigned int j = 0 ; j < attached_bodies.size() ; ++j) {
       padd = default_robot_padding_;
@@ -348,15 +346,15 @@ void collision_space::EnvironmentModelODE::addAttachedBody(LinkGeom* lg,
     }
   }
   for(unsigned int i = 0; i < attm->getShapes().size(); i++) {
-    dGeomID ga = createODEGeom(model_geom_.self_space, model_geom_.storage, attm->getShapes()[i], 0.0, 0.0);
+    dGeomID ga = createODEGeom(model_geom_.self_space, model_geom_.storage, attm->getShapes()[i], 1.0, 0.0);
     assert(ga);
-    dGeomSetData(ga, reinterpret_cast<void*>(attg));
     attg->geom.push_back(ga);
-    
+    geom_lookup_map_[ga] = std::pair<std::string, BodyType>(attm->getName(), ATTACHED);    
+
     dGeomID padd_ga = createODEGeom(model_geom_.env_space, model_geom_.storage, attm->getShapes()[i], robot_scale_, padd);
     assert(padd_ga);
-    dGeomSetData(padd_ga, reinterpret_cast<void*>(attg));
     attg->padded_geom.push_back(padd_ga);
+    geom_lookup_map_[padd_ga] = std::pair<std::string, BodyType>(attm->getName(), ATTACHED);    
   }
   lg->att_bodies.push_back(attg);
 }
@@ -375,11 +373,12 @@ void collision_space::EnvironmentModelODE::setAttachedBodiesLinkPadding() {
       }
       if(new_padd != -1.0) {
         for(unsigned int k = 0; k < attached_bodies[j]->getShapes().size(); k++) {
+          geom_lookup_map_.erase(lg->att_bodies[j]->padded_geom[k]);
           dGeomDestroy(lg->att_bodies[j]->padded_geom[k]);
           dGeomID padd_ga = createODEGeom(model_geom_.env_space, model_geom_.storage, attached_bodies[j]->getShapes()[k], robot_scale_, new_padd);
           assert(padd_ga);
-          dGeomSetData(padd_ga, reinterpret_cast<void*>(lg->att_bodies[j]));
           lg->att_bodies[j]->padded_geom[k] = padd_ga;
+          geom_lookup_map_[padd_ga] = std::pair<std::string, BodyType>(attached_bodies[j]->getName(), ATTACHED);
         }
       }
     }
@@ -400,11 +399,12 @@ void collision_space::EnvironmentModelODE::revertAttachedBodiesLinkPadding() {
       }
       if(new_padd != -1.0) {
         for(unsigned int k = 0; k < attached_bodies[j]->getShapes().size(); k++) {
+          geom_lookup_map_.erase(lg->att_bodies[j]->padded_geom[k]);
           dGeomDestroy(lg->att_bodies[j]->padded_geom[k]);
           dGeomID padd_ga = createODEGeom(model_geom_.env_space, model_geom_.storage, attached_bodies[j]->getShapes()[k], robot_scale_, new_padd);
           assert(padd_ga);
-          dGeomSetData(padd_ga, reinterpret_cast<void*>(lg->att_bodies[j]));
           lg->att_bodies[j]->padded_geom[k] = padd_ga;
+          geom_lookup_map_[padd_ga] = std::pair<std::string, BodyType>(attached_bodies[j]->getName(), ATTACHED);
         }
       }
     }
@@ -454,13 +454,14 @@ void collision_space::EnvironmentModelODE::setAlteredLinkPadding(const std::map<
                        << " to " << new_padding);
       //otherwise we clear out the data associated with the old one
       for (unsigned int j = 0 ; j < lg->padded_geom.size() ; ++j) {
+        geom_lookup_map_.erase(lg->padded_geom[j]);
         dGeomDestroy(lg->padded_geom[j]);
       }
       lg->padded_geom.clear();
       dGeomID g = createODEGeom(model_geom_.env_space, model_geom_.storage, link->getLinkShape(), robot_scale_, new_padding);
       assert(g);
-      dGeomSetData(g, reinterpret_cast<void*>(lg));
       lg->padded_geom.push_back(g);
+      geom_lookup_map_[g] = std::pair<std::string, BodyType>(link->getName(), LINK);
     }
   }
   //this does all the work
@@ -481,6 +482,7 @@ void collision_space::EnvironmentModelODE::revertAlteredLinkPadding() {
       }
       //otherwise we clear out the data associated with the old one
       for (unsigned int j = 0 ; j < lg->padded_geom.size() ; ++j) {
+        geom_lookup_map_.erase(lg->padded_geom[j]);
         dGeomDestroy(lg->padded_geom[j]);
       }
       ROS_DEBUG_STREAM("Reverting padding for link " << lg->link->getName() << " from " << altered_link_padding_map_[lg->link->getName()]
@@ -490,6 +492,7 @@ void collision_space::EnvironmentModelODE::revertAlteredLinkPadding() {
       assert(g);
       dGeomSetData(g, reinterpret_cast<void*>(lg));
       lg->padded_geom.push_back(g);
+      geom_lookup_map_[g] = std::pair<std::string, BodyType>(link->getName(), LINK);
     }
   }
   revertAttachedBodiesLinkPadding();
@@ -685,46 +688,31 @@ namespace collision_space
 void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
 {
   EnvironmentModelODE::CollisionData *cdata = reinterpret_cast<EnvironmentModelODE::CollisionData*>(data);
-	
+  
   if (cdata->done && !cdata->exhaustive) {
     return;
   }
-
+  
   //first figure out what check is happening
   bool check_in_allowed_collision_matrix = true;
-  unsigned int ind_1 = 0;
-  unsigned int ind_2 = 0;
-
-  EnvironmentModelODE::LinkGeom* lg1 = reinterpret_cast<EnvironmentModelODE::LinkGeom*>(dGeomGetData(o1));
-  EnvironmentModelODE::AttGeom* ag1 = reinterpret_cast<EnvironmentModelODE::AttGeom*>(dGeomGetData(o1));
-
-  EnvironmentModelODE::LinkGeom* lg2 = reinterpret_cast<EnvironmentModelODE::LinkGeom*>(dGeomGetData(o2));
-  EnvironmentModelODE::AttGeom* ag2 = reinterpret_cast<EnvironmentModelODE::AttGeom*>(dGeomGetData(o2));
-
-  if(lg1 != NULL) {
-    cdata->body_name_1 = lg1->link->getName();
-    cdata->body_type_1 = EnvironmentModelODE::LINK;
-    ind_1 = lg1->index;
-  } else if(ag1 != NULL) {
-    cdata->body_name_1 = ag1->att->getName();
-    cdata->body_type_1 = EnvironmentModelODE::ATTACHED;
-    ind_1 = ag1->index;
+  
+  std::map<dGeomID, std::pair<std::string, EnvironmentModelODE::BodyType> >::const_iterator it1 = cdata->geom_lookup_map->find(o1);
+  std::map<dGeomID, std::pair<std::string, EnvironmentModelODE::BodyType> >::const_iterator it2 = cdata->geom_lookup_map->find(o2);
+  
+  if(it1 != cdata->geom_lookup_map->end()) {
+    cdata->body_name_1 = it1->second.first;
+    cdata->body_type_1 = it1->second.second;
   } else {
-    //the name will get filled out by the body test function
+    cdata->body_name_1 = "";
     cdata->body_type_1 = EnvironmentModelODE::OBJECT;
     check_in_allowed_collision_matrix = false;
   }
 
-  if(lg2 != NULL) {
-    cdata->body_name_2 = lg2->link->getName();
-    cdata->body_type_2 = EnvironmentModelODE::LINK;
-    ind_2 = lg2->index;
-  } else if(ag2 != NULL) {
-    cdata->body_name_2 = ag2->att->getName();
-    cdata->body_type_2 = EnvironmentModelODE::ATTACHED;
-    ind_2 = ag2->index;
+  if(it2!= cdata->geom_lookup_map->end()) {
+    cdata->body_name_2 = it2->second.first;
+    cdata->body_type_2 = it2->second.second;
   } else {
-    //the name will get filled out by the body test function
+    cdata->body_name_2 = "";
     cdata->body_type_2 = EnvironmentModelODE::OBJECT;
     check_in_allowed_collision_matrix = false;
   }
@@ -732,7 +720,7 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
   //determine whether or not this collision is allowed in the self_collision matrix
   if (cdata->allowed_collision_matrix && check_in_allowed_collision_matrix) {
     bool allowed;
-    if(!cdata->allowed_collision_matrix->getAllowedCollision(ind_1, ind_2, allowed)) {
+    if(!cdata->allowed_collision_matrix->getAllowedCollision(cdata->body_name_1, cdata->body_name_2, allowed)) {
       ROS_WARN_STREAM("No entry in allowed collision matrix for " << cdata->body_name_1 << " and " << cdata->body_name_2);
       return;
     }
@@ -829,6 +817,7 @@ bool collision_space::EnvironmentModelODE::getCollisionContacts(const std::vecto
   contacts.clear();
   CollisionData cdata;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  cdata.geom_lookup_map = &geom_lookup_map_;
   cdata.contacts = &contacts;
   cdata.max_contacts = max_count;
   if (!allowedContacts.empty())
@@ -842,6 +831,7 @@ bool collision_space::EnvironmentModelODE::getAllCollisionContacts(const std::ve
 {
   contacts.clear();
   CollisionData cdata;
+  cdata.geom_lookup_map = &geom_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
   cdata.contacts = &contacts;
   cdata.max_contacts = num_contacts_per_pair;
@@ -857,6 +847,7 @@ bool collision_space::EnvironmentModelODE::isCollision(void) const
 {
   CollisionData cdata;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  cdata.geom_lookup_map = &geom_lookup_map_;
   testCollision(&cdata);
   return cdata.collides;
 }
@@ -864,6 +855,7 @@ bool collision_space::EnvironmentModelODE::isCollision(void) const
 bool collision_space::EnvironmentModelODE::isSelfCollision(void) const
 {
   CollisionData cdata; 
+  cdata.geom_lookup_map = &geom_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
   testSelfCollision(&cdata);
   return cdata.collides;
@@ -872,6 +864,7 @@ bool collision_space::EnvironmentModelODE::isSelfCollision(void) const
 bool collision_space::EnvironmentModelODE::isEnvironmentCollision(void) const
 {
   CollisionData cdata; 
+  cdata.geom_lookup_map = &geom_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
   testEnvironmentCollision(&cdata);
   return cdata.collides;
@@ -888,10 +881,12 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
   for (int i = model_geom_.link_geom.size() - 1 ; i >= 0 && (!cdata->done || cdata->exhaustive); --i) {
     LinkGeom *lg = model_geom_.link_geom[i];
     
-    bool allowed;
-    if(!getCurrentAllowedCollisionMatrix().getAllowedCollision(cn->name, lg->link->getName(), allowed)) {
-      ROS_WARN_STREAM("No entry in current allowed collision matrix for " << cn->name << " and " << lg->link->getName());
-      return;
+    bool allowed = false;
+    if(cdata->allowed_collision_matrix) {
+      if(!cdata->allowed_collision_matrix->getAllowedCollision(cn->name, lg->link->getName(), allowed)) {
+        ROS_WARN_STREAM("No entry in cdata allowed collision matrix for " << cn->name << " and " << lg->link->getName());
+        return;
+      } 
     }
     
     //have to test collisions with link
@@ -902,7 +897,6 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
         if(cdata->contacts) {
           current_contacts_size = cdata->contacts->size();
         }
-        
         cn->collide2.collide(lg->padded_geom[j], cdata, nearCallbackFn);
         if(cdata->contacts && cdata->contacts->size() > current_contacts_size) {
           //new contacts must mean collision
@@ -924,9 +918,12 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
     //now we need to do the attached bodies
     for(unsigned int j = 0; j < lg->att_bodies.size(); j++) {
       std::string att_name = lg->att_bodies[j]->att->getName();
-      if(!getCurrentAllowedCollisionMatrix().getAllowedCollision(cn->name, att_name, allowed)) {
-        ROS_WARN_STREAM("No entry in current allowed collision matrix for " << cn->name << " and " << att_name);
-        return;
+      allowed = false;
+      if(cdata->allowed_collision_matrix) {
+        if(!cdata->allowed_collision_matrix->getAllowedCollision(cn->name, att_name, allowed)) {
+          ROS_WARN_STREAM("No entry in current allowed collision matrix for " << cn->name << " and " << att_name);
+          return;
+        }
       }
       if(!allowed) {
         for(unsigned int k = 0; k < lg->att_bodies[j]->padded_geom.size(); k++) {
@@ -992,6 +989,7 @@ void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, con
 
   //we're going to create the namespace in objects_ even if it doesn't have anything in it
   objects_->addObjectNamespace(ns);
+  default_collision_matrix_.addEntry(ns, false);
 
   unsigned int n = shapes.size();
   for (unsigned int i = 0 ; i < n ; ++i)
@@ -1022,6 +1020,8 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
   assert(g);
   dGeomSetData(g, reinterpret_cast<void*>(shape));
 
+  default_collision_matrix_.addEntry(ns, false);
+
   updateGeom(g, pose);
   cn->geoms.push_back(g);
   objects_->addObject(ns, shape, pose);
@@ -1039,6 +1039,8 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
   else
     cn = it->second;
 
+  default_collision_matrix_.addEntry(ns, false);
+
   dGeomID g = createODEGeom(cn->space, cn->storage, shape);
   assert(g);
   dGeomSetData(g, reinterpret_cast<void*>(shape));
@@ -1048,8 +1050,10 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
 
 void collision_space::EnvironmentModelODE::clearObjects(void)
 {
-  for (std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() ; ++it)
+  for (std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() ; ++it) {
+    default_collision_matrix_.removeEntry(it->first);
     delete it->second;
+  }
   coll_namespaces_.clear();
   objects_->clearObjects();
 }
@@ -1058,6 +1062,7 @@ void collision_space::EnvironmentModelODE::clearObjects(const std::string &ns)
 {
   std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.find(ns);
   if (it != coll_namespaces_.end()) {
+    default_collision_matrix_.removeEntry(ns);
     delete it->second;
     coll_namespaces_.erase(ns);
   }

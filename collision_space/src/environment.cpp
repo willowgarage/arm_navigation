@@ -181,6 +181,7 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(bool
   for(unsigned int i = 0; i < allowed_entries_.size(); i++) {
     for(unsigned int j = 0; j < allowed_entries_[i].size(); j++) {
       allowed_entries_[i][j] = allowed;
+      allowed_entries_[j][i] = allowed;
     }
   }
   return true;
@@ -198,6 +199,7 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(cons
     return false;
   }
   allowed_entries_[it1->second][it2->second] = allowed;
+  allowed_entries_[it2->second][it1->second] = allowed;
   return true;
 }
 
@@ -208,6 +210,7 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(unsi
     return false;
   }
   allowed_entries_[i][j] = allowed;
+  allowed_entries_[j][i] = allowed;
   return true;
 }
 bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::string& name, 

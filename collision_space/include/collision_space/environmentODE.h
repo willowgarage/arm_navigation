@@ -351,6 +351,7 @@ protected:
     //these are parameters
     unsigned int max_contacts;
     const AllowedCollisionMatrix *allowed_collision_matrix;
+    const std::map<dGeomID, std::pair<std::string, BodyType> >* geom_lookup_map;
     const std::vector<AllowedContact> *allowed;
     bool exhaustive;
 	    
@@ -358,12 +359,15 @@ protected:
     bool done;
     bool collides;
     std::vector<EnvironmentModelODE::Contact> *contacts;
-
+    
+    //for the last collision found
     std::string body_name_1;
     BodyType body_type_1;
 
     std::string body_name_2;
     BodyType body_type_2;
+
+
 
   };
 	
@@ -398,6 +402,8 @@ protected:
 	
   ModelInfo model_geom_;
   std::map<std::string, CollisionNamespace*> coll_namespaces_;
+
+  std::map<dGeomID, std::pair<std::string, BodyType> > geom_lookup_map_;
 
   bool previous_set_robot_model_;
 	
