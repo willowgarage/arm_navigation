@@ -1167,7 +1167,6 @@ planning_models::KinematicModel::AttachedBodyModel::AttachedBodyModel(const Link
     id_(nid)
 {
   attach_trans_ = attach_trans;
-  ROS_INFO_STREAM("Attach trans x " << attach_trans_[0].getRotation().x());
   touch_links_ = touch_links;
   shapes_ = shapes;
 }
