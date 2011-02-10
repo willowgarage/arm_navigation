@@ -45,58 +45,6 @@
 
 static const std::string rel_path = "/test_urdf/robot.xml";
 
-static const std::string FLOATING_JOINT_XML = 
-  "<value>"
-  "<array>"
-  "<data>"
-  "<value>"
-  "<struct>"
-  "<member>"
-  "<name>name</name>"
-  "<value><string>base_joint</string></value>"
-  "</member>"
-  "<member>"
-  "<name>parent_frame_id</name>"
-  "<value><string>base_footprint</string></value>"
-  "</member>"
-  "<member>"
-  "<name>child_frame_id</name>"
-  "<value><string>base_footprint</string></value>"
-  "</member>"
-  "<member>"
-  "<name>type</name>"
-  "<value><string>Floating</string></value>"
-  "</member>"
-  "</struct>"
-  "</value>"
-  "</data>"
-  "</array>"
-  "</value>";
-
-static const std::string RIGHT_ARM_GROUP_XML = 
-  "<value>"
-  "<array>"
-  "<data>"
-  "<value>"
-  "<struct>"
-  "<member>"
-  "<name>name</name>"
-  "<value><string>right_arm</string></value>"
-  "</member>"
-  "<member>"
-  "<name>base_link</name>"
-  "<value><string>torso_lift_link</string></value>"
-  "</member>"
-  "<member>"
-  "<name>tip_link</name>"
-  "<value><string>r_wrist_roll_link</string></value>"
-  "</member>"
-  "</struct>"
-  "</value>"
-  "</data>"
-  "</array>"
-  "</value>";
-
 class TestCollisionModels : public testing::Test 
 {
 protected:
@@ -112,25 +60,6 @@ protected:
     if(ok != 0) {
       ROS_WARN_STREAM("Setting parameter system call not ok");
     }
-
-    int offset1=0;
-    
-    //this will be used by other tests unless another joint is pushed
-    XmlRpc::XmlRpcValue floating_multi_dof_joint(FLOATING_JOINT_XML, &offset1);
-    
-    ASSERT_TRUE(floating_multi_dof_joint.valid());
-    ASSERT_EQ(floating_multi_dof_joint.getType(),XmlRpc::XmlRpcValue::TypeArray); 
-    
-    nh_.setParam("robot_description_planning/multi_dof_joints", floating_multi_dof_joint);
-    
-    //and these groups
-    offset1 = 0;
-    XmlRpc::XmlRpcValue planning_groups(RIGHT_ARM_GROUP_XML, &offset1);
-    
-    ASSERT_TRUE(planning_groups.valid());
-    ASSERT_EQ(planning_groups.getType(),XmlRpc::XmlRpcValue::TypeArray); 
-    
-    nh_.setParam("robot_description_planning/groups", planning_groups);
   }
   
 protected:
@@ -139,13 +68,6 @@ protected:
   std::string full_path_;
 };
 
-TEST_F(TestCollisionModels, Loading) 
-{
-  planning_environment::CollisionModels cm("robot_description");
-  
-  ASSERT_TRUE(cm.getKinematicModel() != NULL);
-  ASSERT_TRUE(cm.getCollisionSpace() != NULL);
-}
 
 TEST_F(TestCollisionModels, InCollisionWithNodisables) 
 {
@@ -157,7 +79,17 @@ TEST_F(TestCollisionModels, InCollisionWithNodisables)
 
   EXPECT_TRUE(cm.isKinematicStateInCollision(state));
 }
+/*
+TEST_F(TestCollisionModels,TestAlterLinkPadding)
+{
+  planning_environment::CollisionModels cm("robot_description");
+  
+  planning_models::KinematicState state(cm.getKinematicModel());
 
+  state.setKinematicStateToDefault();
+
+}
+*/
 int main(int argc, char **argv)
 {
   testing::InitGoogleTest(&argc, argv);

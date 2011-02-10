@@ -164,8 +164,13 @@ inline void convertFromACMToACMMsg(const collision_space::EnvironmentModel::Allo
     matrix.link_names[it->first] = it->second;
     for(unsigned int i = 0; i < acm.getSize(); i++) {
       bool allowed;
+      matrix.entries[i].enabled.resize(acm.getSize());
       acm.getAllowedCollision(it->first, i, allowed); 
-      matrix.entries[it->first].enabled[i] = allowed;
+      if(it->first >= matrix.entries[i].enabled.size()) {
+        ROS_WARN_STREAM("Trouble size " << matrix.entries[i].enabled.size() << " ind " << it->first); 
+      } else {
+        matrix.entries[it->first].enabled[i] = allowed;
+      }
     }
   }
 }

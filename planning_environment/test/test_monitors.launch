@@ -5,10 +5,7 @@
   <param name="/robot_description" textfile="$(find planning_models)/test_urdf/robot.xml" />
 
   <!-- send parameters for multidof -->
-  <rosparam command="load" ns="robot_description_planning" file="$(find planning_environment)/test/config/multi_dof_joints.yaml" />
-
-  <!-- send parameters needed for motion planning -->
-  <rosparam command="load" ns="robot_description_planning" file="$(find planning_environment)/test/config/planning_groups.yaml" />
+  <rosparam command="load" ns="robot_description_planning" file="$(find planning_environment)/test/config/pr2_planning_description.yaml" />
 
   <!-- startup fake clock serer -->
   <node pkg="planning_environment" name="wall_clock_server" type="fake_time.py" />
@@ -21,6 +18,6 @@
     <param name="tf_prefix" type="string" value="" />
   </node>
 
-  <test test-name="test_planning_monitor" pkg="planning_environment" type="test_planning_monitor" />
+  <test test-name="test_planning_monitor" pkg="planning_environment" type="test_planning_monitor"/>
   
 </launch>

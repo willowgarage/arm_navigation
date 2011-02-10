@@ -204,11 +204,11 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
         if(already_have) {
           all_attached_collision_objects.erase(it);
         } else {
-          acm.addEntry((*it).object.id, false);
+          acm.addEntry(attached_collision_object_diffs[i].object.id, false);
         }
-        acm.changeEntry((*it).object.id, (*it).link_name, true);
+        acm.changeEntry(attached_collision_object_diffs[i].object.id, attached_collision_object_diffs[i].link_name, true);
         for(unsigned int j = 0; j < attached_collision_object_diffs[i].touch_links.size(); j++) {
-          acm.changeEntry((*it).object.id, attached_collision_object_diffs[i].touch_links[j], true);
+          acm.changeEntry(attached_collision_object_diffs[i].object.id, attached_collision_object_diffs[i].touch_links[j], true);
         }
         all_attached_collision_objects.push_back(attached_collision_object_diffs[i]);
         convertAttachedCollisionObjectToNewWorldFrame(set_state,

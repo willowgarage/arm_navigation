@@ -51,6 +51,8 @@ planning_environment::CollisionModels::CollisionModels(const std::string &descri
 planning_environment::CollisionModels::~CollisionModels(void)
 {
   //TODOTODOTODO
+  deleteAllStaticObjects();
+  deleteAllAttachedObjects();
 }
 
 /** \brief Reload the robot description and recreate the model */	
@@ -66,11 +68,11 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
   XmlRpc::XmlRpcValue coll_ops;
 
   //first we do default collision operations
-  if(!nh_.hasParam(description_ + "_collision/default_collision_operations")) {
+  if(!nh_.hasParam(description_ + "_planning/default_collision_operations")) {
     ROS_WARN("No default collision operations specified");
   } else {
   
-    nh_.getParam(description_ + "_collision/default_collision_operations", coll_ops);
+    nh_.getParam(description_ + "_planning/default_collision_operations", coll_ops);
     
     if(coll_ops.getType() != XmlRpc::XmlRpcValue::TypeArray) {
       ROS_WARN("default_collision_operations is not an array");
@@ -262,6 +264,14 @@ planning_environment::CollisionModels::setPlanningScene(const motion_planning_ms
   return state;
 }
 
+void planning_environment::CollisionModels::revertPlanningScene(planning_models::KinematicState* ks) {
+  delete ks;
+  deleteAllStaticObjects();
+  deleteAllAttachedObjects();
+  revertAllowedCollisionToDefault();
+  revertCollisionSpacePaddingToDefault();
+}
+
 void planning_environment::CollisionModels::updateRobotModelPose(const planning_models::KinematicState& state)
 {
   ode_collision_model_->updateRobotModel(&state);
@@ -313,11 +323,10 @@ void planning_environment::CollisionModels::addStaticObject(const std::string& n
                                                             std::vector<shapes::Shape*>& shapes,
                                                             const std::vector<btTransform>& poses)
 {
-  if(static_object_map_.find(name) != static_object_map_.end()) {
+  if(ode_collision_model_->hasObject(name)) {
     deleteStaticObject(name);
   }
   static_object_map_[name] = new bodies::BodyVector(shapes,poses);
-  //std::vector<shapes::Shape*> nv = cloneShapeVector(shapes);
   ode_collision_model_->lock();
   ode_collision_model_->addObjects(name, shapes, poses);
   ode_collision_model_->unlock();

@@ -91,6 +91,8 @@ public:
                    const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
                    const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
                    const mapping_msgs::CollisionMap& unmasked_collision_map);
+
+  void revertPlanningScene(planning_models::KinematicState* state);
     
   void updateRobotModelPose(const planning_models::KinematicState& state);
 
