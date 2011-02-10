@@ -973,6 +973,14 @@ void collision_space::EnvironmentModelODE::testEnvironmentCollision(CollisionDat
   }
 }
 
+bool collision_space::EnvironmentModelODE::hasObject(const std::string& ns)
+{
+  if(coll_namespaces_.find(ns) != coll_namespaces_.end()) {
+    return true;
+  }
+  return false;
+}
+
 void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses)
 {
   assert(shapes.size() == poses.size());
@@ -981,7 +989,8 @@ void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, con
   if (it == coll_namespaces_.end())
   {
     cn = new CollisionNamespace(ns);
-     coll_namespaces_[ns] = cn;
+    coll_namespaces_[ns] = cn;
+    default_collision_matrix_.addEntry(ns, false);
   }
   else {
      cn = it->second;
@@ -989,7 +998,6 @@ void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, con
 
   //we're going to create the namespace in objects_ even if it doesn't have anything in it
   objects_->addObjectNamespace(ns);
-  default_collision_matrix_.addEntry(ns, false);
 
   unsigned int n = shapes.size();
   for (unsigned int i = 0 ; i < n ; ++i)
@@ -1012,6 +1020,7 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
   {
     cn = new CollisionNamespace(ns);
     coll_namespaces_[ns] = cn;
+    default_collision_matrix_.addEntry(ns, false);
   }
   else
     cn = it->second;
@@ -1035,11 +1044,10 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
   {
     cn = new CollisionNamespace(ns);
     coll_namespaces_[ns] = cn;
+    default_collision_matrix_.addEntry(ns, false);
   }
   else
     cn = it->second;
-
-  default_collision_matrix_.addEntry(ns, false);
 
   dGeomID g = createODEGeom(cn->space, cn->storage, shape);
   assert(g);
