@@ -434,16 +434,19 @@ bool planning_environment::CollisionModels::addAttachedObject(const mapping_msgs
     tf::poseMsgToTF(obj.poses[i], pose);
     poses.push_back(pose);
   }
-  addAttachedObject(obj.id,
-                    att.link_name,
-                    shapes,
-                    poses,
-                    att.touch_links);
+  if(!addAttachedObject(obj.id,
+                        att.link_name,
+                        shapes,
+                        poses,
+                        att.touch_links)) {
+    ROS_INFO_STREAM("Problem attaching " << obj.id);
+    shapes::deleteShapeVector(shapes);
+  }
   return true;
 }
 
 
-void planning_environment::CollisionModels::addAttachedObject(const std::string& object_name,
+bool planning_environment::CollisionModels::addAttachedObject(const std::string& object_name,
                                                               const std::string& link_name,
                                                               std::vector<shapes::Shape*>& shapes,
                                                               const std::vector<btTransform>& poses,
@@ -452,7 +455,7 @@ void planning_environment::CollisionModels::addAttachedObject(const std::string&
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
   if(link == NULL) {
     ROS_WARN_STREAM("No link " << link_name << " for attaching " << object_name);
-    return;
+    return false;
   }
   if(link_attached_objects_.find(link_name) != link_attached_objects_.end()) {
     if(link_attached_objects_[link_name].find(object_name) !=
@@ -476,9 +479,10 @@ void planning_environment::CollisionModels::addAttachedObject(const std::string&
                                                            shapes);
   kmodel_->addAttachedBodyModel(link->getName(),ab);
   ode_collision_model_->updateAttachedBodies();
+  return true;
 }
    
-void planning_environment::CollisionModels::deleteAttachedObject(const std::string& object_id,
+bool planning_environment::CollisionModels::deleteAttachedObject(const std::string& object_id,
                                                                  const std::string& link_name)
 
 {
@@ -490,13 +494,14 @@ void planning_environment::CollisionModels::deleteAttachedObject(const std::stri
       kmodel_->clearLinkAttachedBodyModel(link_name, object_id);
     } else {
       ROS_WARN_STREAM("Link " << link_name << " has no object " << object_id << " to delete");
-      return;
+      return false;
     }
   } else {
     ROS_WARN_STREAM("No link " << link_name << " for attached object delete");
-    return;
+    return false;
   }
   ode_collision_model_->updateAttachedBodies();
+  return true;
 }
 
 void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::string& link_name)
@@ -526,18 +531,18 @@ void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::
   ode_collision_model_->updateAttachedBodies();
 }
 
-void planning_environment::CollisionModels::convertStaticObjectToAttachedObject(const std::string& object_name,
+bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(const std::string& object_name,
                                                                                 const std::string& link_name,
                                                                                 const std::vector<std::string>& touch_links)
 {
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
   if(link == NULL) {
     ROS_WARN_STREAM("No link " << link_name << " for attaching " << object_name);
-    return;
+    return false;
   }
   if(static_object_map_.find(object_name) == static_object_map_.end()) {
     ROS_WARN_STREAM("No static object named " << object_name << " to convert");
-    return;
+    return false;
   }
   link_attached_objects_[link_name][object_name] = static_object_map_[object_name];
   static_object_map_.erase(object_name);
@@ -569,21 +574,22 @@ void planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
 
   ode_collision_model_->clearObjects(object_name);
   ode_collision_model_->updateAttachedBodies();
+  return true;
 }
 
-void planning_environment::CollisionModels::convertAttachedObjectToStaticObject(const std::string& object_name,
+bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(const std::string& object_name,
                                                                                 const std::string& link_name)
 {
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
   if(link == NULL) {
     ROS_WARN_STREAM("No link " << link_name << " with attached object " << object_name);
-    return;
+    return false;
   }
   if(link_attached_objects_.find(link_name) == link_attached_objects_.end() ||
      link_attached_objects_[link_name].find(object_name) == link_attached_objects_[link_name].end()) 
   {
     ROS_WARN_STREAM("No attached body " << object_name << " attached to link " << link_name);
-    return;
+    return false;
   }
 
   static_object_map_[object_name] = link_attached_objects_[link_name][object_name];
@@ -599,19 +605,21 @@ void planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
 
   if(att == NULL) {
     ROS_WARN_STREAM("Something seriously out of sync");
-    return;
+    return false;
   }
-  {
-    //need parentheses so that state goes out of scope
-    planning_models::KinematicState state(kmodel_);
-    std::vector<shapes::Shape*> shapes = shapes::cloneShapeVector(att->getShapes());
-    const planning_models::KinematicState::AttachedBodyState* att_state = state.getAttachedBodyState(att->getName());
-    ode_collision_model_->addObjects(object_name, shapes, att_state->getGlobalCollisionBodyTransforms());
+  std::vector<shapes::Shape*> shapes = shapes::cloneShapeVector(att->getShapes());
+  std::map<std::string, std::vector<btTransform> > att_pose_map;
+  ode_collision_model_->getAttachedBodyPoses(att_pose_map);
+  if(att_pose_map.find(att->getName()) == att_pose_map.end()) {
+    ROS_WARN_STREAM("No poses for " << att->getName());
+    shapes::deleteShapeVector(shapes);
+    return false;
   }
-  
+  ode_collision_model_->addObjects(object_name, shapes, att_pose_map[att->getName()]);  
   kmodel_->clearLinkAttachedBodyModel(link_name, object_name);
 
   ode_collision_model_->updateAttachedBodies();
+  return true;
 }
 
 void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding) {

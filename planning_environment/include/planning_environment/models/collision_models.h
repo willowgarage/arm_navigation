@@ -123,22 +123,23 @@ public:
   //this function will fail if the header is not in the world frame
   bool addAttachedObject(const mapping_msgs::AttachedCollisionObject& att);
 
-  void addAttachedObject(const std::string& object_name,
+  //fails if the link_name is not a valid link
+  bool addAttachedObject(const std::string& object_name,
                          const std::string& link_name,
                          std::vector<shapes::Shape*>& shapes,
                          const std::vector<btTransform>& poses,
                          const std::vector<std::string>& touch_links);
 
-  void deleteAttachedObject(const std::string& object_id,
+  bool deleteAttachedObject(const std::string& object_id,
                             const std::string& link_name);
 
   void deleteAllAttachedObjects(const std::string& link_name="");
 
-  void convertStaticObjectToAttachedObject(const std::string& object_name,
+  bool convertStaticObjectToAttachedObject(const std::string& object_name,
                                            const std::string& link_name,
                                            const std::vector<std::string>& touch_links);
   
-  void convertAttachedObjectToStaticObject(const std::string& object_name,
+  bool convertAttachedObjectToStaticObject(const std::string& object_name,
                                            const std::string& link_name);
 
   void applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding);

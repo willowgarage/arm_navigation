@@ -63,7 +63,7 @@ protected:
 
     static_object_1_.header.stamp = ros::Time::now();
     static_object_1_.header.frame_id = "odom_combined";
-    static_object_1_.id = "static_object_1";
+    static_object_1_.id = "object_1";
     static_object_1_.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
     static_object_1_.shapes.resize(1);
     static_object_1_.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
@@ -75,12 +75,64 @@ protected:
     static_object_1_.poses[0].position.y = -.37;
     static_object_1_.poses[0].position.z = .81;
     static_object_1_.poses[0].orientation.w = 1.0;
+      
+    static_object_2_.header.stamp = ros::Time::now();
+    static_object_2_.header.frame_id = "odom_combined";
+    static_object_2_.id = "object_2";
+    static_object_2_.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    static_object_2_.shapes.resize(2);
+    static_object_2_.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+    static_object_2_.shapes[0].dimensions.resize(3);
+    static_object_2_.shapes[0].dimensions[0] = 1.0;
+    static_object_2_.shapes[0].dimensions[1] = 1.0;
+    static_object_2_.shapes[0].dimensions[2] = .05;
+    static_object_2_.shapes[1].type = geometric_shapes_msgs::Shape::BOX;
+    static_object_2_.shapes[1].dimensions.resize(3);
+    static_object_2_.shapes[1].dimensions[0] = 1.0;
+    static_object_2_.shapes[1].dimensions[1] = 1.0;
+    static_object_2_.shapes[1].dimensions[2] = .05;
+    static_object_2_.poses.resize(2);
+    static_object_2_.poses[0].position.x = 1.0;
+    static_object_2_.poses[0].position.y = 0;
+    static_object_2_.poses[0].position.z = .5;
+    static_object_2_.poses[0].orientation.x = 0;
+    static_object_2_.poses[0].orientation.y = 0;
+    static_object_2_.poses[0].orientation.z = 0;
+    static_object_2_.poses[0].orientation.w = 1;
+    static_object_2_.poses[1].position.x = 1.0;
+    static_object_2_.poses[1].position.y = 0;
+    static_object_2_.poses[1].position.z = .75;
+    static_object_2_.poses[1].orientation.x = 0;
+    static_object_2_.poses[1].orientation.y = 0;
+    static_object_2_.poses[1].orientation.z = 0;
+    static_object_2_.poses[1].orientation.w = 1;
     
+    static_object_3_.header.stamp = ros::Time::now();
+    static_object_3_.header.frame_id = "odom_combined";
+    static_object_3_.id = "object_3";
+    static_object_3_.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    static_object_3_.shapes.resize(1);
+    static_object_3_.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+    static_object_3_.shapes[0].dimensions.resize(3);
+    static_object_3_.shapes[0].dimensions[0] = 1.0;
+    static_object_3_.shapes[0].dimensions[1] = 1.0;
+    static_object_3_.shapes[0].dimensions[2] = .05;
+    static_object_3_.poses.resize(1);
+    static_object_3_.poses[0].position.x = .15;
+    static_object_3_.poses[0].position.y = 0;
+    static_object_3_.poses[0].position.z = .5;
+    static_object_3_.poses[0].orientation.x = 0;
+    static_object_3_.poses[0].orientation.y = 0;
+    static_object_3_.poses[0].orientation.z = 0;
+    static_object_3_.poses[0].orientation.w = 1;
+
   }
   
 protected:
 
   mapping_msgs::CollisionObject static_object_1_;
+  mapping_msgs::CollisionObject static_object_2_;
+  mapping_msgs::CollisionObject static_object_3_;
 
   ros::NodeHandle nh_;
   std::string full_path_;
@@ -117,6 +169,91 @@ TEST_F(TestCollisionModels, NotInCollisionByDefault)
   
   EXPECT_GE(contacts.size(),0);
 
+}
+
+TEST_F(TestCollisionModels,TestCollisionObjects)
+{
+  planning_environment::CollisionModels cm("robot_description");
+   
+  cm.addStaticObject(static_object_2_);
+  cm.addStaticObject(static_object_3_);
+  
+  std::vector<mapping_msgs::CollisionObject> space_objs;
+  cm.getCollisionSpaceCollisionObjects(space_objs);
+
+  std::vector<mapping_msgs::AttachedCollisionObject> space_atts;
+  cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
+
+  ASSERT_EQ(space_objs.size(),2);
+  ASSERT_EQ(space_atts.size(),0);
+
+  std::vector<std::string> touch_links;
+  cm.convertStaticObjectToAttachedObject("object_3", "base_link", touch_links);
+
+  cm.getCollisionSpaceCollisionObjects(space_objs);
+  cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
+
+  ASSERT_EQ(space_objs.size(),1);
+  ASSERT_EQ(space_atts.size(),1);
+
+  const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm = cm.getCollisionSpace()->getCurrentAllowedCollisionMatrix();
+  
+  bool allowed;
+  EXPECT_TRUE(acm.getAllowedCollision("object_3", "base_link", allowed));
+  EXPECT_TRUE(allowed);
+
+  mapping_msgs::AttachedCollisionObject att_object;
+  att_object.object.header.stamp = ros::Time::now();
+  att_object.object.header.frame_id = "odom_combined";
+  att_object.link_name = "r_gripper_r_finger_tip_link";
+  att_object.object.id = "object_4";
+  att_object.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  att_object.object.shapes.resize(1);
+  att_object.object.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  att_object.object.shapes[0].dimensions.resize(3);
+  att_object.object.shapes[0].dimensions[0] = 1.0;
+  att_object.object.shapes[0].dimensions[1] = 1.0;
+  att_object.object.shapes[0].dimensions[2] = .05;
+  att_object.object.poses.resize(1);
+  att_object.object.poses[0].position.x = .15;
+  att_object.object.poses[0].position.y = 0;
+  att_object.object.poses[0].position.z = .5;
+  att_object.object.poses[0].orientation.x = 0;
+  att_object.object.poses[0].orientation.y = 0;
+  att_object.object.poses[0].orientation.z = 0;
+  att_object.object.poses[0].orientation.w = 1;
+
+  cm.addAttachedObject(att_object);
+
+  cm.getCollisionSpaceCollisionObjects(space_objs);
+  cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
+
+  ASSERT_EQ(space_objs.size(),1);
+  ASSERT_EQ(space_atts.size(),2);
+
+  cm.deleteAllAttachedObjects("base_link");
+
+  cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
+  ASSERT_EQ(space_atts.size(),1);
+  ASSERT_EQ(space_atts[0].object.id, "object_4");
+
+  //non-existent second link has no effect
+  cm.convertAttachedObjectToStaticObject("object_4","r_gripper_finger_tip_link");
+
+  cm.getCollisionSpaceCollisionObjects(space_objs);
+  cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
+
+  ASSERT_EQ(space_objs.size(),1);
+  ASSERT_EQ(space_atts.size(),1);
+
+  //now we do it right
+  cm.convertAttachedObjectToStaticObject("object_4","r_gripper_r_finger_tip_link");
+
+  cm.getCollisionSpaceCollisionObjects(space_objs);
+  cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
+
+  ASSERT_EQ(space_objs.size(),2);
+  ASSERT_EQ(space_atts.size(),0);
 }
 
 TEST_F(TestCollisionModels,TestAlterLinkPadding)
@@ -156,8 +293,8 @@ TEST_F(TestCollisionModels,TestAlterLinkPadding)
   EXPECT_GE(contacts.size(),1);
 
   for(unsigned int i = 0; i < contacts.size(); i++) {
-    EXPECT_TRUE(contacts[i].contact_body_1 == "static_object_1" || contacts[i].contact_body_2 == "static_object_1") << contacts[i].contact_body_1 << " " << contacts[i].contact_body_2;
-    EXPECT_TRUE(contacts[i].contact_body_1 != "static_object_1" || contacts[i].contact_body_2 != "static_object_1");
+    EXPECT_TRUE(contacts[i].contact_body_1 == "object_1" || contacts[i].contact_body_2 == "object_1") << contacts[i].contact_body_1 << " " << contacts[i].contact_body_2;
+    EXPECT_TRUE(contacts[i].contact_body_1 != "object_1" || contacts[i].contact_body_2 != "object_1");
     EXPECT_TRUE(contacts[i].body_type_1 == planning_environment_msgs::ContactInformation::ROBOT_LINK ||
                 contacts[i].body_type_2 == planning_environment_msgs::ContactInformation::ROBOT_LINK);    
     EXPECT_TRUE(contacts[i].body_type_1 == planning_environment_msgs::ContactInformation::OBJECT ||
