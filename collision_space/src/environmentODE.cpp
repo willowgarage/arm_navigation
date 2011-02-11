@@ -113,10 +113,10 @@ void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::st
     std::vector<btTransform> nbt;
     for (unsigned int j = 0 ; j < nab ; ++j)
     {
-      for(unsigned int k = 0; k < lg->att_bodies[i]->geom.size(); k++) {
-        const dReal *pos = dGeomGetPosition(lg->att_bodies[i]->geom[k]);
+      for(unsigned int k = 0; k < lg->att_bodies[j]->geom.size(); k++) {
+        const dReal *pos = dGeomGetPosition(lg->att_bodies[j]->geom[k]);
         dQuaternion q;
-        dGeomGetQuaternion(lg->att_bodies[i]->geom[k], q);
+        dGeomGetQuaternion(lg->att_bodies[j]->geom[k], q);
         nbt.push_back(btTransform(btQuaternion(q[0], q[1], q[2], q[3]), btVector3(pos[0], pos[1], pos[2])));
       }
       pose_map[lg->att_bodies[j]->att->getName()] = nbt;
