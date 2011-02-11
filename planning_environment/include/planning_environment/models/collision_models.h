@@ -168,6 +168,8 @@ public:
 
   bool isKinematicStateInSelfCollision(const planning_models::KinematicState& state);
 
+  bool isKinematicStateInEnvironmentCollision(const planning_models::KinematicState& state);
+
   void getAllCollisionsForState(const planning_models::KinematicState& state,
                                 std::vector<planning_environment_msgs::ContactInformation>& contacts,
                                 unsigned int num_per_pair = 1);

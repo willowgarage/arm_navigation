@@ -70,7 +70,9 @@ target_link_libraries(visualize_collision_models planning_environment)
 rosbuild_add_executable(default_joint_state_publisher test/default_joint_state_publisher.cpp)
 target_link_libraries(default_joint_state_publisher planning_environment)
 
-rosbuild_add_gtest(test_robot_models test/test_robot_models.cpp) 
+rosbuild_add_executable(test_robot_models test/test_robot_models.cpp) 
+rosbuild_declare_test(test_robot_models)
+rosbuild_add_gtest_build_flags(test_robot_models)
 target_link_libraries(test_robot_models planning_environment)
 
 rosbuild_add_executable(test_collision_models test/test_collision_models.cpp) 

@@ -51,6 +51,10 @@ default_collision_operations:
     operation: disable
 
   - object1: base_link
+    object2: base_bellow_link
+    operation: disable
+
+  - object1: base_link
     object2: torso_lift_link
     operation: disable
 
@@ -58,8 +62,36 @@ default_collision_operations:
     object2: laser_tilt_mount_link
     operation: disable
 
+  - object1: torso_lift_link
+    object2: base_bellow_link
+    operation: disable
+
+  - object1: head_tilt_link
+    object2: head_plate_frame
+    operation: disable
+
+  - object1: head_tilt_link
+    object2: sensor_mount_link
+    operation: disable
+
   - object1: head_pan_link
     object2: head_tilt_link
+    operation: disable
+
+  - object1: head_pan_link
+    object2: head_plate_frame
+    operation: disable
+
+  - object1: head_pan_link
+    object2: sensor_mount_link
+    operation: disable
+
+  - object1: head_plate_frame
+    object2: sensor_mount_link
+    operation: disable
+
+  - object1: projector_wg6802418_frame
+    object2: projector_wg6802418_child_frame
     operation: disable
 
   # left arm

@@ -208,6 +208,7 @@ inline bool applyOrderedCollisionOperationsListToACM(const motion_planning_msgs:
   for(std::vector<motion_planning_msgs::CollisionOperation>::const_iterator it = ordered_coll.collision_operations.begin();
       it != ordered_coll.collision_operations.end();
       it++) {
+    bool op = (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE;
     std::vector<std::string> svec1, svec2;
     bool special1 = false;
     bool special2 = false;
@@ -241,10 +242,45 @@ inline bool applyOrderedCollisionOperationsListToACM(const motion_planning_msgs:
     if(!special2) {
       svec2.push_back((*it).object2);
     }
-    bool ok = matrix.changeEntry(svec1, svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
-    if(!ok) {
-      ROS_INFO_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
-      all_ok = false;
+
+    bool first_all = false;
+    bool second_all = true;
+    for(unsigned int j = 0; j < svec1.size(); j++) {
+      if(svec1[j] == (*it).COLLISION_SET_ALL) {
+        first_all = true;
+        if(svec1.size() > 1) {
+          ROS_WARN("Shouldn't have collision object all in multi-item list");
+          all_ok = false;
+        }
+        break;
+      }
+    }
+    for(unsigned int j = 0; j < svec2.size(); j++) {
+      if(svec2[j] == (*it).COLLISION_SET_ALL) {
+        second_all = true;
+        if(svec2.size() > 1) {
+          ROS_WARN("Shouldn't have collision object all in multi-item list");
+          all_ok = false;
+        }
+        break;
+      }
+    }
+    if(first_all && second_all) {
+      matrix.changeEntry(op);
+    } else if(first_all) {
+      for(unsigned int j = 0; j < svec2.size(); j++) {
+        matrix.changeEntry(svec2[j], op);
+      }
+    } else if(second_all) {
+      for(unsigned int j = 0; j < svec1.size(); j++) {
+        matrix.changeEntry(svec1[j], op);
+      }
+    } else {
+      bool ok = matrix.changeEntry(svec1, svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
+      if(!ok) {
+        ROS_INFO_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
+        all_ok = false;
+      }
     }
   }
   return all_ok;

@@ -815,6 +815,12 @@ bool planning_environment::CollisionModels::isKinematicStateInSelfCollision(cons
   return(ode_collision_model_->isSelfCollision());
 }
 
+bool planning_environment::CollisionModels::isKinematicStateInEnvironmentCollision(const planning_models::KinematicState& state)
+{
+  ode_collision_model_->updateRobotModel(&state);
+  return(ode_collision_model_->isEnvironmentCollision());
+}
+
 void planning_environment::CollisionModels::getAllCollisionsForState(const planning_models::KinematicState& state,
                                                                      std::vector<planning_environment_msgs::ContactInformation>& contacts,
                                                                      unsigned int num_per_pair) 
