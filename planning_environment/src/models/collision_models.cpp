@@ -688,6 +688,22 @@ bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCol
   return true;
 }
 
+bool planning_environment::CollisionModels::setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm)
+{
+  ode_collision_model_->setAlteredCollisionMatrix(acm);
+  return true;
+}
+
+const collision_space::EnvironmentModel::AllowedCollisionMatrix& planning_environment::CollisionModels::getCurrentAllowedCollisionMatrix() const
+{
+  return ode_collision_model_->getCurrentAllowedCollisionMatrix();
+}
+
+const collision_space::EnvironmentModel::AllowedCollisionMatrix& planning_environment::CollisionModels::getDefaultAllowedCollisionMatrix() const
+{
+  return ode_collision_model_->getDefaultAllowedCollisionMatrix();
+}
+
 bool planning_environment::CollisionModels::computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& allowed_contact,
                                                                   collision_space::EnvironmentModel::AllowedContact& allowedContact) const
 {

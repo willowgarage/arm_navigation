@@ -153,6 +153,12 @@ public:
   bool applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord,
                                                        bool print=false);
   
+  bool setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm);
+
+  const collision_space::EnvironmentModel::AllowedCollisionMatrix& getCurrentAllowedCollisionMatrix() const;
+
+  const collision_space::EnvironmentModel::AllowedCollisionMatrix& getDefaultAllowedCollisionMatrix() const;
+
   bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& al,
                              collision_space::EnvironmentModel::AllowedContact& allowed_contact) const;
 

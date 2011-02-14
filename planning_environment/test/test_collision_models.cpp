@@ -126,6 +126,26 @@ protected:
     static_object_3_.poses[0].orientation.z = 0;
     static_object_3_.poses[0].orientation.w = 1;
 
+    att_object_1_.object.header.stamp = ros::Time::now();
+    att_object_1_.object.header.frame_id = "odom_combined";
+    att_object_1_.link_name = "r_gripper_r_finger_tip_link";
+    att_object_1_.object.id = "object_4";
+    att_object_1_.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    att_object_1_.object.shapes.resize(1);
+    att_object_1_.object.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+    att_object_1_.object.shapes[0].dimensions.resize(3);
+    att_object_1_.object.shapes[0].dimensions[0] = 1.0;
+    att_object_1_.object.shapes[0].dimensions[1] = 1.0;
+    att_object_1_.object.shapes[0].dimensions[2] = .05;
+    att_object_1_.object.poses.resize(1);
+    att_object_1_.object.poses[0].position.x = .15;
+    att_object_1_.object.poses[0].position.y = 0;
+    att_object_1_.object.poses[0].position.z = .5;
+    att_object_1_.object.poses[0].orientation.x = 0;
+    att_object_1_.object.poses[0].orientation.y = 0;
+    att_object_1_.object.poses[0].orientation.z = 0;
+    att_object_1_.object.poses[0].orientation.w = 1;
+
   }
   
 protected:
@@ -133,6 +153,8 @@ protected:
   mapping_msgs::CollisionObject static_object_1_;
   mapping_msgs::CollisionObject static_object_2_;
   mapping_msgs::CollisionObject static_object_3_;
+
+  mapping_msgs::AttachedCollisionObject att_object_1_;
 
   ros::NodeHandle nh_;
   std::string full_path_;
@@ -171,6 +193,7 @@ TEST_F(TestCollisionModels, NotInCollisionByDefault)
 
 }
 
+//Functional equivalent of test_collision_objects
 TEST_F(TestCollisionModels,TestCollisionObjects)
 {
   planning_environment::CollisionModels cm("robot_description");
@@ -202,28 +225,7 @@ TEST_F(TestCollisionModels,TestCollisionObjects)
   EXPECT_TRUE(acm.getAllowedCollision("object_3", "base_link", allowed));
   EXPECT_TRUE(allowed);
 
-  mapping_msgs::AttachedCollisionObject att_object;
-  att_object.object.header.stamp = ros::Time::now();
-  att_object.object.header.frame_id = "odom_combined";
-  att_object.link_name = "r_gripper_r_finger_tip_link";
-  att_object.object.id = "object_4";
-  att_object.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
-  att_object.object.shapes.resize(1);
-  att_object.object.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
-  att_object.object.shapes[0].dimensions.resize(3);
-  att_object.object.shapes[0].dimensions[0] = 1.0;
-  att_object.object.shapes[0].dimensions[1] = 1.0;
-  att_object.object.shapes[0].dimensions[2] = .05;
-  att_object.object.poses.resize(1);
-  att_object.object.poses[0].position.x = .15;
-  att_object.object.poses[0].position.y = 0;
-  att_object.object.poses[0].position.z = .5;
-  att_object.object.poses[0].orientation.x = 0;
-  att_object.object.poses[0].orientation.y = 0;
-  att_object.object.poses[0].orientation.z = 0;
-  att_object.object.poses[0].orientation.w = 1;
-
-  cm.addAttachedObject(att_object);
+  cm.addAttachedObject(att_object_1_);
 
   cm.getCollisionSpaceCollisionObjects(space_objs);
   cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
@@ -256,6 +258,7 @@ TEST_F(TestCollisionModels,TestCollisionObjects)
   ASSERT_EQ(space_atts.size(),0);
 }
 
+//Functional equivalent of test_alter_padding
 TEST_F(TestCollisionModels,TestAlterLinkPadding)
 {
   planning_environment::CollisionModels cm("robot_description");
@@ -304,6 +307,107 @@ TEST_F(TestCollisionModels,TestAlterLinkPadding)
   cm.revertCollisionSpacePaddingToDefault();
 
   EXPECT_FALSE(cm.isKinematicStateInCollision(state));
+}
+
+//Functional equivalent of test_allowed_collision_operations
+TEST_F(TestCollisionModels,TestAllowedCollisions)
+{
+  planning_environment::CollisionModels cm("robot_description");
+
+  {
+    planning_models::KinematicState state(cm.getKinematicModel());
+    
+    state.setKinematicStateToDefault();
+  }
+  collision_space::EnvironmentModel::AllowedCollisionMatrix check_acm = cm.getDefaultAllowedCollisionMatrix();
+
+  bool allowed;
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","l_gripper_palm_link", allowed));
+  EXPECT_FALSE(allowed);
+
+  motion_planning_msgs::OrderedCollisionOperations ord;
+  ord.collision_operations.resize(1);
+  ord.collision_operations[0].object1 = "r_gripper_palm_link";
+  ord.collision_operations[0].object2 = "l_gripper_palm_link";
+  ord.collision_operations[0].operation = ord.collision_operations[0].DISABLE;
+
+  cm.applyOrderedCollisionOperationsToCollisionSpace(ord);  
+
+  check_acm = cm.getCurrentAllowedCollisionMatrix();
+
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","l_gripper_palm_link", allowed));
+  EXPECT_TRUE(allowed);
+
+  cm.revertAllowedCollisionToDefault();
+
+  check_acm = cm.getCurrentAllowedCollisionMatrix();
+
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","l_gripper_palm_link", allowed));
+  EXPECT_FALSE(allowed);
+
+  check_acm.changeEntry("r_gripper_palm_link", "l_gripper_palm_link", true);
+
+  cm.setAlteredAllowedCollisionMatrix(check_acm);
+
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","l_gripper_palm_link", allowed));
+  EXPECT_TRUE(allowed);
+
+  cm.revertAllowedCollisionToDefault();
+
+  //now testing with objects
+
+  cm.addStaticObject(static_object_1_);
+
+  check_acm = cm.getCurrentAllowedCollisionMatrix();  
+  
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","object_1", allowed));
+  EXPECT_FALSE(allowed);
+
+  ord.collision_operations[0].object1 = "r_gripper_palm_link";
+  ord.collision_operations[0].object2 = ord.collision_operations[0].COLLISION_SET_OBJECTS;
+  ord.collision_operations[0].operation = ord.collision_operations[0].DISABLE;
+
+  cm.applyOrderedCollisionOperationsToCollisionSpace(ord);  
+
+  check_acm = cm.getCurrentAllowedCollisionMatrix();  
+  
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","object_1", allowed));
+  EXPECT_TRUE(allowed);
+
+  //now with attached objects
+  att_object_1_.touch_links.push_back("r_gripper_palm_link");
+  cm.addAttachedObject(att_object_1_);  
+
+  //this should also revert the allowed collision matrix
+  check_acm = cm.getCurrentAllowedCollisionMatrix();  
+  
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","object_1", allowed));
+  EXPECT_FALSE(allowed);
+
+  check_acm = cm.getCurrentAllowedCollisionMatrix();
+ 
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","object_4", allowed));
+  EXPECT_TRUE(allowed);
+
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_r_finger_tip_link","object_4", allowed));
+  EXPECT_TRUE(allowed);
+
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_l_finger_tip_link","object_4", allowed));
+  EXPECT_FALSE(allowed);
+
+  ord.collision_operations[0].object1 = "r_gripper_palm_link";
+  ord.collision_operations[0].object2 = ord.collision_operations[0].COLLISION_SET_ATTACHED_OBJECTS;
+  ord.collision_operations[0].operation = ord.collision_operations[0].DISABLE;
+
+  cm.applyOrderedCollisionOperationsToCollisionSpace(ord);  
+  
+  check_acm = cm.getCurrentAllowedCollisionMatrix();
+
+  //this should override touch_links
+
+  ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","object_4", allowed));
+  EXPECT_TRUE(allowed);
+
 }
 
 int main(int argc, char **argv)
