@@ -70,9 +70,6 @@ public:
 
   virtual ~CollisionModels(void);
  
-  /** \brief Reload the robot description and recreate the model */	
-  virtual void reload(void);
-
   //
   // Manipulating bodies and objects
   //
@@ -168,13 +165,21 @@ public:
                                 std::vector<planning_environment_msgs::ContactInformation>& contacts,
                                 unsigned int num_per_pair = 1);
 
-  bool isTrajectoryValid(const trajectory_msgs::JointTrajectory &trajectory,
-                         const motion_planning_msgs::RobotState& robot_state,
+  bool isTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+                         const trajectory_msgs::JointTrajectory &trajectory,
+                         const motion_planning_msgs::Constraints& goal_constraints,
                          const motion_planning_msgs::Constraints& path_constraints,
-                         const motion_planning_msgs::Constraints& goal_constraints, 
                          motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                          std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                          const bool evaluate_entire_trajectory);
+
+  bool isTrajectoryValid(planning_models::KinematicState& state,
+                         const trajectory_msgs::JointTrajectory &trajectory,
+                         const motion_planning_msgs::Constraints& goal_constraints,
+                         const motion_planning_msgs::Constraints& path_constraints,
+                         motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                         std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                         const bool evaluate_entire_trajectory);  
 
   void getAllCollisionSpaceObjectMarkers(visualization_msgs::MarkerArray& arr,
                                          const std_msgs::ColorRGBA static_color,
@@ -246,6 +251,8 @@ protected:
   void setupModel(collision_space::EnvironmentModel* model);
 	
   collision_space::EnvironmentModel* ode_collision_model_;
+
+  bool planning_scene_set_;
 
   double default_scale_;
   double default_padd_;

@@ -48,6 +48,7 @@
 
 planning_environment::CollisionModels::CollisionModels(const std::string &description) : RobotModels(description)
 {
+  planning_scene_set_ = false;
   loadCollision();
 }
 
@@ -57,14 +58,6 @@ planning_environment::CollisionModels::~CollisionModels(void)
   deleteAllStaticObjects();
   deleteAllAttachedObjects();
 }
-
-/** \brief Reload the robot description and recreate the model */	
-void planning_environment::CollisionModels::reload(void)
-{
-  RobotModels::reload();
-  loadCollision();
-}
-
 
 void planning_environment::CollisionModels::setupModel(collision_space::EnvironmentModel* model)
 {
@@ -222,6 +215,17 @@ void planning_environment::CollisionModels::loadCollision()
 planning_models::KinematicState* 
 planning_environment::CollisionModels::setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene) {
 
+  if(planning_scene_set_) {
+    ROS_WARN("Must revert before setting planning scene again");
+    return NULL;
+  }
+
+  //anything we've already got should go back to default
+  deleteAllStaticObjects();
+  deleteAllAttachedObjects();
+  revertAllowedCollisionToDefault();
+  revertCollisionSpacePaddingToDefault();
+
   for(unsigned int i = 0; i < planning_scene.collision_objects.size(); i++) {
     if(planning_scene.collision_objects[i].header.frame_id != getWorldFrameId()) {
       ROS_WARN_STREAM("Can't cope with objects not in " << getWorldFrameId());
@@ -258,11 +262,13 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
   ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
   //TODO - allowed contacts
   setCollisionMap(planning_scene.collision_map, true);
+  planning_scene_set_ = true;
   return state;
 }
 
 void planning_environment::CollisionModels::revertPlanningScene(planning_models::KinematicState* ks) {
   delete ks;
+  planning_scene_set_ = false;
   deleteAllStaticObjects();
   deleteAllAttachedObjects();
   revertAllowedCollisionToDefault();
@@ -884,24 +890,42 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
   }
 }
 
-bool planning_environment::CollisionModels::isTrajectoryValid(const trajectory_msgs::JointTrajectory &trajectory,
-                                                              const motion_planning_msgs::RobotState& robot_state,
+bool planning_environment::CollisionModels::isTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+                                                              const trajectory_msgs::JointTrajectory &trajectory,
+                                                              const motion_planning_msgs::Constraints& goal_constraints,
                                                               const motion_planning_msgs::Constraints& path_constraints,
-                                                              const motion_planning_msgs::Constraints& goal_constraints, 
                                                               motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                                                               std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                                                               const bool evaluate_entire_trajectory)
 {
-  error_code.val = error_code.SUCCESS;
-  
-  planning_models::KinematicState state(kmodel_);
-
-  //first making sure that the robot state is complete
-  if(!setRobotStateAndComputeTransforms(robot_state, state)) {
-    error_code.val = error_code.INCOMPLETE_ROBOT_STATE;
+  if(planning_scene_set_) {
+    ROS_WARN("Must revert planning scene before checking trajectory with planning scene");
     return false;
   }
 
+  planning_models::KinematicState* state = setPlanningScene(planning_scene);
+
+  if(state == NULL) {
+    ROS_WARN("Planning scene invalid in isTrajectoryValid");
+    return false;
+  }
+
+  bool ok =  isTrajectoryValid(*state, trajectory, goal_constraints, path_constraints, error_code, trajectory_error_codes, evaluate_entire_trajectory);
+  revertPlanningScene(state);
+  return ok;
+}
+
+
+bool planning_environment::CollisionModels::isTrajectoryValid(planning_models::KinematicState& state,
+                                                              const trajectory_msgs::JointTrajectory &trajectory,
+                                                              const motion_planning_msgs::Constraints& goal_constraints,
+                                                              const motion_planning_msgs::Constraints& path_constraints,
+                                                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                                                              std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                                                              const bool evaluate_entire_trajectory)  
+{
+  error_code.val = error_code.SUCCESS;
+  
   //now we need to start evaluating the trajectory
   std::map<std::string, double> joint_value_map;
 
@@ -944,6 +968,22 @@ bool planning_environment::CollisionModels::isTrajectoryValid(const trajectory_m
     }
   }
 
+  //now we make sure that the goal constraints are reasonable, at least in terms of joint_constraints
+  //note that this only checks the position itself, not there are values within the tolerance
+  //that don't violate the joint limits
+  joint_value_map.clear();
+  std::vector<std::string> goal_joint_names;
+  for(unsigned int i = 0; i < goal_constraints.joint_constraints.size(); i++) {
+    goal_joint_names.push_back(goal_constraints.joint_constraints[i].joint_name);
+    joint_value_map[goal_joint_names.back()] = goal_constraints.joint_constraints[i].position;
+  }
+  state.setKinematicState(joint_value_map);
+  if(!state.areJointsWithinBounds(goal_joint_names)) {
+    error_code.val = error_code.INVALID_GOAL_JOINT_CONSTRAINTS;
+    return false;
+  }
+
+  joint_value_map.clear();
   //next we check that the final point in the trajectory satisfies the goal constraints
   for (unsigned int j = 0 ; j < trajectory.points.back().positions.size(); j++)
   {

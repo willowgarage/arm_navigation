@@ -523,27 +523,74 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
     EXPECT_FALSE(cm.isKinematicStateInSelfCollision(state));
   }
 }
-/*
+
 TEST_F(TestCollisionModels, TestTrajectoryValidity)
 {
 
   planning_environment::CollisionModels cm("robot_description");
 
-  cm.addStaticObject(static_object_1);
-  
-  motion_planning_msgs::RobotState rob_state;
+  static_object_1_.poses[0].position.x = .45;
+  static_object_1_.poses[0].position.y = -.5;
+  cm.addStaticObject(static_object_1_);
 
-  {
-    planning_models::KinematicState kin_state(cm.getKinematicModel());
-    kin_state.setKinematicStateToDefault();
+  planning_models::KinematicState kin_state(cm.getKinematicModel());
+  kin_state.setKinematicStateToDefault();
   
-    convertKinematicStateToRobotState(kin_state, rob_state);
+  motion_planning_msgs::Constraints goal_constraints;
+  goal_constraints.joint_constraints.resize(1);
+  goal_constraints.joint_constraints[0].joint_name = "r_shoulder_pan_joint";
+  goal_constraints.joint_constraints[0].position = -2.0;
+  goal_constraints.joint_constraints[0].tolerance_below = 0.1;
+  goal_constraints.joint_constraints[0].tolerance_above = 0.1;
+
+  //empty path_constraints
+  motion_planning_msgs::Constraints path_constraints;
+
+  //just testing goal constraints
+  trajectory_msgs::JointTrajectory trajectory;
+  trajectory.joint_names.push_back("r_shoulder_pan_joint");
+  trajectory.points.resize(1);
+  trajectory.points[0].positions.resize(1);
+  trajectory.points[0].positions[0] = -2.0;
+  
+  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+  motion_planning_msgs::ArmNavigationErrorCodes error_code;
+  ASSERT_TRUE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+                                   error_code, trajectory_error_codes, false));
+  EXPECT_EQ(error_code.val, error_code.SUCCESS);
+
+  //should be out of bounds
+  trajectory.points[0].positions[0] = -1.8;
+
+  ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+                                    error_code, trajectory_error_codes, false));
+  EXPECT_EQ(error_code.val, error_code.GOAL_CONSTRAINTS_VIOLATED);
+
+  //valid goal constraint, but out of joint limits
+  goal_constraints.joint_constraints[0].position = -2.3;
+  trajectory.points[0].positions[0] = -2.0;
+
+  ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+                                    error_code, trajectory_error_codes, false));
+  EXPECT_EQ(error_code.val, error_code.INVALID_GOAL_JOINT_CONSTRAINTS);
+
+  //now we discretize and check collisions
+
+  goal_constraints.joint_constraints[0].position = -2.0;
+
+  unsigned int num_points = fabs(100.0/-2.0);
+  trajectory.points.resize(num_points);
+  for(unsigned int i = 1; i <= num_points; i++) {
+    trajectory.points[i-1].positions.resize(1);
+    trajectory.points[i-1].positions[0] = -2.0*((i*1.0)/(1.0*num_points));
   }
-  motion_planning_msgs::Constraint goal_constraints;
-  goal_constraints.
-
+  EXPECT_EQ(trajectory.points.back().positions[0], -2.0);
+  
+  ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+                                    error_code, trajectory_error_codes, false));
+  EXPECT_EQ(error_code.val, error_code.COLLISION_CONSTRAINTS_VIOLATED);
 }
-*/
+
 int main(int argc, char **argv)
 {
   testing::InitGoogleTest(&argc, argv);
