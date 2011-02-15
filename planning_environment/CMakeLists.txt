@@ -33,6 +33,10 @@ target_link_libraries(visualize_all_collisions planning_environment)
 rosbuild_add_executable(visualize_collision_models test/visualize_collision_models.cpp)
 rosbuild_link_boost(visualize_collision_models thread)
 target_link_libraries(visualize_collision_models planning_environment)
+
+rosbuild_add_executable(visualize_planning_scene test/visualize_planning_scene.cpp)
+rosbuild_link_boost(visualize_planning_scene thread)
+target_link_libraries(visualize_planning_scene planning_environment)
  
 # Utility apps
 #rosbuild_add_executable(view_state_validity src/tools/view_state_validity.cpp) 

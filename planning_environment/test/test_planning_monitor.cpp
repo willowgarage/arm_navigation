@@ -38,6 +38,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <sstream>
+#include <ros/package.h>
 
 #include <planning_environment/monitors/planning_monitor.h>
 
@@ -72,25 +73,25 @@ protected:
     delete planning_monitor_;
   }
 
-  void CallPlanningScene() {
-    planning_monitor_->getCompletePlanningScene(group_name_,
-                                                state_diff,
-                                                goal_constraints,
-                                                path_constraints,
-                                                allowed_contacts_diffs,
-                                                ordered_collision_operations_diff,
-                                                link_padding_diff,
-                                                collision_object_diffs,
-                                                attached_collision_object_diffs,
-                                                complete_robot_state,
-                                                transformed_goal_constraints,
-                                                transformed_path_constraints,
-                                                allowed_collision_matrix,
-                                                transformed_allowed_contacts,
-                                                all_link_paddings,
-                                                all_collision_objects,
-                                                all_attached_collision_objects,
-                                                unmasked_collision_map);
+  bool CallPlanningScene() {
+    return planning_monitor_->getCompletePlanningScene(group_name_,
+                                                       state_diff,
+                                                       goal_constraints,
+                                                       path_constraints,
+                                                       allowed_contacts_diffs,
+                                                       ordered_collision_operations_diff,
+                                                       link_padding_diff,
+                                                       collision_object_diffs,
+                                                       attached_collision_object_diffs,
+                                                       complete_robot_state,
+                                                       transformed_goal_constraints,
+                                                       transformed_path_constraints,
+                                                       allowed_collision_matrix,
+                                                       transformed_allowed_contacts,
+                                                       all_link_paddings,
+                                                       all_collision_objects,
+                                                       all_attached_collision_objects,
+                                                       unmasked_collision_map);
   }
 
 protected:
@@ -252,6 +253,157 @@ TEST_F(PlanningMonitorTest, ConvertPlanningConstraints)
   EXPECT_TRUE(transformed_goal_constraints.position_constraints[0].header.frame_id == "odom_combined");
   EXPECT_LE(fabs(transformed_goal_constraints.position_constraints[0].target_point_offset.x-3.5), VERY_SMALL) ;
 
+}
+
+TEST_F(PlanningMonitorTest, ChangingRobotState)
+{
+  mapping_msgs::CollisionObject obj1;
+  obj1.header.stamp = ros::Time::now();
+  obj1.header.frame_id = "odom_combined";
+  obj1.id = "table";
+  obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  obj1.shapes.resize(1);
+  obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  obj1.shapes[0].dimensions.resize(3);
+  obj1.shapes[0].dimensions[0] = 1.0;
+  obj1.shapes[0].dimensions[1] = 1.0;
+  obj1.shapes[0].dimensions[2] = .2;
+  obj1.poses.resize(1);
+  obj1.poses[0].position.x = 4.25;
+  obj1.poses[0].position.y = 0.0;
+  obj1.poses[0].position.z = .8;
+  obj1.poses[0].orientation.w = 1.0;
+
+  collision_object_diffs.push_back(obj1);
+
+  CallPlanningScene();
+
+  planning_environment::CollisionModels cm("robot_description");
+
+  planning_models::KinematicState* state = cm.setPlanningScene(complete_robot_state,
+                                                               allowed_collision_matrix,
+                                                               transformed_allowed_contacts,
+                                                               all_link_paddings,
+                                                               all_collision_objects,
+                                                               all_attached_collision_objects,
+                                                               unmasked_collision_map);
+  //without transforming state nowhere near the table
+  ASSERT_TRUE(state != NULL);
+  EXPECT_FALSE(cm.isKinematicStateInCollision(*state));
+
+  cm.revertPlanningScene(state);
+
+  state_diff.multi_dof_joint_state.stamp = ros::Time::now();
+  state_diff.multi_dof_joint_state.joint_names.push_back("base_joint");
+  state_diff.multi_dof_joint_state.frame_ids.push_back("odom_combined");
+  state_diff.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  state_diff.multi_dof_joint_state.poses.resize(1);
+  state_diff.multi_dof_joint_state.poses[0].position.x = 4.0;
+  state_diff.multi_dof_joint_state.poses[0].orientation.w = 1.0;
+
+  CallPlanningScene();
+
+  state = cm.setPlanningScene(complete_robot_state,
+                              allowed_collision_matrix,
+                              transformed_allowed_contacts,
+                              all_link_paddings,
+                              all_collision_objects,
+                              all_attached_collision_objects,
+                              unmasked_collision_map);
+
+  //expect collisions with table
+  ASSERT_TRUE(state != NULL);
+  std::map<std::string, double> joint_state_values;
+  state->getKinematicStateValues(joint_state_values);
+  EXPECT_EQ(joint_state_values["floating_trans_x"], 4.0);
+  EXPECT_TRUE(cm.isKinematicStateInCollision(*state));
+  EXPECT_FALSE(cm.isKinematicStateInSelfCollision(*state));
+  EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(*state));
+
+  cm.revertPlanningScene(state);
+
+  //bad multi-dof
+  state_diff.multi_dof_joint_state.stamp = ros::Time::now();
+  state_diff.multi_dof_joint_state.joint_names.push_back("base_joint");
+  state_diff.multi_dof_joint_state.frame_ids[0] = "";
+  state_diff.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  state_diff.multi_dof_joint_state.poses.resize(1);
+  state_diff.multi_dof_joint_state.poses[0].position.x = 4.0;
+  state_diff.multi_dof_joint_state.poses[0].orientation.w = 1.0;
+
+  CallPlanningScene();
+
+  //but now we shouldn't be in collision
+  state = cm.setPlanningScene(complete_robot_state,
+                              allowed_collision_matrix,
+                              transformed_allowed_contacts,
+                              all_link_paddings,
+                              all_collision_objects,
+                              all_attached_collision_objects,
+                              unmasked_collision_map);
+  ASSERT_TRUE(state != NULL);
+  //expect collisions with table
+  state->getKinematicStateValues(joint_state_values);
+  EXPECT_EQ(joint_state_values["floating_trans_x"], 0.0);
+  EXPECT_FALSE(cm.isKinematicStateInCollision(*state));
+
+  cm.revertPlanningScene(state);
+
+  state_diff.multi_dof_joint_state.joint_names.clear();
+  state_diff.multi_dof_joint_state.poses.clear();
+  state_diff.multi_dof_joint_state.frame_ids.clear();
+  state_diff.multi_dof_joint_state.child_frame_ids.clear();
+  
+  state_diff.joint_state.name.push_back("floating_trans_x");
+  state_diff.joint_state.position.push_back(3.3);
+
+  CallPlanningScene();
+
+  //back in collision
+  state = cm.setPlanningScene(complete_robot_state,
+                              allowed_collision_matrix,
+                              transformed_allowed_contacts,
+                              all_link_paddings,
+                              all_collision_objects,
+                              all_attached_collision_objects,
+                              unmasked_collision_map);
+  ASSERT_TRUE(state != NULL);
+  state->getKinematicStateValues(joint_state_values);
+  EXPECT_EQ(joint_state_values["floating_trans_x"], 3.3);
+  EXPECT_TRUE(cm.isKinematicStateInCollision(*state));
+  EXPECT_FALSE(cm.isKinematicStateInSelfCollision(*state));
+  EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(*state));
+
+  // cm.writePlanningSceneBag(ros::package::getPath("planning_environment")+"/test.bag",
+  //                          complete_robot_state,
+  //                          allowed_collision_matrix,
+  //                          transformed_allowed_contacts,
+  //                          all_link_paddings,
+  //                          all_collision_objects,
+  //                          all_attached_collision_objects,
+  //                          unmasked_collision_map);
+
+  cm.revertPlanningScene(state);
+
+  //now we turn out of collision
+  state_diff.joint_state.name.push_back("floating_rot_z");
+  state_diff.joint_state.name.push_back("floating_rot_w");
+  state_diff.joint_state.position.push_back(.7071);
+  state_diff.joint_state.position.push_back(.7071);
+
+  CallPlanningScene();
+
+  state = cm.setPlanningScene(complete_robot_state,
+                              allowed_collision_matrix,
+                              transformed_allowed_contacts,
+                              all_link_paddings,
+                              all_collision_objects,
+                              all_attached_collision_objects,
+                              unmasked_collision_map);
+  ASSERT_TRUE(state != NULL);
+  EXPECT_FALSE(cm.isKinematicStateInCollision(*state));
+
+  cm.revertPlanningScene(state);
 }
 
 int main(int argc, char** argv)

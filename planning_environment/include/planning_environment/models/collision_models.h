@@ -238,6 +238,19 @@ public:
   const std::map<std::string,double>& getDefaultLinkPaddingMap() const{
     return default_link_padding_map_;
   }
+
+  void writePlanningSceneBag(const std::string& filename,
+                             const motion_planning_msgs::RobotState& complete_robot_state,
+                             const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
+                             const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
+                             const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
+                             const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
+                             const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
+                             const mapping_msgs::CollisionMap& unmasked_collision_map);
+    
+  
+  planning_models::KinematicState* readPlanningSceneBag(const std::string& filename);
+
   
 protected:
 

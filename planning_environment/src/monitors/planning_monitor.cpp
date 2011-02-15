@@ -53,7 +53,7 @@ void planning_environment::PlanningMonitor::loadParams(void)
 }
 
 
-void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::string& group_name,
+bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::string& group_name,
                                                                      const motion_planning_msgs::RobotState& state_diff,
                                                                      const motion_planning_msgs::Constraints& goal_constraints,
                                                                      const motion_planning_msgs::Constraints& path_constraints,
@@ -111,7 +111,7 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
         continue;
       } else {
         ROS_WARN_STREAM("No other operation than remove permitted for all");
-        continue;
+        return false;
       }
     }
     bool already_have = false;
@@ -162,7 +162,7 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
         continue;
       } else {
         ROS_WARN_STREAM("No other operation than remove permitted for all");
-        continue;
+        return false;        
       }
     } else {
       if(object_name == "all") {
@@ -178,6 +178,7 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
           }
         } else {
           ROS_WARN_STREAM("No other operation than remove permitted for all");
+          return false;
         }
         continue;
       }
@@ -195,7 +196,7 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
       if(attached_collision_object_diffs[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
         if(!already_have) {
           ROS_WARN_STREAM("Diff remove specified for object " << object_name << " which we don't seem to have");
-          continue;
+          return false;
         }
         acm.removeEntry((*it).object.id);
         all_attached_collision_objects.erase(it);
@@ -245,7 +246,7 @@ void planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
 
   //NOTE - this should be unmasked in collision_space_monitor;
   cm_->getCollisionSpaceCollisionMap(unmasked_collision_map);
-
+  return true;
 }   
 
 void planning_environment::PlanningMonitor::convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,

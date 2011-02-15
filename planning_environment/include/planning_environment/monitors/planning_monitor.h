@@ -76,7 +76,7 @@ public:
 
     };	
 
-  void getCompletePlanningScene(const std::string& group_name,
+  bool getCompletePlanningScene(const std::string& group_name,
                                 const motion_planning_msgs::RobotState& state_diff,
                                 const motion_planning_msgs::Constraints& goal_constraints,
                                 const motion_planning_msgs::Constraints& path_constraints,

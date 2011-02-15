@@ -42,6 +42,9 @@
 #include <vector>
 #include <geometric_shapes/shape_operations.h>
 #include <geometric_shapes/body_operations.h>
+#include <boost/foreach.hpp>
+#include <rosbag/bag.h>
+#include <rosbag/view.h>
 
 planning_environment::CollisionModels::CollisionModels(const std::string &description) : RobotModels(description)
 {
@@ -1085,6 +1088,7 @@ void planning_environment::CollisionModels::getStaticCollisionObjectMarkers(visu
       mk.color.g = color.g;
       mk.color.b = color.b;
       setMarkerShapeFromShape(static_objects[i].shapes[j], mk);
+      mk.lifetime = lifetime;
       arr.markers.push_back(mk);
     }
   }
@@ -1125,6 +1129,7 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(vi
       mk.color.r = color.r;
       mk.color.g = color.g;
       mk.color.b = color.b;
+      mk.lifetime = lifetime;
       setMarkerShapeFromShape(attached_objects[i].object.shapes[j], mk);
       arr.markers.push_back(mk);
     }
@@ -1261,4 +1266,106 @@ void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(con
       delete[] vertices;
     }
   }
+}
+
+void planning_environment::CollisionModels::writePlanningSceneBag(const std::string& filename,
+                                                                  const motion_planning_msgs::RobotState& complete_robot_state,
+                                                                  const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
+                                                                  const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
+                                                                  const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
+                                                                  const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
+                                                                  const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
+                                                                  const mapping_msgs::CollisionMap& unmasked_collision_map) 
+{
+  rosbag::Bag bag;
+  bag.open(filename, rosbag::bagmode::Write);
+  
+  ros::Time t = complete_robot_state.joint_state.header.stamp;
+
+  bag.write("robot_state", t, complete_robot_state);
+  bag.write("allowed_collision_matrix", t, allowed_collision_matrix);
+  for(unsigned int i = 0; i < transformed_allowed_contacts.size(); i++) {
+    bag.write("allowed_contacts", t, transformed_allowed_contacts[i]);
+  }
+  for(unsigned int i = 0; i < all_link_paddings.size(); i++) {
+    bag.write("link_padding", t, all_link_paddings[i]);
+  }
+  for(unsigned int i = 0; i < all_collision_objects.size(); i++) {
+    bag.write("collision_objects", t, all_collision_objects[i]);
+  }
+  for(unsigned int i = 0; i < all_attached_collision_objects.size(); i++) {
+    bag.write("attached_collision_objects", t, all_attached_collision_objects[i]);
+  }
+  bag.write("collision_map", t, unmasked_collision_map);
+
+  ROS_INFO_STREAM("Wrote to " << filename);
+
+  bag.close();
+
+}
+  
+
+planning_models::KinematicState* planning_environment::CollisionModels::readPlanningSceneBag(const std::string& filename)
+{
+  rosbag::Bag bag;
+  bag.open(filename, rosbag::bagmode::Read);
+
+  motion_planning_msgs::RobotState complete_robot_state;
+  planning_environment_msgs::AllowedCollisionMatrix allowed_collision_matrix;
+  std::vector<motion_planning_msgs::AllowedContactSpecification> transformed_allowed_contacts;
+  std::vector<motion_planning_msgs::LinkPadding> all_link_paddings;
+  std::vector<mapping_msgs::CollisionObject> all_collision_objects;
+  std::vector<mapping_msgs::AttachedCollisionObject> all_attached_collision_objects;
+  mapping_msgs::CollisionMap unmasked_collision_map;
+
+  std::vector<std::string> topics;
+  topics.push_back("robot_state");
+  topics.push_back("allowed_collision_matrix");
+  topics.push_back("allowed_contacts");
+  topics.push_back("link_padding");
+  topics.push_back("collision_objects");
+  topics.push_back("attached_collision_objects");
+  topics.push_back("collision_map");
+
+  rosbag::View view(bag, rosbag::TopicQuery(topics));
+  
+  BOOST_FOREACH(rosbag::MessageInstance const m, view)
+  {
+    motion_planning_msgs::RobotState::ConstPtr state = m.instantiate<motion_planning_msgs::RobotState>();
+    if(state != NULL) {
+      complete_robot_state = *state;
+    }
+    planning_environment_msgs::AllowedCollisionMatrix::ConstPtr coll = m.instantiate<planning_environment_msgs::AllowedCollisionMatrix>();
+    if(coll != NULL) {
+      allowed_collision_matrix = *coll;
+    }
+    motion_planning_msgs::AllowedContactSpecification::ConstPtr con = m.instantiate<motion_planning_msgs::AllowedContactSpecification>();
+    if(con != NULL) {
+      transformed_allowed_contacts.push_back(*con);
+    }
+    motion_planning_msgs::LinkPadding::ConstPtr lin = m.instantiate<motion_planning_msgs::LinkPadding>();
+    if(lin != NULL) {
+      all_link_paddings.push_back(*lin);
+    }
+    mapping_msgs::CollisionObject::ConstPtr obj = m.instantiate<mapping_msgs::CollisionObject>();
+    if(obj != NULL) {
+      all_collision_objects.push_back(*obj);
+    }
+    mapping_msgs::AttachedCollisionObject::ConstPtr att = m.instantiate<mapping_msgs::AttachedCollisionObject>();
+    if(att != NULL) {
+      all_attached_collision_objects.push_back(*att);
+    }
+    mapping_msgs::CollisionMap::ConstPtr collmap = m.instantiate<mapping_msgs::CollisionMap>();
+    if(collmap != NULL) {
+      unmasked_collision_map = *collmap;
+    }
+  }    
+  
+  return(setPlanningScene(complete_robot_state,
+                          allowed_collision_matrix,
+                          transformed_allowed_contacts,
+                          all_link_paddings,
+                          all_collision_objects,
+                          all_attached_collision_objects,
+                          unmasked_collision_map));
 }

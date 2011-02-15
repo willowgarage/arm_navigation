@@ -522,8 +522,9 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
     EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(state));
     EXPECT_FALSE(cm.isKinematicStateInSelfCollision(state));
   }
-
 }
+
+
 
 int main(int argc, char **argv)
 {
