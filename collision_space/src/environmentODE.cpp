@@ -117,7 +117,8 @@ void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::st
         const dReal *pos = dGeomGetPosition(lg->att_bodies[j]->geom[k]);
         dQuaternion q;
         dGeomGetQuaternion(lg->att_bodies[j]->geom[k], q);
-        nbt.push_back(btTransform(btQuaternion(q[0], q[1], q[2], q[3]), btVector3(pos[0], pos[1], pos[2])));
+        //note that ODE puts w first (w,x,y,z)
+        nbt.push_back(btTransform(btQuaternion(q[1], q[2], q[3], q[0]), btVector3(pos[0], pos[1], pos[2])));
       }
       pose_map[lg->att_bodies[j]->att->getName()] = nbt;
     }
@@ -297,6 +298,9 @@ void collision_space::EnvironmentModelODE::updateAttachedBodies()
 
 void collision_space::EnvironmentModelODE::updateAttachedBodies(const std::map<std::string, double>& link_padding_map)
 {
+  //need to revert any allowed collisions
+  revertAlteredCollisionMatrix();
+
   //getting rid of all entries associated with the current attached bodies
   for(std::map<std::string, bool>::iterator it = attached_bodies_in_collision_matrix_.begin();
       it != attached_bodies_in_collision_matrix_.end();
@@ -873,7 +877,7 @@ bool collision_space::EnvironmentModelODE::isEnvironmentCollision(void) const
 void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespace *cn, CollisionData *cdata) const
 { 
   if (cn->collide2.empty()) {
-    ROS_WARN_STREAM("Problem - collide2 required for body collision");
+    ROS_WARN_STREAM("Problem - collide2 required for body collision for " << cn->name);
     return;
   }
   
@@ -983,6 +987,9 @@ bool collision_space::EnvironmentModelODE::hasObject(const std::string& ns)
 
 void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses)
 {
+  //need to revert any allowed collisions
+  revertAlteredCollisionMatrix();
+
   assert(shapes.size() == poses.size());
   std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.find(ns);
   CollisionNamespace* cn = NULL;    
@@ -1014,6 +1021,9 @@ void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, con
 
 void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shapes::Shape *shape, const btTransform &pose)
 {
+  //need to revert any allowed collisions
+  revertAlteredCollisionMatrix();
+
   std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.find(ns);
   CollisionNamespace* cn = NULL;    
   if (it == coll_namespaces_.end())
@@ -1038,6 +1048,9 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
 
 void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shapes::StaticShape* shape)
 {   
+  //need to revert any allowed collisions
+  revertAlteredCollisionMatrix();
+
   std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.find(ns);
   CollisionNamespace* cn = NULL;    
   if (it == coll_namespaces_.end())
@@ -1058,6 +1071,8 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
 
 void collision_space::EnvironmentModelODE::clearObjects(void)
 {
+  //need to revert any allowed collisions
+  revertAlteredCollisionMatrix();
   for (std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() ; ++it) {
     default_collision_matrix_.removeEntry(it->first);
     delete it->second;
@@ -1068,6 +1083,8 @@ void collision_space::EnvironmentModelODE::clearObjects(void)
 
 void collision_space::EnvironmentModelODE::clearObjects(const std::string &ns)
 {
+  //need to revert any allowed collisions
+  revertAlteredCollisionMatrix();
   std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.find(ns);
   if (it != coll_namespaces_.end()) {
     default_collision_matrix_.removeEntry(ns);
