@@ -378,7 +378,9 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
   } 
   ode_collision_model_->lock();
   ode_collision_model_->clearObjects(COLLISION_MAP_NAME);
-  ode_collision_model_->addObjects(COLLISION_MAP_NAME, shapes, masked_poses);
+  if(shapes.size() > 0.0) {
+    ode_collision_model_->addObjects(COLLISION_MAP_NAME, shapes, masked_poses);
+  }
   ode_collision_model_->unlock();
 }
 

@@ -410,6 +410,121 @@ TEST_F(TestCollisionModels,TestAllowedCollisions)
 
 }
 
+//Functional equivalent of test_allowed_collision_operations
+TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
+{
+  planning_environment::CollisionModels cm("robot_description");
+
+  mapping_msgs::CollisionObject table;
+  
+  table.header.stamp = ros::Time::now();
+  table.header.frame_id = "odom_combined";
+  table.id = "wall";
+  table.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  table.shapes.resize(1);
+  table.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  table.shapes[0].dimensions.resize(3);
+  table.shapes[0].dimensions[0] = 0.05;
+  table.shapes[0].dimensions[1] = 4.0;
+  table.shapes[0].dimensions[2] = 4.0;
+  table.poses.resize(1);
+  table.poses[0].position.x = .7;
+  table.poses[0].position.y = 0;
+  table.poses[0].position.z = 1.0;
+  table.poses[0].orientation.w = 1.0;
+
+  cm.addStaticObject(table);
+
+  mapping_msgs::AttachedCollisionObject pole;
+
+  pole.object.header.stamp = ros::Time::now();
+  pole.object.header.frame_id = "r_gripper_r_finger_tip_link";
+  pole.link_name = "r_gripper_r_finger_tip_link";
+  pole.object.id = "pole";
+  pole.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  pole.object.shapes.resize(1);
+  pole.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  pole.object.shapes[0].dimensions.resize(2);
+  pole.object.shapes[0].dimensions[0] = .05;
+  pole.object.shapes[0].dimensions[1] = .4;
+  pole.object.poses.resize(1);
+  pole.object.poses[0].position.x = 0;
+  pole.object.poses[0].position.y = 0;
+  pole.object.poses[0].position.z = 0;
+  pole.object.poses[0].orientation.x = 0;
+  pole.object.poses[0].orientation.y = 0;
+  pole.object.poses[0].orientation.z = 0;
+  pole.object.poses[0].orientation.w = 1;
+  
+  std::vector<std::string> touch_links;
+
+  touch_links.push_back("r_gripper_palm_link");
+  touch_links.push_back("r_gripper_r_finger_link");
+  touch_links.push_back("r_gripper_l_finger_link");
+  touch_links.push_back("r_gripper_l_finger_tip_link");
+  
+  cm.addAttachedObject(pole);
+
+  //with no touch links should be in collision
+  {
+    planning_models::KinematicState state(cm.getKinematicModel());
+    
+    state.setKinematicStateToDefault();
+
+    EXPECT_TRUE(cm.isKinematicStateInCollision(state));
+
+    std::vector<planning_environment_msgs::ContactInformation> contacts;
+    cm.getAllCollisionsForState(state, contacts,1);
+    
+    EXPECT_GE(contacts.size(),1);    
+
+    //should get contacts between pole and touch_links and pole and table
+    bool got_object = false;
+    std::map<std::string, bool> touch_links_map;
+    for(unsigned int i = 0; i < touch_links.size(); i++) {
+      touch_links_map[touch_links[i]] = false;
+    }
+    for(unsigned int i = 0; i < contacts.size(); i++) {
+      std::string other_body_name;
+      char other_body_type;
+      if(contacts[i].body_type_1 == planning_environment_msgs::ContactInformation::ATTACHED_BODY) {
+        other_body_name = contacts[i].contact_body_2;
+        other_body_type = contacts[i].body_type_2;
+      } else if(contacts[i].body_type_2 == planning_environment_msgs::ContactInformation::ATTACHED_BODY) {
+        other_body_name = contacts[i].contact_body_1;
+        other_body_type = contacts[i].body_type_1;
+      } else {
+        ASSERT_TRUE(false) << "Collision other than with attached object " << contacts[i].contact_body_1 << " and " << contacts[i].contact_body_2;
+      }
+      if(other_body_type == planning_environment_msgs::ContactInformation::ROBOT_LINK) {
+        EXPECT_FALSE(touch_links_map.find(other_body_name) == touch_links_map.end()) << contacts[i].contact_body_1 << " and " << contacts[i].contact_body_2;
+        touch_links_map[other_body_name] = true;
+      } else {
+        got_object = true;
+      }
+    }
+    EXPECT_TRUE(got_object);
+    for(std::map<std::string, bool>::iterator it = touch_links_map.begin();
+        it != touch_links_map.end();
+        it++) {
+      EXPECT_TRUE(it->second) << it->first << " not in collision";
+    }
+  }
+  pole.touch_links = touch_links;
+  cm.addAttachedObject(pole);
+
+  {
+    planning_models::KinematicState state(cm.getKinematicModel());
+    
+    state.setKinematicStateToDefault();  
+
+    EXPECT_TRUE(cm.isKinematicStateInCollision(state));
+    EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(state));
+    EXPECT_FALSE(cm.isKinematicStateInSelfCollision(state));
+  }
+
+}
+
 int main(int argc, char **argv)
 {
   testing::InitGoogleTest(&argc, argv);

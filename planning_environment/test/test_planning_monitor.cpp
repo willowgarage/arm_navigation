@@ -152,7 +152,7 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   mapping_msgs::AttachedCollisionObject att_obj;
   att_obj.object = obj1;
   att_obj.object.header.stamp = ros::Time::now();
-  att_obj.object.header.frame_id = "r_gripper_r_finger_link";
+  att_obj.object.header.frame_id = "r_gripper_r_finger_tip_link";
   att_obj.link_name = "r_gripper_palm_link";
   att_obj.touch_links.push_back("r_gripper_palm_link");
   att_obj.touch_links.push_back("r_gripper_r_finger_link");

@@ -41,7 +41,7 @@
 bool planning_environment::EnvironmentServerSetup::configure(void)
 {
   std::string global_frame_id;
-  node_handle_.param<bool>("use_collision_map", use_collision_map_, true);
+  node_handle_.param<bool>("use_collision_map", use_collision_map_, false);
 
   //figuring out whether robot_description has been remapped
 

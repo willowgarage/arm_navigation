@@ -40,8 +40,8 @@
 #include <planning_environment_msgs/GetRobotState.h>
 #include <planning_environment/models/model_utils.h>
 
-static const std::string planning_scene_name = "/environment_server/get_planning_scene";      
-static const std::string robot_state_name = "/environment_server/get_robot_state";      
+static const std::string planning_scene_name = "/environment_monitor/get_planning_scene";      
+static const std::string robot_state_name = "/environment_monitor/get_robot_state";      
 static const std::string vis_topic_name = "all_collision_model_collisions";
 
 int main(int argc, char** argv)
@@ -72,24 +72,24 @@ int main(int argc, char** argv)
   mapping_msgs::CollisionObject obj1;
   obj1.header.stamp = ros::Time::now();
   obj1.header.frame_id = "odom_combined";
-  obj1.id = "obj1";
+  obj1.id = "wall";
   obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
   obj1.shapes.resize(1);
   obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
   obj1.shapes[0].dimensions.resize(3);
-  obj1.shapes[0].dimensions[0] = .1;
-  obj1.shapes[0].dimensions[1] = .1;
-  obj1.shapes[0].dimensions[2] = .75;
+  obj1.shapes[0].dimensions[0] = 0.05;
+  obj1.shapes[0].dimensions[1] = 4.0;
+  obj1.shapes[0].dimensions[2] = 4.0;
   obj1.poses.resize(1);
-  obj1.poses[0].position.x = .6;
-  obj1.poses[0].position.y = -.6;
-  obj1.poses[0].position.z = .375;
+  obj1.poses[0].position.x = .7;
+  obj1.poses[0].position.y = 0;
+  obj1.poses[0].position.z = 1.0;
   obj1.poses[0].orientation.w = 1.0;
 
   mapping_msgs::AttachedCollisionObject att_obj;
   att_obj.object = obj1;
   att_obj.object.header.stamp = ros::Time::now();
-  att_obj.object.header.frame_id = "r_gripper_palm_link";
+  att_obj.object.header.frame_id = "r_gripper_r_finger_tip_link";
   att_obj.link_name = "r_gripper_palm_link";
   att_obj.touch_links.push_back("r_gripper_palm_link");
   att_obj.touch_links.push_back("r_gripper_r_finger_link");
@@ -103,10 +103,10 @@ int main(int argc, char** argv)
   att_obj.object.id = "obj2";
   att_obj.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
   att_obj.object.shapes[0].dimensions.resize(2);
-  att_obj.object.shapes[0].dimensions[0] = .025;
-  att_obj.object.shapes[0].dimensions[1] = .5;
+  att_obj.object.shapes[0].dimensions[0] = .02;
+  att_obj.object.shapes[0].dimensions[1] = .25;
   att_obj.object.poses.resize(1);
-  att_obj.object.poses[0].position.x = .12;
+  att_obj.object.poses[0].position.x = 0.0;
   att_obj.object.poses[0].position.y = 0.0;
   att_obj.object.poses[0].position.z = 0.0;
   att_obj.object.poses[0].orientation.w = 1.0;
@@ -123,6 +123,16 @@ int main(int argc, char** argv)
                                                                    res.all_collision_objects,
                                                                    res.all_attached_collision_objects,
                                                                    res.unmasked_collision_map);
+
+  if(res.all_attached_collision_objects[0].object.header.frame_id != "r_gripper_palm_link") {
+    ROS_INFO_STREAM("Not in link frame");
+  }
+
+  if(state == NULL) {
+    ROS_ERROR_STREAM("Problem setting state, exiting");
+    ros::shutdown();
+    exit(0);
+  }
   ros::Rate r(10.0);
   while(nh.ok()) {
     
@@ -163,6 +173,7 @@ int main(int argc, char** argv)
     r.sleep();
   }
 
+  cmodel.revertPlanningScene(state);
   ros::shutdown();
 }
   
