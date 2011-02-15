@@ -289,23 +289,13 @@ private:
                         planning_environment_msgs::GetPlanningScene::Response &res) 
   {
     planning_monitor_->getCompletePlanningScene(req.group_name,
-                                                req.robot_state_diff,
+                                                req.planning_scene_diff,
+                                                req.operations,
                                                 req.goal_constraints,
                                                 req.path_constraints,
-                                                req.allowed_contacts,
-                                                req.ordered_collision_operations,
-                                                req.link_padding_diffs,
-                                                req.collision_object_diffs,
-                                                req.attached_collision_object_diffs,
-                                                res.complete_robot_state,
+                                                res.planning_scene,
                                                 res.transformed_goal_constraints,
-                                                res.transformed_path_constraints,
-                                                res.allowed_collision_matrix,
-                                                res.transformed_allowed_contacts,
-                                                res.all_link_padding,
-                                                res.all_collision_objects,
-                                                res.all_attached_collision_objects,
-                                                res.unmasked_collision_map);
+                                                res.transformed_path_constraints);
     return true;
   }
 

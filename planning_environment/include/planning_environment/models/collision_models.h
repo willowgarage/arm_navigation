@@ -40,22 +40,16 @@
 #include "planning_environment/models/robot_models.h"
 
 #include <collision_space/environment.h>
-#include <motion_planning_msgs/AllowedContactSpecification.h>
-#include <motion_planning_msgs/OrderedCollisionOperations.h>
-#include <motion_planning_msgs/LinkPadding.h>
-#include <mapping_msgs/CollisionMap.h>
-#include <mapping_msgs/CollisionObject.h>
-#include <mapping_msgs/AttachedCollisionObject.h>
+#include <planning_environment_msgs/PlanningScene.h>
 #include <geometric_shapes_msgs/Shape.h>
-#include <planning_environment_msgs/AllowedCollisionMatrix.h>
 #include <geometric_shapes/bodies.h>
 #include <trajectory_msgs/JointTrajectory.h>
-#include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/Constraints.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <planning_environment_msgs/ContactInformation.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <motion_planning_msgs/OrderedCollisionOperations.h>
 
 static const std::string COLLISION_MAP_NAME="collision_map";
 
@@ -83,14 +77,7 @@ public:
   // Manipulating bodies and objects
   //
 
-  planning_models::KinematicState* 
-  setPlanningScene(const motion_planning_msgs::RobotState& complete_robot_state,
-                   const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
-                   const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
-                   const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
-                   const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
-                   const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
-                   const mapping_msgs::CollisionMap& unmasked_collision_map);
+  planning_models::KinematicState* setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene);
 
   void revertPlanningScene(planning_models::KinematicState* state);
     
@@ -240,16 +227,10 @@ public:
   }
 
   void writePlanningSceneBag(const std::string& filename,
-                             const motion_planning_msgs::RobotState& complete_robot_state,
-                             const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
-                             const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
-                             const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
-                             const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
-                             const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
-                             const mapping_msgs::CollisionMap& unmasked_collision_map);
-    
+                             const planning_environment_msgs::PlanningScene& planning_scene) const;
   
-  planning_models::KinematicState* readPlanningSceneBag(const std::string& filename);
+  void readPlanningSceneBag(const std::string& filename,
+                            planning_environment_msgs::PlanningScene& planning_scene) const;
 
   
 protected:

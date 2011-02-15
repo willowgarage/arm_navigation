@@ -77,23 +77,13 @@ public:
     };	
 
   bool getCompletePlanningScene(const std::string& group_name,
-                                const motion_planning_msgs::RobotState& state_diff,
+                                const planning_environment_msgs::PlanningScene& planning_diff,
+                                const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
                                 const motion_planning_msgs::Constraints& goal_constraints,
                                 const motion_planning_msgs::Constraints& path_constraints,
-                                const std::vector<motion_planning_msgs::AllowedContactSpecification>& allowed_contacts_diffs,
-                                const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations_diff,
-                                const std::vector<motion_planning_msgs::LinkPadding>& link_padding_diff,
-                                const std::vector<mapping_msgs::CollisionObject>& collision_object_diffs,
-                                const std::vector<mapping_msgs::AttachedCollisionObject>& attached_collision_object_diffs,
-                                motion_planning_msgs::RobotState& complete_robot_state,
+                                planning_environment_msgs::PlanningScene& planning_scene,
                                 motion_planning_msgs::Constraints& transformed_goal_constraints,
-                                motion_planning_msgs::Constraints& transformed_path_constraints,
-                                planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
-                                std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
-                                std::vector<motion_planning_msgs::LinkPadding>& all_link_padding,
-                                std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
-                                std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
-                                mapping_msgs::CollisionMap& unmasked_collision_map);
+                                motion_planning_msgs::Constraints& transformed_path_constraints);
 
   // bool prepareForValidityChecks(const std::vector<std::string>& joint_names,
   //                               const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,

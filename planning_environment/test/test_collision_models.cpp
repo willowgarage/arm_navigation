@@ -523,9 +523,27 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
     EXPECT_FALSE(cm.isKinematicStateInSelfCollision(state));
   }
 }
+/*
+TEST_F(TestCollisionModels, TestTrajectoryValidity)
+{
 
+  planning_environment::CollisionModels cm("robot_description");
 
+  cm.addStaticObject(static_object_1);
+  
+  motion_planning_msgs::RobotState rob_state;
 
+  {
+    planning_models::KinematicState kin_state(cm.getKinematicModel());
+    kin_state.setKinematicStateToDefault();
+  
+    convertKinematicStateToRobotState(kin_state, rob_state);
+  }
+  motion_planning_msgs::Constraint goal_constraints;
+  goal_constraints.
+
+}
+*/
 int main(int argc, char **argv)
 {
   testing::InitGoogleTest(&argc, argv);

@@ -111,20 +111,14 @@ int main(int argc, char** argv)
   att_obj.object.poses[0].position.z = 0.0;
   att_obj.object.poses[0].orientation.w = 1.0;
 
-  req.collision_object_diffs.push_back(obj1);
-  req.attached_collision_object_diffs.push_back(att_obj);
+  req.planning_scene_diff.collision_objects.push_back(obj1);
+  req.planning_scene_diff.attached_collision_objects.push_back(att_obj);
 
   planning_scene_client.call(req,res);
 
-  planning_models::KinematicState* state = cmodel.setPlanningScene(res.complete_robot_state,
-                                                                   res.allowed_collision_matrix,
-                                                                   res.transformed_allowed_contacts,
-                                                                   res.all_link_padding,
-                                                                   res.all_collision_objects,
-                                                                   res.all_attached_collision_objects,
-                                                                   res.unmasked_collision_map);
+  planning_models::KinematicState* state = cmodel.setPlanningScene(res.planning_scene);
 
-  if(res.all_attached_collision_objects[0].object.header.frame_id != "r_gripper_palm_link") {
+  if(res.planning_scene.attached_collision_objects[0].object.header.frame_id != "r_gripper_palm_link") {
     ROS_INFO_STREAM("Not in link frame");
   }
 

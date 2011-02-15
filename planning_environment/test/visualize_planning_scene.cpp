@@ -56,7 +56,12 @@ int main(int argc, char** argv)
 
   planning_environment::CollisionModels cmodel(robot_description_name);
 
-  planning_models::KinematicState* state = cmodel.readPlanningSceneBag(ros::package::getPath("planning_environment")+"/test.bag");
+  planning_environment_msgs::PlanningScene planning_scene;
+
+  cmodel.readPlanningSceneBag(ros::package::getPath("planning_environment")+"/test.bag",
+                              planning_scene);
+  planning_models::KinematicState* state = cmodel.setPlanningScene(planning_scene);
+  
                           
   ros::Rate r(10.0);
   while(nh.ok()) {
