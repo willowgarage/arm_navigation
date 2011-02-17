@@ -46,6 +46,7 @@ collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatri
     allowed_entries_[i].resize(ns,allowed);
     allowed_entries_bimap_.insert(entry_type::value_type(names[i], i));
   }
+  valid_ = true;
 }
 
 collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatrix(const std::vector<std::vector<bool> >& all_coll_vectors,
@@ -83,6 +84,7 @@ collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatri
       ROS_WARN_STREAM("Entries size for " << allowed_entries_bimap_.right.at(i) << " is " << all_coll_vectors[i].size() << " instead of " << num_outer);
     }
   }
+  allowed_entries_ = all_coll_vectors;
 }
 
 collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatrix(const AllowedCollisionMatrix& acm)
@@ -102,6 +104,14 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::getAllowedCollis
   }
   entry_type::left_const_iterator it2 = allowed_entries_bimap_.left.find(name2);
   if(it2 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  if(it1->second > allowed_entries_.size()) {
+    ROS_INFO_STREAM("Something wrong with acm entry for " << name1);
+    return false;
+  } 
+  if(it2->second > allowed_entries_[it1->second].size()) {
+    ROS_INFO_STREAM("Something wrong with acm entry for " << name2);
     return false;
   }
   allowed_collision = allowed_entries_[it1->second][it2->second];
