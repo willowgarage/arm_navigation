@@ -10,8 +10,5 @@ rosbuild_add_library(collision_space src/environment_objects.cpp
 				    src/environment.cpp
 				    src/environmentODE.cpp)
 
-rosbuild_link_boost(collision_space thread)
-
 rosbuild_add_gtest(test_collision_space test/test_collision_space.cpp)
 target_link_libraries(test_collision_space collision_space)
-rosbuild_link_boost(test_collision_space thread)

@@ -37,19 +37,37 @@
 #include "collision_space/environmentODE.h"
 #include <geometric_shapes/shape_operations.h>
 #include <ros/console.h>
-#include <boost/thread.hpp>
 #include <cassert>
 #include <cstdio>
 #include <cmath>
 #include <algorithm>
 #include <map>
 
+#include <boost/thread.hpp>
+static int          ODEInitCount = 0;
+static boost::mutex ODEInitCountLock;
+
+static std::map<boost::thread::id, int> ODEThreadMap;
+static boost::mutex                     ODEThreadMapLock;
+
+//all the threading stuff is necessary to check collision from different threads
+
 static const unsigned int MAX_ODE_CONTACTS = 128;
 
 collision_space::EnvironmentModelODE::EnvironmentModelODE(void) : EnvironmentModel()
 {
+  ODEInitCountLock.lock();
+  if (ODEInitCount == 0)
+  {
+    ROS_DEBUG("Initializing ODE");
+    dInitODE2(0);
+  }
+  ODEInitCount++;
+  ODEInitCountLock.unlock();
+    
+  checkThreadInit();
+
   ROS_DEBUG("Initializing ODE");
-  dInitODE();
 
   model_geom_.env_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
   model_geom_.self_space = dSweepAndPruneSpaceCreate(0, dSAP_AXES_XZY);
@@ -60,7 +78,14 @@ collision_space::EnvironmentModelODE::EnvironmentModelODE(void) : EnvironmentMod
 collision_space::EnvironmentModelODE::~EnvironmentModelODE(void)
 {
   freeMemory();
-  dCloseODE();
+  ODEInitCountLock.lock();
+  ODEInitCount--;
+  if (ODEInitCount == 0)
+  {
+    ROS_DEBUG("Closing ODE");
+    dCloseODE();
+  }
+  ODEInitCountLock.unlock();
 }
 
 void collision_space::EnvironmentModelODE::freeMemory(void)
@@ -75,6 +100,19 @@ void collision_space::EnvironmentModelODE::freeMemory(void)
   for (std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() ; ++it)
     delete it->second;
   coll_namespaces_.clear();
+}
+
+void collision_space::EnvironmentModelODE::checkThreadInit(void) const
+{
+  boost::thread::id id = boost::this_thread::get_id();
+  ODEThreadMapLock.lock();
+  if (ODEThreadMap.find(id) == ODEThreadMap.end())
+  {
+    ODEThreadMap[id] = 1;
+    ROS_DEBUG("Initializing new thread (%d total)", (int)ODEThreadMap.size());
+    dAllocateODEDataForThread(dAllocateMaskAll);
+  }
+  ODEThreadMapLock.unlock();
 }
 
 void collision_space::EnvironmentModelODE::setRobotModel(const planning_models::KinematicModel* model, 
@@ -712,7 +750,7 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
     check_in_allowed_collision_matrix = false;
   }
 
-  if(it2!= cdata->geom_lookup_map->end()) {
+  if(it2 != cdata->geom_lookup_map->end()) {
     cdata->body_name_2 = it2->second.first;
     cdata->body_type_2 = it2->second.second;
   } else {
@@ -827,6 +865,7 @@ bool collision_space::EnvironmentModelODE::getCollisionContacts(const std::vecto
   if (!allowedContacts.empty())
     cdata.allowed = &allowedContacts;
   contacts.clear();
+  checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
 }
@@ -843,6 +882,7 @@ bool collision_space::EnvironmentModelODE::getAllCollisionContacts(const std::ve
     cdata.allowed = &allowedContacts;
   cdata.exhaustive = true;
   contacts.clear();
+  checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
 }
@@ -852,6 +892,7 @@ bool collision_space::EnvironmentModelODE::isCollision(void) const
   CollisionData cdata;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
   cdata.geom_lookup_map = &geom_lookup_map_;
+  checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
 }
@@ -861,6 +902,7 @@ bool collision_space::EnvironmentModelODE::isSelfCollision(void) const
   CollisionData cdata; 
   cdata.geom_lookup_map = &geom_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  checkThreadInit();
   testSelfCollision(&cdata);
   return cdata.collides;
 }
@@ -870,6 +912,7 @@ bool collision_space::EnvironmentModelODE::isEnvironmentCollision(void) const
   CollisionData cdata; 
   cdata.geom_lookup_map = &geom_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  checkThreadInit();
   testEnvironmentCollision(&cdata);
   return cdata.collides;
 }

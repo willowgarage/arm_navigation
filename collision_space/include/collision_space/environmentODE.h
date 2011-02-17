@@ -409,7 +409,8 @@ protected:
   std::map<dGeomID, std::pair<std::string, BodyType> > geom_lookup_map_;
 
   bool previous_set_robot_model_;
-	
+
+  void    checkThreadInit(void) const;  	
 };
 }
 
