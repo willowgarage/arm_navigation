@@ -41,6 +41,7 @@
 #include <ros/package.h>
 
 #include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 
 static const double VERY_SMALL = .0001;
 
@@ -359,6 +360,37 @@ TEST_F(PlanningMonitorTest, ChangingRobotState)
   EXPECT_FALSE(cm.isKinematicStateInCollision(*state));
 
   cm.revertPlanningScene(state);
+}
+
+TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
+{
+  //this test is important because calling the service calls collision checking from a different thread
+
+  planning_environment::CollisionModelsInterface cm("robot_description");
+
+  CallPlanningScene();
+
+  ros::ServiceClient set_planning_scene_client = ros::NodeHandle("~").serviceClient<planning_environment_msgs::SetPlanningScene>("set_planning_scene");
+  planning_environment_msgs::SetPlanningScene::Request req;
+  planning_environment_msgs::SetPlanningScene::Response res;
+  
+  req.planning_scene = planning_scene;
+
+  ASSERT_TRUE(cm.setPlanningSceneService(req, res));
+
+  std_srvs::Empty::Request emp_req;
+  std_srvs::Empty::Response emp_res;
+
+  ASSERT_TRUE(cm.revertPlanningSceneService(emp_req, emp_res));
+
+  ros::AsyncSpinner async(2);
+  async.start();
+
+  ASSERT_TRUE(set_planning_scene_client.call(req,res));
+
+  ASSERT_TRUE(res.ok);
+  
+  EXPECT_FALSE(cm.isKinematicStateInCollision(*(cm.getPlanningSceneState())));
 }
 
 int main(int argc, char** argv)

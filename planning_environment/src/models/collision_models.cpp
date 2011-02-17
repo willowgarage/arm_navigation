@@ -219,7 +219,6 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
     ROS_WARN("Must revert before setting planning scene again");
     return NULL;
   }
-
   //anything we've already got should go back to default
   deleteAllStaticObjects();
   deleteAllAttachedObjects();
@@ -249,19 +248,22 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
     addAttachedObject(planning_scene.attached_collision_objects[i]);
   }
 
+  if(planning_scene.link_padding.size() > 0) {
+    applyLinkPaddingToCollisionSpace(planning_scene.link_padding);
+  }
+  if(!planning_scene.allowed_collision_matrix.link_names.empty()) {
+    ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
+  }
+  //TODO - allowed contacts
+  setCollisionMap(planning_scene.collision_map, true);
+
   planning_models::KinematicState* state = new planning_models::KinematicState(kmodel_);
-
   bool complete = setRobotStateAndComputeTransforms(planning_scene.robot_state, *state);
-
   if(!complete) {
     ROS_WARN_STREAM("Incomplete robot state in setPlanningScene");
     delete state;
     return NULL;
   }
-  applyLinkPaddingToCollisionSpace(planning_scene.link_padding);
-  ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
-  //TODO - allowed contacts
-  setCollisionMap(planning_scene.collision_map, true);
   planning_scene_set_ = true;
   return state;
 }
@@ -1170,6 +1172,18 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(vi
   }
 }
 
+void planning_environment::CollisionModels::getPlanningSceneGivenState(const planning_models::KinematicState& state,
+                                                                       planning_environment_msgs::PlanningScene& planning_scene)
+{
+  convertKinematicStateToRobotState(state, ros::Time::now(), getWorldFrameId(), planning_scene.robot_state);
+  convertFromACMToACMMsg(getCurrentAllowedCollisionMatrix(), planning_scene.allowed_collision_matrix);
+  //todo - any such thing as current allowed contacts?
+  getCurrentLinkPadding(planning_scene.link_padding);
+  getCollisionSpaceCollisionObjects(planning_scene.collision_objects);
+  getCollisionSpaceAttachedCollisionObjects(planning_scene.attached_collision_objects);
+  getCollisionSpaceCollisionMap(planning_scene.collision_map);
+}
+
 void planning_environment::CollisionModels::getAllCollisionSpaceObjectMarkers(visualization_msgs::MarkerArray& arr,
                                                                               const std_msgs::ColorRGBA static_color,
                                                                               const std_msgs::ColorRGBA attached_color,
@@ -1313,7 +1327,6 @@ void planning_environment::CollisionModels::writePlanningSceneBag(const std::str
   bag.close();
 
 }
-  
 
 void planning_environment::CollisionModels::readPlanningSceneBag(const std::string& filename,
                                                                  planning_environment_msgs::PlanningScene& planning_scene) const

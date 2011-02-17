@@ -12,6 +12,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 rosbuild_add_library(planning_environment src/models/robot_models.cpp
 					 src/models/collision_models.cpp
+					 src/models/collision_models_interface.cpp
 					 src/monitors/kinematic_model_state_monitor.cpp
 					 src/monitors/collision_space_monitor.cpp
 					 src/monitors/planning_monitor.cpp

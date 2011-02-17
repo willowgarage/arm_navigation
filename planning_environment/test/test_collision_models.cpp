@@ -32,9 +32,10 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 
-/** \author Ioan Sucan */
+/** \author E. Gil Jones */
 
 #include <planning_environment/models/collision_models.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_models/kinematic_state.h>
 #include <ros/time.h>
 #include <gtest/gtest.h>
@@ -42,6 +43,7 @@
 #include <sstream>
 #include <fstream>
 #include <ros/package.h>
+#include <planning_environment/models/model_utils.h>
 
 static const std::string rel_path = "/test_urdf/robot.xml";
 
@@ -589,6 +591,23 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
                                     error_code, trajectory_error_codes, false));
   EXPECT_EQ(error_code.val, error_code.COLLISION_CONSTRAINTS_VIOLATED);
+}
+
+TEST_F(TestCollisionModels, TestCollisionModelsInterface)
+{
+
+  planning_environment::CollisionModelsInterface cm("robot_description");
+
+  planning_environment_msgs::SetPlanningScene::Request req;
+  planning_environment_msgs::SetPlanningScene::Response res;
+  
+  {
+    planning_models::KinematicState state(cm.getKinematicModel());
+    state.setKinematicStateToDefault();
+    planning_environment::convertKinematicStateToRobotState(state, ros::Time::now(), "odom_combined", req.planning_scene.robot_state);
+  }
+
+  ASSERT_TRUE(cm.setPlanningSceneService(req,res));
 }
 
 int main(int argc, char **argv)

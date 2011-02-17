@@ -54,7 +54,7 @@ class RobotModels
 {
 public:
 		
-  RobotModels(const std::string &description)
+  RobotModels(const std::string &description) : priv_nh_("~")
   {
     description_ = nh_.resolveName(description);
     loaded_models_ = false;
@@ -116,6 +116,7 @@ protected:
   bool readMultiDofConfigs();
 	
   ros::NodeHandle nh_;
+  ros::NodeHandle priv_nh_;
 	  
   std::string description_;
 	

@@ -70,10 +70,6 @@ public:
 
   virtual ~CollisionModels(void);
  
-  //
-  // Manipulating bodies and objects
-  //
-
   planning_models::KinematicState* setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene);
 
   void revertPlanningScene(planning_models::KinematicState* state);
@@ -161,6 +157,9 @@ public:
 
   bool isKinematicStateInEnvironmentCollision(const planning_models::KinematicState& state);
 
+  void getPlanningSceneGivenState(const planning_models::KinematicState& state,
+                                  planning_environment_msgs::PlanningScene& scene);
+
   void getAllCollisionsForState(const planning_models::KinematicState& state,
                                 std::vector<planning_environment_msgs::ContactInformation>& contacts,
                                 unsigned int num_per_pair = 1);
@@ -238,6 +237,10 @@ public:
                             planning_environment_msgs::PlanningScene& planning_scene) const;
 
   
+  bool isPlanningSceneSet() const {
+    return planning_scene_set_;
+  }
+
 protected:
 
   std::vector<shapes::Shape*> collision_map_shapes_;
@@ -260,6 +263,7 @@ protected:
 
   std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;
   std::map<std::string, double> default_link_padding_map_;
+
 };
     
 	

@@ -54,7 +54,7 @@ namespace planning_environment {
 
 //returns true if the joint_state_map sets all the joints in the state, 
 inline bool setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotState &robot_state,
-                                       planning_models::KinematicState& state)
+                                              planning_models::KinematicState& state)
 {
   std::map<std::string, double> joint_state_map;
   for (unsigned int i = 0 ; i < robot_state.joint_state.name.size(); ++i)
@@ -70,9 +70,13 @@ inline bool setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotS
       continue;
     }
     planning_models::KinematicState::JointState* joint_state = state.getJointState(joint_name);
-    if(robot_state.multi_dof_joint_state.frame_ids[i] != joint_state->getParentFrameId() ||
-       robot_state.multi_dof_joint_state.child_frame_ids[i] != joint_state->getChildFrameId()) {
-      ROS_WARN_STREAM("Robot state msg has bad multi_dof transform");
+    if(robot_state.multi_dof_joint_state.frame_ids.size() <= i) {
+      ROS_INFO_STREAM("Robot state msg had bad multi_dof transform - not enough frame ids");
+    } else if(robot_state.multi_dof_joint_state.child_frame_ids.size() <= i) {
+      ROS_INFO_STREAM("Robot state msg had bad multi_dof transform - not enough child frame ids");
+    } else if(robot_state.multi_dof_joint_state.frame_ids[i] != joint_state->getParentFrameId() ||
+              robot_state.multi_dof_joint_state.child_frame_ids[i] != joint_state->getChildFrameId()) {
+      ROS_WARN_STREAM("Robot state msg has bad multi_dof transform - frame ids or child frame_ids do not match up with joint");
     } else {
       tf::StampedTransform transf;
       tf::poseMsgToTF(robot_state.multi_dof_joint_state.poses[i], transf);
