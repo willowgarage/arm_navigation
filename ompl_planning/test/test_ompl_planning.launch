@@ -1,0 +1,13 @@
+<launch>
+
+   <include file="$(find planning_environment)/test/testing_infrastructure.launch"/>
+
+   <node pkg="planning_environment" type="environment_server" output="screen" name="environment_server"/>       
+  
+   <node pkg="ompl_planning" type="motion_planner" name="ompl_planning" output="screen">
+     <rosparam command="load" file="$(find ompl_planning)/test/ompl_planning_configs.yaml" />
+   </node>
+
+   <test test-name="test_ompl_planning" pkg="ompl_planning" type="test_ompl_planning" />
+  
+</launch>
