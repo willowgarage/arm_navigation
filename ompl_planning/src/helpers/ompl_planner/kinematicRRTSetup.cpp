@@ -46,10 +46,10 @@ ompl_planning::kinematicRRTSetup::~kinematicRRTSetup(void)
 {
 }
 
-bool ompl_planning::kinematicRRTSetup::setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+bool ompl_planning::kinematicRRTSetup::setup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 					     boost::shared_ptr<PlannerConfig> &options)
 {
-    preSetup(planningMonitor, groupName, options);
+    preSetup(cmi, groupName, options);
     
     ompl::kinematic::RRT *rrt = new ompl::kinematic::RRT(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(ompl_model->si));
     mp                        = rrt;
@@ -66,7 +66,7 @@ bool ompl_planning::kinematicRRTSetup::setup(planning_environment::PlanningMonit
 	ROS_DEBUG("Goal bias is set to %g", rrt->getGoalBias());
     }
 
-    postSetup(planningMonitor, groupName, options);
+    postSetup(cmi, groupName, options);
     
     return true;
 }

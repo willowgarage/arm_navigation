@@ -46,10 +46,10 @@ ompl_planning::kinematicpRRTSetup::~kinematicpRRTSetup(void)
 {
 }
 
-bool ompl_planning::kinematicpRRTSetup::setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+bool ompl_planning::kinematicpRRTSetup::setup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 					      boost::shared_ptr<PlannerConfig> &options)
 {
-    preSetup(planningMonitor, groupName, options);
+    preSetup(cmi, groupName, options);
     
     ompl::kinematic::pRRT *rrt = new ompl::kinematic::pRRT(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(ompl_model->si));
     mp                         = rrt;
@@ -72,7 +72,7 @@ bool ompl_planning::kinematicpRRTSetup::setup(planning_environment::PlanningMoni
 	ROS_DEBUG("Thread count is set to %u", rrt->getThreadCount());
     }
 
-    postSetup(planningMonitor, groupName, options);
+    postSetup(cmi, groupName, options);
     
     return true;
 }

@@ -103,16 +103,16 @@ ompl::base::ProjectionEvaluator* ompl_planning::PlannerSetup::getProjectionEvalu
     return pe;
 }
 
-void ompl_planning::PlannerSetup::preSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+void ompl_planning::PlannerSetup::preSetup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 					   boost::shared_ptr<PlannerConfig> &options)
 {
     ROS_DEBUG("Adding %s instance for motion planning: %s", name.c_str(), groupName.c_str());
     bool dynamic = options->getParamString("type")[0] == 'd';
     
     if (dynamic)
-	ompl_model = new ompl_ros::ModelDynamic(planningMonitor, groupName);
+	ompl_model = new ompl_ros::ModelDynamic(cmi, groupName);
     else
-	ompl_model = new ompl_ros::ModelKinematic(planningMonitor, groupName);
+	ompl_model = new ompl_ros::ModelKinematic(cmi, groupName);
     
     ompl_model->configure();
     
@@ -124,7 +124,7 @@ void ompl_planning::PlannerSetup::preSetup(planning_environment::PlanningMonitor
     }
 }
 
-void ompl_planning::PlannerSetup::postSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+void ompl_planning::PlannerSetup::postSetup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 					    boost::shared_ptr<PlannerConfig> &options)
 {
     mp->setup();

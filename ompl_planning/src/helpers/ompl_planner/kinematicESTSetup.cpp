@@ -53,10 +53,10 @@ ompl_planning::kinematicESTSetup::~kinematicESTSetup(void)
     }
 }
 
-bool ompl_planning::kinematicESTSetup::setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+bool ompl_planning::kinematicESTSetup::setup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 					     boost::shared_ptr<PlannerConfig> &options)
 {
-    preSetup(planningMonitor, groupName, options);
+    preSetup(cmi, groupName, options);
     
     ompl::kinematic::EST *est = new ompl::kinematic::EST(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(ompl_model->si));
     mp                        = est;	
@@ -82,7 +82,7 @@ bool ompl_planning::kinematicESTSetup::setup(planning_environment::PlanningMonit
     }
     else
     {
-	postSetup(planningMonitor, groupName, options);
+	postSetup(cmi, groupName, options);
 	return true;
     }
 }

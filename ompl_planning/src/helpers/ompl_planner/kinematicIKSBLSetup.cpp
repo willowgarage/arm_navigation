@@ -52,10 +52,10 @@ ompl_planning::kinematicIKSBLSetup::~kinematicIKSBLSetup(void)
     }
 }
 
-bool ompl_planning::kinematicIKSBLSetup::setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+bool ompl_planning::kinematicIKSBLSetup::setup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 					       boost::shared_ptr<PlannerConfig> &options)
 {
-    preSetup(planningMonitor, groupName, options);
+    preSetup(cmi, groupName, options);
     
     ompl::kinematic::IKSBL* sbl = new ompl::kinematic::IKSBL(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(ompl_model->si));
     mp                          = sbl;	
@@ -81,7 +81,7 @@ bool ompl_planning::kinematicIKSBLSetup::setup(planning_environment::PlanningMon
     }
     else
     {
-	postSetup(planningMonitor, groupName, options);
+	postSetup(cmi, groupName, options);
 	return true;
     }
 }

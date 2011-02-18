@@ -105,7 +105,7 @@ template<typename _T>
 void ompl_planning::Model::add_planner(boost::shared_ptr<PlannerConfig> &options)
 {
     PlannerSetup *p = new _T();
-    if (p->setup(planningMonitor, groupName, options))
+    if (p->setup(collision_models_interface_, groupName, options))
     {
 	std::string location = p->name + "[" + options->getName() + "]";
 	if (planners.find(location) != planners.end())
@@ -119,7 +119,7 @@ void ompl_planning::Model::add_planner(boost::shared_ptr<PlannerConfig> &options
 	delete p;
 }
 
-void ompl_planning::setupPlanningModels(planning_environment::PlanningMonitor *planningMonitor, ompl_planning::ModelMap &models)
+void ompl_planning::setupPlanningModels(planning_environment::CollisionModelsInterface* cmi, ompl_planning::ModelMap &models)
 {
     //create PlannerConfigMap
     //and load the planner configs
@@ -131,7 +131,7 @@ void ompl_planning::setupPlanningModels(planning_environment::PlanningMonitor *p
         it != plan_config_map.planning_group_names_.end();
         it++) {
       std::vector< boost::shared_ptr<PlannerConfig> > group_planner_config = plan_config_map.getGroupPlannersConfig(*it);
-      models[*it] = new Model(planningMonitor, (*it), group_planner_config);
+      models[*it] = new Model(cmi, (*it), group_planner_config);
     }
 }
 

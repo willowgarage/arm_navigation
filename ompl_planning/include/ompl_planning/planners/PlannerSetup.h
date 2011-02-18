@@ -60,8 +60,8 @@ namespace ompl_planning
 	PlannerSetup(void);
 	virtual ~PlannerSetup(void);
 	
-	virtual bool setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
-			   boost::shared_ptr<PlannerConfig> &options) = 0;
+      virtual bool setup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
+                         boost::shared_ptr<PlannerConfig> &options) = 0;
 	
 	std::string                                                name;       // name of planner
 	ompl_ros::ModelBase                                       *ompl_model;       
@@ -73,9 +73,9 @@ namespace ompl_planning
 
 	virtual ompl::base::ProjectionEvaluator* getProjectionEvaluator(boost::shared_ptr<PlannerConfig> &options) const;
 	
-	virtual void preSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+	virtual void preSetup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 			      boost::shared_ptr<PlannerConfig> &options);
-	virtual void postSetup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+	virtual void postSetup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 			       boost::shared_ptr<PlannerConfig> &options);
 	
     };

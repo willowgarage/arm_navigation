@@ -38,6 +38,7 @@
 #include "request_handler/RequestHandler.h"
 #include <motion_planning_msgs/convert_messages.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <tf/transform_listener.h>
 
 using namespace ompl_planning;
 
@@ -48,15 +49,20 @@ public:
   OMPLPlanning(void) : nodeHandle_("~")
   {	
     // register with ROS
-    collisionModels_ = new planning_environment::CollisionModels("robot_description");
+    collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
     nodeHandle_.param("distance_metric", distance_metric_, std::string("L2Square"));
-    planningMonitor_ = new planning_environment::PlanningMonitor(collisionModels_, &tf_);
 	
-    planningMonitor_->waitForState();
-
-    planningMonitor_->startEnvironmentMonitor();
-
     nodeHandle_.param<double>("state_delay", stateDelay_, 0.01);	
+
+    while(nodeHandle_.ok()) {
+      bool got_tf = tf_.waitForTransform(collision_models_interface_->getWorldFrameId(), collision_models_interface_->getRobotFrameId(),
+                                         ros::Time::now(), ros::Duration(5.0));
+      if(got_tf) {
+        break;
+      } else {
+        ROS_INFO_STREAM("Waiting for tf");
+      }
+    }
     planKinematicPathService_ = nodeHandle_.advertiseService("plan_kinematic_path", &OMPLPlanning::planToGoal, this);
   }
     
@@ -64,8 +70,7 @@ public:
   ~OMPLPlanning(void)
   {
     destroyPlanningModels(models_);
-    delete planningMonitor_;
-    delete collisionModels_;
+    delete collision_models_interface_;
   }
     
   void run(void)
@@ -73,9 +78,9 @@ public:
     bool execute = false;
     std::vector<std::string> mlist;    
 	
-    if (collisionModels_->loadedModels())
+    if (collision_models_interface_->loadedModels())
       {
-        setupPlanningModels(planningMonitor_, models_);
+        setupPlanningModels(collision_models_interface_, models_);
 	    
         mlist = knownModels(models_);
         ROS_INFO("Known models:");    
@@ -85,25 +90,16 @@ public:
         execute = !mlist.empty();
 	    
         if (execute)
-          ROS_INFO("Motion planning running in frame '%s'", planningMonitor_->getWorldFrameId().c_str());
+          ROS_INFO("Motion planning running in frame '%s'", collision_models_interface_->getWorldFrameId().c_str());
       }
 	
     if (execute)
       {
         bool verbose_collisions;	
-        nodeHandle_.param("verbose_collisions", verbose_collisions, false);
-        if (verbose_collisions)
-          {
-            planningMonitor_->getEnvironmentModel()->setVerbose(true);
-            ROS_WARN("Verbose collisions is enabled");
-          }
-        else
-          planningMonitor_->getEnvironmentModel()->setVerbose(false);
-    
         ros::spin();
       }
     else
-	    if (mlist.empty())
+      if (mlist.empty())
         ROS_ERROR("No robot model loaded. OMPL planning node cannot start.");
   }
 
@@ -117,8 +113,8 @@ private:
 	
     res.trajectory.joint_trajectory.points.clear();
     res.trajectory.joint_trajectory.joint_names.clear();
-    res.trajectory.joint_trajectory.header.frame_id = planningMonitor_->getWorldFrameId();
-    res.trajectory.joint_trajectory.header.stamp = planningMonitor_->lastMapUpdate();
+    res.trajectory.joint_trajectory.header.frame_id = collision_models_interface_->getWorldFrameId();
+    res.trajectory.joint_trajectory.header.stamp = ros::Time::now();
 
     st = requestHandler_.computePlan(models_, stateDelay_, req, res, distance_metric_);
     // if (st && !res.trajectory.joint_trajectory.points.empty())
@@ -131,8 +127,7 @@ private:
     
   // ROS interface 
   ros::NodeHandle                        nodeHandle_;
-  planning_environment::CollisionModels *collisionModels_;
-  planning_environment::PlanningMonitor *planningMonitor_;
+  planning_environment::CollisionModelsInterface *collision_models_interface_;
   tf::TransformListener                  tf_;
   ros::ServiceServer                     planKinematicPathService_;
   double                                 stateDelay_;

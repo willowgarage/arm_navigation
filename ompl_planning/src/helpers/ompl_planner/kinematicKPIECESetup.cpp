@@ -52,10 +52,10 @@ ompl_planning::kinematicKPIECESetup::~kinematicKPIECESetup(void)
     }
 }
 
-bool ompl_planning::kinematicKPIECESetup::setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+bool ompl_planning::kinematicKPIECESetup::setup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 						boost::shared_ptr<PlannerConfig> &options)
 {
-    preSetup(planningMonitor, groupName, options);
+    preSetup(cmi, groupName, options);
     
     ompl::kinematic::KPIECE1 *kpiece = new ompl::kinematic::KPIECE1(dynamic_cast<ompl::kinematic::SpaceInformationKinematic*>(ompl_model->si));
     mp                               = kpiece;	
@@ -81,7 +81,7 @@ bool ompl_planning::kinematicKPIECESetup::setup(planning_environment::PlanningMo
     }
     else
     {
-	postSetup(planningMonitor, groupName, options);
+	postSetup(cmi, groupName, options);
 	return true;
     }
 }

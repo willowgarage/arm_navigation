@@ -51,79 +51,81 @@
 namespace ompl_planning
 {    
    
-    /** \brief This class represents a basic request to a motion
-	planner. */
+/** \brief This class represents a basic request to a motion
+    planner. */
 
-    class RequestHandler
-    {
-    public:
+class RequestHandler
+{
+public:
 	
-      RequestHandler()
-	{
-	    onFinishPlan_ = NULL;
-            vis_marker_publisher_ = ros::NodeHandle().advertise<visualization_msgs::Marker>("ompl_collisions", 128);
-	}
+  RequestHandler()
+  {
+    onFinishPlan_ = NULL;
+    vis_marker_publisher_ = ros::NodeHandle().advertise<visualization_msgs::Marker>("ompl_collisions", 128);
+  }
 	
-	~RequestHandler(void)
-	{
-	}
+  ~RequestHandler(void)
+  {
+  }
 	
-	/** \brief Check if the request is valid */
-	bool isRequestValid(ModelMap &models, motion_planning_msgs::GetMotionPlan::Request &req, const std::string &distance_metric);
+  /** \brief Check if the request is valid */
+  bool isRequestValid(ModelMap &models, motion_planning_msgs::GetMotionPlan::Request &req, const std::string &distance_metric);
 
-	/** \brief Check and compute a motion plan. Return true if the plan was succesfully computed */
-	bool computePlan(ModelMap &models, double stateDelay,
-                         motion_planning_msgs::GetMotionPlan::Request &req, 
-                         motion_planning_msgs::GetMotionPlan::Response &res, 
-                         const std::string &distance_metric);
+  /** \brief Check and compute a motion plan. Return true if the plan was succesfully computed */
+  bool computePlan(ModelMap &models, double stateDelay,
+                   motion_planning_msgs::GetMotionPlan::Request &req, 
+                   motion_planning_msgs::GetMotionPlan::Response &res, 
+                   const std::string &distance_metric);
 
-	/** \brief Enable callback for when a motion plan computation is completed */
-	void setOnFinishPlan(const boost::function<void(PlannerSetup*)> &onFinishPlan);
+  /** \brief Enable callback for when a motion plan computation is completed */
+  void setOnFinishPlan(const boost::function<void(PlannerSetup*)> &onFinishPlan);
 
-      void contactFound(collision_space::EnvironmentModel::Contact &contact);
+  void contactFound(collision_space::EnvironmentModel::Contact &contact);
        
-    private:
+private:
 
-	struct Solution
-	{
-	    ompl::base::Path *path;
-	    double            difference;
-	    bool              approximate;
-	};	
+  struct Solution
+  {
+    ompl::base::Path *path;
+    double            difference;
+    bool              approximate;
+  };	
 	
-	/** \brief Set up all the data needed by motion planning based on a request */
-	void configure(motion_planning_msgs::GetMotionPlan::Request &req, PlannerSetup *psetup, const std::string &distance_metric);
+  /** \brief Set up all the data needed by motion planning based on a request */
+  void configure(motion_planning_msgs::GetMotionPlan::Request &req, PlannerSetup *psetup, const std::string &distance_metric);
 
-	/** \brief Compute the actual motion plan. Return true if computed plan was trivial (start state already in goal region) */
-      bool callPlanner(PlannerSetup *psetup, motion_planning_msgs::RobotState& state, int times, double allowed_time, Solution &sol);
+  /** \brief Compute the actual motion plan. Return true if computed plan was trivial (start state already in goal region) */
+  bool callPlanner(PlannerSetup *psetup, const motion_planning_msgs::MotionPlanRequest& request, 
+                   motion_planning_msgs::ArmNavigationErrorCodes& error_code, Solution &sol);
 	
-	/** \brief Set the workspace bounds based on the request */
-	void setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &params, ompl_ros::ModelBase *ompl_model);
+  /** \brief Set the workspace bounds based on the request */
+  void setWorkspaceBounds(motion_planning_msgs::WorkspaceParameters &params, ompl_ros::ModelBase *ompl_model);
 
-        bool checkPathForCollisions(PlannerSetup *psetup,
-                                    motion_planning_msgs::RobotState &robot_state,
-                                    ompl::kinematic::PathKinematic *kpath);
+  bool checkPathForCollisions(PlannerSetup *psetup,
+                              const motion_planning_msgs::MotionPlanRequest &req,
+                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                              ompl::kinematic::PathKinematic *kpath);
 	
-	/** \brief Fill the response with solution data */
-	void fillResult(PlannerSetup *psetup, double stateDelay,
-			motion_planning_msgs::GetMotionPlan::Response &res, 
-                        const Solution &sol);
+  /** \brief Fill the response with solution data */
+  void fillResult(PlannerSetup *psetup, double stateDelay,
+                  motion_planning_msgs::GetMotionPlan::Response &res, 
+                  const Solution &sol);
 
-	/** \brief Fix the input states, if they are not valid */
-	bool fixInputStates(PlannerSetup *psetup, double value, unsigned int count);
+  /** \brief Fix the input states, if they are not valid */
+  bool fixInputStates(PlannerSetup *psetup, double value, unsigned int count);
 
-	/** \brief Print the planner setup settings as debug messages */
-	void printSettings(ompl::base::SpaceInformation *si);
+  /** \brief Print the planner setup settings as debug messages */
+  void printSettings(ompl::base::SpaceInformation *si);
 	
-	/** \brief Send visualization markers */
-	void display(PlannerSetup *psetup);
+  /** \brief Send visualization markers */
+  void display(PlannerSetup *psetup);
 	
-	/** \brief Callback for when a plan computation is completed */
-	boost::function<void(PlannerSetup*)> onFinishPlan_;
+  /** \brief Callback for when a plan computation is completed */
+  boost::function<void(PlannerSetup*)> onFinishPlan_;
 	
-      ros::Publisher vis_marker_publisher_;
+  ros::Publisher vis_marker_publisher_;
 
-    };
+};
     
 } // ompl_planning
 

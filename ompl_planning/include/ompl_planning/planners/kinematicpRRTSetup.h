@@ -49,7 +49,7 @@ namespace ompl_planning
 	
         kinematicpRRTSetup(void);
 	virtual ~kinematicpRRTSetup(void);
-	virtual bool setup(planning_environment::PlanningMonitor *planningMonitor, const std::string &groupName,
+	virtual bool setup(planning_environment::CollisionModelsInterface* cmi, const std::string &groupName,
 			   boost::shared_ptr<PlannerConfig> &options);
     };
     

@@ -48,48 +48,48 @@
 
 namespace ompl_planning
 {
-  class Model
+class Model
+{
+public:
+	
+  Model(planning_environment::CollisionModelsInterface* cmi, const std::string &gName, std::vector< boost::shared_ptr<PlannerConfig> >& cfgs)
   {
-  public:
+    collision_models_interface_ = cmi;
+    groupName = gName;
+    createMotionPlanningInstances(cfgs);
+  }
+  
+  virtual ~Model(void)
+  {
+    for (std::map<std::string, PlannerSetup*>::iterator i = planners.begin(); i != planners.end() ; ++i)
+      if (i->second)
+        delete i->second;
+  }
 	
-    Model(planning_environment::PlanningMonitor *pMonitor, const std::string &gName, std::vector< boost::shared_ptr<PlannerConfig> >& cfgs)
-      {
-        planningMonitor = pMonitor;
-        groupName = gName;
-        createMotionPlanningInstances(cfgs);
-      }
+  planning_environment::CollisionModelsInterface *collision_models_interface_;
+  std::string                            groupName;	
+  std::map<std::string, PlannerSetup*>   planners;
 	
-    virtual ~Model(void)
-      {
-        for (std::map<std::string, PlannerSetup*>::iterator i = planners.begin(); i != planners.end() ; ++i)
-          if (i->second)
-            delete i->second;
-      }
+protected:
 	
-    planning_environment::PlanningMonitor *planningMonitor;
-    std::string                            groupName;	
-    std::map<std::string, PlannerSetup*>   planners;
+  /** \brief Instantiate the planners that can be used  */
+  void createMotionPlanningInstances(std::vector< boost::shared_ptr<PlannerConfig> >& cfgs);
 	
-  protected:
+  template<typename _T>
+  void add_planner(boost::shared_ptr<PlannerConfig> &options);
 	
-    /** \brief Instantiate the planners that can be used  */
-    void createMotionPlanningInstances(std::vector< boost::shared_ptr<PlannerConfig> >& cfgs);
-	
-    template<typename _T>
-      void add_planner(boost::shared_ptr<PlannerConfig> &options);
-	
-  };
+};
     
-  typedef std::map<std::string, Model*> ModelMap;
+typedef std::map<std::string, Model*> ModelMap;
     
-  /** \brief Create all the instances needed by OMPL using the planning parameters from the ROS server */
-  void setupPlanningModels(planning_environment::PlanningMonitor *planningMonitor, ModelMap &models);
+/** \brief Create all the instances needed by OMPL using the planning parameters from the ROS server */
+void setupPlanningModels(planning_environment::CollisionModelsInterface* cmi, ModelMap &models);
 
-  /** \brief Get a list of known models */
-  std::vector<std::string> knownModels(ModelMap &models);
+/** \brief Get a list of known models */
+std::vector<std::string> knownModels(ModelMap &models);
 
-  /** \brief Free all allocated memory */
-  void destroyPlanningModels(ModelMap &models);
+/** \brief Free all allocated memory */
+void destroyPlanningModels(ModelMap &models);
     
 } // ompl_planning
 
