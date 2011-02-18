@@ -81,10 +81,11 @@ planning_models::KinematicState::KinematicState(const KinematicState* ks) :
   kinematic_model_(ks->getKinematicModel())
 {
   kinematic_model_->sharedLock();
-  const std::vector<JointState*>& joint_states_vector = ks->getJointStateVector();
+  const std::vector<JointState*>& joint_state_vector = ks->getJointStateVector();
   unsigned int vector_index_counter = 0;
-  for(unsigned int i = 0; i < joint_states_vector.size(); i++) {
-    joint_state_vector_[i] = new JointState(joint_state_vector_[i]->getJointModel());
+  joint_state_vector_.resize(joint_state_vector.size());
+  for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
+    joint_state_vector_[i] = new JointState(joint_state_vector[i]->getJointModel());
     joint_state_map_[joint_state_vector_[i]->getName()] = joint_state_vector_[i];
     const std::vector<std::string>& name_order = joint_state_vector_[i]->getJointStateNameOrder();
     for(unsigned int j = 0; j < name_order.size(); j++) {
@@ -98,6 +99,7 @@ planning_models::KinematicState::KinematicState(const KinematicState* ks) :
     //vector_index_counter += joint_dim;
   }
   const std::vector<LinkState*>& link_state_vector = ks->getLinkStateVector();
+  link_state_vector_.resize(link_state_vector.size());
   for(unsigned int i = 0; i < link_state_vector.size(); i++) {
     link_state_vector_[i] = new LinkState(link_state_vector[i]->getLinkModel());
     link_state_map_[link_state_vector_[i]->getName()] = link_state_vector_[i];

@@ -95,14 +95,17 @@ TEST(Loading, SimpleRobot)
 
     state.setKinematicStateToDefault();
 
+    //make sure that this copy constructor works
+    planning_models::KinematicState new_state(&state);
+
     //(0,0,0,0) isn't a valid quaternion, so the w should be 1
     std::map<std::string, double> state_values;
-    state.getKinematicStateValues(state_values);
+    new_state.getKinematicStateValues(state_values);
 
     EXPECT_EQ(state_values["floating_rot_w"], 1.0);
 
     EXPECT_EQ(std::string("myrobot"), model->getName());
-    EXPECT_EQ((unsigned int)7, state.getDimension());
+    EXPECT_EQ((unsigned int)7, new_state.getDimension());
     
     const std::vector<planning_models::KinematicModel::LinkModel*>& links = model->getLinkModels();
     EXPECT_EQ((unsigned int)1, links.size());

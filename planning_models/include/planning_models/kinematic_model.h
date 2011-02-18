@@ -183,7 +183,8 @@ public:
       for(std::map<std::string, std::pair<double, double> >::const_iterator it = joint_state_bounds_.begin();
           it != joint_state_bounds_.end();
           it++) {
-        if(it->second.first <= 0 && it->second.second >= 0.0) {
+        //zero is a valid value
+        if(it->second.first <= 0.0 && it->second.second >= 0.0) {
           ret_map[it->first] = 0.0;
         } else {
           ret_map[it->first] = (it->second.first + it->second.second)/2.0;
