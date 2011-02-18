@@ -96,7 +96,7 @@ TEST(Loading, SimpleRobot)
     state.setKinematicStateToDefault();
 
     //make sure that this copy constructor works
-    planning_models::KinematicState new_state(&state);
+    planning_models::KinematicState new_state(state);
 
     //(0,0,0,0) isn't a valid quaternion, so the w should be 1
     std::map<std::string, double> state_values;
@@ -198,6 +198,12 @@ TEST(LoadingAndFK, SimpleRobot)
     EXPECT_NEAR(10.0, state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().x(), 1e-5);
     EXPECT_NEAR(8.0, state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().y(), 1e-5);
     EXPECT_NEAR(0.0, state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().z(), 1e-5);
+
+    //making sure that values get copied
+    planning_models::KinematicState new_state(state);
+    EXPECT_NEAR(10.0, new_state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().x(), 1e-5);
+    EXPECT_NEAR(8.0, new_state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().y(), 1e-5);
+    EXPECT_NEAR(0.0, new_state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().z(), 1e-5);
     
     const std::map<std::string, unsigned int>& ind_map = state.getKinematicStateIndexMap();
     std::vector<double> jv(state.getDimension(), 0.0);

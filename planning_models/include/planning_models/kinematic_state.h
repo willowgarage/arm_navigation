@@ -379,7 +379,7 @@ public:
 
   KinematicState(const KinematicModel* kinematic_model);
   
-  KinematicState(const KinematicState* state);
+  KinematicState(const KinematicState& state);
 
   ~KinematicState(void);
 

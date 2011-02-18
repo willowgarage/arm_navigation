@@ -77,11 +77,11 @@ planning_models::KinematicState::KinematicState(const KinematicModel* kinematic_
   }
 }
 
-planning_models::KinematicState::KinematicState(const KinematicState* ks) :
-  kinematic_model_(ks->getKinematicModel())
+planning_models::KinematicState::KinematicState(const KinematicState& ks) :
+  kinematic_model_(ks.getKinematicModel())
 {
   kinematic_model_->sharedLock();
-  const std::vector<JointState*>& joint_state_vector = ks->getJointStateVector();
+  const std::vector<JointState*>& joint_state_vector = ks.getJointStateVector();
   unsigned int vector_index_counter = 0;
   joint_state_vector_.resize(joint_state_vector.size());
   for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
@@ -98,7 +98,7 @@ planning_models::KinematicState::KinematicState(const KinematicState* ks) :
     //joint_index_location_[i] = vector_index_counter;
     //vector_index_counter += joint_dim;
   }
-  const std::vector<LinkState*>& link_state_vector = ks->getLinkStateVector();
+  const std::vector<LinkState*>& link_state_vector = ks.getLinkStateVector();
   link_state_vector_.resize(link_state_vector.size());
   for(unsigned int i = 0; i < link_state_vector.size(); i++) {
     link_state_vector_[i] = new LinkState(link_state_vector[i]->getLinkModel());
@@ -109,12 +109,16 @@ planning_models::KinematicState::KinematicState(const KinematicState* ks) :
   }
   setLinkStatesParents();
   
-  const std::map<std::string, JointStateGroup*>& joint_state_groups_map = ks->getJointStateGroupMap();
+  const std::map<std::string, JointStateGroup*>& joint_state_groups_map = ks.getJointStateGroupMap();
   for(std::map<std::string, JointStateGroup*>::const_iterator it = joint_state_groups_map.begin();
       it != joint_state_groups_map.end();
       it++) {
     joint_state_group_map_[it->first] = new JointStateGroup(it->second->getJointModelGroup(), this);
   }
+  //actually setting values
+  std::map<std::string, double> current_joint_values;
+  ks.getKinematicStateValues(current_joint_values);
+  setKinematicState(current_joint_values);
 }
 
 planning_models::KinematicState::~KinematicState() 
