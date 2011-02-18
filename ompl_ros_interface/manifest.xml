@@ -1,0 +1,30 @@
+<package>
+  <description brief="ompl_ros_interface">
+
+     ompl_ros_interface
+
+  </description>
+  <author>Sachin Chitta</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/ompl_ros_interface</url>
+  <depend package="ompl"/>
+  <depend package="sensor_msgs"/>
+  <depend package="planning_models"/>
+  <depend package="planning_environment"/>
+  <depend package="motion_planning_msgs"/>
+
+  <depend package="diagnostic_msgs" />
+  <depend package="diagnostic_updater" />
+
+  <depend package="kinematics_base" />
+  <depend package="pluginlib" />
+
+  <export>
+    <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/include"/>
+  </export>
+
+
+</package>
+
+

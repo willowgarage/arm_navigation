@@ -1,0 +1,427 @@
+Result: Build failures:
+ompl_ros_interface
+
+
+Result: Test failures:
+ompl_ros_interface
+
+
+Result: Build failures with context:
+---------------------
+ompl_ros_interface
+mkdir -p bin
+cd build && cmake -Wdev -DCMAKE_TOOLCHAIN_FILE=`rospack find rosbuild`/rostoolchain.cmake  ..
+-- The C compiler identification is GNU
+-- The CXX compiler identification is GNU
+-- Check for working C compiler: /usr/bin/gcc
+-- Check for working C compiler: /usr/bin/gcc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++
+-- Check for working CXX compiler: /usr/bin/c++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+[rosbuild] Building package ompl_ros_interface
+[rosbuild] Cached build flags older than manifests; calling rospack to get flags
+[rosbuild] Including /opt/ros/cturtle/ros/core/roscpp/cmake/roscpp.cmake
+[rosbuild] Including /opt/ros/cturtle/ros/core/roslisp/cmake/roslisp.cmake
+[rosbuild] Including /opt/ros/cturtle/ros/core/rospy/cmake/rospy.cmake
+[rosbuild] Including /tmp/ros/ros_experimental/rosoct/cmake/rosoct.cmake
+[rosbuild] Including /opt/ros/cturtle/stacks/client_rosjava/rosjava/cmake/rosjava.cmake
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build
+cd build && make -j16
+make[1]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[2]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target rospack_genmsg_libexe
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target rosbuild_premsgsrvgen
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[  0%] [  0%] Built target rospack_genmsg_libexe
+Built target rosbuild_premsgsrvgen
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target ROSBUILD_genmsg_py
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target ROSBUILD_genmsg_cpp
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target ROSBUILD_genmsg_oct
+Scanning dependencies of target ROSBUILD_genmsg_lisp
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[  0%] Generating ../src/ompl_ros_interface/msg/_OmplPlannerDiagnostics.py
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[  0%] [  0%] make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[  0%] Generating ../msg/lisp/ompl_ros_interface/OmplPlannerDiagnostics.lisp, ../msg/lisp/ompl_ros_interface/_package.lisp, ../msg/lisp/ompl_ros_interface/_package_OmplPlannerDiagnostics.lisp
+Generating ../msg_gen/cpp/include/ompl_ros_interface/OmplPlannerDiagnostics.h
+Generating ../msg/oct/ompl_ros_interface/ompl_ros_interface_OmplPlannerDiagnostics.m
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[  4%] Built target ROSBUILD_genmsg_cpp
+[genmsg_py]: generating messages for the following packages: ['ompl_ros_interface']
+... generating /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros_interface/msg/_OmplPlannerDiagnostics.py
+genmsg_py: python messages for 'ompl_ros_interface' ==> /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros_interface/msg
+[  4%] Generating ../src/ompl_ros_interface/msg/__init__.py
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[  9%] Built target ROSBUILD_genmsg_lisp
+... also creating module file /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros_interface/__init__.py
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[ 19%] Built target ROSBUILD_genmsg_py
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[ 23%] Built target ROSBUILD_genmsg_oct
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target rospack_genmsg
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[ 23%] Built target rospack_genmsg
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target rosbuild_precompile
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target rospack_genmsg_all
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[ 23%] Built target rosbuild_precompile
+[ 23%] Built target rospack_genmsg_all
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+Scanning dependencies of target ompl_ros_interface
+make[3]: Leaving directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+make[3]: Entering directory `/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/build'
+[ 28%] [ 33%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/ompl_ros.o
+[ 38%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/ompl_ros_projection_evaluator.o
+[ 42%] [ 47%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/ompl_ros_planner_config.o
+Building CXX object CMakeFiles/ompl_ros_interface.dir/src/ompl_ros_planning_group.o
+[ 52%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/ompl_ros_state_validity_checker.o
+[ 57%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/helpers/ompl_ros_conversions.o
+[ 61%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/ik/ompl_ros_ik_goal_sampleable_region.o
+Building CXX object CMakeFiles/ompl_ros_interface.dir/src/ik/ompl_ros_ik_sampler.o
+[ 66%] [ 71%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/state_transformers/ompl_ros_ik_state_transformer.o
+[ 76%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/state_transformers/ompl_ros_rpy_ik_state_transformer.o
+Building CXX object CMakeFiles/ompl_ros_interface.dir/src/state_valinterface/ik/ompl_ros_ik_sampler.h:43:35: error: ompl/base/ScopedState.h: No such file or directory
+[ 90%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/planners/ompl_ros_joint_planner.o
+[ 95%] Building CXX object CMakeFiles/ompl_ros_interface.dir/src/planners/ompl_ros_task_space_planner.o
+Building CXX object CMakeFiles/ompl_ros_interface.dir/src/planners/ompl_ros_rpy_ik_task_space_planner.o
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_ik_state_transformer.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:43:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:44:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_projection_evaluator.h:38,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros_projection_evaluator.cpp:35:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:51:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/helpers/ompl_ros_conversions.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:51:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:43:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:44:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_validity_checker.h:44,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:54,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros_planning_group.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:51:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros_planning_group.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:60:40: error: ompl/geometric/SimpleSetup.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:61:45: error: ompl/geometric/planners/rrt/RRT.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:62:52: error: ompl/geometric/planners/rrt/RRTConnect.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:63:46:In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:46,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_ik_state_transformer.cpp:37:
+/opt/ros/cturtle/stacks/kinematics/kinematics_base/include/kinematics_base/kinematics_base.h:43:43: error: kinematics_msgs/GetPositionIK.h: No such file or directory
+ error: ompl/geometric/planners/rrt/pRRT.h: No such file or directory
+/opt/ros/cturtle/stacks/kinematics/kinematics_base/include/kinematics_base/kinematics_base.h:44:43: error: kinematics_msgs/GetPositionFK.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:64:49: error: ompl/geometric/planners/rrt/LazyRRT.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:65:45: error: ompl/geometric/planners/est/EST.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:66:45: error: ompl/geometric/planners/sbl/SBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:67:46: error: ompl/geometric/planners/sbl/pSBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:68:52: error: ompl/geometric/planners/kpiece/KPIECE1.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:69:54: error: ompl/geometric/planners/kpiece/LBKPIECE1.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:46,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:37:
+/opt/ros/cturtle/stacks/kinematics/kinematics_base/include/kinematics_base/kinematics_base.h:43:43: error: kinematics_msgs/GetPositionIK.h: No such file or directory
+/opt/ros/cturtle/stacks/kinematics/kinematics_base/include/kinematics_base/kinematics_base.h:44:43: error: kinematics_msgs/GetPositionFK.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h:42,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directoe/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_validity_checker.h:44,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:54,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_task_space_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros.h:49,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:51:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_task_space_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros.h:49,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:60:40: error: ompl/geometric/SimpleSetup.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:61:45: error: ompl/geometric/planners/rrt/RRT.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:62:52: error: ompl/geometric/planners/rrt/RRTConnect.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:63:46: error: ompl/geometric/planners/r_ros_planning_group.h:65:45: error: ompl/geometric/planners/est/EST.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:66:45: error: ompl/geometric/planners/sbl/SBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:67:46: error: ompl/geometric/planners/sbl/pSBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:68:52: error: ompl/geometric/planners/kpiece/KPIECE1.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:69:54: error: ompl/geometric/planners/kpiece/LBKPIECE1.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_task_space_planner.h:42,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros.h:49,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ik/ompl_ros_ik_sampler.h:42:39: error: ompl/base/GoalLazySamples.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ik/ompl_ros_ik_sampler.h:59,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_task_space_planner.h:42,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros.h:49,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros.cpp:37:
+/opt/ros/cturtle/stacks/kinematics/kinematics_base/include/kinematics_base/kinematics_base.h:43:43: error: kinematics_msgs/GetPositionIK.h: No such file or directory
+/opt/ros/cturtle/stacks/kinematics/kinematics_base/include/kinematics_base/kinematics_base.h:44:43: error: kinematics_msgs/GetPositionFK.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros.h:49,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_task_space_planner.h:45:34: error: ompl/base/GoalStates.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_validity_checker.h:44,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ompl_ros_state_validity_checker.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:51:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_validity_checker.h:44,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_validity_checkers/ompl_ros_joint_state_validity_checker.h:40,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_joint_planner.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/planners/ompl_ros_joint_planner.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifol file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:64:49: error: ompl/geometric/planners/rrt/LazyRRT.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:65:45: error: ompl/geometric/planners/est/EST.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:66:45: error: ompl/geometric/planners/sbl/SBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:67:46: error: ompl/geometric/planners/sbl/pSBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:68:52: error: ompl/geometric/planners/kpiece/KPIECE1.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:69:54: error: ompl/geometric/planners/kpiece/LBKPIECE1.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_joint_planner.h:43,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/planners/ompl_ros_joint_planner.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ik/ompl_ros_ik_sampler.h:42:39: error: ompl/base/GoalLazySamples.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_validity_checker.h:44,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ik/ompl_ros_ik_sampler.h:52,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ik/ompl_ros_ik_sampler.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/: kinematics_msgs/GetPositionFK.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_validity_checker.h:44,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ik/ompl_ros_ik_goal_sampleable_region.h:51,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/ik/ompl_ros_ik_goal_sampleable_region.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:51:35: error: ompl/base/ScopedState.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_validity_checker.h:44,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:54,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompleometric/planners/rrt/RRT.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:62:52: error: ompl/geometric/planners/rrt/RRTConnect.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:63:46: error: ompl/geometric/planners/rrt/pRRT.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:64:49: error: ompl/geometric/planners/rrt/LazyRRT.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:65:45: error: ompl/geometric/planners/est/EST.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:66:45: error: ompl/geometric/planners/sbl/SBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:67:46: error: ompl/geometric/planners/sbl/pSBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:68:52: error: ompl/geometric/planners/kpiece/KPIECE1m /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/planners/ompl_ros_task_space_planner.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:44:50: error: ompl/base/manifolds/SO2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:45:50: error: ompl/base/manifolds/SO3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:48:57: error: ompl/base/manifolds/RealVectorStateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:49:42: error: ompl/geometric/PathGeometric.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:50:37: error: ompl/base/StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/5: error: ompl/geometric/planners/sbl/SBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:67:46: error: ompl/geometric/planners/sbl/pSBL.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:68:52: error: ompl/geometric/planners/kpiece/KPIECE1.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_planning_group.h:69:54: error: ompl/geometric/planners/kpiece/LBKPIECE1.h: No such file or directory
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/planners/ompl_ros_task_space_planner.h:42,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/planners/ompl_ros_task_space_planner.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ik/ompl_ros_ik_sampler.h:42:39: error: ompl/base/GoalLazySamples.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:46:50: error: ompl/base/manifolds/SE2StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:47:50: error: ompl/base/manifolds/SE3StateManifold.h: No such file or directory
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandboface/ompl_ros_state_transformer.h:67: error: expected ')' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:67: error: expected ';' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:77: error: expected ';' before '~' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:120: error: 'StateManifoldPtr' in namespace 'ompl::base' does not name a type
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:121: error: type 'planning_models::KinematicModel' is not derived from type 'ompl_ros_interface::OmplRosStateTransformer'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:121: error: expected ';' before '*' token
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h:41,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:62: error: expected unqualified-id before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:62: error: expected ')' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:62: error: expected ';' before '&' token
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h:42,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:139: error: expected unqualified-id before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:139: error: expected ')' before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:139: error: expected initializer before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:141: error: expected unqualified-id before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:141: error: expected ')' before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:141: error: expected initializer before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:143: error: expected unqualified-id before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:143: error: expected ')' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:143: error: expected initializer before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:153: error: 'StateManifoldPtr' in namespace 'ompl::base' does not name a type
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h:42,
+                from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:166: error: expected unqualified-id before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:166: error: expected ')' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:166: error: expected initializer before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:179: error: expected unqualified-id before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:179: error: expected ')' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:179: error: expected initializer before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:191: error: expected unqualified-id before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:191: error: expected ')' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:191: erroversions.h:293: error: expected ',' or '...' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:301: error: expected unqualified-id before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:301: error: expected ')' before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:301: error: expected initializer before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:309: error: expected unqualified-id before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:309: error: expected ')' before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:309: error: expected initializer before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:317: error: expected unqualified-id before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:317: error: expected ')' before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:317: error: expected initializer before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:325: error: expected unqualified-id before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:325: dbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:362: error: expected ')' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:362: error: expected initializer before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:372: error: expected unqualified-id before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:372: error: expected ')' before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:372: error: expected initializer before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:382: error: expected unqualified-id before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:382: error: expected ')' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:382: error: expected initializer before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:394: error: 'planning_models::KinematicState::JointStateGroup' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:402: error: 'JointStateGroup' is not a member of 'planning_models::KinematicState'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:402: error: 'joint_state_group' was not declared in this scope
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:403: error: expected primary-expression before '&' token
+/tmp/ros/wg_r-id before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:445: error: expected ')' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:445: error: expected initializer before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:456: error: 'ompl::base::ScopedState' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:456: error: expected ',' or '...' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:465: error: 'ompl::base::ScopedState' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:465: error: expected ',' or '...' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:475: error: 'ompl::base::ScopedState' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:475: error: expected ',' or '...' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:487: error: 'planning_models::KinematicState::JointStateGroup' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:497: error: expected unqualified-id before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:497: error: expected ')' before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:497: error: expected initializer before '*' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interfatransformer.cpp: In member function 'virtual bool ompl_ros_interface::OmplRosRPYIKStateTransformer::initialize()':
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:52: error: 'state_manifold_' was not declared in this scope
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:52: error: 'CompoundStateManifold' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:52: error: expected primary-expression before ')' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:56: error: 'CompoundStateManifold' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompleManifold' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:61: error: base operand of '->' is not a pointer
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:62: error: 'CompoundStateManifold' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:62: error: expected primary-expression before ')' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:62: error: 'RealVectorStateManifold' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:62: error: base operand of '->' is not a pointer
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:70: error: 'scoped_state_' was not declared in this scope
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:70: error: expected type-specifier
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:70: error: expected ')'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:71: error: 'getOmplStateToRobotStateMapping' is not a member of 'ompl_ros_interface'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp: In member function 'virtual bool ompl_ros_interface::OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State&, motion_planning_msgs::RobotState&)':
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:91: error: 'scoped_state_' was not declared in this scope
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp: In member function 'void ompl_ros_interface::OmplRosRPYIKStateTransformer::omplStateToPose(const ompl::base::State&, geometry_msgs::Pose&)':
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:113: error: 'const class ompl::base::State' has no member named 'as'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:113: error: 'CompoundState' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/omplte_transformers/ompl_ros_rpy_ik_state_transformer.cpp:114: error: base operand of '->' is not a pointer
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:115: error: 'const class ompl::base::State' has no member named 'as'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:115: error: 'CompoundState' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:115: error: expected primary-expression before ')' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:115: error: 'ompl::base::RealVectorStateManifold' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:115: error: base operand of '->' is not a pointer
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:117: error: 'const class ompl::base::State' has no member named 'as'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:117: error: 'CompoundState' is not a member of 'ompl::base'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:117: error: expected primary-expression before ')' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp:117: error: 'ompl::base::RealVectorStateManifold' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_rpy_ik_state_transformer._ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:67: error: expected unqualified-id before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:67: error: expected ')' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:67: error: expected ';' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:77: error: expected ';' before '~' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:120: error: 'StateManifoldPtr' in namespace 'ompl::base' does not name a type
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:121: error: type 'planning_models::KinematicModel' is not derived from type 'ompl_ros_interface::OmplRosStateTransformer'
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/ompl_ros_state_transformer.h:121: error: expected ';' before '*' token
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/state_transformers/ompl_ros_ik_state_transformer.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:62: error: expected unqualified-id before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/state_transformers/ompl_ros_ik_state_transformer.h:62: error: expected ')' before '&' token
+/tmp/ros/wg_ros_p43: error: expected unqualified-id before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:143: error: expected ')' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:143: error: expected initializer before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:153: error: 'StateManifoldPtr' in namespace 'ompl::base' does not name a type
+In file included from /tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/src/helpers/ompl_ros_conversions.cpp:37:
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:166: error: expected unqualified-id before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:166: error: expected ')' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:166: error: expected initializer before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:179: error: expected unqualified-id before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:179: error: expected ')' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:179: error: expected initializer before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/urtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:279: error: 'ompl::base::ScopedState' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:279: error: expected ',' or '...' before '<' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:293: error: 'ompl::base::RealVectorStateManifold' has not been declared
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:293: error: expected ',' or '...' before '&' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:301: error: expected unqualified-id before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:301: error: expected ')' before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:301: error: expected initializer before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:309: error: expected unqualified-id before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:309: error: expected ')' before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:309: error: expected initializer before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:317: error: expected unqualified-id before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:317: error: expected ')' before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:317: error: expected initializer before '::' token
+/tmp/ros/wg_ros_pkg_trunk_cturtle/sandbox/ompl_ros_interface/include/ompl_ros_interface/helpers/ompl_ros_conversions.h:32
