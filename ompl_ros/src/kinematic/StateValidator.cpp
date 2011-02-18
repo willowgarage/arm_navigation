@@ -43,22 +43,14 @@ bool ompl_ros::ROSStateValidityPredicateKinematic::operator()(const ompl::base::
   std::vector<double> vals(s->values,s->values+ed->group_state->getDimension());
 
   ed->group_state->setKinematicState(vals);
-  model_->planningMonitor->getEnvironmentModel()->updateRobotModel(ed->full_state);  
-
-  //Already knows about joint limits
-  //bool within_bounds = model_->planningMonitor->getCheckingKinematicModel()->checkJointsBounds(joint_group->joint_names);     
-  //if(!within_bounds) {
-  //  return false;
-  //}
-  
-  bool collision = model_->planningMonitor->getEnvironmentModel()->isCollision();
-  if(collision) {
+  if(model_->collision_models_interface_->isKinematicStateInCollision(*ed->full_state))
+  {
     return false;
   }
 
-  bool path_constraints_ok = model_->planningMonitor->checkPathConstraints(ed->full_state, false);
-
-  if(!path_constraints_ok) {
+  //checking path constraints
+  if(!model_->constraintEvaluator.decide(ed->full_state, false)) {
+    ROS_INFO_STREAM("Path constraints violated");
     return false;
   }
   

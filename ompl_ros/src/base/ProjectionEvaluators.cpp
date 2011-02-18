@@ -41,7 +41,7 @@ ompl_ros::LinkPositionProjectionEvaluator::LinkPositionProjectionEvaluator(const
 {
     model_ = model;
     linkName_ = linkName;
-    if (model_->planningMonitor->getKinematicModel()->getLinkModel(linkName) == NULL)
+    if (model_->collision_models_interface_->getKinematicModel()->getLinkModel(linkName) == NULL)
 	ROS_ERROR("Unknown link: '%s'", linkName.c_str());
 }
 

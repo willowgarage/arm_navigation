@@ -40,7 +40,7 @@
 
 void ompl_ros::ROSSpaceInformationKinematic::configureOMPLSpace(ModelBase *model)
 {	   
-  kmodel_ = model->planningMonitor->getKinematicModel();
+  kmodel_ = model->collision_models_interface_->getKinematicModel();
   groupName_ = model->groupName;
   planning_models::KinematicState state(kmodel_);
   const planning_models::KinematicState::JointStateGroup* group_state = state.getJointStateGroup(groupName_);

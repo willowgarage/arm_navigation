@@ -49,7 +49,7 @@ namespace ompl_ros
     class ModelDynamic : public ModelBase
     {
     public:
-	ModelDynamic(planning_environment::PlanningMonitor *pMonitor, const std::string &gName) : ModelBase(pMonitor, gName)
+      ModelDynamic(planning_environment::CollisionModelsInterface *cmi, const std::string &gName) : ModelBase(cmi, gName)
 	{
 	}
 	

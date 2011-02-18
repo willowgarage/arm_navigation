@@ -74,8 +74,8 @@ bool ompl_ros::ROSStateValidityPredicateDynamic::check(const ompl::base::State *
   bool valid = kce->decide(ed->full_state);
   if (valid)
     {
-      ed->collisionSpace->updateRobotModel(ed->full_state);
-      valid = !ed->collisionSpace->isCollision();
+      //ed->collisionSpace->updateRobotModel(ed->full_state);
+      //valid = !ed->collisionSpace->isCollision();
     }
     
   return valid;

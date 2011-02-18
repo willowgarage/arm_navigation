@@ -37,7 +37,7 @@
 #ifndef OMPL_ROS_MODEL_BASE_
 #define OMPL_ROS_MODEL_BASE_
 
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_environment/util/kinematic_state_constraint_evaluator.h>
 #include <ompl/base/SpaceInformation.h>
 #include <string>
@@ -46,51 +46,50 @@
 namespace ompl_ros
 {
     
-    /** \brief A class that contains pointers to structures needed in
-	planning. The goal is to have multiple of these instances, one
-	for each thread. */
-    struct EnvironmentDescription
-    {
-      collision_space::EnvironmentModel                           *collisionSpace;
-      boost::shared_ptr<const planning_models::KinematicModel>    kmodel;
+/** \brief A class that contains pointers to structures needed in
+    planning. The goal is to have multiple of these instances, one
+    for each thread. */
+struct EnvironmentDescription
+{
+  const planning_models::KinematicModel* kmodel;
       
-      /** \brief The group instance */
-      planning_models::KinematicState                                    *full_state;
-      planning_models::KinematicState::JointStateGroup                 *group_state;
-      const planning_environment::KinematicConstraintEvaluatorSet *constraintEvaluator;	
-    };
+  /** \brief The group instance */
+  planning_models::KinematicState                                    *full_state;
+  planning_models::KinematicState::JointStateGroup                 *group_state;
+  const planning_environment::KinematicConstraintEvaluatorSet *constraintEvaluator;	
+};
     
-    /** \brief The basic definition of a model (a group defined by the planning environment) we are planning for */
-    class ModelBase
-    {
-    public:
-	ModelBase(planning_environment::PlanningMonitor *pMonitor, const std::string &gName);
-	virtual ~ModelBase(void);
+/** \brief The basic definition of a model (a group defined by the planning environment) we are planning for */
+class ModelBase
+{
+public:
+  ModelBase(planning_environment::CollisionModelsInterface* cmi, const std::string &gName);
+  virtual ~ModelBase(void);
 	
-	virtual bool configure(void) = 0;
+  virtual bool configure(void) = 0;
 	
-	/** \brief Thread safe function that returns the environment description corresponding to the active thread */
-	EnvironmentDescription* getEnvironmentDescription(void) const;
+  /** \brief Thread safe function that returns the environment description corresponding to the active thread */
+  EnvironmentDescription* getEnvironmentDescription(void) const;
 	
-	/** \brief Clear the created environment descriptions */
-	void clearEnvironmentDescriptions(void) const;
+  /** \brief Clear the created environment descriptions */
+  void clearEnvironmentDescriptions(void) const;
 	
-	/** \brief An instance of a planning monitor that knows about the planning groups */
-	planning_environment::PlanningMonitor                      *planningMonitor;
-
-	/** \brief An instance of a kinematic constraint evaluator */
-	planning_environment::KinematicConstraintEvaluatorSet       constraintEvaluator;
+  /** \brief An instance of a planning monitor that knows about the planning groups */
+  planning_environment::CollisionModelsInterface* collision_models_interface_;
+      
+  /** \brief An instance of a kinematic constraint evaluator */
+  planning_environment::KinematicConstraintEvaluatorSet constraintEvaluator;
 	
-	/** \brief The group name */
-	std::string                                                 groupName;
+  /** \brief The group name */
+  std::string groupName;
 	
-	/** \brief The group instance */
-	const planning_models::KinematicModel::JointModelGroup                *group;
+  /** \brief The group instance */
+  const planning_models::KinematicModel::JointModelGroup *group;
 	
-	/** \brief The instance of the space information maintained for this group. si->setup() will need to be called after configure() */
-	ompl::base::SpaceInformation                               *si;
-	std::map<std::string, ompl::base::StateDistanceEvaluator*>  sde;        // list of available distance evaluators
-    };
+  /** \brief The instance of the space information maintained for this group. si->setup() will need to be called after configure() */
+  ompl::base::SpaceInformation                               *si;
+  std::map<std::string, ompl::base::StateDistanceEvaluator*>  sde;        // list of available distance evaluators
+};
     
 } // ompl_ros
 

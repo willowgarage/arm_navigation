@@ -49,7 +49,7 @@ namespace ompl_ros
     class ModelKinematic : public ModelBase
     {
     public:
-	ModelKinematic(planning_environment::PlanningMonitor *pMonitor, const std::string &gName) : ModelBase(pMonitor, gName)
+	ModelKinematic(planning_environment::CollisionModelsInterface* cmi, const std::string &gName) : ModelBase(cmi, gName)
 	{
 	}
 	

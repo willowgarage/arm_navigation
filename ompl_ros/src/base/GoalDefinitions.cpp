@@ -69,7 +69,7 @@ void ompl_ros::GoalToState::print(std::ostream &out) const
 	
 void ompl_ros::GoalToState::setup(ModelBase *model, const std::vector<motion_planning_msgs::JointConstraint> &jc) 
 {
-  planning_models::KinematicState kin_state(model->planningMonitor->getKinematicModel());
+  planning_models::KinematicState kin_state(model->collision_models_interface_->getKinematicModel());
   const planning_models::KinematicState::JointStateGroup* group_state = kin_state.getJointStateGroup(model->group->getName());
 
   dim_ = model->si->getStateDimension();

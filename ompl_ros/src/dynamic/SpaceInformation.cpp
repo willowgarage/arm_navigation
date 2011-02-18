@@ -41,7 +41,7 @@
 
 void ompl_ros::ROSSpaceInformationDynamic::configureOMPLSpace(ModelBase *model)
 {	   
-  kmodel_ = model->planningMonitor->getKinematicModel();
+  kmodel_ = model->collision_models_interface_->getKinematicModel();
   groupName_ = model->groupName;
   propagationModel_ = NULL;
     
