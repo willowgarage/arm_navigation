@@ -77,7 +77,9 @@ StaticShape* cloneShape(const StaticShape *shape);
 
 /** \brief Create a copy of a vector of shape */
 std::vector<Shape*> cloneShapeVector(const std::vector<Shape*>& shapes);
-    
+
+void deleteShapeVector(std::vector<Shape*>& shapes);
+
 }
 
 #endif

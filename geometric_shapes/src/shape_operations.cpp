@@ -90,6 +90,14 @@ std::vector<Shape*> cloneShapeVector(const std::vector<Shape*>& shapes)
   for(unsigned int i = 0; i < shapes.size(); i++) {
     ret.push_back(cloneShape(shapes[i]));
   }
+  return ret;
+}
+
+void deleteShapeVector(std::vector<Shape*>& shapes) {
+  for(unsigned int i = 0; i < shapes.size(); i++) {
+    delete shapes[i];
+  }
+  shapes.clear();
 }
     
 StaticShape* cloneShape(const StaticShape *shape)
