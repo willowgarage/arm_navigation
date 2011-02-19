@@ -69,6 +69,8 @@ public:
     return planning_scene_state_;
   }
 
+  void resetToStartState(planning_models::KinematicState& state) const;
+
   collision_space::EnvironmentModel* getOde() {
     return ode_collision_model_;
   }
@@ -76,6 +78,7 @@ public:
 protected:
 
   planning_models::KinematicState* planning_scene_state_;
+  planning_environment_msgs::PlanningScene last_planning_scene_;
 
   ros::ServiceServer set_planning_scene_service_;
   ros::ServiceServer revert_planning_scene_service_;

@@ -35,6 +35,7 @@
 /** \author E. Gil Jones */
 
 #include "planning_environment/models/collision_models_interface.h"
+#include "planning_environment/models/model_utils.h"
 
 planning_environment::CollisionModelsInterface::CollisionModelsInterface(const std::string& description)
   : CollisionModels(description)
@@ -64,6 +65,7 @@ bool planning_environment::CollisionModelsInterface::setPlanningSceneService(pla
     ROS_ERROR("Setting planning scene state to NULL");
     return true;
   }
+  last_planning_scene_ = request.planning_scene;
   response.ok = true;
   return true;
 }
@@ -76,4 +78,8 @@ bool planning_environment::CollisionModelsInterface::revertPlanningSceneService(
   }
   revertPlanningScene(planning_scene_state_);
   return true;
+}
+
+void planning_environment::CollisionModelsInterface::resetToStartState(planning_models::KinematicState& state) const {
+  setRobotStateAndComputeTransforms(last_planning_scene_.robot_state, state);
 }

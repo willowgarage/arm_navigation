@@ -213,3 +213,220 @@ default_collision_operations:
   - object1: r_gripper_l_finger_tip_link
     object2: r_gripper_r_finger_tip_link
     operation: disable
+
+###########################
+#efficiency disables
+
+  - object1: torso_lift_link    
+    object2: r_shoulder_pan_link
+    operation: disable
+  - object1: torso_lift_link    
+    object2: l_shoulder_pan_link
+    operation: disable
+  - object1: torso_lift_link    
+    object2: imu_link
+    operation: disable
+  - object1: torso_lift_link    
+    object2: r_shoulder_lift_link
+    operation: disable
+  - object1: torso_lift_link    
+    object2: l_shoulder_lift_link
+    operation: disable
+  - object1: torso_lift_link    
+    object2: r_upper_arm_link
+    operation: disable
+  - object1: torso_lift_link    
+    object2: l_upper_arm_link
+    operation: disable
+  - object1: torso_lift_link    
+    object2: laser_tilt_link
+    operation: disable
+  - object1: base_link    
+    object2: br_caster_r_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: br_caster_l_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: bl_caster_r_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: bl_caster_l_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: r_shoulder_pan_link
+    operation: disable
+  - object1: base_link    
+    object2: l_shoulder_pan_link
+    operation: disable
+  - object1: base_link    
+    object2: base_footprint
+    operation: disable
+  - object1: base_link    
+    object2: fl_caster_l_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: fl_caster_r_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: fr_caster_l_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: fr_caster_r_wheel_link
+    operation: disable
+  - object1: base_link    
+    object2: base_laser_link
+    operation: disable
+  - object1: br_caster_rotation_link    
+    object2: br_caster_r_wheel_link
+    operation: disable
+  - object1: br_caster_rotation_link    
+    object2: br_caster_l_wheel_link
+    operation: disable
+  - object1: bl_caster_rotation_link    
+    object2: bl_caster_r_wheel_link
+    operation: disable
+  - object1: bl_caster_rotation_link    
+    object2: bl_caster_l_wheel_link
+    operation: disable
+  - object1: head_tilt_link    
+    object2: projector_wg6802418_frame
+    operation: disable
+  - object1: head_tilt_link    
+    object2: projector_wg6802418_child_frame
+    operation: disable
+  - object1: head_tilt_link    
+    object2: narrow_stereo_link
+    operation: disable
+  - object1: head_tilt_link    
+    object2: wide_stereo_link
+    operation: disable
+  - object1: r_shoulder_pan_link    
+    object2: r_upper_arm_roll_link
+    operation: disable
+  - object1: l_shoulder_pan_link    
+    object2: l_upper_arm_roll_link
+    operation: disable
+  - object1: r_shoulder_lift_link    
+    object2: r_upper_arm_link
+    operation: disable
+  - object1: l_shoulder_lift_link    
+    object2: l_upper_arm_link
+    operation: disable
+  - object1: laser_tilt_mount_link    
+    object2: laser_tilt_link
+    operation: disable
+  - object1: r_upper_arm_link    
+    object2: r_forearm_roll_link
+    operation: disable
+  - object1: r_upper_arm_link    
+    object2: r_forearm_link
+    operation: disable
+  - object1: l_upper_arm_link    
+    object2: l_forearm_roll_link
+    operation: disable
+  - object1: l_upper_arm_link    
+    object2: l_forearm_link
+    operation: disable
+  - object1: fl_caster_rotation_link    
+    object2: fl_caster_l_wheel_link
+    operation: disable
+  - object1: fl_caster_rotation_link    
+    object2: fl_caster_r_wheel_link
+    operation: disable
+  - object1: fr_caster_rotation_link    
+    object2: fr_caster_l_wheel_link
+    operation: disable
+  - object1: fr_caster_rotation_link    
+    object2: fr_caster_r_wheel_link
+    operation: disable
+  - object1: l_elbow_flex_link    
+    object2: l_forearm_link
+    operation: disable
+  - object1: r_elbow_flex_link    
+    object2: r_forearm_link
+    operation: disable
+  - object1: l_forearm_link    
+    object2: l_gripper_l_finger_link
+    operation: disable
+  - object1: l_forearm_link    
+    object2: l_gripper_r_finger_link
+    operation: disable
+  - object1: l_forearm_link    
+    object2: l_gripper_palm_link
+    operation: disable
+  - object1: l_forearm_link    
+    object2: l_wrist_flex_link
+    operation: disable
+  - object1: l_forearm_link    
+    object2: l_wrist_roll_link
+    operation: disable
+  - object1: l_forearm_link    
+    object2: l_gripper_motor_accelerometer_link
+    operation: disable
+  - object1: r_forearm_link    
+    object2: r_gripper_l_finger_link
+    operation: disable
+  - object1: r_forearm_link    
+    object2: r_gripper_r_finger_link
+    operation: disable
+  - object1: r_forearm_link    
+    object2: r_gripper_palm_link
+    operation: disable
+  - object1: r_forearm_link    
+    object2: r_wrist_flex_link
+    operation: disable
+  - object1: r_forearm_link    
+    object2: r_wrist_roll_link
+    operation: disable
+  - object1: r_forearm_link    
+    object2: r_gripper_motor_accelerometer_link
+    operation: disable
+  - object1: l_gripper_l_finger_tip_link    
+    object2: l_gripper_palm_link
+    operation: disable
+  - object1: r_gripper_l_finger_tip_link    
+    object2: r_gripper_palm_link
+    operation: disable
+  - object1: l_gripper_r_finger_tip_link    
+    object2: l_gripper_palm_link
+    operation: disable
+  - object1: r_gripper_r_finger_tip_link    
+    object2: r_gripper_palm_link
+    operation: disable
+  - object1: l_gripper_l_finger_link    
+    object2: l_wrist_flex_link
+    operation: disable
+  - object1: l_gripper_l_finger_link    
+    object2: l_wrist_roll_link
+    operation: disable
+  - object1: r_gripper_l_finger_link    
+    object2: r_wrist_flex_link
+    operation: disable
+  - object1: r_gripper_l_finger_link    
+    object2: r_wrist_roll_link
+    operation: disable
+  - object1: l_gripper_r_finger_link    
+    object2: l_wrist_flex_link
+    operation: disable
+  - object1: l_gripper_r_finger_link    
+    object2: l_wrist_roll_link
+    operation: disable
+  - object1: r_gripper_r_finger_link    
+    object2: r_wrist_flex_link
+    operation: disable
+  - object1: r_gripper_r_finger_link    
+    object2: r_wrist_roll_link
+    operation: disable
+  - object1: l_gripper_palm_link    
+    object2: l_wrist_flex_link
+    operation: disable
+  - object1: r_gripper_palm_link    
+    object2: r_wrist_flex_link
+    operation: disable
+  - object1: l_wrist_flex_link    
+    object2: l_gripper_motor_accelerometer_link
+    operation: disable
+  - object1: r_wrist_flex_link    
+    object2: r_gripper_motor_accelerometer_link
+    operation: disable
