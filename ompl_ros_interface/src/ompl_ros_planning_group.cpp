@@ -41,9 +41,9 @@ namespace ompl_ros_interface
 bool OmplRosPlanningGroup::initialize(const ros::NodeHandle &node_handle,
                                       const std::string &group_name,
                                       const std::string &planner_config_name,
-                                      planning_environment::PlanningMonitor *planning_monitor)
+                                      planning_environment::CollisionModelsInterface *cmi)
 {
-  planning_monitor_    = planning_monitor;
+  collision_models_interface_    = cmi;
   group_name_          = group_name;
   node_handle_         = node_handle;
   planner_config_name_ = planner_config_name;
@@ -82,7 +82,7 @@ bool OmplRosPlanningGroup::initialize(const ros::NodeHandle &node_handle,
 bool OmplRosPlanningGroup::initializePhysicalGroup()
 {
   std::string physical_group_name;
-  if(!planning_monitor_->getKinematicModel()->hasModelGroup(group_name_))
+  if(!collision_models_interface_->getKinematicModel()->hasModelGroup(group_name_))
   {
     ROS_INFO("Joint group %s is an abstract group",group_name_.c_str());
     if(!node_handle_.hasParam(group_name_+"/physical_group"))
@@ -97,7 +97,7 @@ bool OmplRosPlanningGroup::initializePhysicalGroup()
     physical_group_name = group_name_;
 
   //Setup the actual (physical) groups
-  physical_joint_group_ = planning_monitor_->getKinematicModel()->getModelGroup(physical_group_name);
+  physical_joint_group_ = collision_models_interface_->getKinematicModel()->getModelGroup(physical_group_name);
   return true;
 }
 
@@ -288,17 +288,18 @@ bool OmplRosPlanningGroup::initializeLBKPIECEPlanner()
 bool OmplRosPlanningGroup::transformConstraints(motion_planning_msgs::GetMotionPlan::Request &request, 
                                                 motion_planning_msgs::GetMotionPlan::Response &response)
 {
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_monitor_->getWorldFrameId(),
-                                                     response.error_code))
+  /*
+    if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
+    planning_monitor_->getWorldFrameId(),
+    response.error_code))
     return false;
-
-
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_monitor_->getWorldFrameId(),
-                                                     response.error_code))
+    
+    
+    if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
+    planning_monitor_->getWorldFrameId(),
+    response.error_code))
     return false;
- 
+  */
   return true;
 }
 
@@ -316,8 +317,12 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
                                        motion_planning_msgs::GetMotionPlan::Response &response)
 {
   planner_->clear();
-  boost::scoped_ptr<planning_models::KinematicState> kinematic_state;
-  kinematic_state.reset(new planning_models::KinematicState(planning_monitor_->getKinematicModel()));
+  planning_models::KinematicState* kinematic_state = collision_models_interface_->getPlanningSceneState();
+  if(kinematic_state == NULL) {
+    ROS_INFO_STREAM("Planning scene hasn't been set");
+    return finish(false);
+  }
+
   physical_joint_state_group_ = kinematic_state->getJointStateGroup(physical_joint_group_->getName());
   if(!physical_joint_state_group_)
   {
@@ -328,7 +333,7 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
   if (!isRequestValid(request,response))
     return finish(false);
 
-  if(!configurePlanningMonitor(request,response,kinematic_state.get()))
+  if(!configureStateValidityChecker(request,response,kinematic_state))
     return finish(false);
   
   if(!transformConstraints(request,response))
@@ -368,30 +373,15 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
 
 bool OmplRosPlanningGroup::finish(const bool &result)
 {
-  planning_monitor_->revertToDefaultState();
+  collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
   return result;
 }
 
-bool OmplRosPlanningGroup::configurePlanningMonitor(motion_planning_msgs::GetMotionPlan::Request &request,
-                                                    motion_planning_msgs::GetMotionPlan::Response &response,
-                                                    planning_models::KinematicState *kinematic_state)
+bool OmplRosPlanningGroup::configureStateValidityChecker(motion_planning_msgs::GetMotionPlan::Request &request,
+                                                         motion_planning_msgs::GetMotionPlan::Response &response,
+                                                         planning_models::KinematicState *kinematic_state)
 {
-  if(!planning_monitor_->prepareForValidityChecks(physical_joint_group_->getJointModelNames(),
-                                                  request.motion_plan_request.ordered_collision_operations,
-                                                  request.motion_plan_request.allowed_contacts,
-                                                  request.motion_plan_request.path_constraints,
-                                                  request.motion_plan_request.goal_constraints,
-                                                  request.motion_plan_request.link_padding,
-                                                  response.error_code))
-  {
-    ROS_ERROR("Could not configure planning monitor");
-    return false;
-  }
-
   /* set the pose of the whole robot */
-  planning_monitor_->setRobotStateAndComputeTransforms(request.motion_plan_request.start_state, *kinematic_state);
-  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state);
-
   /* set the kinematic state for the state validator */
   ompl_ros_interface::OmplRosStateValidityChecker *my_checker = dynamic_cast<ompl_ros_interface::OmplRosStateValidityChecker*>(state_validity_checker_.get());
   my_checker->configureOnRequest(kinematic_state,

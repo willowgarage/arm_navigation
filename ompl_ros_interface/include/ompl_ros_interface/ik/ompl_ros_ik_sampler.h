@@ -44,7 +44,7 @@
 #include <ompl/base/State.h>
 
 // Planning environment and models
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
 
@@ -86,7 +86,7 @@ public:
                   const std::string &kinematics_solver_name,
                   const std::string &group_name,
                   const std::string &end_effector_name,
-                  const planning_environment::PlanningMonitor *planning_monitor);  
+                  const planning_environment::CollisionModelsInterface *cmi);
 
   /**
    * @brief Configure the kinematics solver when a request is received
@@ -127,7 +127,7 @@ private:
 
   ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;
   ompl_ros_interface::RobotStateToOmplStateMapping robot_state_to_ompl_state_mapping_;
-  const planning_environment::PlanningMonitor *planning_monitor_;
+  const planning_environment::CollisionModelsInterface *collision_models_interface_;
 
 };
 

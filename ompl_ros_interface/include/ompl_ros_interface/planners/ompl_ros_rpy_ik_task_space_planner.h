@@ -43,6 +43,7 @@
 #include <ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h>
 
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <tf/transform_listener.h>
 
 namespace ompl_ros_interface
 {

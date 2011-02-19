@@ -37,7 +37,7 @@
 #ifndef OMPL_ROS_STATE_VALIDITY_CHECKER_
 #define OMPL_ROS_STATE_VALIDITY_CHECKER_
 
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_environment/util/kinematic_state_constraint_evaluator.h>
 #include <motion_planning_msgs/GetMotionPlan.h>
 
@@ -62,9 +62,9 @@ public:
    * @param planning_monitor - A pointer to the planning monitor instance used by this checker
    */
   OmplRosStateValidityChecker(ompl::base::SpaceInformation *si, 
-                              planning_environment::PlanningMonitor *planning_monitor) :
+                              planning_environment::CollisionModelsInterface *cmi) :
     ompl::base::StateValidityChecker(si), 
-    planning_monitor_(planning_monitor)
+    collision_models_interface_(cmi)
   {
   }
   
@@ -102,7 +102,7 @@ public:
 
 protected:	
   planning_models::KinematicState::JointStateGroup *joint_state_group_;
-  planning_environment::PlanningMonitor *planning_monitor_;
+  planning_environment::CollisionModelsInterface* collision_models_interface_;
   planning_models::KinematicState *kinematic_state_;
     
   planning_environment::KinematicConstraintEvaluatorSet path_constraint_evaluator_set_;

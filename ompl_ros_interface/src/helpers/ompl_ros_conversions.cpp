@@ -52,10 +52,11 @@ ompl::base::StateManifoldPtr jointGroupToOmplStateManifoldPtr(const planning_mod
   std::vector<std::string> real_vector_names;
   std::vector<const planning_models::KinematicModel::JointModel*> joint_models = joint_group->getJointModels();
 
-	for (unsigned int i = 0 ; i < joint_models.size() ; ++i)
+  for (unsigned int i = 0 ; i < joint_models.size() ; ++i)
   {
-		const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = 
-			dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint_models[i]);
+    ROS_INFO_STREAM("Got joint named " << joint_models[i]->getName());
+    const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = 
+      dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint_models[i]);
     if (revolute_joint && revolute_joint->continuous_)
     {
       ompl::base::SO2StateManifold *manifold = new ompl::base::SO2StateManifold();
@@ -138,7 +139,7 @@ ompl::base::StateManifoldPtr jointGroupToOmplStateManifoldPtr(const planning_mod
   return ompl_state_manifold;
 };
 
-bool addToOmplStateManifold(boost::shared_ptr<planning_models::KinematicModel> kinematic_model, 
+bool addToOmplStateManifold(const planning_models::KinematicModel* kinematic_model, 
                             const std::string &joint_name,
                             ompl::base::StateManifoldPtr &ompl_state_manifold)
 {

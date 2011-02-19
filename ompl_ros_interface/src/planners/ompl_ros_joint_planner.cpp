@@ -60,7 +60,7 @@ bool OmplRosJointPlanner::initializePlanningManifold(ompl::base::StateManifoldPt
       node_handle_.getParam(physical_group_name+"/kinematics_solver",kinematics_solver_name_);
       ROS_DEBUG("Kinematics solver: %s",kinematics_solver_name_.c_str());
       ROS_DEBUG("Created new ik sampler: %s",kinematics_solver_name_.c_str());
-      if(!ik_sampler_.initialize(state_manifold_,kinematics_solver_name_,physical_group_name,end_effector_name_,planning_monitor_))
+      if(!ik_sampler_.initialize(state_manifold_,kinematics_solver_name_,physical_group_name,end_effector_name_,collision_models_interface_))
       {
         ROS_ERROR("Could not set IK sampler for pose goal");
       }
@@ -81,7 +81,7 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
     response.error_code.val = response.error_code.INVALID_GROUP_NAME;
     return false;
   }
-
+  /* TODO
   for (unsigned int i = 0 ; i < request.motion_plan_request.goal_constraints.position_constraints.size() ; ++i)
   {
     if (!planning_monitor_->getTransformListener()->frameExists(request.motion_plan_request.goal_constraints.position_constraints[i].header.frame_id))
@@ -129,7 +129,7 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
       ROS_ERROR("Frame '%s' is not defined for path pose constraint message %u", request.motion_plan_request.path_constraints.orientation_constraints[i].header.frame_id.c_str(), i);
       return false;
     }
-
+  */
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
   {
     response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
@@ -263,7 +263,7 @@ bool OmplRosJointPlanner::setPoseGoal(motion_planning_msgs::GetMotionPlan::Reque
 bool OmplRosJointPlanner::initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker)
 {
   state_validity_checker.reset(new ompl_ros_interface::OmplRosJointStateValidityChecker(planner_->getSpaceInformation().get(),
-                                                                                        planning_monitor_,
+                                                                                        collision_models_interface_,
                                                                                         ompl_state_to_kinematic_state_mapping_));
     return true;
 }

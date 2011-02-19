@@ -504,7 +504,7 @@ bool getRobotStateToJointModelGroupMapping(const motion_planning_msgs::RobotStat
  * @param ompl_state_manifold - The state manifold to add joints to
  * @return false if any error occured
  */
-bool addToOmplStateManifold(boost::shared_ptr<planning_models::KinematicModel> kinematic_model, 
+bool addToOmplStateManifold(const planning_models::KinematicModel* kinematic_model, 
                             const std::string &joint_name,
                             ompl::base::StateManifoldPtr &ompl_state_manifold);
 

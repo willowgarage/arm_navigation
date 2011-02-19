@@ -67,19 +67,19 @@ motion_planning_msgs::Constraints OmplRosStateValidityChecker::getPhysicalConstr
 {
   motion_planning_msgs::Constraints result_constraints;
   for(unsigned int i=0; i < constraints.joint_constraints.size(); i++)
-    if(planning_monitor_->getKinematicModel()->hasJointModel(constraints.joint_constraints[i].joint_name))
+    if(collision_models_interface_->getKinematicModel()->hasJointModel(constraints.joint_constraints[i].joint_name))
       result_constraints.joint_constraints.push_back(constraints.joint_constraints[i]);
 
   for(unsigned int i=0; i < constraints.position_constraints.size(); i++)
-    if(planning_monitor_->getKinematicModel()->hasLinkModel(constraints.position_constraints[i].link_name))
+    if(collision_models_interface_->getKinematicModel()->hasLinkModel(constraints.position_constraints[i].link_name))
       result_constraints.position_constraints.push_back(constraints.position_constraints[i]);
 
   for(unsigned int i=0; i < constraints.orientation_constraints.size(); i++)
-    if(planning_monitor_->getKinematicModel()->hasLinkModel(constraints.orientation_constraints[i].link_name))
+    if(collision_models_interface_->getKinematicModel()->hasLinkModel(constraints.orientation_constraints[i].link_name))
       result_constraints.orientation_constraints.push_back(constraints.orientation_constraints[i]);
 
   for(unsigned int i=0; i < constraints.visibility_constraints.size(); i++)
-    if(planning_monitor_->getKinematicModel()->hasLinkModel(constraints.visibility_constraints[i].sensor_pose.header.frame_id))
+    if(collision_models_interface_->getKinematicModel()->hasLinkModel(constraints.visibility_constraints[i].sensor_pose.header.frame_id))
       result_constraints.visibility_constraints.push_back(constraints.visibility_constraints[i]);
 
   return result_constraints;

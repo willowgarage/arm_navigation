@@ -1,9 +1,8 @@
 <launch>
 
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />  
-  <include file="$(find pr2_arm_navigation_planning)/launch/chomp_planning.launch" />
 
-  <node machine="c2" pkg="ompl_ros_interface" type="ompl_ros" name="ompl_planning" respawn="true" output="screen">
+  <node pkg="ompl_ros_interface" type="ompl_ros" name="ompl_planning" respawn="true" output="screen">
     <remap from="robot_description" to="robot_description" />  
     <remap from="collision_map" to="collision_map_occ" />
     <remap from="collision_map_update" to="collision_map_occ_update" />

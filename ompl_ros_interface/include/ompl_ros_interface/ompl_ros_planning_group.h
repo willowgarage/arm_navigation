@@ -46,7 +46,7 @@
 #include <motion_planning_msgs/RobotTrajectory.h>
 
 // Planning environment and models
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
 
@@ -90,7 +90,7 @@ namespace ompl_ros_interface
     bool initialize(const ros::NodeHandle &node_handle,
                     const std::string &group_name,
                     const std::string &planner_config_name,
-                    planning_environment::PlanningMonitor *planning_monitor);
+                    planning_environment::CollisionModelsInterface *cmi);
         
     /*
       @brief Return the name of the group this planner is operating on
@@ -105,7 +105,7 @@ namespace ompl_ros_interface
      */
     std::string getFrameId()
     {
-      return planning_monitor_->getWorldFrameId();
+      return collision_models_interface_->getWorldFrameId();
     }
 
     /*
@@ -159,7 +159,7 @@ namespace ompl_ros_interface
 
     std::string group_name_;///the name of the group
 
-    planning_environment::PlanningMonitor *planning_monitor_;///A pointer to an instance of the planning monitor
+    planning_environment::CollisionModelsInterface* collision_models_interface_;///A pointer to an instance of the planning monitor
 
     ompl::base::StateManifoldPtr state_manifold_;///possibly abstract state
 
@@ -216,9 +216,9 @@ namespace ompl_ros_interface
     bool initializeRRTConnectPlanner();
 
 
-    bool configurePlanningMonitor(motion_planning_msgs::GetMotionPlan::Request &request,
-                                  motion_planning_msgs::GetMotionPlan::Response &response,
-                                  planning_models::KinematicState *kinematic_state);
+    bool configureStateValidityChecker(motion_planning_msgs::GetMotionPlan::Request &request,
+                                       motion_planning_msgs::GetMotionPlan::Response &response,
+                                       planning_models::KinematicState *kinematic_state);
 
     bool transformConstraints(motion_planning_msgs::GetMotionPlan::Request &request,
                               motion_planning_msgs::GetMotionPlan::Response &response);

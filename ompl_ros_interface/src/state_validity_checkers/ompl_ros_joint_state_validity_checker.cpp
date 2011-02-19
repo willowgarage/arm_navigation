@@ -41,6 +41,7 @@ namespace ompl_ros_interface
 
 bool OmplRosJointStateValidityChecker::isValid(const ompl::base::State *ompl_state) const
 {
+  //ros::WallTime n1 = ros::WallTime::now();
   ompl_ros_interface::omplStateToKinematicStateGroup(ompl_state,
                                                      ompl_state_to_kinematic_state_mapping_,
                                                      joint_state_group_);
@@ -61,13 +62,15 @@ bool OmplRosJointStateValidityChecker::isValid(const ompl::base::State *ompl_sta
   }
 
   joint_state_group_->updateKinematicLinks();
-  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state_);
-  bool collision_validity_check = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
-  if(!collision_validity_check)
+  //ros::WallTime n2 = ros::WallTime::now();
+  if(collision_models_interface_->isKinematicStateInCollision(*kinematic_state_))
   {
-    ROS_DEBUG("State is in collision");    
+    ROS_DEBUG("State is in collision");
+    //ROS_INFO_STREAM("Positive collision check took " << (ros::WallTime::now()-n2).toSec());
+    return false;
   }
-  return collision_validity_check;    
+  //ROS_INFO_STREAM("Negative collision check took " << (ros::WallTime::now()-n2).toSec());
+  return true;
 }
 
 bool OmplRosJointStateValidityChecker::isStateValid(const ompl::base::State *ompl_state) 
@@ -94,14 +97,13 @@ bool OmplRosJointStateValidityChecker::isStateValid(const ompl::base::State *omp
   }
 
   joint_state_group_->updateKinematicLinks();
-  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state_);
-  bool collision_validity_check = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
-  if(!collision_validity_check)
+  if(collision_models_interface_->isKinematicStateInCollision(*kinematic_state_))
   {
-    ROS_DEBUG("State is in collision");    
+    ROS_DEBUG("State is in collision");
     error_code_.val = error_code_.COLLISION_CONSTRAINTS_VIOLATED;        
+    return false;
   }
-  return collision_validity_check;    
+  return true;
 }
 
 }

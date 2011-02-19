@@ -55,9 +55,9 @@ public:
    * @param mapping - The mapping between the ompl state and the  kinematic state that the planning monitor will use
    */
   OmplRosJointStateValidityChecker(ompl::base::SpaceInformation *si, 
-                                   planning_environment::PlanningMonitor *planning_monitor,
+                                   planning_environment::CollisionModelsInterface* cmi,
                                    const ompl_ros_interface::OmplStateToKinematicStateMapping &mapping) : 
-    ompl_ros_interface::OmplRosStateValidityChecker(si,planning_monitor), 
+    ompl_ros_interface::OmplRosStateValidityChecker(si,cmi), 
     ompl_state_to_kinematic_state_mapping_(mapping)
   {
   }

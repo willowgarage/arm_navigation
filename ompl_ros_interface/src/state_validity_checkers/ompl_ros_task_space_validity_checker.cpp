@@ -64,13 +64,12 @@ bool OmplRosTaskSpaceValidityChecker::isValid(const ompl::base::State *ompl_stat
     return false;
   }
   joint_state_group_->updateKinematicLinks();
-  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state_);
-  bool collision_validity_check = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
-  if(!collision_validity_check)
+  if(collision_models_interface_->isKinematicStateInCollision(*kinematic_state_))
   {
-    ROS_DEBUG("State is in collision");    
+    ROS_DEBUG("State is in collision");
+    return false;
   }
-  return collision_validity_check;    
+  return true;
 }
 
 bool OmplRosTaskSpaceValidityChecker::isStateValid(const ompl::base::State *ompl_state) 
@@ -105,14 +104,13 @@ bool OmplRosTaskSpaceValidityChecker::isStateValid(const ompl::base::State *ompl
   }
 
   joint_state_group_->updateKinematicLinks();
-  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state_);
-  bool collision_validity_check = (!planning_monitor_->getEnvironmentModel()->isCollision() &&  !planning_monitor_->getEnvironmentModel()->isSelfCollision());
-  if(!collision_validity_check)
+  if(collision_models_interface_->isKinematicStateInCollision(*kinematic_state_))
   {
-    ROS_DEBUG("State is in collision");    
+    ROS_DEBUG("State is in collision");
     error_code_.val = error_code_.COLLISION_CONSTRAINTS_VIOLATED;        
+    return false;
   }
-  return collision_validity_check;    
+  return true;
 }
 
 bool OmplRosTaskSpaceValidityChecker::initialize()

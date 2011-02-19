@@ -41,34 +41,31 @@ namespace ompl_ros_interface
 
   OmplRos::OmplRos(void): node_handle_("~")
 {
-  collision_models_ = new planning_environment::CollisionModels("robot_description");
-  planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);    
-  planning_monitor_->waitForState();
-  planning_monitor_->startEnvironmentMonitor();    
+  collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
+  while(node_handle_.ok()) {
+    bool got_tf = tf_.waitForTransform(collision_models_interface_->getWorldFrameId(), collision_models_interface_->getRobotFrameId(),
+                                       ros::Time::now(), ros::Duration(5.0));
+    if(got_tf) {
+      break;
+    } else {
+      ROS_INFO_STREAM("Waiting for tf");
+    }
+  }
+
 }
 
 /** Free the memory */
 OmplRos::~OmplRos(void)
 {
-  delete planning_monitor_;
-  delete collision_models_;
+  delete collision_models_interface_;
 }
 
 void OmplRos::run(void)
 {
-  if(!initialize(planning_monitor_,node_handle_.getNamespace()))
+  if(!initialize(node_handle_.getNamespace()))
     return;
-  if (collision_models_->loadedModels())
+  if (collision_models_interface_->loadedModels())
   {
-    bool verbose_collisions;	
-    node_handle_.param("verbose_collisions", verbose_collisions, false);
-    if (verbose_collisions)
-    {
-      planning_monitor_->getEnvironmentModel()->setVerbose(true);
-      ROS_WARN("Verbose collisions is enabled");
-    }
-    else
-      planning_monitor_->getEnvironmentModel()->setVerbose(false);
     node_handle_.param<std::string>("default_planner_id",default_planner_id_,"SBLkConfig1");
     plan_path_service_ = node_handle_.advertiseService("plan_kinematic_path", &OmplRos::computePlan, this);
     node_handle_.param<bool>("publish_diagnostics", publish_diagnostics_,false);
@@ -79,8 +76,7 @@ void OmplRos::run(void)
     ROS_ERROR("Collision models not loaded.");
 }
 
-bool OmplRos::initialize(planning_environment::PlanningMonitor *planning_monitor,
-                         const std::string &param_server_prefix)
+bool OmplRos::initialize(const std::string &param_server_prefix)
 {
   std::vector<std::string> group_names;
   if(!getGroupNamesFromParamServer(param_server_prefix,group_names))
@@ -183,7 +179,7 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
   {
     boost::shared_ptr<ompl_ros_interface::OmplRosJointPlanner> new_planner;
     new_planner.reset(new ompl_ros_interface::OmplRosJointPlanner());
-    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,planning_monitor_))
+    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,collision_models_interface_))
     {
       new_planner.reset();
       ROS_ERROR("Could not configure planner for group %s with config %s",group_name.c_str(),planner_config_name.c_str());
@@ -195,7 +191,7 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
   {
     boost::shared_ptr<ompl_ros_interface::OmplRosRPYIKTaskSpacePlanner> new_planner;
     new_planner.reset(new ompl_ros_interface::OmplRosRPYIKTaskSpacePlanner());
-    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,planning_monitor_))
+    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,collision_models_interface_))
     {
       new_planner.reset();
       ROS_ERROR("Could not configure planner for group %s with config %s",group_name.c_str(),planner_config_name.c_str());

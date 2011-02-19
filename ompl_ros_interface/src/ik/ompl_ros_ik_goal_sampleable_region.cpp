@@ -42,9 +42,9 @@ bool OmplRosIKSampleableRegion::initialize(const ompl::base::StateManifoldPtr &s
                                            const std::string &kinematics_solver_name,
                                            const std::string &group_name,
                                            const std::string &end_effector_name,
-                                           const planning_environment::PlanningMonitor *planning_monitor)
+                                           const planning_environment::CollisionModelsInterface* cmi)
 {
-  planning_monitor_ = planning_monitor;
+  collision_models_interface_ = cmi;
   state_manifold_ = state_manifold;
   group_name_ = group_name;
   end_effector_name_ = end_effector_name;
@@ -88,11 +88,13 @@ bool OmplRosIKSampleableRegion::configureOnRequest(const motion_planning_msgs::G
   ik_poses_.clear();
   motion_planning_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
 
+  /* TODO
   if(!planning_monitor_->transformConstraintsToFrame(goal_constraints,
                                                      kinematics_solver_->getBaseFrame(),
                                                      response.error_code))
     return false;
-  
+  */  
+
   if(!motion_planning_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
   {
     ROS_ERROR("Could not get poses from constraints");

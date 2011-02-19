@@ -35,13 +35,14 @@
 /** \author Sachin Chitta, Ioan Sucan */
 
 #include <ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h>
+#include <planning_environment/models/model_utils.h>
 
 namespace ompl_ros_interface
 {
 bool OmplRosRPYIKTaskSpacePlanner::initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker)
 {
   state_validity_checker.reset(new ompl_ros_interface::OmplRosTaskSpaceValidityChecker(planner_->getSpaceInformation().get(),
-                                                                                       planning_monitor_,
+                                                                                       collision_models_interface_,
                                                                                        planning_frame_id_));
   boost::shared_ptr<ompl_ros_interface::OmplRosStateTransformer> state_transformer;
   state_transformer.reset(new ompl_ros_interface::OmplRosRPYIKStateTransformer(state_manifold_, physical_joint_group_));
@@ -113,13 +114,15 @@ bool OmplRosRPYIKTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan:
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   state_manifold_->as<ompl::base::CompoundStateManifold>()->getSubManifold("real_vector")->as<ompl::base::RealVectorStateManifold>()->setBounds(*original_real_vector_bounds_);
   motion_planning_msgs::Constraints tmp_constraints = request.motion_plan_request.path_constraints;
-  if(!planning_monitor_->transformConstraintsToFrame(tmp_constraints, 
+
+  //TODO
+  /*if(!planning_monitor_->transformConstraintsToFrame(tmp_constraints, 
                                                      state_transformer_->getFrame(),
                                                      error_code))
   {
     ROS_ERROR("Could not transform constraints for setting start state");
     return false;
-  }
+    }*/
   motion_planning_msgs::PositionConstraint position_constraint;
   motion_planning_msgs::OrientationConstraint orientation_constraint;
   if(!getEndEffectorConstraints(tmp_constraints,position_constraint,orientation_constraint,false))
@@ -175,11 +178,12 @@ bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const motion_planning_
   // Transform the constraints
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   motion_planning_msgs::Constraints tmp_constraints = constraints;
+  /* TODO
   if(!planning_monitor_->transformConstraintsToFrame(tmp_constraints, 
                                                      state_transformer_->getFrame(),
                                                      error_code))
     return false;
-
+  */
   // Set all physical constraints that directly map onto the joints
   if(!ompl_ros_interface::constraintsToOmplState(tmp_constraints,goal,false))
     return false;
@@ -433,15 +437,15 @@ geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(cons
     }
   }
 
-  planning_models::KinematicState kinematic_state(planning_monitor_->getKinematicModel());
-  planning_monitor_->setRobotStateAndComputeTransforms(robot_state, kinematic_state);
+  planning_models::KinematicState kinematic_state(collision_models_interface_->getKinematicModel());
+  planning_environment::setRobotStateAndComputeTransforms(robot_state, kinematic_state);
   //  planning_monitor_->setStateValuesFromCurrentValues(kinematic_state);
   btTransform end_effector_pose = kinematic_state.getLinkState(end_effector_name_)->getGlobalLinkTransform();
 
   geometry_msgs::PoseStamped desired_pose;
   tf::poseTFToMsg(end_effector_pose,desired_pose.pose);
   desired_pose.header.stamp = ros::Time();
-  desired_pose.header.frame_id = planning_monitor_->getWorldFrameId();
+  desired_pose.header.frame_id = collision_models_interface_->getWorldFrameId();
   tf_.transformPose(state_transformer_->getFrame(),desired_pose,desired_pose);
 
   btQuaternion orientation;

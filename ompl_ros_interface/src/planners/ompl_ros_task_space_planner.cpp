@@ -76,9 +76,9 @@ bool OmplRosTaskSpacePlanner::initializePlanningManifold(ompl::base::StateManifo
     manifold_names.push_back(static_cast<std::string>(manifold_list[i]));
     ROS_INFO("Adding manifold: %s",manifold_names.back().c_str());
 
-    if(planning_monitor_->getKinematicModel()->getJointModel(manifold_names.back()))
+    if(collision_models_interface_->getKinematicModel()->getJointModel(manifold_names.back()))
     {
-      addToOmplStateManifold(planning_monitor_->getKinematicModel(),
+      addToOmplStateManifold(collision_models_interface_->getKinematicModel(),
                              manifold_names.back(),
                              state_manifold);
       continue;
@@ -190,7 +190,7 @@ bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan
     return false;
   }
 
-
+  /* TODO
   if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
                                                      planning_frame_id_,
                                                      response.error_code))
@@ -201,7 +201,7 @@ bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan
                                                      planning_frame_id_,
                                                      response.error_code))
     return false;
- 
+  */ 
   return true;
 
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
@@ -270,7 +270,7 @@ bool OmplRosTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan::Requ
 bool OmplRosTaskSpacePlanner::initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker)
 {
   state_validity_checker.reset(new ompl_ros_interface::OmplRosTaskSpaceValidityChecker(planner_->getSpaceInformation().get(),
-                                                                                       planning_monitor_,
+                                                                                       collision_models_interface_,
                                                                                        planning_frame_id_));
   return true;
 }
