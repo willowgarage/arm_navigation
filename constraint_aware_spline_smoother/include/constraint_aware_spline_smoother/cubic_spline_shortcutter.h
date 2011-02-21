@@ -39,9 +39,10 @@
 
 #include <ros/ros.h>
 #include <tf/tf.h>
+#include <tf/transform_listener.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/cubic_trajectory.h>
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
@@ -70,8 +71,7 @@ private:
   bool active_;
   double discretization_;
   bool setupCollisionEnvironment();
-  planning_environment::CollisionModels *collision_models_;
-  planning_environment::PlanningMonitor *planning_monitor_;    
+  planning_environment::CollisionModelsInterface *collision_models_interface_;
   ros::NodeHandle node_handle_;
   tf::TransformListener tf_;
   int getRandomInt(int min,int max) const;
@@ -166,6 +166,12 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   }
 
   ROS_INFO("Got trajectory with %d points",(int)trajectory_in.trajectory.points.size());
+
+  if(!collision_models_interface_->isPlanningSceneSet()) {
+    ROS_INFO("Planning scene not set, can't do anything");
+    return false;
+  }
+
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
   motion_planning_msgs::RobotState robot_state;
@@ -186,24 +192,6 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 
   ros::Time start_time = ros::Time::now();
   ros::Duration timeout = trajectory_in.allowed_time;
-
-  planning_monitor_->prepareForValidityChecks(trajectory_in.trajectory.joint_names,
-                                              trajectory_in.ordered_collision_operations,
-                                              trajectory_in.allowed_contacts,
-                                              trajectory_in.path_constraints,
-                                              trajectory_in.goal_constraints,
-                                              trajectory_in.link_padding, error_code); 
-
-  planning_models::KinematicState state(planning_monitor_->getKinematicModel());
-
-  //getting current state
-  planning_monitor_->getCurrentRobotState(robot_state);
-
-  if(error_code.val != error_code.SUCCESS)
-  {
-    ROS_ERROR("Could not set path constraints");
-    return false;
-  }
 
   bool success = trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline);      
   getWaypoints(spline,trajectory_out.trajectory);
@@ -238,14 +226,15 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     discretizeTrajectory(shortcut_spline,discretization,discretized_trajectory.trajectory);
     ROS_DEBUG("Succeeded in sampling trajectory with size: %d",(int)discretized_trajectory.trajectory.points.size());
 
-    if(planning_monitor_->isTrajectoryValid(discretized_trajectory.trajectory,
-                                            robot_state,
-                                            0,
-                                            discretized_trajectory.trajectory.points.size(),
-                                            planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST,
-                                            false,
-                                            error_code, 
-                                            trajectory_error_codes))
+    motion_planning_msgs::Constraints empty_goal_constraints;
+
+    if(collision_models_interface_->isTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                      discretized_trajectory.trajectory,
+                                                      empty_goal_constraints,
+                                                      trajectory_in.path_constraints,
+                                                      error_code,
+                                                      trajectory_error_codes,
+                                                      false))
     {
       ros::Duration shortcut_duration = discretized_trajectory.trajectory.points.back().time_from_start - discretized_trajectory.trajectory.points.front().time_from_start;
       if(segment_end_time-segment_start_time <= shortcut_duration.toSec())
@@ -295,12 +284,10 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   trajectory_out.limits = trajectory_in.limits;
 
   printTrajectory(trajectory_out.trajectory);
-  planning_monitor_->revertToDefaultState();
 	
   ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),
             trajectory_out.trajectory.points.back().time_from_start.toSec());
-  //  planning_monitor_->getEnvironmentModel()->unlock();
-  //  planning_monitor_->getKinematicModel()->unlock();
+
   return success;
 }
 
@@ -590,18 +577,20 @@ bool CubicSplineShortCutter<T>::setupCollisionEnvironment()
   node_handle_.param<bool>("use_collision_map", use_collision_map, true);
 
   // monitor robot
-  collision_models_ = new planning_environment::CollisionModels("robot_description");
-  planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
-  planning_monitor_->setUseCollisionMap(use_collision_map);
-  if(!collision_models_->loadedModels())
+  collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
+  if(!collision_models_interface_->loadedModels())
     return false;
-  if (planning_monitor_->getExpectedJointStateUpdateInterval() > 1e-3)
-    planning_monitor_->waitForState();
 
-  planning_monitor_->startEnvironmentMonitor();
+  while(node_handle_.ok()) {
+    bool got_tf = tf_.waitForTransform(collision_models_interface_->getWorldFrameId(), collision_models_interface_->getRobotFrameId(),
+                                       ros::Time::now(), ros::Duration(5.0));
+    if(got_tf) {
+      break;
+    } else {
+      ROS_INFO_STREAM("Waiting for tf");
+    }
+  }
 
-  if (planning_monitor_->getExpectedMapUpdateInterval() > 1e-3 && use_collision_map)
-    planning_monitor_->waitForMap();
   return true;
 }
 }
