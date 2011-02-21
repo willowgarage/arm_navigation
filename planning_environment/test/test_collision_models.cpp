@@ -593,23 +593,6 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   EXPECT_EQ(error_code.val, error_code.COLLISION_CONSTRAINTS_VIOLATED);
 }
 
-TEST_F(TestCollisionModels, TestCollisionModelsInterface)
-{
-
-  planning_environment::CollisionModelsInterface cm("robot_description");
-
-  planning_environment_msgs::SetPlanningScene::Request req;
-  planning_environment_msgs::SetPlanningScene::Response res;
-  
-  {
-    planning_models::KinematicState state(cm.getKinematicModel());
-    state.setKinematicStateToDefault();
-    planning_environment::convertKinematicStateToRobotState(state, ros::Time::now(), "odom_combined", req.planning_scene.robot_state);
-  }
-
-  ASSERT_TRUE(cm.setPlanningSceneService(req,res));
-}
-
 int main(int argc, char **argv)
 {
   testing::InitGoogleTest(&argc, argv);

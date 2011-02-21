@@ -41,8 +41,12 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
   : CollisionModels(description)
 {
   planning_scene_state_ = NULL;
-  set_planning_scene_service_ = priv_nh_.advertiseService("set_planning_scene", &CollisionModelsInterface::setPlanningSceneService, this);
-  revert_planning_scene_service_ = priv_nh_.advertiseService("revert_planning_scene", &CollisionModelsInterface::revertPlanningSceneService, this);
+
+  set_planning_scene_callback_ = NULL;
+  revert_planning_scene_callback_ = NULL;
+
+  action_server_ = new actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction>(nh_, "set_planning_scene",
+                                                                                                        boost::bind(&CollisionModelsInterface::setPlanningSceneCallback, this, _1), true);
 }
 
 planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
@@ -52,32 +56,49 @@ planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
   }
 }
 
-bool planning_environment::CollisionModelsInterface::setPlanningSceneService(planning_environment_msgs::SetPlanningScene::Request& request,
-                                                                             planning_environment_msgs::SetPlanningScene::Response& response)
+void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(const planning_environment_msgs::SetPlanningSceneGoalConstPtr& scene)
 {
-  if(planning_scene_set_) {
-    response.ok = false;
-    return true;
-  }
-  planning_scene_state_ = setPlanningScene(request.planning_scene);
-  if(planning_scene_state_ == NULL) {
-    response.ok = false;
-    ROS_ERROR("Setting planning scene state to NULL");
-    return true;
-  }
-  last_planning_scene_ = request.planning_scene;
-  response.ok = true;
-  return true;
-}
+  planning_environment_msgs::SetPlanningSceneResult res;
+  res.ok = true;
 
-bool planning_environment::CollisionModelsInterface::revertPlanningSceneService(std_srvs::Empty::Request& request,
-                                                                                std_srvs::Empty::Response& response)
-{
-  if(!planning_scene_set_) {
-    return true;
+  //locks the callback thread
+  if(planning_scene_set_) {
+    ROS_WARN_STREAM("Planning scene set, but we're in the action callback");
+    res.ok = false;
+    action_server_->setAborted(res);
   }
+  planning_scene_state_ = setPlanningScene(scene->planning_scene);
+  if(planning_scene_state_ == NULL) {
+    ROS_ERROR("Setting planning scene state to NULL");
+    res.ok = false;
+    action_server_->setAborted(res);
+    return;
+  }
+  last_planning_scene_ = scene->planning_scene;
+  planning_environment_msgs::SetPlanningSceneFeedback feedback;
+  feedback.client_processing = true;
+  feedback.ready = false;
+  action_server_->publishFeedback(feedback);
+  //TODO - we can run the callback in a new thread, but it's going to mean communicating
+  //preempts over semaphors and whatnot
+  if(set_planning_scene_callback_ != NULL) {
+    set_planning_scene_callback_(scene->planning_scene);
+  }
+  //if we're here, assuming client is ready
+  feedback.ready = true;
+  action_server_->publishFeedback(feedback);
+  ros::Rate r(10.0);
+  while(ros::ok() && !action_server_->isPreemptRequested())
+  {
+    r.sleep();
+  }
+  ROS_INFO_STREAM("Reverting planning scene");
   revertPlanningScene(planning_scene_state_);
-  return true;
+  planning_scene_state_ = NULL;
+  if(revert_planning_scene_callback_ != NULL) {
+    revert_planning_scene_callback_();
+  }
+  action_server_->setPreempted(res);
 }
 
 void planning_environment::CollisionModelsInterface::resetToStartState(planning_models::KinematicState& state) const {

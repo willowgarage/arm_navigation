@@ -38,8 +38,8 @@
 #define PLANNING_ENVIRONMENT_MODELS_COLLISION_MODELS_INTERFACE_
 
 #include "planning_environment/models/collision_models.h"
-#include <planning_environment_msgs/SetPlanningScene.h>
-#include <std_srvs/Empty.h>
+#include <planning_environment_msgs/SetPlanningSceneAction.h>
+#include <actionlib/server/simple_action_server.h>
 
 namespace planning_environment
 {
@@ -58,12 +58,17 @@ public:
 
   virtual ~CollisionModelsInterface(void);
  
-  //services
-  bool setPlanningSceneService(planning_environment_msgs::SetPlanningScene::Request& request,
-                               planning_environment_msgs::SetPlanningScene::Response& response);
+  void setPlanningSceneCallback(const planning_environment_msgs::SetPlanningSceneGoalConstPtr& scene);
   
-  bool revertPlanningSceneService(std_srvs::Empty::Request& request,
-                                  std_srvs::Empty::Response& response);
+  void addSetPlanningSceneCallback(const boost::function<void(const planning_environment_msgs::PlanningScene &scene)> &callback)
+  {
+    set_planning_scene_callback_ = callback;
+  }
+
+  void addRevertPlanningSceneCallback(const boost::function<void(void)> &callback) 
+  {
+    revert_planning_scene_callback_ = callback;
+  }
 
   planning_models::KinematicState* getPlanningSceneState() const{
     return planning_scene_state_;
@@ -80,8 +85,10 @@ protected:
   planning_models::KinematicState* planning_scene_state_;
   planning_environment_msgs::PlanningScene last_planning_scene_;
 
-  ros::ServiceServer set_planning_scene_service_;
-  ros::ServiceServer revert_planning_scene_service_;
+  boost::function<void(const planning_environment_msgs::PlanningScene &scene)> set_planning_scene_callback_;
+  boost::function<void(void)> revert_planning_scene_callback_;
+
+  actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction> *action_server_;
 };
     
 	

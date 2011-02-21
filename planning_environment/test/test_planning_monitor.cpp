@@ -42,13 +42,39 @@
 
 #include <planning_environment/monitors/planning_monitor.h>
 #include <planning_environment/models/collision_models_interface.h>
+#include <actionlib/client/simple_action_client.h>
 
 static const double VERY_SMALL = .0001;
 
 class PlanningMonitorTest : public testing::Test {
+public:
+
+  void actionFeedbackCallback(const planning_environment_msgs::SetPlanningSceneFeedbackConstPtr& feedback) {
+    ready_ = true;  
+  }
+
+  void actionDoneCallback(const actionlib::SimpleClientGoalState& state,
+                          const planning_environment_msgs::SetPlanningSceneResultConstPtr& result)
+  {
+    EXPECT_TRUE(state == actionlib::SimpleClientGoalState::PREEMPTED);
+    ROS_INFO("Got preempted");
+  }
+
+  void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene) {
+    got_set_callback_ = true;
+  }
+
+  void revertPlanningSceneCallback() {
+    got_revert_callback_ = true;
+  }
+
 protected:
 
   virtual void SetUp() {
+    
+    got_set_callback_ = false;
+    got_revert_callback_ = false;
+    ready_ = false;
 
     group_name_ = "right_arm";
 
@@ -86,6 +112,10 @@ protected:
   }
 
 protected:
+
+  bool ready_;
+  bool got_set_callback_;
+  bool got_revert_callback_;
 
   std::string group_name_;
   ros::NodeHandle nh_;
@@ -368,29 +398,45 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 
   planning_environment::CollisionModelsInterface cm("robot_description");
 
+  cm.addSetPlanningSceneCallback(boost::bind(&PlanningMonitorTest::setPlanningSceneCallback, this, _1));
+  cm.addRevertPlanningSceneCallback(boost::bind(&PlanningMonitorTest::revertPlanningSceneCallback, this));
+
   CallPlanningScene();
 
-  ros::ServiceClient set_planning_scene_client = ros::NodeHandle("~").serviceClient<planning_environment_msgs::SetPlanningScene>("set_planning_scene");
-  planning_environment_msgs::SetPlanningScene::Request req;
-  planning_environment_msgs::SetPlanningScene::Response res;
+  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction> ac("set_planning_scene", true);
+
+  planning_environment_msgs::SetPlanningSceneGoal goal;
   
-  req.planning_scene = planning_scene;
-
-  ASSERT_TRUE(cm.setPlanningSceneService(req, res));
-
-  std_srvs::Empty::Request emp_req;
-  std_srvs::Empty::Response emp_res;
-
-  ASSERT_TRUE(cm.revertPlanningSceneService(emp_req, emp_res));
+  goal.planning_scene = planning_scene;
 
   ros::AsyncSpinner async(2);
   async.start();
 
-  ASSERT_TRUE(set_planning_scene_client.call(req,res));
+  ASSERT_TRUE(ac.waitForServer());
 
-  ASSERT_TRUE(res.ok);
-  
+  ac.sendGoal(goal, boost::bind(&PlanningMonitorTest::actionDoneCallback, this, _1, _2), NULL, boost::bind(&PlanningMonitorTest::actionFeedbackCallback, this, _1));
+
+  ros::Rate r(10.0);
+  while(ros::ok()) {
+    if(ready_ == true) {
+      break;
+    }
+  }
+  ASSERT_TRUE(ready_);
+  EXPECT_TRUE(got_set_callback_);
+  EXPECT_FALSE(got_revert_callback_);
+
   EXPECT_FALSE(cm.isKinematicStateInCollision(*(cm.getPlanningSceneState())));
+  
+  ac.cancelGoal();
+
+  //waiting for a second to take effect
+  ros::WallDuration(1.0).sleep();
+
+  EXPECT_TRUE(got_revert_callback_);
+
+  EXPECT_TRUE(cm.getPlanningSceneState() == NULL);
+  
 }
 
 int main(int argc, char** argv)
