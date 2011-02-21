@@ -37,39 +37,53 @@
 #include <ros/time.h>
 #include <gtest/gtest.h>
 #include <planning_environment_msgs/GetPlanningScene.h>
-#include <planning_environment_msgs/SetPlanningScene.h>
 #include <motion_planning_msgs/GetMotionPlan.h>
-#include <std_srvs/Empty.h>
+#include <planning_environment_msgs/SetPlanningSceneAction.h>
 #include <planning_environment/models/model_utils.h>
 #include <planning_environment/models/collision_models_interface.h>
-#include <ros/package.h>
+#include <actionlib/client/simple_action_client.h>
 
 static const std::string GET_PLANNING_SCENE_SERVICE="/environment_server/get_planning_scene";
-static const std::string SET_PLANNING_SCENE_SERVICE="/ompl_planning/set_planning_scene";
-static const std::string REVERT_PLANNING_SCENE_SERVICE="/ompl_planning/revert_planning_scene";
+static const std::string SET_PLANNING_SCENE_NAME="/ompl_planning/set_planning_scene";
 static const std::string PLANNER_SERVICE_NAME="/ompl_planning/plan_kinematic_path";
 
 class OmplPlanningTest : public testing::Test {
+public: 
+
+  void actionFeedbackCallback(const planning_environment_msgs::SetPlanningSceneFeedbackConstPtr& feedback) {
+    ready_ = true;  
+  }
+
+  void actionDoneCallback(const actionlib::SimpleClientGoalState& state,
+                          const planning_environment_msgs::SetPlanningSceneResultConstPtr& result)
+  {
+    EXPECT_TRUE(state == actionlib::SimpleClientGoalState::PREEMPTED);
+    done_ = true;
+  }
+
 protected:
 
   virtual void SetUp() {
 
+    ready_ = false;
+    done_ = false;
+
+    cm_ = new planning_environment::CollisionModels("robot_description");
+
     ros::service::waitForService(GET_PLANNING_SCENE_SERVICE);
-    ros::service::waitForService(SET_PLANNING_SCENE_SERVICE);
-    ros::service::waitForService(REVERT_PLANNING_SCENE_SERVICE);
     ros::service::waitForService(PLANNER_SERVICE_NAME);
 
-    cm = new planning_environment::CollisionModelsInterface("robot_description");
+    get_planning_scene_client_ = nh_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_SERVICE);
+    planning_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME);
 
-    get_planning_scene_client_ = nh.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_SERVICE);
-    set_planning_scene_client_ = nh.serviceClient<planning_environment_msgs::SetPlanningScene>(SET_PLANNING_SCENE_SERVICE);
-    revert_planning_scene_client_ = nh.serviceClient<std_srvs::Empty>(REVERT_PLANNING_SCENE_SERVICE);
-    planning_service_client_ = nh.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME);
+    set_planning_scene_action_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME, true);
+
+    set_planning_scene_action_->waitForServer();
 
     mplan_req.motion_plan_request.group_name = "right_arm";
     mplan_req.motion_plan_request.num_planning_attempts = 1;
     mplan_req.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
-    const std::vector<std::string>& joint_names = cm->getKinematicModel()->getModelGroup("right_arm")->getJointModelNames();
+    const std::vector<std::string>& joint_names = cm_->getKinematicModel()->getModelGroup("right_arm")->getJointModelNames();
     mplan_req.motion_plan_request.goal_constraints.joint_constraints.resize(joint_names.size());
     for(unsigned int i = 0; i < joint_names.size(); i++) {
       mplan_req.motion_plan_request.goal_constraints.joint_constraints[i].joint_name = joint_names[i];
@@ -80,51 +94,55 @@ protected:
   }
 
   virtual void TearDown() {
-
-    delete cm;
-
+    delete cm_;
+    delete set_planning_scene_action_;
   }
 
   void GetAndSetPlanningScene() {
     ASSERT_TRUE(get_planning_scene_client_.call(get_req, get_res));
 
-    planning_environment_msgs::SetPlanningScene::Request set_req;
-    planning_environment_msgs::SetPlanningScene::Response set_res;
+    planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
+    planning_scene_goal.planning_scene = get_res.planning_scene;
 
-    set_req.planning_scene = get_res.planning_scene;
-
-    ASSERT_TRUE(set_planning_scene_client_.call(set_req, set_res));
-
-    ASSERT_TRUE(set_res.ok);
-
-    ASSERT_TRUE(cm->setPlanningSceneService(set_req, set_res));
-
-    //cm->writePlanningSceneBag(ros::package::getPath("planning_environment")+"/test_ompl.bag",
-    //                          set_req.planning_scene);
-
-    ASSERT_FALSE(cm->isKinematicStateInCollision(*cm->getPlanningSceneState())) << "Initial state is in collision";
+    set_planning_scene_action_->sendGoal(planning_scene_goal, boost::bind(&OmplPlanningTest::actionDoneCallback, this, _1, _2), NULL, boost::bind(&OmplPlanningTest::actionFeedbackCallback, this, _1));
+    
+    ros::Rate r(10.0);
+    
+    while(nh_.ok() && !ready_) {
+      r.sleep();
+    }
+    ASSERT_TRUE(ready_);    
   }
-
+      
   void RevertPlanningScene() {
-    std_srvs::Empty::Request req;
-    std_srvs::Empty::Response res;
-    revert_planning_scene_client_.call(req,res);
+    set_planning_scene_action_->cancelGoal();
+
+    ros::Rate r(10.0);
+    while(nh_.ok() && !done_) {
+      r.sleep();
+    }
+    ASSERT_TRUE(done_);      
+    done_ = false;
+    ready_ = false;
   }
 
 protected:
 
-  ros::NodeHandle nh;
+  ros::NodeHandle nh_;
+
+  bool ready_, done_;
+
+  planning_environment::CollisionModels* cm_;
 
   planning_environment_msgs::GetPlanningScene::Request get_req;
   planning_environment_msgs::GetPlanningScene::Response get_res;
   motion_planning_msgs::GetMotionPlan::Request mplan_req;
 
-  planning_environment::CollisionModelsInterface* cm;
-
-  ros::ServiceClient set_planning_scene_client_;
   ros::ServiceClient get_planning_scene_client_;
-  ros::ServiceClient revert_planning_scene_client_;
   ros::ServiceClient planning_service_client_;
+
+  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_;  
+
 };
 
 TEST_F(OmplPlanningTest, TestPole)
@@ -165,13 +183,15 @@ TEST_F(OmplPlanningTest, TestPole)
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
     std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
     
-    EXPECT_TRUE(cm->isTrajectoryValid(*cm->getPlanningSceneState(),
-                                      mplan_res.trajectory.joint_trajectory,
-                                      get_res.transformed_goal_constraints,
-                                      get_res.transformed_path_constraints,
-                                      error_code,
-                                      trajectory_error_codes, false));
+    EXPECT_TRUE(cm_->isTrajectoryValid(get_res.planning_scene,
+                                       mplan_res.trajectory.joint_trajectory,
+                                       get_res.transformed_goal_constraints,
+                                       get_res.transformed_path_constraints,
+                                       error_code,
+                                       trajectory_error_codes, false));
   }
+
+  RevertPlanningScene();
 }
 
 int main(int argc, char **argv)
