@@ -49,16 +49,16 @@ static const double VERY_SMALL = .0001;
 class PlanningMonitorTest : public testing::Test {
 public:
 
-  void actionFeedbackCallback(const planning_environment_msgs::SetPlanningSceneFeedbackConstPtr& feedback) {
-    ready_ = true;  
-  }
+  // void actionFeedbackCallback(const planning_environment_msgs::SetPlanningSceneFeedbackConstPtr& feedback) {
+  //   ready_ = true;  
+  // }
 
-  void actionDoneCallback(const actionlib::SimpleClientGoalState& state,
-                          const planning_environment_msgs::SetPlanningSceneResultConstPtr& result)
-  {
-    EXPECT_TRUE(state == actionlib::SimpleClientGoalState::PREEMPTED);
-    ROS_INFO("Got preempted");
-  }
+  // void actionDoneCallback(const actionlib::SimpleClientGoalState& state,
+  //                         const planning_environment_msgs::SetPlanningSceneResultConstPtr& result)
+  // {
+  //   EXPECT_TRUE(state == actionlib::SimpleClientGoalState::PREEMPTED);
+  //   ROS_INFO("Got preempted");
+  // }
 
   void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene) {
     got_set_callback_ = true;
@@ -403,7 +403,9 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 
   CallPlanningScene();
 
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction> ac("set_planning_scene", true);
+  ros::NodeHandle priv_nh("~");
+
+  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction> ac(priv_nh, "set_planning_scene", true);
 
   planning_environment_msgs::SetPlanningSceneGoal goal;
   
@@ -414,28 +416,24 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 
   ASSERT_TRUE(ac.waitForServer());
 
-  ac.sendGoal(goal, boost::bind(&PlanningMonitorTest::actionDoneCallback, this, _1, _2), NULL, boost::bind(&PlanningMonitorTest::actionFeedbackCallback, this, _1));
+  //ac.sendGoal(goal, boost::bind(&PlanningMonitorTest::actionDoneCallback, this, _1, _2), NULL, boost::bind(&PlanningMonitorTest::actionFeedbackCallback, this, _1));
 
-  ros::Rate r(10.0);
-  while(ros::ok()) {
-    if(ready_ == true) {
-      break;
-    }
-  }
-  ASSERT_TRUE(ready_);
+  actionlib::SimpleClientGoalState gs = ac.sendGoalAndWait(goal);
+
+  EXPECT_TRUE(gs == actionlib::SimpleClientGoalState::SUCCEEDED);
+
   EXPECT_TRUE(got_set_callback_);
-  EXPECT_FALSE(got_revert_callback_);
-
   EXPECT_FALSE(cm.isKinematicStateInCollision(*(cm.getPlanningSceneState())));
+
+  gs = ac.sendGoalAndWait(goal);
+
+  EXPECT_TRUE(gs == actionlib::SimpleClientGoalState::SUCCEEDED);
   
-  ac.cancelGoal();
-
-  //waiting for a second to take effect
-  ros::WallDuration(1.0).sleep();
-
   EXPECT_TRUE(got_revert_callback_);
 
-  EXPECT_TRUE(cm.getPlanningSceneState() == NULL);
+  EXPECT_FALSE(cm.isKinematicStateInCollision(*(cm.getPlanningSceneState())));
+
+  EXPECT_TRUE(cm.getPlanningSceneState() != NULL);
   
 }
 

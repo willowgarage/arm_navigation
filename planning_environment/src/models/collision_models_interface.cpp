@@ -45,7 +45,7 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
   set_planning_scene_callback_ = NULL;
   revert_planning_scene_callback_ = NULL;
 
-  action_server_ = new actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction>(nh_, "set_planning_scene",
+  action_server_ = new actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction>(priv_nh_, "set_planning_scene",
                                                                                                         boost::bind(&CollisionModelsInterface::setPlanningSceneCallback, this, _1), true);
 }
 
@@ -61,11 +61,12 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   planning_environment_msgs::SetPlanningSceneResult res;
   res.ok = true;
 
-  //locks the callback thread
   if(planning_scene_set_) {
-    ROS_WARN_STREAM("Planning scene set, but we're in the action callback");
-    res.ok = false;
-    action_server_->setAborted(res);
+    revertPlanningScene(planning_scene_state_);
+    planning_scene_state_ = NULL;
+    if(revert_planning_scene_callback_ != NULL) {
+      revert_planning_scene_callback_();
+    }
   }
   planning_scene_state_ = setPlanningScene(scene->planning_scene);
   if(planning_scene_state_ == NULL) {
@@ -87,18 +88,7 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   //if we're here, assuming client is ready
   feedback.ready = true;
   action_server_->publishFeedback(feedback);
-  ros::Rate r(10.0);
-  while(ros::ok() && !action_server_->isPreemptRequested())
-  {
-    r.sleep();
-  }
-  ROS_INFO_STREAM("Reverting planning scene");
-  revertPlanningScene(planning_scene_state_);
-  planning_scene_state_ = NULL;
-  if(revert_planning_scene_callback_ != NULL) {
-    revert_planning_scene_callback_();
-  }
-  action_server_->setPreempted(res);
+  action_server_->setSucceeded(res);
 }
 
 void planning_environment::CollisionModelsInterface::resetToStartState(planning_models::KinematicState& state) const {
