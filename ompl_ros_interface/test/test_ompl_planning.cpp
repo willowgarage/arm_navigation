@@ -104,28 +104,13 @@ protected:
     planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
     planning_scene_goal.planning_scene = get_res.planning_scene;
 
-    set_planning_scene_action_->sendGoal(planning_scene_goal, boost::bind(&OmplPlanningTest::actionDoneCallback, this, _1, _2), NULL, boost::bind(&OmplPlanningTest::actionFeedbackCallback, this, _1));
+    //set_planning_scene_action_->sendGoal(planning_scene_goal, boost::bind(&OmplPlanningTest::actionDoneCallback, this, _1, _2), NULL, boost::bind(&OmplPlanningTest::actionFeedbackCallback, this, _1));
+
+    actionlib::SimpleClientGoalState gs = set_planning_scene_action_->sendGoalAndWait(planning_scene_goal);
     
-    ros::Rate r(10.0);
-    
-    while(nh_.ok() && !ready_) {
-      r.sleep();
-    }
-    ASSERT_TRUE(ready_);    
+    EXPECT_TRUE(gs == actionlib::SimpleClientGoalState::SUCCEEDED);
   }
       
-  void RevertPlanningScene() {
-    set_planning_scene_action_->cancelGoal();
-
-    ros::Rate r(10.0);
-    while(nh_.ok() && !done_) {
-      r.sleep();
-    }
-    ASSERT_TRUE(done_);      
-    done_ = false;
-    ready_ = false;
-  }
-
 protected:
 
   ros::NodeHandle nh_;
@@ -190,8 +175,6 @@ TEST_F(OmplPlanningTest, TestPole)
                                        error_code,
                                        trajectory_error_codes, false));
   }
-
-  RevertPlanningScene();
 }
 
 int main(int argc, char **argv)
