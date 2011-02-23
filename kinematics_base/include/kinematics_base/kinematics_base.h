@@ -44,6 +44,17 @@
 #include <kinematics_msgs/GetPositionFK.h>
 
 namespace kinematics {
+
+  static const int SUCCESS = 1;
+  static const int TIMED_OUT = -1;
+  static const int NO_IK_SOLUTION = -2;
+  static const int FRAME_TRANSFORM_FAILURE = -3;
+  static const int IK_LINK_INVALID = -4;
+  static const int IK_LINK_IN_COLLISION = -5;
+  static const int STATE_IN_COLLISION = -6;
+  static const int INVALID_LINK_NAME = -7;
+  static const int GOAL_CONSTRAINTS_VIOLATED = -7;
+
   /**
    * @class KinematicsBase
    * @brief Provides an interface for kinematics solvers.
