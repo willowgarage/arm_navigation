@@ -2,6 +2,6 @@
 
   <include file="$(find planning_environment)/test/testing_infrastructure.launch"/>
 	
-  <test test-name="test_planning_monitor" pkg="planning_environment" type="test_planning_monitor"/>
+  <test test-name="test_planning_monitor" pkg="planning_environment" type="test_planning_monitor" time-limit="200.0"/>
   
 </launch>

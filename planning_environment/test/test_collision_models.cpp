@@ -46,6 +46,7 @@
 #include <planning_environment/models/model_utils.h>
 
 static const std::string rel_path = "/test_urdf/robot.xml";
+static const double VERY_SMALL = .0001;
 
 class TestCollisionModels : public testing::Test 
 {
@@ -591,6 +592,153 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
                                     error_code, trajectory_error_codes, false));
   EXPECT_EQ(error_code.val, error_code.COLLISION_CONSTRAINTS_VIOLATED);
+}
+
+TEST_F(TestCollisionModels, TestConversionFunctionsForObjects)
+{
+
+  planning_environment::CollisionModels cm("robot_description");
+  
+  planning_models::KinematicState kin_state(cm.getKinematicModel());
+  kin_state.setKinematicStateToDefault();
+
+  motion_planning_msgs::RobotState robot_state;
+
+  robot_state.multi_dof_joint_state.stamp = ros::Time::now();
+  robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
+  robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
+  robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  robot_state.multi_dof_joint_state.poses.resize(1);
+  robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
+  robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
+
+  planning_environment::setRobotStateAndComputeTransforms(robot_state, kin_state);
+
+  mapping_msgs::CollisionObject obj1;
+  obj1.header.stamp = ros::Time::now();
+  obj1.header.frame_id = "base_footprint";
+  obj1.id = "obj1";
+  obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  obj1.shapes.resize(1);
+  obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  obj1.shapes[0].dimensions.resize(3);
+  obj1.shapes[0].dimensions[0] = .1;
+  obj1.shapes[0].dimensions[1] = .1;
+  obj1.shapes[0].dimensions[2] = .75;
+  obj1.poses.resize(1);
+  obj1.poses[0].position.x = .5;
+  obj1.poses[0].position.y = .5;
+  obj1.poses[0].position.z = 0;
+  obj1.poses[0].orientation.w = 1.0;
+
+  mapping_msgs::AttachedCollisionObject att_obj;
+  att_obj.object = obj1;
+  att_obj.object.header.stamp = ros::Time::now();
+  att_obj.object.header.frame_id = "r_gripper_r_finger_tip_link";
+  att_obj.link_name = "r_gripper_palm_link";
+  att_obj.touch_links.push_back("r_gripper_palm_link");
+  att_obj.touch_links.push_back("r_gripper_r_finger_link");
+  att_obj.touch_links.push_back("r_gripper_l_finger_link");
+  att_obj.touch_links.push_back("r_gripper_r_finger_tip_link");
+  att_obj.touch_links.push_back("r_gripper_l_finger_tip_link");
+  att_obj.touch_links.push_back("r_wrist_roll_link");
+  att_obj.touch_links.push_back("r_wrist_flex_link");
+  att_obj.touch_links.push_back("r_forearm_link");
+  att_obj.touch_links.push_back("r_gripper_motor_accelerometer_link");
+  att_obj.object.id = "obj2";
+  att_obj.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  att_obj.object.shapes[0].dimensions.resize(2);
+  att_obj.object.shapes[0].dimensions[0] = .025;
+  att_obj.object.shapes[0].dimensions[1] = .5;
+  att_obj.object.poses.resize(1);
+  att_obj.object.poses[0].position.x = 0.0;
+  att_obj.object.poses[0].position.y = 0.0;
+  att_obj.object.poses[0].position.z = 0.0;
+  att_obj.object.poses[0].orientation.w = 1.0;
+  
+  cm.convertAttachedCollisionObjectToNewWorldFrame(kin_state,
+                                                   att_obj);
+  //last one should replace other
+  EXPECT_EQ(att_obj.object.header.frame_id, "r_gripper_palm_link");
+
+  cm.convertAttachedCollisionObjectToNewWorldFrame(kin_state,
+                                                   att_obj);
+  
+  att_obj.link_name = "base_footprint";
+  att_obj.object.header.frame_id = "base_footprint";
+  att_obj.object.id = "obj3";
+  att_obj.object.poses[0].position.x = 0.12;
+  
+  cm.convertAttachedCollisionObjectToNewWorldFrame(kin_state,
+                                                   att_obj);
+
+  EXPECT_GE(att_obj.object.poses[0].position.x,0.0);
+  EXPECT_LE(fabs(att_obj.object.poses[0].position.x-.12), VERY_SMALL); 
+
+  cm.convertCollisionObjectToNewWorldFrame(kin_state,
+                                        obj1);
+  
+  EXPECT_EQ(obj1.header.frame_id, "odom_combined");
+  EXPECT_LE(fabs(obj1.poses[0].position.x-4.5),VERY_SMALL);
+  EXPECT_LE(fabs(obj1.poses[0].position.y-.5),VERY_SMALL);
+}
+
+TEST_F(TestCollisionModels, TestConversionFunctionsForConstraints)
+{
+
+  planning_environment::CollisionModels cm("robot_description");
+
+  planning_models::KinematicState kin_state(cm.getKinematicModel());
+  kin_state.setKinematicStateToDefault();
+
+  motion_planning_msgs::RobotState robot_state;
+
+  robot_state.multi_dof_joint_state.stamp = ros::Time::now();
+  robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
+  robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
+  robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  robot_state.multi_dof_joint_state.poses.resize(1);
+  robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
+  robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
+
+  planning_environment::setRobotStateAndComputeTransforms(robot_state, kin_state);
+
+  motion_planning_msgs::Constraints goal_constraints;
+  motion_planning_msgs::PositionConstraint pos;
+  pos.header.frame_id = "base_footprint";
+  pos.header.stamp = ros::Time::now();
+  pos.link_name = "r_wrist_roll_link";
+  pos.target_point_offset.x = .5;
+  pos.constraint_region_orientation.w = 1.0;
+
+  goal_constraints.position_constraints.push_back(pos);
+
+  cm.convertConstraintsGivenNewWorldTransform(kin_state,
+                                              goal_constraints);
+
+  EXPECT_TRUE(goal_constraints.position_constraints[0].header.frame_id == "odom_combined");
+  EXPECT_LE(fabs(goal_constraints.position_constraints[0].target_point_offset.x-4.5), VERY_SMALL) ;
+  
+  //checking that if we turn around then we should subtract .5 in x
+
+  btQuaternion turn(btVector3(0,0,1), M_PI);
+
+  robot_state.multi_dof_joint_state.poses[0].orientation.x = turn.x(); 
+  robot_state.multi_dof_joint_state.poses[0].orientation.y = turn.y(); 
+  robot_state.multi_dof_joint_state.poses[0].orientation.z = turn.z(); 
+  robot_state.multi_dof_joint_state.poses[0].orientation.w = turn.w(); 
+
+  planning_environment::setRobotStateAndComputeTransforms(robot_state, kin_state);
+  
+  goal_constraints.position_constraints.clear();
+  goal_constraints.position_constraints.push_back(pos);
+
+  cm.convertConstraintsGivenNewWorldTransform(kin_state,
+                                              goal_constraints);
+  
+
+  EXPECT_TRUE(goal_constraints.position_constraints[0].header.frame_id == "odom_combined");
+  EXPECT_LE(fabs(goal_constraints.position_constraints[0].target_point_offset.x-3.5), VERY_SMALL) ;
 }
 
 int main(int argc, char **argv)

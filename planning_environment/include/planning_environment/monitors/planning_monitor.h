@@ -79,11 +79,9 @@ public:
   bool getCompletePlanningScene(const std::string& group_name,
                                 const planning_environment_msgs::PlanningScene& planning_diff,
                                 const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
-                                const motion_planning_msgs::Constraints& goal_constraints,
-                                const motion_planning_msgs::Constraints& path_constraints,
-                                planning_environment_msgs::PlanningScene& planning_scene,
-                                motion_planning_msgs::Constraints& transformed_goal_constraints,
-                                motion_planning_msgs::Constraints& transformed_path_constraints);
+                                planning_environment_msgs::PlanningScene& planning_scene);
+
+  void getAllFixedFrameTransforms(std::vector<geometry_msgs::TransformStamped>& transform_vec);
 
   // bool prepareForValidityChecks(const std::vector<std::string>& joint_names,
   //                               const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
@@ -255,32 +253,6 @@ protected:
   /** \brief Load ROS parameters */
   void loadParams(void);
 
-  void convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                                     mapping_msgs::AttachedCollisionObject& att_obj) const;
-  
-  void convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                             mapping_msgs::CollisionObject& obj) const;
-  
-  void convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
-                                                motion_planning_msgs::Constraints& constraints) const;
-  
-  geometry_msgs::PoseStamped 
-  convertPoseGivenWorldTransform(const planning_models::KinematicState& state,
-                                 const std::string& des_frame_id,
-                                 const std_msgs::Header& header,
-                                 const geometry_msgs::Pose& pose) const;
-
-  geometry_msgs::PointStamped 
-  convertPointGivenWorldTransform(const planning_models::KinematicState& state,
-                                  const std::string& des_frame_id,
-                                  const std_msgs::Header& header,
-                                  const geometry_msgs::Point& point) const;
-  
-  geometry_msgs::QuaternionStamped 
-  convertQuaternionGivenWorldTransform(const planning_models::KinematicState& state,
-                                       const std::string& des_frame_id,
-                                       const std_msgs::Header& header,
-                                       const geometry_msgs::Quaternion& quat) const;
   
   // /** \brief Transform the joint parameters (if needed) to a target frame */
   // bool transformJoint(const std::string &name, 

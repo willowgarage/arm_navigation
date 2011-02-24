@@ -291,11 +291,7 @@ private:
     planning_monitor_->getCompletePlanningScene(req.group_name,
                                                 req.planning_scene_diff,
                                                 req.operations,
-                                                req.goal_constraints,
-                                                req.path_constraints,
-                                                res.planning_scene,
-                                                res.transformed_goal_constraints,
-                                                res.transformed_path_constraints);
+                                                res.planning_scene);
     return true;
   }
 

@@ -102,13 +102,9 @@ protected:
 
   bool CallPlanningScene() {
     return planning_monitor_->getCompletePlanningScene(group_name_,
-                                                       planning_scene_diff,
+                                                       planning_scene_diff_,
                                                        operations,
-                                                       goal_constraints,
-                                                       path_constraints,
-                                                       planning_scene,
-                                                       transformed_goal_constraints,
-                                                       transformed_path_constraints);
+                                                       planning_scene_);
   }
 
 protected:
@@ -122,32 +118,29 @@ protected:
   tf::TransformListener tf_;
   planning_environment::CollisionModels *collision_models_;
   planning_environment::PlanningMonitor *planning_monitor_;
-  
-  planning_environment_msgs::PlanningScene planning_scene_diff;
-  planning_environment_msgs::PlanningScene planning_scene;
+
+  planning_environment_msgs::PlanningScene planning_scene_diff_;
+  planning_environment_msgs::PlanningScene planning_scene_;
 
   motion_planning_msgs::OrderedCollisionOperations operations;
   
-  motion_planning_msgs::Constraints goal_constraints;
-  motion_planning_msgs::Constraints path_constraints;
-
-  motion_planning_msgs::Constraints transformed_goal_constraints;
-  motion_planning_msgs::Constraints transformed_path_constraints;
 };
 
 TEST_F(PlanningMonitorTest, ChangingObjects)
 {
-  planning_scene_diff.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
-  planning_scene_diff.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
-  planning_scene_diff.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses.resize(1);
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
+  planning_environment::CollisionModels test_collision_models("robot_description");
+
+  planning_scene_diff_.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
+  planning_scene_diff_.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses.resize(1);
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
 
   mapping_msgs::CollisionObject obj1;
   obj1.header.stamp = ros::Time::now();
-  obj1.header.frame_id = "base_footprint";
+  obj1.header.frame_id = "map_to_stapler";
   obj1.id = "obj1";
   obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
   obj1.shapes.resize(1);
@@ -165,7 +158,7 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   mapping_msgs::AttachedCollisionObject att_obj;
   att_obj.object = obj1;
   att_obj.object.header.stamp = ros::Time::now();
-  att_obj.object.header.frame_id = "r_gripper_r_finger_tip_link";
+  att_obj.object.header.frame_id = "odom_combined";
   att_obj.link_name = "r_gripper_palm_link";
   att_obj.touch_links.push_back("r_gripper_palm_link");
   att_obj.touch_links.push_back("r_gripper_r_finger_link");
@@ -187,88 +180,60 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   att_obj.object.poses[0].position.z = 0.0;
   att_obj.object.poses[0].orientation.w = 1.0;
 
-  planning_scene_diff.collision_objects.push_back(obj1);
-  planning_scene_diff.attached_collision_objects.push_back(att_obj);
+  planning_scene_diff_.collision_objects.push_back(obj1);
+  planning_scene_diff_.attached_collision_objects.push_back(att_obj);
 
-  att_obj.object.header.frame_id = "odom_combined";
-  planning_scene_diff.attached_collision_objects.push_back(att_obj);
+  att_obj.object.header.frame_id = "map_to_stapler";
+  planning_scene_diff_.attached_collision_objects.push_back(att_obj);
   
   CallPlanningScene();
 
-  ASSERT_EQ(planning_scene.collision_objects.size(), 1);
+  ASSERT_EQ(planning_scene_.collision_objects.size(), 1);
   //extra object with same id should have overwritten first
-  ASSERT_EQ(planning_scene.attached_collision_objects.size(), 1);
+  ASSERT_EQ(planning_scene_.attached_collision_objects.size(), 1);
+  EXPECT_EQ(planning_scene_.attached_collision_objects[0].object.header.frame_id,std::string("map_to_stapler"));
 
-  //last one should replace other
-  EXPECT_EQ(planning_scene.attached_collision_objects[0].object.header.frame_id, "r_gripper_palm_link");
-  //the pose when connected to odom_combined should be negative 
-  //TOdo - figure this out
-  //EXPECT_LE(all_attached_collision_objects[0].object.poses[0].position.x,0.0); 
+  planning_models::KinematicState* state = test_collision_models.setPlanningScene(planning_scene_);
+  ASSERT_TRUE(state != NULL);
+
+  EXPECT_TRUE(test_collision_models.convertAttachedCollisionObjectToNewWorldFrame(*state, att_obj));  
+  EXPECT_EQ(att_obj.object.header.frame_id, "r_gripper_palm_link");
+
+  att_obj.object.header.frame_id = "stapler_to_monkey";
+  EXPECT_FALSE(test_collision_models.convertAttachedCollisionObjectToNewWorldFrame(*state, att_obj));  
   
+  EXPECT_TRUE(test_collision_models.convertCollisionObjectToNewWorldFrame(*state, obj1));
+  EXPECT_EQ(obj1.header.frame_id, test_collision_models.getWorldFrameId());
+  //.5 in x in map_to_stapler to map,-.5 to odom_combined = -3.5
+  EXPECT_LE(fabs(obj1.poses[0].position.x+3.5), VERY_SMALL);
+  //.5 in y in map_to_stapler to map, 3.5 to odom_combined = 3.5
+  EXPECT_LE(fabs(obj1.poses[0].position.y-3.5), VERY_SMALL);
+    
   att_obj.link_name = "base_footprint";
   att_obj.object.header.frame_id = "base_footprint";
   att_obj.object.id = "obj3";
   att_obj.object.poses[0].position.x = 0.12;
-  planning_scene_diff.attached_collision_objects.pop_back();
-  planning_scene_diff.attached_collision_objects.push_back(att_obj);
+  att_obj.object.poses[0].position.y = 0.0;
+  att_obj.object.poses[0].position.z = 0.0;
+  att_obj.object.poses[0].orientation.w = 1.0;
+
+  planning_scene_diff_.attached_collision_objects.pop_back();
+  planning_scene_diff_.attached_collision_objects.push_back(att_obj);
   
   CallPlanningScene();
-
-  EXPECT_EQ(planning_scene.collision_objects[0].header.frame_id, "odom_combined");
-  EXPECT_LE(fabs(planning_scene.collision_objects[0].poses[0].position.x-4.5),VERY_SMALL);
-  EXPECT_LE(fabs(planning_scene.collision_objects[0].poses[0].position.y-.5),VERY_SMALL);
 
   //now they should be different
-  EXPECT_EQ(planning_scene.attached_collision_objects[0].object.header.frame_id, "r_gripper_palm_link");
-  EXPECT_EQ(planning_scene.attached_collision_objects[1].object.header.frame_id, "base_footprint");
-  //now the first one in should be slightly forward of the palm
-  EXPECT_GE(planning_scene.attached_collision_objects[0].object.poses[0].position.x,0.0);
-  EXPECT_LE(fabs(planning_scene.attached_collision_objects[1].object.poses[0].position.x-.12), VERY_SMALL); 
-}
+  EXPECT_EQ(planning_scene_.attached_collision_objects[0].object.header.frame_id, "odom_combined");
+  EXPECT_EQ(planning_scene_.attached_collision_objects[1].object.header.frame_id, "base_footprint");
 
-TEST_F(PlanningMonitorTest, ConvertPlanningConstraints)
-{
-  //todo - figure out a way to test transforms involving external frames
-  planning_scene_diff.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
-  planning_scene_diff.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
-  planning_scene_diff.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses.resize(1);
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
-  
-  motion_planning_msgs::PositionConstraint pos;
-  pos.header.frame_id = "base_footprint";
-  pos.header.stamp = ros::Time::now();
-  pos.link_name = "r_wrist_roll_link";
-  pos.target_point_offset.x = .5;
-  pos.constraint_region_orientation.w = 1.0;
-
-  goal_constraints.position_constraints.push_back(pos);
-
-  CallPlanningScene();
-
-  EXPECT_TRUE(transformed_goal_constraints.position_constraints[0].header.frame_id == "odom_combined");
-  EXPECT_LE(fabs(transformed_goal_constraints.position_constraints[0].target_point_offset.x-4.5), VERY_SMALL) ;
-  
-  //checking that if we turn around then we should subtract .5 in x
-
-  btQuaternion turn(btVector3(0,0,1), M_PI);
-
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.x = turn.x(); 
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.y = turn.y(); 
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.z = turn.z(); 
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.w = turn.w(); 
-  
-  CallPlanningScene();
-
-  EXPECT_TRUE(transformed_goal_constraints.position_constraints[0].header.frame_id == "odom_combined");
-  EXPECT_LE(fabs(transformed_goal_constraints.position_constraints[0].target_point_offset.x-3.5), VERY_SMALL) ;
-
+  test_collision_models.revertPlanningScene(state);
 }
 
 TEST_F(PlanningMonitorTest, ChangingRobotState)
 {
+
+  planning_environment::CollisionModels test_collision_models("robot_description");
+
   mapping_msgs::CollisionObject obj1;
   obj1.header.stamp = ros::Time::now();
   obj1.header.frame_id = "odom_combined";
@@ -286,86 +251,84 @@ TEST_F(PlanningMonitorTest, ChangingRobotState)
   obj1.poses[0].position.z = .8;
   obj1.poses[0].orientation.w = 1.0;
 
-  planning_scene_diff.collision_objects.push_back(obj1);
+  planning_scene_diff_.collision_objects.push_back(obj1);
 
   CallPlanningScene();
 
-  planning_environment::CollisionModels cm("robot_description");
-
-  planning_models::KinematicState* state = cm.setPlanningScene(planning_scene);
+  planning_models::KinematicState* state = test_collision_models.setPlanningScene(planning_scene_);
 
   //without transforming state nowhere near the table
   ASSERT_TRUE(state != NULL);
-  EXPECT_FALSE(cm.isKinematicStateInCollision(*state));
+  EXPECT_FALSE(test_collision_models.isKinematicStateInCollision(*state));
 
-  cm.revertPlanningScene(state);
+  test_collision_models.revertPlanningScene(state);
 
-  planning_scene_diff.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
-  planning_scene_diff.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
-  planning_scene_diff.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses.resize(1);
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
+  planning_scene_diff_.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
+  planning_scene_diff_.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses.resize(1);
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
 
   CallPlanningScene();
 
-  state = cm.setPlanningScene(planning_scene);
+  state = test_collision_models.setPlanningScene(planning_scene_);
 
   //expect collisions with table
   ASSERT_TRUE(state != NULL);
   std::map<std::string, double> joint_state_values;
   state->getKinematicStateValues(joint_state_values);
   EXPECT_EQ(joint_state_values["floating_trans_x"], 4.0);
-  EXPECT_TRUE(cm.isKinematicStateInCollision(*state));
-  EXPECT_FALSE(cm.isKinematicStateInSelfCollision(*state));
-  EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(*state));
+  EXPECT_TRUE(test_collision_models.isKinematicStateInCollision(*state));
+  EXPECT_FALSE(test_collision_models.isKinematicStateInSelfCollision(*state));
+  EXPECT_TRUE(test_collision_models.isKinematicStateInEnvironmentCollision(*state));
 
-  cm.revertPlanningScene(state);
+  test_collision_models.revertPlanningScene(state);
 
   //bad multi-dof
-  planning_scene_diff.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
-  planning_scene_diff.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.frame_ids[0] = "";
-  planning_scene_diff.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses.resize(1);
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
+  planning_scene_diff_.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
+  planning_scene_diff_.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.frame_ids[0] = "";
+  planning_scene_diff_.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses.resize(1);
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
 
   CallPlanningScene();
 
   //but now we shouldn't be in collision
-  state = cm.setPlanningScene(planning_scene);
+  state = test_collision_models.setPlanningScene(planning_scene_);
 
   ASSERT_TRUE(state != NULL);
   //expect collisions with table
   state->getKinematicStateValues(joint_state_values);
   EXPECT_EQ(joint_state_values["floating_trans_x"], 0.0);
-  EXPECT_FALSE(cm.isKinematicStateInCollision(*state));
+  EXPECT_FALSE(test_collision_models.isKinematicStateInCollision(*state));
 
-  cm.revertPlanningScene(state);
+  test_collision_models.revertPlanningScene(state);
 
-  planning_scene_diff.robot_state.multi_dof_joint_state.joint_names.clear();
-  planning_scene_diff.robot_state.multi_dof_joint_state.poses.clear();
-  planning_scene_diff.robot_state.multi_dof_joint_state.frame_ids.clear();
-  planning_scene_diff.robot_state.multi_dof_joint_state.child_frame_ids.clear();
+  planning_scene_diff_.robot_state.multi_dof_joint_state.joint_names.clear();
+  planning_scene_diff_.robot_state.multi_dof_joint_state.poses.clear();
+  planning_scene_diff_.robot_state.multi_dof_joint_state.frame_ids.clear();
+  planning_scene_diff_.robot_state.multi_dof_joint_state.child_frame_ids.clear();
   
-  planning_scene_diff.robot_state.joint_state.name.push_back("floating_trans_x");
-  planning_scene_diff.robot_state.joint_state.position.push_back(3.3);
+  planning_scene_diff_.robot_state.joint_state.name.push_back("floating_trans_x");
+  planning_scene_diff_.robot_state.joint_state.position.push_back(3.3);
 
   CallPlanningScene();
 
   //back in collision
-  state = cm.setPlanningScene(planning_scene);
+  state = test_collision_models.setPlanningScene(planning_scene_);
 
   ASSERT_TRUE(state != NULL);
   state->getKinematicStateValues(joint_state_values);
   EXPECT_EQ(joint_state_values["floating_trans_x"], 3.3);
-  EXPECT_TRUE(cm.isKinematicStateInCollision(*state));
-  EXPECT_FALSE(cm.isKinematicStateInSelfCollision(*state));
-  EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(*state));
+  EXPECT_TRUE(test_collision_models.isKinematicStateInCollision(*state));
+  EXPECT_FALSE(test_collision_models.isKinematicStateInSelfCollision(*state));
+  EXPECT_TRUE(test_collision_models.isKinematicStateInEnvironmentCollision(*state));
 
-  // cm.writePlanningSceneBag(ros::package::getPath("planning_environment")+"/test.bag",
+  // test_collision_models.writePlanningSceneBag(ros::package::getPath("planning_environment")+"/test.bag",
   //                          complete_robot_state,
   //                          allowed_collision_matrix,
   //                          transformed_allowed_contacts,
@@ -374,32 +337,33 @@ TEST_F(PlanningMonitorTest, ChangingRobotState)
   //                          all_attached_collision_objects,
   //                          unmasked_collision_map);
 
-  cm.revertPlanningScene(state);
+  test_collision_models.revertPlanningScene(state);
 
   //now we turn out of collision
-  planning_scene_diff.robot_state.joint_state.name.push_back("floating_rot_z");
-  planning_scene_diff.robot_state.joint_state.name.push_back("floating_rot_w");
-  planning_scene_diff.robot_state.joint_state.position.push_back(.7071);
-  planning_scene_diff.robot_state.joint_state.position.push_back(.7071);
+  planning_scene_diff_.robot_state.joint_state.name.push_back("floating_rot_z");
+  planning_scene_diff_.robot_state.joint_state.name.push_back("floating_rot_w");
+  planning_scene_diff_.robot_state.joint_state.position.push_back(.7071);
+  planning_scene_diff_.robot_state.joint_state.position.push_back(.7071);
 
   CallPlanningScene();
 
-  state = cm.setPlanningScene(planning_scene);
+  state = test_collision_models.setPlanningScene(planning_scene_);
 
   ASSERT_TRUE(state != NULL);
-  EXPECT_FALSE(cm.isKinematicStateInCollision(*state));
+  EXPECT_FALSE(test_collision_models.isKinematicStateInCollision(*state));
 
-  cm.revertPlanningScene(state);
+  test_collision_models.revertPlanningScene(state);
 }
 
 TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 {
+
+  std::string robot_description_name = nh_.resolveName("robot_description", true);
+  planning_environment::CollisionModelsInterface test_collision_models(robot_description_name);
+
   //this test is important because calling the service calls collision checking from a different thread
-
-  planning_environment::CollisionModelsInterface cm("robot_description");
-
-  cm.addSetPlanningSceneCallback(boost::bind(&PlanningMonitorTest::setPlanningSceneCallback, this, _1));
-  cm.addRevertPlanningSceneCallback(boost::bind(&PlanningMonitorTest::revertPlanningSceneCallback, this));
+  test_collision_models.addSetPlanningSceneCallback(boost::bind(&PlanningMonitorTest::setPlanningSceneCallback, this, _1));
+  test_collision_models.addRevertPlanningSceneCallback(boost::bind(&PlanningMonitorTest::revertPlanningSceneCallback, this));
 
   CallPlanningScene();
 
@@ -409,7 +373,7 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 
   planning_environment_msgs::SetPlanningSceneGoal goal;
   
-  goal.planning_scene = planning_scene;
+  goal.planning_scene = planning_scene_;
 
   ros::AsyncSpinner async(2);
   async.start();
@@ -423,7 +387,7 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
   EXPECT_TRUE(gs == actionlib::SimpleClientGoalState::SUCCEEDED);
 
   EXPECT_TRUE(got_set_callback_);
-  EXPECT_FALSE(cm.isKinematicStateInCollision(*(cm.getPlanningSceneState())));
+  EXPECT_FALSE(test_collision_models.isKinematicStateInCollision(*(test_collision_models.getPlanningSceneState())));
 
   gs = ac.sendGoalAndWait(goal);
 
@@ -431,9 +395,9 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
   
   EXPECT_TRUE(got_revert_callback_);
 
-  EXPECT_FALSE(cm.isKinematicStateInCollision(*(cm.getPlanningSceneState())));
+  EXPECT_FALSE(test_collision_models.isKinematicStateInCollision(*(test_collision_models.getPlanningSceneState())));
 
-  EXPECT_TRUE(cm.getPlanningSceneState() != NULL);
+  EXPECT_TRUE(test_collision_models.getPlanningSceneState() != NULL);
   
 }
 

@@ -46,7 +46,8 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
   revert_planning_scene_callback_ = NULL;
 
   action_server_ = new actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction>(priv_nh_, "set_planning_scene",
-                                                                                                        boost::bind(&CollisionModelsInterface::setPlanningSceneCallback, this, _1), true);
+                                                                                                        boost::bind(&CollisionModelsInterface::setPlanningSceneCallback, this, _1), false);
+  action_server_->start();
 }
 
 planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
@@ -61,7 +62,10 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   planning_environment_msgs::SetPlanningSceneResult res;
   res.ok = true;
 
+  ROS_INFO("Setting planning scene");
+
   if(planning_scene_set_) {
+    ROS_INFO("Reverting planning scene");
     revertPlanningScene(planning_scene_state_);
     planning_scene_state_ = NULL;
     if(revert_planning_scene_callback_ != NULL) {

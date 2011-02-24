@@ -225,27 +225,57 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
   revertAllowedCollisionToDefault();
   revertCollisionSpacePaddingToDefault();
 
-  for(unsigned int i = 0; i < planning_scene.collision_objects.size(); i++) {
-    if(planning_scene.collision_objects[i].header.frame_id != getWorldFrameId()) {
-      ROS_WARN_STREAM("Can't cope with objects not in " << getWorldFrameId());
+  scene_transform_map_.clear();
+
+  for(unsigned int i = 0; i < planning_scene.fixed_frame_transforms.size(); i++) {
+    if(planning_scene.fixed_frame_transforms[i].header.frame_id != getWorldFrameId()) {
+      ROS_WARN_STREAM("Fixed transform for " << planning_scene.fixed_frame_transforms[i].child_frame_id 
+                      << " has non-fixed header frame "  << planning_scene.fixed_frame_transforms[i].header.frame_id);
       return NULL;
     }
+    scene_transform_map_[planning_scene.fixed_frame_transforms[i].child_frame_id] = planning_scene.fixed_frame_transforms[i];
+  }
+
+  planning_models::KinematicState* state = new planning_models::KinematicState(kmodel_);
+  bool complete = setRobotStateAndComputeTransforms(planning_scene.robot_state, *state);
+  if(!complete) {
+    ROS_WARN_STREAM("Incomplete robot state in setPlanningScene");
+    delete state;
+    return NULL;
+  }
+  planning_scene_set_ = true;
+
+  std::vector<mapping_msgs::CollisionObject> conv_objects;
+  std::vector<mapping_msgs::AttachedCollisionObject> conv_att_objects;
+
+  //need to do conversions first so we can delet the planning state
+  for(unsigned int i = 0; i < planning_scene.collision_objects.size(); i++) {
     if(planning_scene.collision_objects[i].operation.operation != mapping_msgs::CollisionObjectOperation::ADD) {
       ROS_WARN_STREAM("Planning scene shouldn't have collision operations other than add");
+      delete state;
       return NULL;
     }
-    addStaticObject(planning_scene.collision_objects[i]);
+    conv_objects.push_back(planning_scene.collision_objects[i]);
+    convertCollisionObjectToNewWorldFrame(*state, conv_objects.back());
   }
   for(unsigned int i = 0; i < planning_scene.attached_collision_objects.size(); i++) {
-    if(planning_scene.attached_collision_objects[i].object.header.frame_id != planning_scene.attached_collision_objects[i].link_name) {
-      ROS_WARN_STREAM("All attached objects must be in their attached link frame");
-      return NULL;
-    }
     if(planning_scene.attached_collision_objects[i].object.operation.operation != mapping_msgs::CollisionObjectOperation::ADD) {
       ROS_WARN_STREAM("Planning scene shouldn't have collision operations other than add");
+      delete state;
       return NULL;
     }
-    addAttachedObject(planning_scene.attached_collision_objects[i]);
+    conv_att_objects.push_back(planning_scene.attached_collision_objects[i]);
+    convertAttachedCollisionObjectToNewWorldFrame(*state, conv_att_objects.back());
+  }
+
+  //now we delete temp_state to release the lock
+  delete state;
+  
+  for(unsigned int i = 0; i < conv_objects.size(); i++) {
+    addStaticObject(conv_objects[i]);
+  }
+  for(unsigned int i = 0; i < conv_att_objects.size(); i++) {
+    addAttachedObject(conv_att_objects[i]);
   }
 
   if(planning_scene.link_padding.size() > 0) {
@@ -257,14 +287,10 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
   //TODO - allowed contacts
   setCollisionMap(planning_scene.collision_map, true);
 
-  planning_models::KinematicState* state = new planning_models::KinematicState(kmodel_);
-  bool complete = setRobotStateAndComputeTransforms(planning_scene.robot_state, *state);
-  if(!complete) {
-    ROS_WARN_STREAM("Incomplete robot state in setPlanningScene");
-    delete state;
-    return NULL;
-  }
-  planning_scene_set_ = true;
+  //now we create again
+  state = new planning_models::KinematicState(kmodel_);
+  setRobotStateAndComputeTransforms(planning_scene.robot_state, *state);  
+
   return state;
 }
 
@@ -275,6 +301,241 @@ void planning_environment::CollisionModels::revertPlanningScene(planning_models:
   deleteAllAttachedObjects();
   revertAllowedCollisionToDefault();
   revertCollisionSpacePaddingToDefault();
+}
+
+///
+///  Conversion functions
+///
+
+bool planning_environment::CollisionModels::convertPoseGivenWorldTransform(const planning_models::KinematicState& state,
+                                                                           const std::string& des_frame_id,
+                                                                           const std_msgs::Header& header,
+                                                                           const geometry_msgs::Pose& pose,
+                                                                           geometry_msgs::PoseStamped& ret_pose) const
+{
+  ret_pose.header = header;
+  ret_pose.pose = pose;
+
+  bool header_is_fixed_frame = (header.frame_id == getWorldFrameId());
+  bool des_is_fixed_frame = (des_frame_id == getWorldFrameId());
+
+  //Scenario 1(fixed->fixed): if pose is in the world frame and
+  //desired is in the world frame, just return
+  if(header_is_fixed_frame && des_is_fixed_frame) {
+    return true;
+  }
+  const planning_models::KinematicState::LinkState* header_link_state = state.getLinkState(header.frame_id);
+  const planning_models::KinematicState::LinkState* des_link_state = state.getLinkState(des_frame_id);
+  
+  bool header_is_robot_frame = (header_link_state != NULL);
+  bool des_is_robot_frame = (des_link_state != NULL);
+
+  bool header_is_other_frame = !header_is_fixed_frame && !header_is_robot_frame;
+  bool des_is_other_frame = !des_is_fixed_frame && !des_is_robot_frame;
+
+  //Scenario 2(*-> other): We can't deal with desired being in a
+  //non-fixed frame or relative to the robot.  TODO - decide if this is useful
+  if(des_is_other_frame) {
+    ROS_WARN_STREAM("Shouldn't be transforming into non-fixed non-robot frame " << des_frame_id);
+    return false;
+  }
+
+  //Scenario 3 (other->fixed) && 4 (other->robot): we first need to
+  //transform into the fixed frame
+  if(header_is_other_frame) {
+    if(scene_transform_map_.find(header.frame_id) == scene_transform_map_.end()) {
+      ROS_WARN_STREAM("Planning scene didn't contain transform " << header.frame_id << " so can't transform");
+      return false;
+    }
+    geometry_msgs::TransformStamped trans = scene_transform_map_.find(header.frame_id)->second;
+    
+    tf::Transform tf_trans;
+    tf::transformMsgToTF(trans.transform, tf_trans);
+    btTransform tf_pose;
+    tf::poseMsgToTF(ret_pose.pose, tf_pose);
+    
+    btTransform fpose = tf_trans*tf_pose;
+
+    //assumes that we've already checked that this matched the world frame
+    ret_pose.header.frame_id = getWorldFrameId();
+    tf::poseTFToMsg(fpose, ret_pose.pose);
+
+    if(des_is_fixed_frame) {
+      return true;
+    }
+  }
+  
+  //getting tf version of pose
+  btTransform bt_pose;
+  tf::poseMsgToTF(ret_pose.pose,bt_pose);
+
+  //Scenarios 4(other->robot)/5(fixed->robot): We either started out
+  //with a header frame in the fixed frame or converted from a
+  //non-robot frame into the fixed frame, and now we need to transform
+  //into the desired robot frame given the new world transform
+  if(ret_pose.header.frame_id == getWorldFrameId() && des_is_robot_frame) {
+    btTransform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*bt_pose;
+    tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
+    ret_pose.header.frame_id = des_link_state->getName();
+  } else if(header_is_robot_frame && des_is_fixed_frame) {
+    //Scenario 6(robot->fixed): Just need to look up robot transform and pre-multiply
+    btTransform trans_bt_pose = header_link_state->getGlobalLinkTransform()*bt_pose;
+    tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
+    ret_pose.header.frame_id = getWorldFrameId();
+  } else if(header_is_robot_frame && des_is_robot_frame) {
+    //Scenario 7(robot->robot): Completely tf independent
+    btTransform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*(header_link_state->getGlobalLinkTransform()*bt_pose);
+    tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
+    ret_pose.header.frame_id = des_link_state->getName();
+  } else {
+    ROS_WARN("Really shouldn't have gotten here");
+    return false;
+  }
+  return true;
+}
+
+bool planning_environment::CollisionModels::convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
+                                                                                          mapping_msgs::AttachedCollisionObject& att_obj) const
+{
+  for(unsigned int i = 0; i < att_obj.object.poses.size(); i++) {
+    geometry_msgs::PoseStamped ret_pose;    
+    if(!convertPoseGivenWorldTransform(state,
+                                       att_obj.link_name,
+                                       att_obj.object.header,
+                                       att_obj.object.poses[i],
+                                       ret_pose)) {
+      return false;
+    }
+    if(i == 0) {
+      att_obj.object.header = ret_pose.header;
+    }
+    att_obj.object.poses[i] = ret_pose.pose;
+  }
+  return true;
+}
+
+bool planning_environment::CollisionModels::convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
+                                                                                  mapping_msgs::CollisionObject& obj) const
+{
+  for(unsigned int i = 0; i < obj.poses.size(); i++) {
+    geometry_msgs::PoseStamped ret_pose;
+    if(!convertPoseGivenWorldTransform(state,
+                                       getWorldFrameId(),
+                                       obj.header,
+                                       obj.poses[i],
+                                       ret_pose)) {
+      return false;
+    }
+    if(i == 0) {
+      obj.header = ret_pose.header;
+    }
+    obj.poses[i] = ret_pose.pose;
+  }
+  return true;
+}
+
+bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
+                                                                                     motion_planning_msgs::Constraints& constraints) const {
+  std::string fixed_frame = getWorldFrameId();
+  for(unsigned int i = 0; i < constraints.position_constraints.size(); i++) {
+    geometry_msgs::PointStamped ps;
+    if(!convertPointGivenWorldTransform(state,
+                                        fixed_frame,
+                                        constraints.position_constraints[i].header,
+                                        constraints.position_constraints[i].target_point_offset,
+                                        ps)) {
+      return false;
+    }
+
+    constraints.position_constraints[i].header = ps.header;
+    constraints.position_constraints[i].target_point_offset = ps.point;
+
+    if(!convertPointGivenWorldTransform(state,
+                                        fixed_frame,
+                                        constraints.position_constraints[i].header,
+                                        constraints.position_constraints[i].position,
+                                        ps)) {
+      return false;
+    }
+    constraints.position_constraints[i].position = ps.point;
+    
+    geometry_msgs::QuaternionStamped qs;
+    if(!convertQuaternionGivenWorldTransform(state,
+                                             fixed_frame,                                     
+                                             constraints.position_constraints[i].header,
+                                             constraints.position_constraints[i].constraint_region_orientation,
+                                             qs)) {
+      return false;
+    }
+    constraints.position_constraints[i].constraint_region_orientation = qs.quaternion; 
+  }
+  
+  for(unsigned int i = 0; i < constraints.orientation_constraints.size(); i++) {
+    geometry_msgs::QuaternionStamped qs;
+    if(!convertQuaternionGivenWorldTransform(state,
+                                             fixed_frame,
+                                             constraints.orientation_constraints[i].header,
+                                             constraints.orientation_constraints[i].orientation,
+                                             qs)) {
+      return false;
+    }
+    constraints.orientation_constraints[i].header = qs.header;
+    constraints.orientation_constraints[i].orientation = qs.quaternion; 
+  }
+  
+  for(unsigned int i = 0; i < constraints.visibility_constraints.size(); i++) {
+    if(!convertPointGivenWorldTransform(state,
+                                        fixed_frame,
+                                        constraints.visibility_constraints[i].target.header,
+                                        constraints.visibility_constraints[i].target.point,
+                                        constraints.visibility_constraints[i].target)) {
+      return false;
+    }
+  }  
+  return true;
+}
+
+bool planning_environment::CollisionModels::convertPointGivenWorldTransform(const planning_models::KinematicState& state,
+                                                                            const std::string& des_frame_id,
+                                                                            const std_msgs::Header& header,
+                                                                            const geometry_msgs::Point& point,
+                                                                            geometry_msgs::PointStamped& ret_point) const
+{
+  geometry_msgs::Pose arg_pose;
+  arg_pose.position = point;
+  arg_pose.orientation.w = 1.0;
+  geometry_msgs::PoseStamped ret_pose;
+  if(!convertPoseGivenWorldTransform(state, 
+                                     des_frame_id,
+                                     header,
+                                     arg_pose,
+                                     ret_pose)) {
+    return false;
+  }
+  ret_point.header = ret_pose.header;
+  ret_point.point = ret_pose.pose.position;
+  return true;
+}
+
+bool planning_environment::CollisionModels::convertQuaternionGivenWorldTransform(const planning_models::KinematicState& state,
+                                                                                 const std::string& des_frame_id,
+                                                                                 const std_msgs::Header& header,
+                                                                                 const geometry_msgs::Quaternion& quat,
+                                                                                 geometry_msgs::QuaternionStamped& ret_quat) const
+{
+  geometry_msgs::Pose arg_pose;
+  arg_pose.orientation = quat;
+  geometry_msgs::PoseStamped ret_pose;
+  if(!convertPoseGivenWorldTransform(state, 
+                                     des_frame_id,
+                                     header,
+                                     arg_pose,
+                                     ret_pose)) {
+    return false;
+  }
+  ret_quat.header = ret_pose.header;
+  ret_quat.quaternion = ret_pose.pose.orientation;
+  return true;
 }
 
 void planning_environment::CollisionModels::updateRobotModelPose(const planning_models::KinematicState& state)
@@ -535,7 +796,9 @@ void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::
   } else {
     kmodel_->clearLinkAttachedBodyModels(link_name);
   }
+  ode_collision_model_->lock();
   ode_collision_model_->updateAttachedBodies();
+  ode_collision_model_->unlock();
 }
 
 bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(const std::string& object_name,
@@ -765,11 +1028,15 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mappin
 }
 
 void planning_environment::CollisionModels::revertAllowedCollisionToDefault() {
+  ode_collision_model_->lock();
   ode_collision_model_->revertAlteredCollisionMatrix();
+  ode_collision_model_->unlock();
 }
 
 void planning_environment::CollisionModels::revertCollisionSpacePaddingToDefault() {
+  ode_collision_model_->lock();
   ode_collision_model_->revertAlteredLinkPadding();
+  ode_collision_model_->unlock();
 }
 
 void planning_environment::CollisionModels::getCollisionSpaceAllowedCollisions(planning_environment_msgs::AllowedCollisionMatrix& ret_matrix) const {
@@ -890,6 +1157,31 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
     contact_info.position.z = contact.pos.z();
     contacts.push_back(contact_info);
   }
+}
+
+bool planning_environment::CollisionModels::isKinematicStateValid(const planning_models::KinematicState& state,
+                                                                  const std::vector<std::string>& names,
+                                                                  motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                                                                  const motion_planning_msgs::Constraints goal_constraints,
+                                                                  const motion_planning_msgs::Constraints path_constraints)
+{
+  if(!state.areJointsWithinBounds(names)) {
+    error_code.val = error_code.JOINT_LIMITS_VIOLATED;
+    return false;
+  }
+  if(!doesKinematicStateObeyConstraints(state, path_constraints)) {
+    error_code.val = error_code.PATH_CONSTRAINTS_VIOLATED;
+    return false;
+  }
+  if(!doesKinematicStateObeyConstraints(state, goal_constraints)) {
+    error_code.val = error_code.GOAL_CONSTRAINTS_VIOLATED;
+    return false;
+  }
+  if(!isKinematicStateInCollision(state)) {
+    error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;
+    return false;
+  }
+  return true;
 }
 
 bool planning_environment::CollisionModels::isTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
@@ -1040,6 +1332,28 @@ bool planning_environment::CollisionModels::isTrajectoryValid(planning_models::K
     }
   }
   return(error_code.val == error_code.SUCCESS);
+}
+
+double planning_environment::CollisionModels::getTotalTrajectoryJointLength(planning_models::KinematicState& state,
+                                                                          const trajectory_msgs::JointTrajectory& jtraj) const 
+{
+  std::map<std::string, double> all_joint_state_values;
+  state.getKinematicStateValues(all_joint_state_values);
+
+  std::map<std::string, double> joint_positions;
+  for(unsigned int i = 0; i < jtraj.joint_names.size(); i++) {
+    joint_positions[jtraj.joint_names[i]] = all_joint_state_values[jtraj.joint_names[i]];
+  }
+  double total_path_length = 0.0;
+  for(unsigned int i = 0; i < jtraj.points.size(); i++) {
+    for(unsigned int j = 0; j < jtraj.joint_names.size(); j++) {
+      joint_positions[jtraj.joint_names[j]] = jtraj.points[i].positions[j];
+      if(i != jtraj.points.size()-1) {
+        total_path_length += fabs(jtraj.points[i+1].positions[j]-joint_positions[jtraj.joint_names[j]]);
+      }
+    }
+  }
+  return total_path_length;
 }
 
 //visualization functions

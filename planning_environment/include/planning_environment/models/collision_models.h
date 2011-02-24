@@ -38,7 +38,7 @@
 #define PLANNING_ENVIRONMENT_MODELS_COLLISION_MODELS_
 
 #include "planning_environment/models/robot_models.h"
-
+#include <tf/tf.h>
 #include <collision_space/environment.h>
 #include <planning_environment_msgs/PlanningScene.h>
 #include <geometric_shapes_msgs/Shape.h>
@@ -69,10 +69,47 @@ public:
   CollisionModels(const std::string &description);
 
   virtual ~CollisionModels(void);
- 
+
+  //
+  // Planning scene functions
+  //
   planning_models::KinematicState* setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene);
 
   void revertPlanningScene(planning_models::KinematicState* state);
+
+  // 
+  // Planning scene and state based transform functions
+  //
+  bool convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
+                                                     mapping_msgs::AttachedCollisionObject& att_obj) const;
+  
+  bool convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
+                                             mapping_msgs::CollisionObject& obj) const;
+  
+  bool convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
+                                                motion_planning_msgs::Constraints& constraints) const;
+  
+  bool convertPoseGivenWorldTransform(const planning_models::KinematicState& state,
+                                      const std::string& des_frame_id,
+                                      const std_msgs::Header& header,
+                                      const geometry_msgs::Pose& pose,
+                                      geometry_msgs::PoseStamped& ret_pose) const;
+
+  bool convertPointGivenWorldTransform(const planning_models::KinematicState& state,
+                                       const std::string& des_frame_id,
+                                       const std_msgs::Header& header,
+                                       const geometry_msgs::Point& point,
+                                       geometry_msgs::PointStamped& ret_point) const;
+  
+  bool convertQuaternionGivenWorldTransform(const planning_models::KinematicState& state,
+                                            const std::string& des_frame_id,
+                                            const std_msgs::Header& header,
+                                            const geometry_msgs::Quaternion& quat,
+                                            geometry_msgs::QuaternionStamped& ret_quat) const;
+
+  //
+  // Object handling functions
+  //
     
   void updateRobotModelPose(const planning_models::KinematicState& state);
 
@@ -122,6 +159,10 @@ public:
   bool convertAttachedObjectToStaticObject(const std::string& object_name,
                                            const std::string& link_name);
 
+  //
+  // Handling collision space functions
+  //
+
   void applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding);
 
   void getCurrentLinkPadding(std::vector<motion_planning_msgs::LinkPadding>& link_padding);
@@ -135,12 +176,16 @@ public:
   
   bool setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm);
 
+  bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& al,
+                             collision_space::EnvironmentModel::AllowedContact& allowed_contact) const;
+
+  //
+  // Collision space accessors
+  //
+
   const collision_space::EnvironmentModel::AllowedCollisionMatrix& getCurrentAllowedCollisionMatrix() const;
 
   const collision_space::EnvironmentModel::AllowedCollisionMatrix& getDefaultAllowedCollisionMatrix() const;
-
-  bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& al,
-                             collision_space::EnvironmentModel::AllowedContact& allowed_contact) const;
 
   void getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const;
 
@@ -150,6 +195,10 @@ public:
   void getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject>& omap) const;
 
   void getCollisionSpaceAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject>& avec) const;
+
+  //
+  // Functions for checking collisions and validity
+  //
   
   bool isKinematicStateInCollision(const planning_models::KinematicState& state);
 
@@ -163,6 +212,12 @@ public:
   void getAllCollisionsForState(const planning_models::KinematicState& state,
                                 std::vector<planning_environment_msgs::ContactInformation>& contacts,
                                 unsigned int num_per_pair = 1);
+
+  bool isKinematicStateValid(const planning_models::KinematicState& state,
+                             const std::vector<std::string>& names,
+                             motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                             const motion_planning_msgs::Constraints goal_constraints,
+                             const motion_planning_msgs::Constraints path_constraints);
 
   bool isTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
                          const trajectory_msgs::JointTrajectory &trajectory,
@@ -179,6 +234,13 @@ public:
                          motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                          std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                          const bool evaluate_entire_trajectory);  
+
+  double getTotalTrajectoryJointLength(planning_models::KinematicState& state,
+                                       const trajectory_msgs::JointTrajectory &trajectory) const;                         
+
+  //
+  // Visualization functions
+  //
 
   void getAllCollisionSpaceObjectMarkers(visualization_msgs::MarkerArray& arr,
                                          const std_msgs::ColorRGBA static_color,
@@ -263,6 +325,8 @@ protected:
 
   std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;
   std::map<std::string, double> default_link_padding_map_;
+
+  std::map<std::string, geometry_msgs::TransformStamped> scene_transform_map_;
 
 };
     

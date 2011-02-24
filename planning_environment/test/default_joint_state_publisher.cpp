@@ -53,11 +53,32 @@ int main(int argc, char** argv)
   //for odom combined
   tf::TransformBroadcaster odom_broadcaster;
 
+  std::vector<geometry_msgs::TransformStamped> trans_vector;
+  
   geometry_msgs::TransformStamped odom_ident;
   odom_ident.header.frame_id = "odom_combined";
   odom_ident.child_frame_id = "base_footprint";
   odom_ident.transform.rotation.w = 1.0;
-  
+
+  trans_vector.push_back(odom_ident);
+
+  geometry_msgs::TransformStamped map_to_odom;
+  map_to_odom.header.frame_id = "map";
+  map_to_odom.child_frame_id = "odom_combined";  
+  map_to_odom.transform.translation.x = -3.0;
+  map_to_odom.transform.rotation.w = 1.0;
+
+  trans_vector.push_back(map_to_odom);
+
+  geometry_msgs::TransformStamped map_to_stapler;
+  map_to_stapler.header.frame_id = "map";
+  map_to_stapler.child_frame_id = "map_to_stapler";  
+  map_to_stapler.transform.translation.x = 1.0;
+  map_to_stapler.transform.translation.y = -3.0;
+  map_to_stapler.transform.rotation.w = 1.0;
+
+  trans_vector.push_back(map_to_stapler);
+
   std::string robot_description_name = nh.resolveName("robot_description", true);
   
   ros::WallRate h(10.0);
@@ -95,10 +116,14 @@ int main(int argc, char** argv)
 
   ros::WallRate r(100.0);
   while(nh.ok()) {
-    joint_state.header.stamp = ros::Time::now();
+    ros::Time ts = ros::Time::now();
+    
+    joint_state.header.stamp = ts;
     joint_state_publisher.publish(joint_state);
-    odom_ident.header.stamp = ros::Time::now();
-    odom_broadcaster.sendTransform(odom_ident);
+    for(unsigned int i = 0; i < trans_vector.size(); i++) {
+      trans_vector[i].header.stamp = ts;
+    }
+    odom_broadcaster.sendTransform(trans_vector);
     ros::spinOnce();
     r.sleep();
   }

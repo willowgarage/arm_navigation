@@ -56,12 +56,7 @@ void planning_environment::PlanningMonitor::loadParams(void)
 bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::string& group_name,
                                                                      const planning_environment_msgs::PlanningScene& planning_diff,
                                                                      const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
-                                                                     const motion_planning_msgs::Constraints& goal_constraints,
-                                                                     const motion_planning_msgs::Constraints& path_constraints,
-                                                                     planning_environment_msgs::PlanningScene& planning_scene,
-                                                                     motion_planning_msgs::Constraints& transformed_goal_constraints,
-                                                                     motion_planning_msgs::Constraints& transformed_path_constraints)
-{
+                                                                     planning_environment_msgs::PlanningScene& planning_scene){
   //creating state    
   planning_models::KinematicState set_state(getKinematicModel());    
   //setting state to current values
@@ -74,17 +69,13 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
                                     last_joint_state_update_,
                                     cm_->getWorldFrameId(),
                                     planning_scene.robot_state);
+  //getting full list of tf transforms not associated with the robot's body
+  getAllFixedFrameTransforms(planning_scene.fixed_frame_transforms);
   
+
   //this transform 
   btTransform set_world_transform = set_state.getRootTransform();
   
-  transformed_goal_constraints = goal_constraints;
-  convertConstraintsGivenNewWorldTransform(set_state,
-                                           transformed_goal_constraints);
-  transformed_path_constraints = path_constraints;
-  convertConstraintsGivenNewWorldTransform(set_state,
-                                           transformed_path_constraints);
-
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm_->getCollisionSpace()->getDefaultAllowedCollisionMatrix();
   
   //first we deal with collision object diffs
@@ -128,8 +119,6 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
         acm.addEntry(object_name, false);
       }
       planning_scene.collision_objects.push_back(planning_diff.collision_objects[i]);
-      convertCollisionObjectToNewWorldFrame(set_state,
-                                            planning_scene.collision_objects.back());
     }
   }
   
@@ -201,8 +190,6 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
           acm.changeEntry(planning_diff.attached_collision_objects[i].object.id, planning_diff.attached_collision_objects[i].touch_links[j], true);
         }
         planning_scene.attached_collision_objects.push_back(planning_diff.attached_collision_objects[i]);
-        convertAttachedCollisionObjectToNewWorldFrame(set_state,
-                                                      planning_scene.attached_collision_objects.back());
       }
     }
   }
@@ -238,202 +225,56 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
   return true;
 }   
 
-void planning_environment::PlanningMonitor::convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                                                                          mapping_msgs::AttachedCollisionObject& att_obj) const
+void planning_environment::PlanningMonitor::getAllFixedFrameTransforms(std::vector<geometry_msgs::TransformStamped>& transform_vec)
 {
-  for(unsigned int i = 0; i < att_obj.object.poses.size(); i++) {
-    geometry_msgs::PoseStamped ret_pose = convertPoseGivenWorldTransform(state,
-                                                                         att_obj.link_name,
-                                                                         att_obj.object.header,
-                                                                         att_obj.object.poses[i]);
-    if(i == 0) {
-      att_obj.object.header = ret_pose.header;
-    }
-    att_obj.object.poses[i] = ret_pose.pose;
-  }
-}
+  transform_vec.clear();
 
-void planning_environment::PlanningMonitor::convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                                                                  mapping_msgs::CollisionObject& obj) const
-{
-  for(unsigned int i = 0; i < obj.poses.size(); i++) {
-    geometry_msgs::PoseStamped ret_pose = convertPoseGivenWorldTransform(state,
-                                                                         cm_->getWorldFrameId(),
-                                                                         obj.header,
-                                                                         obj.poses[i]);
-    if(i == 0) {
-      obj.header = ret_pose.header;
-    }
-    obj.poses[i] = ret_pose.pose;
-  }
-}
-
-void planning_environment::PlanningMonitor::convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
-                                                                                     motion_planning_msgs::Constraints& constraints) const {
-  std::string fixed_frame = cm_->getWorldFrameId();
-  for(unsigned int i = 0; i < constraints.position_constraints.size(); i++) {
-    geometry_msgs::PointStamped ps = convertPointGivenWorldTransform(state,
-                                                                     fixed_frame,
-                                                                     constraints.position_constraints[i].header,
-                                                                     constraints.position_constraints[i].target_point_offset);
-    constraints.position_constraints[i].header = ps.header;
-    constraints.position_constraints[i].target_point_offset = ps.point;
-
-    ps = convertPointGivenWorldTransform(state,
-                                         fixed_frame,
-                                         constraints.position_constraints[i].header,
-                                         constraints.position_constraints[i].position);
-    constraints.position_constraints[i].position = ps.point;
-
-    geometry_msgs::QuaternionStamped qs = convertQuaternionGivenWorldTransform(state,
-                                                                               fixed_frame,                                     
-                                                                               constraints.position_constraints[i].header,
-                                                                               constraints.position_constraints[i].constraint_region_orientation);
-    constraints.position_constraints[i].constraint_region_orientation = qs.quaternion; 
-  }
-  
-  for(unsigned int i = 0; i < constraints.orientation_constraints.size(); i++) {
-    geometry_msgs::QuaternionStamped qs = convertQuaternionGivenWorldTransform(state,
-                                                                               fixed_frame,
-                                                                               constraints.orientation_constraints[i].header,
-                                                                               constraints.orientation_constraints[i].orientation);
-    constraints.orientation_constraints[i].header = qs.header;
-    constraints.orientation_constraints[i].orientation = qs.quaternion; 
-  }
-
-  for(unsigned int i = 0; i < constraints.visibility_constraints.size(); i++) {
-    constraints.visibility_constraints[i].target = convertPointGivenWorldTransform(state,
-                                                                                   fixed_frame,
-                                                                                   constraints.visibility_constraints[i].target.header,
-                                                                                   constraints.visibility_constraints[i].target.point);
-  }  
-}
-
-geometry_msgs::PoseStamped 
-planning_environment::PlanningMonitor::convertPoseGivenWorldTransform(const planning_models::KinematicState& state,
-                                                                      const std::string& des_frame_id,
-                                                                      const std_msgs::Header& header,
-                                                                      const geometry_msgs::Pose& pose) const
-{
-  geometry_msgs::PoseStamped ret_pose;
-  ret_pose.header = header;
-  ret_pose.pose = pose;
-
-  bool header_is_fixed_frame = (header.frame_id == cm_->getWorldFrameId());
-  bool des_is_fixed_frame = (des_frame_id == cm_->getWorldFrameId());
-
-  //Scenario 1(fixed->fixed): if pose is in the world frame and
-  //desired is in the world frame, just return
-  if(header_is_fixed_frame && des_is_fixed_frame) {
-    return ret_pose;
-  }
-  const planning_models::KinematicState::LinkState* header_link_state = state.getLinkState(header.frame_id);
-  const planning_models::KinematicState::LinkState* des_link_state = state.getLinkState(des_frame_id);
-  
-  bool header_is_robot_frame = (header_link_state != NULL);
-  bool des_is_robot_frame = (des_link_state != NULL);
-
-  bool header_is_other_frame = !header_is_fixed_frame && !header_is_robot_frame;
-  bool des_is_other_frame = !des_is_fixed_frame && !des_is_robot_frame;
-  
-  //Scenario 2(*-> other): We can't deal with desired being in a
-  //non-fixed frame or relative to the robot
-  if(des_is_other_frame) {
-    ROS_WARN_STREAM("Shouldn't be transforming into non-fixed non-robot frame " << des_frame_id);
-    return ret_pose;
-  }
-
-  //Scenario 3 (other->fixed) && 4 (other->robot): we first need to
-  //transform into the fixed frame
-  if(header_is_other_frame) {
-    ros::Time tm;
-    std::string err_string;
-    if(tf_->canTransform(cm_->getWorldFrameId(), header.frame_id, header.stamp)) {
-      tm = header.stamp;
-    } else if (tf_->getLatestCommonTime(cm_->getWorldFrameId(), header.frame_id, tm, &err_string) != tf::NO_ERROR) {
-      ROS_WARN_STREAM("No transform whatsoever available between " << des_frame_id << " and " << header.frame_id);
-      return ret_pose;
-    }
-    ret_pose.header.stamp = tm;
-    geometry_msgs::PoseStamped trans_pose;
-    try {
-      tf_->transformPose(cm_->getWorldFrameId(), ret_pose, trans_pose);
-    } catch(tf::TransformException& ex) {
-      ROS_ERROR_STREAM("Unable to transform object from frame " << header.frame_id << " to " << cm_->getWorldFrameId() << " tf error is " << ex.what());
-      return ret_pose;
-    }
-    ret_pose = trans_pose;
-    //Scenario 3 (other->fixed): The tf lookup for current state
-    //accomplises everything if the desired is the odom combined frame
-    if(des_is_fixed_frame) {
-      return ret_pose;
+  std::vector<std::string> all_frame_names;
+  tf_->getFrameStrings(all_frame_names);
+  //TODO - doesn't cope with tf namespaces
+  //takes out leading slashes
+  for(unsigned int i = 0; i < all_frame_names.size(); i++) {
+    if(!all_frame_names[i].empty() && all_frame_names[i][0] == '/') {
+      all_frame_names[i].erase(all_frame_names[i].begin());
     }
   }
-  
-  //getting tf version of pose
-  btTransform bt_pose;
-  tf::poseMsgToTF(ret_pose.pose,bt_pose);
-
-  //Scenarios 4(other->robot)/5(fixed->robot): We either started out
-  //with a header frame in the fixed frame or converted from a
-  //non-robot frame into the fixed frame, and now we need to transform
-  //into the desired robot frame given the new world transform
-  if(ret_pose.header.frame_id == "odom_combined" && des_is_robot_frame) {
-    btTransform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*bt_pose;
-    tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
-    ret_pose.header.frame_id = des_link_state->getName();
-  } else if(header_is_robot_frame && des_is_fixed_frame) {
-    //Scenario 6(robot->fixed): Just need to look up robot transform and pre-multiply
-    btTransform trans_bt_pose = header_link_state->getGlobalLinkTransform()*bt_pose;
-    tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
-    ret_pose.header.frame_id = cm_->getWorldFrameId();
-  } else if(header_is_robot_frame && des_is_robot_frame) {
-    //Scenario 7(robot->robot): Completely tf independent
-    btTransform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*(header_link_state->getGlobalLinkTransform()*bt_pose);
-    tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
-    ret_pose.header.frame_id = des_link_state->getName();
-  } else {
-    ROS_WARN("Really shouldn't have gotten here");
+  //the idea here is that we need to figure out how to take poses from other frames
+  //and transform them into the fixed frame. So we want to get the transform
+  //that goes from the frame to the identity of the world frame and take the inverse
+  for(unsigned int i = 0; i < all_frame_names.size(); i++) {
+    if(all_frame_names[i] != cm_->getWorldFrameId() && 
+       !cm_->getKinematicModel()->hasLinkModel(all_frame_names[i])) {
+      ROS_INFO_STREAM("Adding fixed frame transform for frame " << all_frame_names[i]);
+      geometry_msgs::PoseStamped ident_pose;
+      ident_pose.header.frame_id = cm_->getWorldFrameId();
+      ident_pose.pose.orientation.w = 1.0;
+      std::string err_string;
+      if (tf_->getLatestCommonTime(cm_->getWorldFrameId(), all_frame_names[i], ident_pose.header.stamp, &err_string) != tf::NO_ERROR) {
+        ROS_WARN_STREAM("No transform whatsoever available between " << all_frame_names[i] << " and fixed frame" << cm_->getWorldFrameId());
+        continue;
+      }
+      geometry_msgs::PoseStamped trans_pose;
+      try {
+        tf_->transformPose(all_frame_names[i], ident_pose, trans_pose);
+      } catch(tf::TransformException& ex) {
+        ROS_WARN_STREAM("Unable to transform object from frame " << all_frame_names[i] << " to fixed frame " 
+                         << cm_->getWorldFrameId() << " tf error is " << ex.what());
+        continue;
+      }
+      geometry_msgs::TransformStamped f;
+      f.header = ident_pose.header;
+      f.child_frame_id = all_frame_names[i];
+      f.transform.translation.x = trans_pose.pose.position.x;
+      f.transform.translation.y = trans_pose.pose.position.y;
+      ROS_INFO_STREAM("Setting x " << trans_pose.pose.position.x << " y " << trans_pose.pose.position.y);
+      f.transform.translation.z = trans_pose.pose.position.z;
+      f.transform.rotation = trans_pose.pose.orientation;
+      transform_vec.push_back(f);
+    }
   }
-  return ret_pose;
 }
 
-geometry_msgs::PointStamped 
-planning_environment::PlanningMonitor::convertPointGivenWorldTransform(const planning_models::KinematicState& state,
-                                                                       const std::string& des_frame_id,
-                                                                       const std_msgs::Header& header,
-                                                                       const geometry_msgs::Point& point) const
-{
-  geometry_msgs::Pose arg_pose;
-  arg_pose.position = point;
-  arg_pose.orientation.w = 1.0;
-  geometry_msgs::PoseStamped ret_pose = convertPoseGivenWorldTransform(state, 
-                                                                       des_frame_id,
-                                                                       header,
-                                                                       arg_pose);
-  geometry_msgs::PointStamped ret_point;
-  ret_point.header = ret_pose.header;
-  ret_point.point = ret_pose.pose.position;
-  return ret_point;
-}
 
-geometry_msgs::QuaternionStamped 
-planning_environment::PlanningMonitor::convertQuaternionGivenWorldTransform(const planning_models::KinematicState& state,
-                                                                            const std::string& des_frame_id,
-                                                                            const std_msgs::Header& header,
-                                                                            const geometry_msgs::Quaternion& quat) const
-{
-  geometry_msgs::Pose arg_pose;
-  arg_pose.orientation = quat;
-  geometry_msgs::PoseStamped ret_pose = convertPoseGivenWorldTransform(state, 
-                                                                       des_frame_id,
-                                                                       header,
-                                                                       arg_pose);
-  geometry_msgs::QuaternionStamped ret_quat;
-  ret_quat.header = ret_pose.header;
-  ret_quat.quaternion = ret_pose.pose.orientation;
-  return ret_quat;
-}
 
 // bool planning_environment::PlanningMonitor::isEnvironmentSafe(motion_planning_msgs::ArmNavigationErrorCodes &error_code) const
 // {
