@@ -108,11 +108,12 @@ bool OmplRosIKSampler::configureOnRequest(const motion_planning_msgs::GetMotionP
   ik_poses_.clear();
   motion_planning_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
 
-  //TODO - deal with this
-  //if(!planning_monitor_->transformConstraintsToFrame(goal_constraints,
-  //                                                   kinematics_solver_->getBaseFrame(),
-  //                                                   response.error_code))
-  //  return false;
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            goal_constraints,
+                                                                            kinematics_solver_->getBaseFrame())) {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
+    return false;
+  }
   
   if(!motion_planning_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
   {

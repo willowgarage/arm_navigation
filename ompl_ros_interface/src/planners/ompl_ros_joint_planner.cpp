@@ -81,15 +81,8 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
     response.error_code.val = response.error_code.INVALID_GROUP_NAME;
     return false;
   }
-  /* TODO
   for (unsigned int i = 0 ; i < request.motion_plan_request.goal_constraints.position_constraints.size() ; ++i)
   {
-    if (!planning_monitor_->getTransformListener()->frameExists(request.motion_plan_request.goal_constraints.position_constraints[i].header.frame_id))
-    {
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::FRAME_TRANSFORM_FAILURE;
-      ROS_ERROR("Frame '%s' is not defined for goal position constraint message %u", request.motion_plan_request.goal_constraints.position_constraints[i].header.frame_id.c_str(), i);
-      return false;
-    }
     if (!(request.motion_plan_request.goal_constraints.position_constraints[i].link_name == end_effector_name_))
     {
       response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_LINK_NAME;
@@ -97,15 +90,8 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
       return false;      
     }
   }
-
   for (unsigned int i = 0 ; i < request.motion_plan_request.goal_constraints.orientation_constraints.size() ; ++i)
   {
-    if (!planning_monitor_->getTransformListener()->frameExists(request.motion_plan_request.goal_constraints.orientation_constraints[i].header.frame_id))
-    { 
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::FRAME_TRANSFORM_FAILURE;
-      ROS_ERROR("Frame '%s' is not defined for goal pose constraint message %u", request.motion_plan_request.goal_constraints.orientation_constraints[i].header.frame_id.c_str(), i);
-      return false;
-    }
     if (!(request.motion_plan_request.goal_constraints.orientation_constraints[i].link_name == end_effector_name_))
     {
       response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_LINK_NAME;
@@ -113,23 +99,6 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
       return false;      
     }
   }
-
-  for (unsigned int i = 0 ; i < request.motion_plan_request.path_constraints.position_constraints.size() ; ++i)
-    if (!planning_monitor_->getTransformListener()->frameExists(request.motion_plan_request.path_constraints.position_constraints[i].header.frame_id))
-    {
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::FRAME_TRANSFORM_FAILURE;      
-      ROS_ERROR("Frame '%s' is not defined for path pose constraint message %u", request.motion_plan_request.path_constraints.position_constraints[i].header.frame_id.c_str(), i);
-      return false;
-    }
-
-  for (unsigned int i = 0 ; i < request.motion_plan_request.path_constraints.orientation_constraints.size() ; ++i)
-    if (!planning_monitor_->getTransformListener()->frameExists(request.motion_plan_request.path_constraints.orientation_constraints[i].header.frame_id))
-    {
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::FRAME_TRANSFORM_FAILURE;
-      ROS_ERROR("Frame '%s' is not defined for path pose constraint message %u", request.motion_plan_request.path_constraints.orientation_constraints[i].header.frame_id.c_str(), i);
-      return false;
-    }
-  */
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
   {
     response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
@@ -140,7 +109,7 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
 }
 
 bool OmplRosJointPlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                                   motion_planning_msgs::GetMotionPlan::Response &response)
+                                  motion_planning_msgs::GetMotionPlan::Response &response)
 {
 
   if(!request.motion_plan_request.goal_constraints.joint_constraints.empty() 

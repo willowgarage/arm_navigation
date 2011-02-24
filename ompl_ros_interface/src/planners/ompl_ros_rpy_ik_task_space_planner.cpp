@@ -431,7 +431,13 @@ geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(cons
       desired_pose.pose = robot_state.multi_dof_joint_state.poses[i];
       desired_pose.header.stamp = ros::Time();
       desired_pose.header.frame_id = robot_state.multi_dof_joint_state.frame_ids[i];
-      tf_.transformPose(state_transformer_->getFrame(),desired_pose,desired_pose);
+      if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                      state_transformer_->getFrame(),
+                                                                      desired_pose.header,
+                                                                      desired_pose.pose,
+                                                                      desired_pose)) {
+        ROS_INFO_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
+      }
       ROS_DEBUG("Found start state in the request");
       return desired_pose;
     }
@@ -446,7 +452,13 @@ geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(cons
   tf::poseTFToMsg(end_effector_pose,desired_pose.pose);
   desired_pose.header.stamp = ros::Time();
   desired_pose.header.frame_id = collision_models_interface_->getWorldFrameId();
-  tf_.transformPose(state_transformer_->getFrame(),desired_pose,desired_pose);
+  if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                  state_transformer_->getFrame(),
+                                                                  desired_pose.header,
+                                                                  desired_pose.pose,
+                                                                  desired_pose)) {
+    ROS_INFO_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
+  }
 
   btQuaternion orientation;
   double roll,pitch,yaw;

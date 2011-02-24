@@ -170,8 +170,8 @@ TEST_F(OmplPlanningTest, TestPole)
     
     EXPECT_TRUE(cm_->isTrajectoryValid(get_res.planning_scene,
                                        mplan_res.trajectory.joint_trajectory,
-                                       get_res.transformed_goal_constraints,
-                                       get_res.transformed_path_constraints,
+                                       mplan_req.motion_plan_request.goal_constraints,                              
+                                       mplan_req.motion_plan_request.path_constraints,
                                        error_code,
                                        trajectory_error_codes, false));
   }

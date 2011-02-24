@@ -42,16 +42,6 @@ namespace ompl_ros_interface
   OmplRos::OmplRos(void): node_handle_("~")
 {
   collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
-  while(node_handle_.ok()) {
-    bool got_tf = tf_.waitForTransform(collision_models_interface_->getWorldFrameId(), collision_models_interface_->getRobotFrameId(),
-                                       ros::Time::now(), ros::Duration(5.0));
-    if(got_tf) {
-      break;
-    } else {
-      ROS_INFO_STREAM("Waiting for tf");
-    }
-  }
-
 }
 
 /** Free the memory */
@@ -108,7 +98,7 @@ bool OmplRos::getGroupNamesFromParamServer(const std::string &param_server_prefi
   {
     ROS_ERROR("Group list should be of XmlRpc Array type");
     return false;
-  }
+  } 
   for (int32_t i = 0; i < group_list.size(); ++i) 
   {
     if(group_list[i].getType() != XmlRpc::XmlRpcValue::TypeString)

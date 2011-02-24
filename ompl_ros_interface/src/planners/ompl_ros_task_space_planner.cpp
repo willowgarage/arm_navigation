@@ -190,20 +190,18 @@ bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan
     return false;
   }
 
-  /* TODO
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_frame_id_,
-                                                     response.error_code))
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            request.motion_plan_request.goal_constraints))
+  {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
-
-
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_frame_id_,
-                                                     response.error_code))
+  }
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            request.motion_plan_request.path_constraints))
+  {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
-  */ 
-  return true;
-
+  }
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
   {
     response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;

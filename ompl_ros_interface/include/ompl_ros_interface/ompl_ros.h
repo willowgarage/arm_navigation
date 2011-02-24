@@ -40,7 +40,6 @@
 // ROS
 #include <ros/console.h>
 #include <ros/ros.h>
-#include <tf/transform_listener.h>
 
 // Planning environment and models
 #include <planning_environment/models/collision_models_interface.h>
@@ -110,7 +109,6 @@ private:
   ros::ServiceServer                     plan_path_service_;
   planning_environment::CollisionModelsInterface *collision_models_interface_;
   ros::NodeHandle                        node_handle_;
-  tf::TransformListener                  tf_;
   std::string default_planner_id_;
   bool publish_diagnostics_;
   ros::Publisher diagnostic_publisher_;

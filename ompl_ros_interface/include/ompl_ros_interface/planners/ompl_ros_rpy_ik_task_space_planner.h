@@ -43,7 +43,6 @@
 #include <ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h>
 
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <tf/transform_listener.h>
 
 namespace ompl_ros_interface
 {
@@ -64,8 +63,6 @@ namespace ompl_ros_interface
                                 const bool &return_if_outside_constraints = true);
 
     geometry_msgs::PoseStamped getEndEffectorPose(const motion_planning_msgs::RobotState &robot_state);
-
-    tf::TransformListener tf_;
 
     virtual bool setStart(motion_planning_msgs::GetMotionPlan::Request &request,
                           motion_planning_msgs::GetMotionPlan::Response &response);
