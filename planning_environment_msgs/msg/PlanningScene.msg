@@ -1,6 +1,9 @@
 #full robot state
 motion_planning_msgs/RobotState robot_state
 
+#additional frames for duplicating tf
+geometry_msgs/TransformStamped[] fixed_frame_transforms
+
 #full allowed collision matrix
 AllowedCollisionMatrix allowed_collision_matrix
 

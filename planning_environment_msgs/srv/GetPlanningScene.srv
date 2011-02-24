@@ -6,17 +6,8 @@ PlanningScene planning_scene_diff
 
 #Diff uses ordered collision operations instead of allowed_collision_matrix
 motion_planning_msgs/OrderedCollisionOperations operations
-
-#goal constraints to be transformed
-motion_planning_msgs/Constraints goal_constraints
-motion_planning_msgs/Constraints path_constraints
-
 ---
-
 PlanningScene planning_scene
 
-# constraints transformed into modified world frame
-motion_planning_msgs/Constraints transformed_goal_constraints
-motion_planning_msgs/Constraints transformed_path_constraints
 						   
 				   
