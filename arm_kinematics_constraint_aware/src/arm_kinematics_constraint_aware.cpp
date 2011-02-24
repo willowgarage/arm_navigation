@@ -187,12 +187,13 @@ bool ArmKinematicsConstraintAware::getConstraintAwarePositionIK(kinematics_msgs:
   arm_kinematics_constraint_aware::reorderJointState(ik_request_.ik_seed_state.joint_state,chain_info_);
 
   ros::Time ik_solver_time = ros::Time::now();
+  int kinematics_error_code;
   bool ik_valid = (kinematics_solver_->searchPositionIK(ik_request_.pose_stamped.pose,
                                                         ik_request_.ik_seed_state.joint_state.position,
                                                         request_in.timeout.toSec(),
                                                         response.solution.joint_state.position,
                                                         boost::bind(&ArmKinematicsConstraintAware::initialPoseCheck, this, _1, _2, _3),
-                                                        boost::bind(&ArmKinematicsConstraintAware::collisionCheck, this, _1, _2, _3))>=0);
+                                                        boost::bind(&ArmKinematicsConstraintAware::collisionCheck, this, _1, _2, _3),kinematics_error_code)>=0);
   ROS_INFO("IK solver time: %f",(ros::Time::now()-ik_solver_time).toSec());
 
   planning_monitor_->revertToDefaultState();
@@ -216,6 +217,7 @@ bool ArmKinematicsConstraintAware::getConstraintAwarePositionIK(kinematics_msgs:
   else
   {
     ROS_ERROR("An IK solution could not be found");
+    response.error_code = kinematicsErrorCodeToMotionPlanningErrorCode(kinematics_error_code);
     if(response.error_code.val != response.error_code.IK_LINK_IN_COLLISION) 
     {
       sendEndEffectorPose(kinematic_state_,true);
@@ -567,17 +569,16 @@ bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK:
   }
   arm_kinematics_constraint_aware::reorderJointState(request.ik_request.ik_seed_state.joint_state,chain_info_);
 
-  int ik_valid = kinematics_solver_->searchPositionIK(pose_msg_out.pose,
+  int kinematics_error_code;
+  bool ik_valid = kinematics_solver_->searchPositionIK(pose_msg_out.pose,
                                                       request.ik_request.ik_seed_state.joint_state.position,
                                                       request.timeout.toSec(),
-                                                      response.solution.joint_state.position);
+                                                      response.solution.joint_state.position,
+                                                      kinematics_error_code);
 
-  if(ik_valid == kinematics::TIMED_OUT)
-    response.error_code.val = response.error_code.TIMED_OUT;
-  if(ik_valid == kinematics::NO_IK_SOLUTION)
-    response.error_code.val = response.error_code.NO_IK_SOLUTION;
+  response.error_code = kinematicsErrorCodeToMotionPlanningErrorCode(kinematics_error_code);
 
-  if(ik_valid >= 0)
+  if(ik_valid)
   {
     response.solution.joint_state.name = chain_info_.joint_names;
     response.error_code.val = response.error_code.SUCCESS;

@@ -569,4 +569,32 @@ namespace arm_kinematics_constraint_aware
 
     return true;
   }
+
+  motion_planning_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code)
+  {
+    motion_planning_msgs::ArmNavigationErrorCodes error_code;
+
+    if(kinematics_error_code == kinematics::SUCCESS)
+      error_code.val = error_code.SUCCESS;
+    else if(kinematics_error_code == kinematics::TIMED_OUT)
+      error_code.val = error_code.TIMED_OUT;
+    else if(kinematics_error_code == kinematics::NO_IK_SOLUTION)
+      error_code.val = error_code.NO_IK_SOLUTION;
+    else if(kinematics_error_code == kinematics::FRAME_TRANSFORM_FAILURE)
+      error_code.val = error_code.FRAME_TRANSFORM_FAILURE;
+    else if(kinematics_error_code == kinematics::IK_LINK_INVALID)
+      error_code.val = error_code.INVALID_LINK_NAME;
+    else if(kinematics_error_code == kinematics::IK_LINK_IN_COLLISION)
+      error_code.val = error_code.IK_LINK_IN_COLLISION;
+    else if(kinematics_error_code == kinematics::STATE_IN_COLLISION)
+      error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;
+    else if(kinematics_error_code == kinematics::INVALID_LINK_NAME)
+      error_code.val = error_code.INVALID_LINK_NAME;
+    else if(kinematics_error_code == kinematics::GOAL_CONSTRAINTS_VIOLATED)
+      error_code.val = error_code.GOAL_CONSTRAINTS_VIOLATED;
+    else if(kinematics_error_code == kinematics::INACTIVE)
+      error_code.val = 0;
+    return error_code;
+  }
+
 }

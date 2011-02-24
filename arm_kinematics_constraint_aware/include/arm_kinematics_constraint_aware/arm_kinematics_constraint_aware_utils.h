@@ -34,24 +34,36 @@
 #ifndef ARM_KINEMATICS_CONSTRAINT_AWARE_UTILS_H
 #define ARM_KINEMATICS_CONSTRAINT_AWARE_UTILS_H
 
+// ROS
 #include <ros/ros.h>
+#include <urdf/model.h>
+
+// System
 #include <vector>
-#include <angles/angles.h>
 #include <Eigen/Array>
+
+// KDL
 #include <kdl/frames.hpp>
 #include <kdl/jntarray.hpp>
 #include <kdl/tree.hpp>
-#include <urdf/model.h>
 #include <kdl_parser/kdl_parser.hpp>
+
+// TF
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_kdl.h>
 
+// Kinematics
+#include <kinematics_base/kinematics_base.h>
+
+// ROS msgs
 #include <kinematics_msgs/GetPositionFK.h>
 #include <kinematics_msgs/GetPositionIK.h>
 #include <kinematics_msgs/GetConstraintAwarePositionIK.h>
 #include <kinematics_msgs/GetKinematicSolverInfo.h>
 
+// MISC
+#include <angles/angles.h>
 
 using namespace angles;
 
@@ -146,6 +158,8 @@ namespace arm_kinematics_constraint_aware
                                   kinematics_msgs::KinematicSolverInfo &chain_info);
 
   bool getChainInfo(const std::string &name, kinematics_msgs::KinematicSolverInfo &chain_info);
+
+  motion_planning_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code);
 
 }
 
