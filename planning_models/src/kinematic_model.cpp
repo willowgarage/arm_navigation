@@ -986,6 +986,9 @@ btTransform planning_models::KinematicModel::FloatingJointModel::computeTransfor
   }
   variable_transform.setOrigin(btVector3(joint_values[0], joint_values[1], joint_values[2]));
   variable_transform.setRotation(btQuaternion(joint_values[3], joint_values[4], joint_values[5], joint_values[6]));
+  if(joint_values[3] == 0.0 && joint_values[4] == 0.0 && joint_values[5] == 0.0 && joint_values[6] == 0.0) {
+    ROS_INFO("Setting quaternion with all zeros");
+  }                  
   return variable_transform;
 }
 
@@ -1005,6 +1008,9 @@ std::vector<double> planning_models::KinematicModel::FloatingJointModel::compute
 void planning_models::KinematicModel::FloatingJointModel::getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const 
 {
   //the only reasonable default quaternion is (0,0,0,1) - doesn't matter what the bounds are
+  ret_map[getEquiv("floating_trans_x")] = 0.0;
+  ret_map[getEquiv("floating_trans_y")] = 0.0;
+  ret_map[getEquiv("floating_trans_z")] = 0.0;
   ret_map[getEquiv("floating_rot_x")] = 0.0;
   ret_map[getEquiv("floating_rot_y")] = 0.0;
   ret_map[getEquiv("floating_rot_z")] = 0.0;

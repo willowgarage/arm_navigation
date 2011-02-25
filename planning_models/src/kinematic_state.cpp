@@ -172,6 +172,7 @@ bool planning_models::KinematicState::setKinematicState(const std::map<std::stri
 bool planning_models::KinematicState::setKinematicState(const std::map<std::string, double>& joint_state_map,
                                                         std::vector<std::string>& missing_states) 
 {
+  missing_states.clear();
   bool all_set = true;
   for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
     bool is_set = joint_state_vector_[i]->setJointStateValues(joint_state_map, missing_states);
@@ -400,12 +401,16 @@ bool planning_models::KinematicState::JointState::setJointStateValues(const std:
 
 bool planning_models::KinematicState::JointState::setJointStateValues(const std::map<std::string, double>& joint_value_map) {
   bool has_all = true;
+  bool has_any = false;
   for(std::map<std::string, unsigned int>::const_iterator it = joint_state_index_map_.begin();
       it != joint_state_index_map_.end();
       it++) {
     std::map<std::string,double>::const_iterator it2 = joint_value_map.find(it->first);
     if(it2 == joint_value_map.end()) {
       has_all = false;
+      continue;
+    } else {
+      has_any = true;
     }
     if(it->second > joint_state_values_.size()) {
       ROS_WARN_STREAM("Trying to set value " << it->second << " which is larger than joint state values size " << joint_state_values_.size());
@@ -413,14 +418,16 @@ bool planning_models::KinematicState::JointState::setJointStateValues(const std:
       joint_state_values_[it->second] = it2->second;
     }
   }
-  variable_transform_ = joint_model_->computeTransform(joint_state_values_);
+  if(has_any) {
+    variable_transform_ = joint_model_->computeTransform(joint_state_values_);
+  }
   return has_all;
 }
 
 bool planning_models::KinematicState::JointState::setJointStateValues(const std::map<std::string, double>& joint_value_map,
                                                                       std::vector<std::string>& missing_values) {
-  missing_values.clear();
   bool has_all = true;
+  bool has_any = false;
   for(std::map<std::string, unsigned int>::const_iterator it = joint_state_index_map_.begin();
       it != joint_state_index_map_.end();
       it++) {
@@ -428,6 +435,9 @@ bool planning_models::KinematicState::JointState::setJointStateValues(const std:
     if(it2 == joint_value_map.end()) {
       has_all = false;
       missing_values.push_back(it->first);
+      continue;
+    } else {
+      has_any = true;
     }
     if(it->second > joint_state_values_.size()) {
       ROS_WARN_STREAM("Trying to set value " << it->second << " which is larger than joint state values size " << joint_state_values_.size());
@@ -435,7 +445,9 @@ bool planning_models::KinematicState::JointState::setJointStateValues(const std:
       joint_state_values_[it->second] = it2->second;
     }
   }
-  variable_transform_ = joint_model_->computeTransform(joint_state_values_);
+  if(has_any) {
+    variable_transform_ = joint_model_->computeTransform(joint_state_values_);
+  }
   return has_all;
 }
 
