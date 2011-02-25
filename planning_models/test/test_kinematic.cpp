@@ -192,9 +192,19 @@ TEST(LoadingAndFK, SimpleRobot)
     std::map<std::string, double> joint_values;
     joint_values["planar_x"]=10.0;
     joint_values["planar_y"]=8.0;
-    joint_values["planar_th"]=0.0;
-    state.setKinematicState(joint_values);
     
+    //testing incomplete state
+    std::vector<std::string> missing_states;
+    EXPECT_FALSE(state.setKinematicState(joint_values,
+                                         missing_states));
+    ASSERT_EQ(missing_states.size(),1);
+    EXPECT_EQ(missing_states[0],std::string("planar_th"));
+    joint_values["planar_th"]=0.0;
+
+    EXPECT_TRUE(state.setKinematicState(joint_values,
+                                         missing_states));
+    ASSERT_EQ(missing_states.size(),0);
+
     EXPECT_NEAR(10.0, state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().x(), 1e-5);
     EXPECT_NEAR(8.0, state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().y(), 1e-5);
     EXPECT_NEAR(0.0, state.getLinkState("base_link")->getGlobalLinkTransform().getOrigin().z(), 1e-5);

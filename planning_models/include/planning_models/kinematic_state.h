@@ -72,6 +72,10 @@ public:
 
     /** \brief Sets the internal values from the joint_value_map */
     bool setJointStateValues(const std::map<std::string, double>& joint_value_map);
+
+    /** \brief Sets the internal values from the joint_value_map, returning states that aren't being set */
+    bool setJointStateValues(const std::map<std::string, double>& joint_value_map,
+                             std::vector<std::string>& missing_states);
     
     /** \brief Sets the internal values from the supplied vector, which are assumed to be in the required order*/
     bool setJointStateValues(const std::vector<double>& joint_value_vector);
@@ -386,6 +390,9 @@ public:
   bool setKinematicState(const std::vector<double>& joint_state_values);
   
   bool setKinematicState(const std::map<std::string, double>& joint_state_map);
+
+  bool setKinematicState(const std::map<std::string, double>& joint_state_map,
+                         std::vector<std::string>& missing_links);
 
   void getKinematicStateValues(std::vector<double>& joint_state_values) const;
 
