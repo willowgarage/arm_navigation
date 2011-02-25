@@ -28,6 +28,7 @@ The move_arm package provides an implementation of a action (see the <a href="ht
   <depend package="move_arm_msgs"/>
   <depend package="geometric_shapes_msgs"/>
   <depend package="move_arm_head_monitor" />
+  <depend package="geometry_msgs" />
 
   <export>
     <cpp cflags="-I${prefix}/msg/cpp" />
