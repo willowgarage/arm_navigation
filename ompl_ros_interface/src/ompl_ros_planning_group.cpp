@@ -35,6 +35,7 @@
 /** \author Sachin Chitta, Ioan Sucan */
 
 #include <ompl_ros_interface/ompl_ros_planning_group.h>
+#include <planning_environment/models/model_utils.h>
 
 namespace ompl_ros_interface
 {
@@ -323,6 +324,10 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
     ROS_INFO_STREAM("Planning scene hasn't been set");
     return finish(false);
   }
+
+  //updating for new start state
+  planning_environment::setRobotStateAndComputeTransforms(request.motion_plan_request.start_state,
+                                                          *kinematic_state);
 
   physical_joint_state_group_ = kinematic_state->getJointStateGroup(physical_joint_group_->getName());
   if(!physical_joint_state_group_)
