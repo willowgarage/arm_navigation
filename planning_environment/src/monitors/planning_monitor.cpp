@@ -63,7 +63,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::
   setStateValuesFromCurrentValues(set_state);
   //supplementing with state_diff
   setRobotStateAndComputeTransforms(planning_diff.robot_state, set_state);
-  
+
   //now complete robot state is populated
   convertKinematicStateToRobotState(set_state,
                                     last_joint_state_update_,
@@ -266,7 +266,6 @@ void planning_environment::PlanningMonitor::getAllFixedFrameTransforms(std::vect
       f.child_frame_id = all_frame_names[i];
       f.transform.translation.x = trans_pose.pose.position.x;
       f.transform.translation.y = trans_pose.pose.position.y;
-      ROS_INFO_STREAM("Setting x " << trans_pose.pose.position.x << " y " << trans_pose.pose.position.y);
       f.transform.translation.z = trans_pose.pose.position.z;
       f.transform.rotation = trans_pose.pose.orientation;
       transform_vec.push_back(f);

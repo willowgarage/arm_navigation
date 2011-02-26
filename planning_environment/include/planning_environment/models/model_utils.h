@@ -56,13 +56,32 @@ namespace planning_environment {
 inline bool setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotState &robot_state,
                                               planning_models::KinematicState& state)
 {
+  if(robot_state.joint_state.name.size() != robot_state.joint_state.position.size()) {
+    ROS_INFO_STREAM("Different number of names and positions: " << robot_state.joint_state.name.size() 
+                    << " " << robot_state.joint_state.position.size());
+    return false;
+  }
   std::map<std::string, double> joint_state_map;
   for (unsigned int i = 0 ; i < robot_state.joint_state.name.size(); ++i)
   {
     joint_state_map[robot_state.joint_state.name[i]] = robot_state.joint_state.position[i];
   }
-
-  //first we are going to apply transforms
+  std::vector<std::string> missing_states;
+  bool complete = state.setKinematicState(joint_state_map, missing_states);
+  if(!complete) {
+    ROS_INFO_STREAM("Joint state incomplete");
+    if(missing_states.empty()) {
+      ROS_INFO("Incomplete, but no missing states");
+    }
+  }
+  std::map<std::string, bool> has_missing_state_map;
+  for(unsigned int i = 0; i < missing_states.size(); i++) {
+    has_missing_state_map[missing_states[i]] = false;
+  }
+  bool need_to_update = false;
+  if(robot_state.multi_dof_joint_state.joint_names.size() > 1) {
+    ROS_INFO("More than 1 joint names");
+  }
   for(unsigned int i = 0; i < robot_state.multi_dof_joint_state.joint_names.size(); i++) {
     std::string joint_name = robot_state.multi_dof_joint_state.joint_names[i];
     if(!state.hasJointState(joint_name)) {
@@ -81,9 +100,27 @@ inline bool setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotS
       tf::StampedTransform transf;
       tf::poseMsgToTF(robot_state.multi_dof_joint_state.poses[i], transf);
       joint_state->setJointStateValues(transf);
+      need_to_update = true;
+      //setting true for all individual joint names because we're setting the transform
+      for(unsigned int i = 0; i < joint_state->getJointStateNameOrder().size(); i++) {
+        has_missing_state_map[joint_state->getJointStateNameOrder()[i]] = true;
+      }
     }
   }
-  return(state.setKinematicState(joint_state_map));
+  if(need_to_update) {
+    state.updateKinematicLinks();
+  }
+  if(!complete) {
+    for(std::map<std::string, bool>::iterator it = has_missing_state_map.begin();
+        it != has_missing_state_map.end();
+        it++) {
+      if(!it->second) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return true;
 }
 
 inline void convertKinematicStateToRobotState(const planning_models::KinematicState& kinematic_state,
@@ -93,6 +130,11 @@ inline void convertKinematicStateToRobotState(const planning_models::KinematicSt
 {
   robot_state.joint_state.position.clear();
   robot_state.joint_state.name.clear();
+
+  robot_state.multi_dof_joint_state.joint_names.clear();
+  robot_state.multi_dof_joint_state.frame_ids.clear();
+  robot_state.multi_dof_joint_state.child_frame_ids.clear();
+  robot_state.multi_dof_joint_state.poses.clear();
 
   const std::vector<planning_models::KinematicState::JointState*>& joints = kinematic_state.getJointStateVector();
   for(std::vector<planning_models::KinematicState::JointState*>::const_iterator it = joints.begin();

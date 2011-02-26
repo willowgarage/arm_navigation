@@ -220,6 +220,7 @@ TEST_F(TestRobotModels, SetGetOperations)
   EXPECT_EQ(test_vals["floating_trans_x"],5.0);
   EXPECT_EQ(test_vals["floating_trans_y"], 5.0);
   EXPECT_LE(fabs(test_vals["floating_rot_z"]-.7071), .001); 
+
 }
 
 TEST_F(TestRobotModels, SetGetBounds)

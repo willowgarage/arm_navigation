@@ -288,9 +288,9 @@ TEST_F(PlanningMonitorTest, ChangingRobotState)
 
   //bad multi-dof
   planning_scene_diff_.robot_state.multi_dof_joint_state.stamp = ros::Time::now();
-  planning_scene_diff_.robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.joint_names[0] = "base_joint";
   planning_scene_diff_.robot_state.multi_dof_joint_state.frame_ids[0] = "";
-  planning_scene_diff_.robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
+  planning_scene_diff_.robot_state.multi_dof_joint_state.child_frame_ids[0] = "base_footprint";
   planning_scene_diff_.robot_state.multi_dof_joint_state.poses.resize(1);
   planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
   planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;

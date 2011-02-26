@@ -58,11 +58,16 @@ int main(int argc, char** argv)
 
   planning_environment_msgs::PlanningScene planning_scene;
 
-  cmodel.readPlanningSceneBag(ros::package::getPath("planning_environment")+"/test.bag",
+  cmodel.readPlanningSceneBag(ros::package::getPath("planning_environment")+"/test_table.bag",
                               planning_scene);
   planning_models::KinematicState* state = cmodel.setPlanningScene(planning_scene);
   
-                          
+  std::map<std::string, double> vals;
+  state->getKinematicStateValues(vals);
+  
+  ROS_INFO_STREAM("Value " << vals["floating_trans_x"]);
+
+                
   ros::Rate r(10.0);
   while(nh.ok()) {
 

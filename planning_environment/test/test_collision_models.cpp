@@ -196,6 +196,49 @@ TEST_F(TestCollisionModels, NotInCollisionByDefault)
 
 }
 
+//Testing a couple important functions in model_utils.h
+TEST_F(TestCollisionModels, TestModelUtils) 
+{
+  //this mostly tests that the planning_description file is correct
+  planning_environment::CollisionModels cm("robot_description");
+  
+  planning_models::KinematicState state(cm.getKinematicModel());
+  
+  state.setKinematicStateToDefault();
+
+  motion_planning_msgs::RobotState rs;
+  planning_environment::convertKinematicStateToRobotState(state,
+                                                          ros::Time::now(),
+                                                          cm.getWorldFrameId(),
+                                                          rs);
+
+  ASSERT_EQ(rs.multi_dof_joint_state.poses[0].position.x, 0.0);
+  ASSERT_EQ(rs.multi_dof_joint_state.poses[0].position.y, 0.0);
+  ASSERT_EQ(rs.multi_dof_joint_state.poses[0].position.z, 0.0);
+  ASSERT_EQ(rs.multi_dof_joint_state.poses[0].orientation.x, 0.0);
+  ASSERT_EQ(rs.multi_dof_joint_state.poses[0].orientation.y, 0.0);
+  ASSERT_EQ(rs.multi_dof_joint_state.poses[0].orientation.z, 0.0);
+  ASSERT_EQ(rs.multi_dof_joint_state.poses[0].orientation.w, 1.0);
+  ASSERT_EQ(rs.multi_dof_joint_state.joint_names[0], std::string("base_joint"));
+  ASSERT_EQ(rs.multi_dof_joint_state.frame_ids[0], cm.getWorldFrameId());
+  ASSERT_EQ(rs.multi_dof_joint_state.child_frame_ids[0], cm.getRobotFrameId());
+  
+  ASSERT_TRUE(planning_environment::setRobotStateAndComputeTransforms(rs,state));
+
+  EXPECT_EQ(rs.joint_state.name[0],std::string("floating_trans_x"));
+  rs.joint_state.name.erase(rs.joint_state.name.begin());
+  rs.joint_state.position.erase(rs.joint_state.position.begin());
+
+  EXPECT_NE(rs.joint_state.name[0],std::string("floating_trans_x"));
+
+  //should still be ok because the multi-dof is set
+  ASSERT_TRUE(planning_environment::setRobotStateAndComputeTransforms(rs,state));
+
+  //now we mess with the multi-dof, and now something's not getting set
+  rs.multi_dof_joint_state.frame_ids.clear();
+  ASSERT_FALSE(planning_environment::setRobotStateAndComputeTransforms(rs,state));
+}
+
 //Functional equivalent of test_collision_objects
 TEST_F(TestCollisionModels,TestCollisionObjects)
 {
@@ -538,6 +581,11 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
 
   planning_models::KinematicState kin_state(cm.getKinematicModel());
   kin_state.setKinematicStateToDefault();
+
+  std::map<std::string, double> jm;
+  jm["r_shoulder_pan_joint"] = -2.0;
+  kin_state.setKinematicState(jm);
+  ASSERT_FALSE(cm.isKinematicStateInCollision(kin_state));
   
   motion_planning_msgs::Constraints goal_constraints;
   goal_constraints.joint_constraints.resize(1);
@@ -558,14 +606,14 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   
   std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
   motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  ASSERT_TRUE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
-                                   error_code, trajectory_error_codes, false));
+  ASSERT_TRUE(cm.isJointTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+                                        error_code, trajectory_error_codes, false)) << error_code.val;
   EXPECT_EQ(error_code.val, error_code.SUCCESS);
 
   //should be out of bounds
   trajectory.points[0].positions[0] = -1.8;
 
-  ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+  ASSERT_FALSE(cm.isJointTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
                                     error_code, trajectory_error_codes, false));
   EXPECT_EQ(error_code.val, error_code.GOAL_CONSTRAINTS_VIOLATED);
 
@@ -573,7 +621,7 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   goal_constraints.joint_constraints[0].position = -2.3;
   trajectory.points[0].positions[0] = -2.0;
 
-  ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+  ASSERT_FALSE(cm.isJointTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
                                     error_code, trajectory_error_codes, false));
   EXPECT_EQ(error_code.val, error_code.INVALID_GOAL_JOINT_CONSTRAINTS);
 
@@ -589,8 +637,8 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   }
   EXPECT_EQ(trajectory.points.back().positions[0], -2.0);
   
-  ASSERT_FALSE(cm.isTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
-                                    error_code, trajectory_error_codes, false));
+  ASSERT_FALSE(cm.isJointTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
+                                         error_code, trajectory_error_codes, false));
   EXPECT_EQ(error_code.val, error_code.COLLISION_CONSTRAINTS_VIOLATED);
 }
 
@@ -604,11 +652,11 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForObjects)
 
   motion_planning_msgs::RobotState robot_state;
 
-  robot_state.multi_dof_joint_state.stamp = ros::Time::now();
-  robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
-  robot_state.multi_dof_joint_state.frame_ids.push_back("odom_combined");
-  robot_state.multi_dof_joint_state.child_frame_ids.push_back("base_footprint");
-  robot_state.multi_dof_joint_state.poses.resize(1);
+  planning_environment::convertKinematicStateToRobotState(kin_state,
+                                                          ros::Time::now(),
+                                                          cm.getWorldFrameId(),
+                                                          robot_state);
+
   robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
   robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
 

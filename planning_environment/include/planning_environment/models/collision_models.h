@@ -87,7 +87,8 @@ public:
                                              mapping_msgs::CollisionObject& obj) const;
   
   bool convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
-                                                motion_planning_msgs::Constraints& constraints) const;
+                                                motion_planning_msgs::Constraints& constraints,
+                                                const std::string& opt_frame="") const;
   
   bool convertPoseGivenWorldTransform(const planning_models::KinematicState& state,
                                       const std::string& des_frame_id,
@@ -219,21 +220,38 @@ public:
                              const motion_planning_msgs::Constraints goal_constraints,
                              const motion_planning_msgs::Constraints path_constraints);
 
-  bool isTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
-                         const trajectory_msgs::JointTrajectory &trajectory,
-                         const motion_planning_msgs::Constraints& goal_constraints,
-                         const motion_planning_msgs::Constraints& path_constraints,
-                         motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                         std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
-                         const bool evaluate_entire_trajectory);
+  bool isJointTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+                              const trajectory_msgs::JointTrajectory &trajectory,
+                              const motion_planning_msgs::Constraints& goal_constraints,
+                              const motion_planning_msgs::Constraints& path_constraints,
+                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                              std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                              const bool evaluate_entire_trajectory);
 
-  bool isTrajectoryValid(planning_models::KinematicState& state,
-                         const trajectory_msgs::JointTrajectory &trajectory,
-                         const motion_planning_msgs::Constraints& goal_constraints,
-                         const motion_planning_msgs::Constraints& path_constraints,
-                         motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                         std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
-                         const bool evaluate_entire_trajectory);  
+  bool isJointTrajectoryValid(planning_models::KinematicState& state,
+                              const trajectory_msgs::JointTrajectory &trajectory,
+                              const motion_planning_msgs::Constraints& goal_constraints,
+                              const motion_planning_msgs::Constraints& path_constraints,
+                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                              std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                              const bool evaluate_entire_trajectory);  
+
+  // bool isRobotTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+  //                             const motion_planning_msgs::RobotTrajectory &trajectory,
+  //                             const motion_planning_msgs::Constraints& goal_constraints,
+  //                             const motion_planning_msgs::Constraints& path_constraints,
+  //                             motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+  //                             std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+  //                             const bool evaluate_entire_trajectory);
+
+  // bool isRobotTrajectoryValid(planning_models::KinematicState& state,
+  //                             const motion_planning_msgs::RobotTrajectory &trajectory,
+  //                             const motion_planning_msgs::Constraints& goal_constraints,
+  //                             const motion_planning_msgs::Constraints& path_constraints,
+  //                             motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+  //                             std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+  //                             const bool evaluate_entire_trajectory);  
+
 
   double getTotalTrajectoryJointLength(planning_models::KinematicState& state,
                                        const trajectory_msgs::JointTrajectory &trajectory) const;                         

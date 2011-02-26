@@ -52,6 +52,7 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
 
 planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
 {
+  delete action_server_;
   if(planning_scene_state_ != NULL) {
     delete planning_scene_state_;
   }

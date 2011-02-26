@@ -54,9 +54,9 @@ planning_environment::CollisionModels::CollisionModels(const std::string &descri
 
 planning_environment::CollisionModels::~CollisionModels(void)
 {
-  //TODOTODOTODO
   deleteAllStaticObjects();
   deleteAllAttachedObjects();
+  delete ode_collision_model_;
 }
 
 void planning_environment::CollisionModels::setupModel(collision_space::EnvironmentModel* model)
@@ -435,12 +435,18 @@ bool planning_environment::CollisionModels::convertCollisionObjectToNewWorldFram
 }
 
 bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
-                                                                                     motion_planning_msgs::Constraints& constraints) const {
-  std::string fixed_frame = getWorldFrameId();
+                                                                                     motion_planning_msgs::Constraints& constraints,
+                                                                                     const std::string& opt_frame) const {
+  std::string trans_frame;
+  if(!opt_frame.empty()) {
+    trans_frame = opt_frame;
+  } else {
+    trans_frame = getWorldFrameId();
+  }
   for(unsigned int i = 0; i < constraints.position_constraints.size(); i++) {
     geometry_msgs::PointStamped ps;
     if(!convertPointGivenWorldTransform(state,
-                                        fixed_frame,
+                                        trans_frame,
                                         constraints.position_constraints[i].header,
                                         constraints.position_constraints[i].target_point_offset,
                                         ps)) {
@@ -451,7 +457,7 @@ bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTrans
     constraints.position_constraints[i].target_point_offset = ps.point;
 
     if(!convertPointGivenWorldTransform(state,
-                                        fixed_frame,
+                                        trans_frame,
                                         constraints.position_constraints[i].header,
                                         constraints.position_constraints[i].position,
                                         ps)) {
@@ -461,7 +467,7 @@ bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTrans
     
     geometry_msgs::QuaternionStamped qs;
     if(!convertQuaternionGivenWorldTransform(state,
-                                             fixed_frame,                                     
+                                             trans_frame,                                     
                                              constraints.position_constraints[i].header,
                                              constraints.position_constraints[i].constraint_region_orientation,
                                              qs)) {
@@ -473,7 +479,7 @@ bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTrans
   for(unsigned int i = 0; i < constraints.orientation_constraints.size(); i++) {
     geometry_msgs::QuaternionStamped qs;
     if(!convertQuaternionGivenWorldTransform(state,
-                                             fixed_frame,
+                                             trans_frame,
                                              constraints.orientation_constraints[i].header,
                                              constraints.orientation_constraints[i].orientation,
                                              qs)) {
@@ -485,7 +491,7 @@ bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTrans
   
   for(unsigned int i = 0; i < constraints.visibility_constraints.size(); i++) {
     if(!convertPointGivenWorldTransform(state,
-                                        fixed_frame,
+                                        trans_frame,
                                         constraints.visibility_constraints[i].target.header,
                                         constraints.visibility_constraints[i].target.point,
                                         constraints.visibility_constraints[i].target)) {
@@ -1160,12 +1166,20 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
 }
 
 bool planning_environment::CollisionModels::isKinematicStateValid(const planning_models::KinematicState& state,
-                                                                  const std::vector<std::string>& names,
+                                                                  const std::vector<std::string>& joint_names,
                                                                   motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                                                                   const motion_planning_msgs::Constraints goal_constraints,
                                                                   const motion_planning_msgs::Constraints path_constraints)
 {
-  if(!state.areJointsWithinBounds(names)) {
+  if(!state.areJointsWithinBounds(joint_names)) {
+    for(unsigned int j = 0; j < joint_names.size(); j++) {
+      if(!state.isJointWithinBounds(joint_names[j])) {
+        std::pair<double, double> bounds = state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j]);
+        ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
+                        " value: " << state.getJointState(joint_names[j])->getJointStateValues()[0] << 
+                        " low: " << bounds.first << " high: " << bounds.second);
+      }
+    }
     error_code.val = error_code.JOINT_LIMITS_VIOLATED;
     return false;
   }
@@ -1177,20 +1191,21 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
     error_code.val = error_code.GOAL_CONSTRAINTS_VIOLATED;
     return false;
   }
-  if(!isKinematicStateInCollision(state)) {
+  ode_collision_model_->updateRobotModel(&state);
+  if(isKinematicStateInCollision(state)) {
     error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;
     return false;
   }
   return true;
 }
 
-bool planning_environment::CollisionModels::isTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
-                                                              const trajectory_msgs::JointTrajectory &trajectory,
-                                                              const motion_planning_msgs::Constraints& goal_constraints,
-                                                              const motion_planning_msgs::Constraints& path_constraints,
-                                                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                                                              std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
-                                                              const bool evaluate_entire_trajectory)
+bool planning_environment::CollisionModels::isJointTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+                                                                   const trajectory_msgs::JointTrajectory &trajectory,
+                                                                   const motion_planning_msgs::Constraints& goal_constraints,
+                                                                   const motion_planning_msgs::Constraints& path_constraints,
+                                                                   motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                                                                   std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                                                                   const bool evaluate_entire_trajectory)
 {
   if(planning_scene_set_) {
     ROS_WARN("Must revert planning scene before checking trajectory with planning scene");
@@ -1204,19 +1219,19 @@ bool planning_environment::CollisionModels::isTrajectoryValid(const planning_env
     return false;
   }
 
-  bool ok =  isTrajectoryValid(*state, trajectory, goal_constraints, path_constraints, error_code, trajectory_error_codes, evaluate_entire_trajectory);
+  bool ok =  isJointTrajectoryValid(*state, trajectory, goal_constraints, path_constraints, error_code, trajectory_error_codes, evaluate_entire_trajectory);
   revertPlanningScene(state);
   return ok;
 }
 
 
-bool planning_environment::CollisionModels::isTrajectoryValid(planning_models::KinematicState& state,
-                                                              const trajectory_msgs::JointTrajectory &trajectory,
-                                                              const motion_planning_msgs::Constraints& goal_constraints,
-                                                              const motion_planning_msgs::Constraints& path_constraints,
-                                                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                                                              std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
-                                                              const bool evaluate_entire_trajectory)  
+bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_models::KinematicState& state,
+                                                                   const trajectory_msgs::JointTrajectory &trajectory,
+                                                                   const motion_planning_msgs::Constraints& goal_constraints,
+                                                                   const motion_planning_msgs::Constraints& path_constraints,
+                                                                   motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+                                                                   std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                                                                   const bool evaluate_entire_trajectory)  
 {
   error_code.val = error_code.SUCCESS;
   
@@ -1290,7 +1305,7 @@ bool planning_environment::CollisionModels::isTrajectoryValid(planning_models::K
   }
 
   //now we can start checking the actual 
-
+  motion_planning_msgs::Constraints emp_goal_constraints;
   for(unsigned int i = 0; i < trajectory.points.size(); i++) {
     motion_planning_msgs::ArmNavigationErrorCodes suc;
     suc.val = error_code.SUCCESS;
@@ -1301,38 +1316,65 @@ bool planning_environment::CollisionModels::isTrajectoryValid(planning_models::K
     }
     state.setKinematicState(joint_value_map);
 
-    //first check joint limits
-    if(!state.areJointsWithinBounds(trajectory.joint_names)) {
-      error_code.val = error_code.JOINT_LIMITS_VIOLATED;
+    if(!isKinematicStateValid(state, trajectory.joint_names, suc, 
+                              emp_goal_constraints, path_constraints)) {
+      //this means we return the last error code if we are evaluating the whole trajectory
+      error_code = suc;
       if(!evaluate_entire_trajectory) {
         return false;
       }
-      trajectory_error_codes.back() = error_code;
-      continue;
     }
-    
-    //next check path constraints
-    if(!doesKinematicStateObeyConstraints(state, path_constraints)) {
-      error_code.val = error_code.START_STATE_VIOLATES_PATH_CONSTRAINTS;
-      if(!evaluate_entire_trajectory) {
-        return false;
-      }
-      trajectory_error_codes.back() = error_code;
-      continue;
-    }
-    
-    ode_collision_model_->updateRobotModel(&state);
-    if(ode_collision_model_->isCollision()) {
-      error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;
-      if(!evaluate_entire_trajectory) {
-        return false;
-      }
-      trajectory_error_codes.back() = error_code;
-      continue;
-    }
+    trajectory_error_codes.back() = suc;
   }
   return(error_code.val == error_code.SUCCESS);
 }
+
+// bool planning_environment::CollisionModels::isRobotTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+//                                                                    const motion_planning_msgs::RobotTrajectory& trajectory,
+//                                                                    const motion_planning_msgs::Constraints& goal_constraints,
+//                                                                    const motion_planning_msgs::Constraints& path_constraints,
+//                                                                    motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+//                                                                    std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+//                                                                    const bool evaluate_entire_trajectory)
+// {
+//   if(planning_scene_set_) {
+//     ROS_WARN("Must revert planning scene before checking trajectory with planning scene");
+//     return false;
+//   }
+
+//   planning_models::KinematicState* state = setPlanningScene(planning_scene);
+
+//   if(state == NULL) {
+//     ROS_WARN("Planning scene invalid in isTrajectoryValid");
+//     return false;
+//   }
+
+//   bool ok =  isRobotTrajectoryValid(*state, trajectory, goal_constraints, path_constraints, error_code, trajectory_error_codes, evaluate_entire_trajectory);
+//   revertPlanningScene(state);
+//   return ok;
+// }
+
+// bool planning_environment::CollisionModels::isRobotTrajectoryValid(planning_models::KinematicState& state,
+//                                                                    const motion_planning_msgs::RobotTrajectory& trajectory,
+//                                                                    const motion_planning_msgs::Constraints& goal_constraints,
+//                                                                    const motion_planning_msgs::Constraints& path_constraints,
+//                                                                    motion_planning_msgs::ArmNavigationErrorCodes& error_code,
+//                                                                    std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+//                                                                    const bool evaluate_entire_trajectory)
+// {
+//   //first thing to check - we can either deal with no joint_trajectory points
+//   //meaning that the robot state controls the positions of those links
+//   //or the same number of points as is in the multi_dof_trajectory
+//   if(trajectory.joint_trajectory.points.size() != 0 &&
+//      trajectory.joint_trajectory.points.size() != trajectory.multi_dof_trajectory.points.size()) {
+//     ROS_WARN("Invalid robot trajectory due to point number disparities");
+//     error_code.val = error_code.INVALID_TRAJECTORY;
+//     return false;
+//   }
+
+//   std::vector<std::string> joint_names = trajectory.joint_trajectory.joint_names;
+
+// }
 
 double planning_environment::CollisionModels::getTotalTrajectoryJointLength(planning_models::KinematicState& state,
                                                                           const trajectory_msgs::JointTrajectory& jtraj) const 
@@ -1639,7 +1681,6 @@ void planning_environment::CollisionModels::writePlanningSceneBag(const std::str
   ros::Time t = planning_scene.robot_state.joint_state.header.stamp;
   bag.write("planning_scene", t, planning_scene);
   bag.close();
-
 }
 
 void planning_environment::CollisionModels::readPlanningSceneBag(const std::string& filename,
