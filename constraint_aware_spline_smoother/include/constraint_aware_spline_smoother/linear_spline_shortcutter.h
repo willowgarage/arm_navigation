@@ -39,7 +39,6 @@
 
 #include <ros/ros.h>
 #include <tf/tf.h>
-#include <tf/transform_listener.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/linear_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
@@ -73,7 +72,6 @@ private:
   bool setupCollisionEnvironment();
   planning_environment::CollisionModelsInterface *collision_models_interface_;
   ros::NodeHandle node_handle_;
-  tf::TransformListener tf_;
   int getRandomInt(int min,int max) const;
   double getRandomTimeStamp(double min,double max) const;
   void discretizeTrajectory(const spline_smoother::SplineTrajectory &spline, 
@@ -227,13 +225,13 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
 
     motion_planning_msgs::Constraints empty_goal_constraints;
 
-    if(collision_models_interface_->isTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
-                                                      discretized_trajectory.trajectory,
-                                                      empty_goal_constraints,
-                                                      trajectory_in.path_constraints,
-                                                      error_code,
-                                                      trajectory_error_codes,
-                                                      false))
+    if(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                           discretized_trajectory.trajectory,
+                                                           empty_goal_constraints,
+                                                           trajectory_in.path_constraints,
+                                                           error_code,
+                                                           trajectory_error_codes,
+                                                           false))
     {
      ros::Duration shortcut_duration = discretized_trajectory.trajectory.points.back().time_from_start - discretized_trajectory.trajectory.points.front().time_from_start;
       if(segment_end_time-segment_start_time <= shortcut_duration.toSec())
@@ -580,16 +578,6 @@ bool LinearSplineShortCutter<T>::setupCollisionEnvironment()
 
   // monitor robot
   collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
-
-  while(node_handle_.ok()) {
-    bool got_tf = tf_.waitForTransform(collision_models_interface_->getWorldFrameId(), collision_models_interface_->getRobotFrameId(),
-                                       ros::Time::now(), ros::Duration(5.0));
-    if(got_tf) {
-      break;
-    } else {
-      ROS_INFO_STREAM("Waiting for tf");
-    }
-  }
 
   return true;
 }

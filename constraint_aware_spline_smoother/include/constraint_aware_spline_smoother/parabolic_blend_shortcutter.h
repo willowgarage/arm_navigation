@@ -39,7 +39,6 @@
 
 #include <ros/ros.h>
 #include <tf/tf.h>
-#include <tf/transform_listener.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/cubic_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
@@ -74,7 +73,6 @@ private:
   std::vector<std::string> joint_names_;
   bool active_;
   double discretization_;
-  tf::TransformListener tf_;
   ros::NodeHandle node_handle_;
   bool setupCollisionEnvironment();
   planning_environment::CollisionModelsInterface *collision_models_interface_;
@@ -141,16 +139,6 @@ bool FeasibilityChecker::setupCollisionEnvironment()
   // monitor robot
   collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
 
-  while(node_handle_.ok()) {
-    bool got_tf = tf_.waitForTransform(collision_models_interface_->getWorldFrameId(), collision_models_interface_->getRobotFrameId(),
-                                       ros::Time::now(), ros::Duration(5.0));
-    if(got_tf) {
-      break;
-    } else {
-      ROS_INFO_STREAM("Waiting for tf");
-    }
-  }
-
   return true;
 }
 
@@ -199,13 +187,13 @@ bool FeasibilityChecker::ConfigFeasible(const Vector& x)
 
   motion_planning_msgs::Constraints empty_goal_constraints;
   
-  return(collision_models_interface_->isTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
-                                                        joint_traj,
-                                                        empty_goal_constraints,
-                                                        path_constraints_,
-                                                        error_code,
-                                                        trajectory_error_codes,
-                                                        false));
+  return(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                             joint_traj,
+                                                             empty_goal_constraints,
+                                                             path_constraints_,
+                                                             error_code,
+                                                             trajectory_error_codes,
+                                                             false));
 }
 
 bool FeasibilityChecker::SegmentFeasible(const Vector& a,const Vector& b)
@@ -223,13 +211,13 @@ bool FeasibilityChecker::SegmentFeasible(const Vector& a,const Vector& b)
   discretizeTrajectory(joint_traj_in,joint_traj);
 
   motion_planning_msgs::Constraints empty_goal_constraints;
-  return(collision_models_interface_->isTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
-                                                        joint_traj,
-                                                        empty_goal_constraints,
-                                                        path_constraints_,
-                                                        error_code,
-                                                        trajectory_error_codes,
-                                                        false));
+  return(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                             joint_traj,
+                                                             empty_goal_constraints,
+                                                             path_constraints_,
+                                                             error_code,
+                                                             trajectory_error_codes,
+                                                             false));
 }
 
 /**

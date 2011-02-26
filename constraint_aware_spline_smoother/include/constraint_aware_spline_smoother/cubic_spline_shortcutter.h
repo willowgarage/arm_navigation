@@ -39,7 +39,6 @@
 
 #include <ros/ros.h>
 #include <tf/tf.h>
-#include <tf/transform_listener.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/cubic_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
@@ -73,7 +72,6 @@ private:
   bool setupCollisionEnvironment();
   planning_environment::CollisionModelsInterface *collision_models_interface_;
   ros::NodeHandle node_handle_;
-  tf::TransformListener tf_;
   int getRandomInt(int min,int max) const;
   double getRandomTimeStamp(double min,double max) const;
   void discretizeTrajectory(const spline_smoother::SplineTrajectory &spline, 
@@ -181,6 +179,18 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 
   trajectory_out = trajectory_in;
 
+  if(!collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                          trajectory_out.trajectory,
+                                                          trajectory_in.goal_constraints,
+                                                          trajectory_in.path_constraints,
+                                                          error_code,
+                                                          trajectory_error_codes,
+                                                          false)) {
+    ROS_INFO_STREAM("Original trajectory invalid with error code " << error_code.val);
+    return false;
+  }
+
+
   if (!spline_smoother::checkTrajectoryConsistency(trajectory_out))
     return false;
 
@@ -196,6 +206,20 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
   bool success = trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline);      
   getWaypoints(spline,trajectory_out.trajectory);
   printTrajectory(trajectory_out.trajectory);
+
+  if(!collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                          trajectory_out.trajectory,
+                                                          trajectory_in.goal_constraints,
+                                                          trajectory_in.path_constraints,
+                                                          error_code,
+                                                          trajectory_error_codes,
+                                                          false)) {
+    ROS_INFO_STREAM("Original sampled trajectory invalid with error code " << error_code.val);
+    return false;
+  } else {
+    ROS_INFO_STREAM("Originally sampled trajectory ok");
+  }
+
   std::vector<double> sample_times;
   sample_times.resize(2);
   bool first_try = true;
@@ -228,13 +252,13 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 
     motion_planning_msgs::Constraints empty_goal_constraints;
 
-    if(collision_models_interface_->isTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
-                                                      discretized_trajectory.trajectory,
-                                                      empty_goal_constraints,
-                                                      trajectory_in.path_constraints,
-                                                      error_code,
-                                                      trajectory_error_codes,
-                                                      false))
+    if(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                           discretized_trajectory.trajectory,
+                                                           empty_goal_constraints,
+                                                           trajectory_in.path_constraints,
+                                                           error_code,
+                                                           trajectory_error_codes,
+                                                           false))
     {
       ros::Duration shortcut_duration = discretized_trajectory.trajectory.points.back().time_from_start - discretized_trajectory.trajectory.points.front().time_from_start;
       if(segment_end_time-segment_start_time <= shortcut_duration.toSec())
@@ -287,6 +311,20 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 	
   ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),
             trajectory_out.trajectory.points.back().time_from_start.toSec());
+  
+  if(!collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                          trajectory_out.trajectory,
+                                                          trajectory_in.goal_constraints,
+                                                          trajectory_in.path_constraints,
+                                                          error_code,
+                                                          trajectory_error_codes,
+                                                          false)) {
+    ROS_INFO_STREAM("Final trajectory invalid with error code " << error_code.val);
+    return false;
+  } else {
+    ROS_INFO_STREAM("Final trajectory ok");
+  }
+
 
   return success;
 }
@@ -580,16 +618,6 @@ bool CubicSplineShortCutter<T>::setupCollisionEnvironment()
   collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
   if(!collision_models_interface_->loadedModels())
     return false;
-
-  while(node_handle_.ok()) {
-    bool got_tf = tf_.waitForTransform(collision_models_interface_->getWorldFrameId(), collision_models_interface_->getRobotFrameId(),
-                                       ros::Time::now(), ros::Duration(5.0));
-    if(got_tf) {
-      break;
-    } else {
-      ROS_INFO_STREAM("Waiting for tf");
-    }
-  }
 
   return true;
 }
