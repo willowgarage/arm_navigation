@@ -31,7 +31,7 @@ def test_add_convert_objects():
     obj1 = CollisionObject()
     
     obj1.header.stamp = rospy.Time.now()
-    obj1.header.frame_id = "base_link"
+    obj1.header.frame_id = "torso_lift_link"
     obj1.id = "obj1";
     obj1.operation.operation = mapping_msgs.msg.CollisionObjectOperation.ADD
     obj1.shapes = [Shape() for _ in range(1)]
@@ -40,9 +40,9 @@ def test_add_convert_objects():
     obj1.shapes[0].dimensions[0] = .1
     obj1.shapes[0].dimensions[1] = 1.5
     obj1.poses = [Pose() for _ in range(1)]
-    obj1.poses[0].position.x = .6
-    obj1.poses[0].position.y = -.6
-    obj1.poses[0].position.z = .75
+    obj1.poses[0].position.x = .75
+    obj1.poses[0].position.y = -.188
+    obj1.poses[0].position.z = .0
     obj1.poses[0].orientation.x = 0
     obj1.poses[0].orientation.y = 0
     obj1.poses[0].orientation.z = 0

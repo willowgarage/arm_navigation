@@ -1,0 +1,21 @@
+<package>
+  <description brief="motion_planning_state_refinement">
+
+     motion_planning_state_refinement
+
+  </description>
+  <author>Sachin Chitta</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/motion_planning_state_refinement</url>
+  <depend package="planning_models"/>
+  <depend package="motion_planning_msgs"/>
+  <depend package="pluginlib"/>
+
+  <export>
+   <cpp cflags="-I${prefix}/include"/>
+  </export>
+
+</package>
+
+
