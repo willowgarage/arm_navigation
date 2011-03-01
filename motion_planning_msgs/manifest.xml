@@ -7,6 +7,12 @@ This package defines a set of general-purpose messages and services for motion p
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/motion_planning_msgs</url>
 
+  <depend package="rosbagmigration"/>
+  <export>
+    <cpp cflags=""/>
+    <rosbagmigration rule_file="migration_rules/MultiDOFJointState.bmr"/>
+  </export>
+
   <depend package="std_msgs"/>
   <depend package="geometry_msgs"/>
   <depend package="mapping_msgs"/>
