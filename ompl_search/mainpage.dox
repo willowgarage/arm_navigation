@@ -1,8 +1,0 @@
-/**
-\mainpage
-\htmlinclude manifest.html
-
-\b ompl_search is a node that uses ompl::kinematic::GAIK (a genetic algorithm for performing IK) to find a valid state that is as close as possible to meeting a specified set of constraints.
-
-
-*/
