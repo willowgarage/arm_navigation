@@ -227,7 +227,8 @@ bool planning_models::KinematicState::updateKinematicStateWithLinkAt(const std::
 
   link_state_map_.find(link_name)->second->updateGivenGlobalLinkTransform(transform);
   std::vector<LinkState*> child_links = getChildLinkStates(link_name);
-  for(unsigned int i = 0; i < child_links.size(); i++) {
+  //the zeroith link will be the link itself, which shouldn't be getting updated, so we start at 1
+  for(unsigned int i = 1; i < child_links.size(); i++) {
     child_links[i]->computeTransform();
   }
   return true;
