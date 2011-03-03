@@ -1,0 +1,17 @@
+include Makefile.params
+
+all: copied
+
+include $(shell rospack find mk)/hg_checkout.mk
+
+copied: wiped download
+	   touch copied
+
+wipe:
+	rm -rf copied patched
+
+wiped: Makefile.ompl Makefile.params
+	make -f Makefile wipeNoClean
+	touch wiped
+
+clean:
