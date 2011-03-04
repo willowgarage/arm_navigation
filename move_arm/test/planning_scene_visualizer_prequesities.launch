@@ -14,4 +14,7 @@
 
 	 <param name="group" type="string" value="left_arm" />
    </node>
+   <node pkg="ompl_ros_interface" type="ompl_ros" name="ompl_planning" output="screen">
+     <rosparam command="load" file="$(find ompl_ros_interface)/test/ompl_planning.yaml" />
+   </node>
 </launch>

@@ -46,6 +46,8 @@
 #include <tf/transform_broadcaster.h>
 #include <kinematics_msgs/GetConstraintAwarePositionIK.h>
 #include <actionlib/client/simple_action_client.h>
+#include <motion_planning_msgs/GetMotionPlan.h>
+#include <trajectory_msgs/JointTrajectory.h>
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -63,6 +65,8 @@ static const double HAND_ROT_SPEED = .15;
 
 static const std::string SET_PLANNING_SCENE_NAME_1="/pr2_right_arm_kinematics/set_planning_scene";
 static const std::string SET_PLANNING_SCENE_NAME_2="/pr2_left_arm_kinematics/set_planning_scene";
+static const std::string SET_PLANNING_SCENE_NAME_3="/ompl_planning/set_planning_scene";
+static const std::string SET_PLANNING_SCENE_NAME_4="/trajectory_filter/set_planning_scene";
 
 static const std::string LEFT_IK_NAME="/pr2_left_arm_kinematics/get_constraint_aware_ik";
 static const std::string RIGHT_IK_NAME="/pr2_right_arm_kinematics/get_constraint_aware_ik";
@@ -70,8 +74,13 @@ static const std::string RIGHT_IK_NAME="/pr2_right_arm_kinematics/get_constraint
 static const std::string RIGHT_ARM_GROUP = "right_arm";
 static const std::string LEFT_ARM_GROUP = "left_arm";
 
+static const std::string RIGHT_ARM_REDUNDANCY = "r_upper_arm_roll_joint";
+static const std::string LEFT_ARM_REDUNDANCY = "l_upper_arm_roll_joint";
+
 static const std::string LEFT_IK_LINK = "l_wrist_roll_link";
 static const std::string RIGHT_IK_LINK = "r_wrist_roll_link";
+
+static const std::string PLANNER_SERVICE_NAME="/ompl_planning/plan_kinematic_path";
 
 class PlanningSceneVisualizer {
 public:  
@@ -85,15 +94,20 @@ public:
     
     ros::service::waitForService(LEFT_IK_NAME);
     ros::service::waitForService(RIGHT_IK_NAME);
+    ros::service::waitForService(PLANNER_SERVICE_NAME);
     
     left_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(LEFT_IK_NAME);
     right_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(RIGHT_IK_NAME);
+    planning_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME);
 
-    set_planning_scene_action_1_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_1, true);
-    set_planning_scene_action_1_->waitForServer(ros::Duration(.1));
+    set_planning_scene_action_1_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_1);
+    while(!set_planning_scene_action_1_->waitForServer(ros::Duration(.1)));
 
-    set_planning_scene_action_2_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_2, true);
-    set_planning_scene_action_2_->waitForServer(ros::Duration(.1));
+    set_planning_scene_action_2_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_2);
+    while(!set_planning_scene_action_2_->waitForServer(ros::Duration(.1)));
+
+    set_planning_scene_action_3_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_3);
+    while(!set_planning_scene_action_3_->waitForServer(ros::Duration(.1)));
 
     //clock_publisher_ = nh_.advertise<rosgraph_msgs::Clock>("/clock", 128);
 
@@ -121,13 +135,20 @@ public:
     end_effector_color_.b = 0.0;
     end_effector_color_.g = 0.0;
 
+    trajectory_color_.a = .6;
+    trajectory_color_.r = 0.0;
+    trajectory_color_.b = 1.0;
+    trajectory_color_.g = 0.0;
+
     planning_state_ = NULL;
     end_effector_state_ = NULL;
+    trajectory_state_ = NULL;
   }
   
   ~PlanningSceneVisualizer() {
     delete set_planning_scene_action_1_;
     delete set_planning_scene_action_2_;
+    delete set_planning_scene_action_3_;
     deleteKinematicStates();
     delete cm_;
   }
@@ -135,9 +156,15 @@ public:
   void deleteKinematicStates() {
     if(planning_state_ != NULL) {
       delete planning_state_;
+      planning_state_ = NULL;
     }
     if(end_effector_state_ != NULL) {
       delete end_effector_state_;
+      end_effector_state_ = NULL;
+    }
+    if(trajectory_state_ != NULL) {
+      delete trajectory_state_;
+      trajectory_state_ = NULL;
     }
   }
 
@@ -168,8 +195,10 @@ public:
 
     set_planning_scene_action_1_->sendGoal(planning_scene_goal);
     set_planning_scene_action_2_->sendGoal(planning_scene_goal);
-    set_planning_scene_action_1_->waitForResult(ros::Duration(.1));
-    set_planning_scene_action_2_->waitForResult(ros::Duration(.1));
+    set_planning_scene_action_3_->sendGoal(planning_scene_goal);
+    while(!set_planning_scene_action_1_->waitForResult(ros::Duration(.1)));
+    while(!set_planning_scene_action_2_->waitForResult(ros::Duration(.1)));
+    while(!set_planning_scene_action_3_->waitForResult(ros::Duration(.1)));
 
     send_start_state_ = true;
     return true;
@@ -245,7 +274,7 @@ public:
     }
   }
   
-  void solveIKForEndEffectorPose()
+  bool solveIKForEndEffectorPose(double change_redundancy = 0.0)
   {
     bool right = (end_effector_link_ == RIGHT_IK_LINK);
     kinematics_msgs::PositionIKRequest ik_request;
@@ -253,9 +282,16 @@ public:
     ik_request.pose_stamped.header.frame_id = cm_->getWorldFrameId();
     ik_request.pose_stamped.header.stamp = ros::Time::now();
     tf::poseTFToMsg(end_effector_state_->getLinkState(end_effector_link_)->getGlobalLinkTransform(), ik_request.pose_stamped.pose);
-    planning_environment::convertKinematicStateToRobotState(*planning_state_, ros::Time::now(), 
+    planning_environment::convertKinematicStateToRobotState(*end_effector_state_, ros::Time::now(), 
                                                             cm_->getWorldFrameId(), ik_request.robot_state);
     ik_request.ik_seed_state = ik_request.robot_state;
+    if(change_redundancy != 0.0) {
+      for(unsigned int i = 0; i < ik_request.ik_seed_state.joint_state.name.size(); i++) {
+        if(ik_request.ik_seed_state.joint_state.name[i] == redundancy_joint_) {
+          ik_request.ik_seed_state.joint_state.position[i] += change_redundancy;
+        }
+      }
+    }
 
     ros::ServiceClient* s;
     if(right) {
@@ -269,11 +305,11 @@ public:
     ik_req.timeout = ros::Duration(1.0);
     if(!s->call(ik_req, ik_res)) {
       ROS_INFO("Problem with ik service call");
-      return;
+      return false;
     }
     if(ik_res.error_code.val != ik_res.error_code.SUCCESS) {
       ROS_INFO_STREAM("Call yields bad error code " << ik_res.error_code.val);
-      return;
+      return false;
     }
     send_ik_solution_ = true;
     std::map<std::string, double> joint_values;
@@ -281,6 +317,7 @@ public:
       joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
     }
     end_effector_state_->setKinematicState(joint_values);
+    return true;
   }
 
   void sendMarkers() 
@@ -306,6 +343,7 @@ public:
       cm_->getRobotMeshResourceMarkersGivenState(*end_effector_state_,
                                                  arr,
                                                  end_effector_color_,
+                                                 "end_effector_pose",
                                                  ros::Duration(.2),
                                                  &lnames);
     } else if(send_end_effector_goal_markers_) {
@@ -314,6 +352,22 @@ public:
       cm_->getRobotMeshResourceMarkersGivenState(*end_effector_state_,
                                                  arr,
                                                  end_effector_color_,
+                                                 "ik_solution_pose",
+                                                 ros::Duration(.2),
+                                                 &lnames);
+    }
+    if(send_planner_trajectory_) {
+      const std::vector<const planning_models::KinematicModel::LinkModel*>& updated_links = 
+        cm_->getKinematicModel()->getModelGroup(arm_group_name_)->getUpdatedLinkModels();
+      std::vector<std::string> lnames;
+      lnames.resize(updated_links.size());
+      for(unsigned int i = 0; i < updated_links.size(); i++) {
+        lnames[i] = updated_links[i]->getName();
+      }
+      cm_->getRobotMeshResourceMarkersGivenState(*trajectory_state_,
+                                                 arr,
+                                                 trajectory_color_,
+                                                 "planner_trajectory",
                                                  ros::Duration(.2),
                                                  &lnames);
     }
@@ -329,9 +383,11 @@ public:
       }
       if(right) {
         end_effector_link_ = RIGHT_IK_LINK;
+        redundancy_joint_ = RIGHT_ARM_REDUNDANCY;
         arm_group_name_ = RIGHT_ARM_GROUP;
       } else {
         end_effector_link_ = LEFT_IK_LINK;
+        redundancy_joint_ = LEFT_ARM_REDUNDANCY;
         arm_group_name_ = LEFT_ARM_GROUP;
       }
     } else if(end_effector_state_ != NULL) {
@@ -340,6 +396,64 @@ public:
     }
   }
 
+  bool planToEndEffectorState() {
+    motion_planning_msgs::GetMotionPlan::Request plan_req;
+    plan_req.motion_plan_request.group_name = arm_group_name_;
+    plan_req.motion_plan_request.num_planning_attempts = 1;
+    plan_req.motion_plan_request.allowed_planning_time = ros::Duration(2.0);
+    const planning_models::KinematicState::JointStateGroup* jsg = end_effector_state_->getJointStateGroup(arm_group_name_);
+    plan_req.motion_plan_request.goal_constraints.joint_constraints.resize(jsg->getJointNames().size());
+    std::vector<double> joint_values;
+    jsg->getKinematicStateValues(joint_values);
+    for(unsigned int i = 0; i < jsg->getJointNames().size(); i++) {
+      plan_req.motion_plan_request.goal_constraints.joint_constraints[i].joint_name = jsg->getJointNames()[i];
+      plan_req.motion_plan_request.goal_constraints.joint_constraints[i].position = joint_values[i];
+      plan_req.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.001;
+      plan_req.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.001;
+    }      
+    planning_environment::convertKinematicStateToRobotState(*planning_state_, ros::Time::now(),
+                                                            cm_->getWorldFrameId(), plan_req.motion_plan_request.start_state);
+    motion_planning_msgs::GetMotionPlan::Response plan_res;
+    if(!planning_service_client_.call(plan_req, plan_res)) {
+      ROS_INFO("Something wrong with planner client");
+      return false;
+    }
+    if(plan_res.error_code.val != plan_res.error_code.SUCCESS) {
+      ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
+      return false;
+    }
+    send_planner_trajectory_ = true;
+    current_trajectory_point_ = 0;
+    trajectory_state_ = new planning_models::KinematicState(*planning_state_);
+    planner_trajectory_ = plan_res.trajectory.joint_trajectory;
+    ROS_INFO_STREAM("Trajectory has " << plan_res.trajectory.joint_trajectory.points.size());
+    moveThroughPlannerTrajectory(0);
+    return true;
+  }
+
+  void moveThroughPlannerTrajectory(int step) {
+    if((int) current_trajectory_point_ + step < 0) {
+      current_trajectory_point_ = 0;
+    } else {
+      current_trajectory_point_ = ((int)current_trajectory_point_)+step;
+    }
+    unsigned int tsize = planner_trajectory_.points.size(); 
+    if(current_trajectory_point_ >= tsize-1) {
+      current_trajectory_point_ = tsize-1;
+    }
+    std::map<std::string, double> joint_values;
+    for(unsigned int i = 0; i < planner_trajectory_.joint_names.size(); i++) {
+      joint_values[planner_trajectory_.joint_names[i]] = planner_trajectory_.points[current_trajectory_point_].positions[i];
+    }
+    trajectory_state_->setKinematicState(joint_values);
+  }
+
+  void stopShowingPlannerTrajectory() {
+    send_planner_trajectory_ = false;
+    delete trajectory_state_;
+    trajectory_state_ = NULL;
+  }
+  
   void toggleShowCollisions() {
     send_collision_markers_ = !send_collision_markers_;
     if(send_collision_markers_) {
@@ -361,30 +475,43 @@ public:
 protected:
   ros::NodeHandle nh_;
   planning_environment::CollisionModels* cm_;
+
   planning_models::KinematicState* planning_state_;
   planning_models::KinematicState* end_effector_state_;
+  planning_models::KinematicState* trajectory_state_;
+
   planning_environment_msgs::PlanningScene planning_scene_;
-  std_msgs::ColorRGBA point_color_;
-  std_msgs::ColorRGBA stat_color_;
-  std_msgs::ColorRGBA attached_color_;
-  std_msgs::ColorRGBA end_effector_color_;
-  ros::Publisher vis_marker_publisher_;
-  ros::Publisher vis_marker_array_publisher_;
-  ros::Publisher clock_publisher_;
+  trajectory_msgs::JointTrajectory planner_trajectory_;
 
   std::string end_effector_link_;
   std::string arm_group_name_;
-
-  ros::ServiceClient left_ik_service_client_;
-  ros::ServiceClient right_ik_service_client_;
-
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_1_;  
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_2_;  
+  std::string redundancy_joint_;
+  unsigned int current_trajectory_point_;
 
   bool send_start_state_;
   bool send_collision_markers_;
   bool send_end_effector_goal_markers_;
   bool send_ik_solution_;
+  bool send_planner_trajectory_;
+  
+  std_msgs::ColorRGBA point_color_;
+  std_msgs::ColorRGBA stat_color_;
+  std_msgs::ColorRGBA attached_color_;
+  std_msgs::ColorRGBA end_effector_color_;
+  std_msgs::ColorRGBA trajectory_color_;
+
+  ros::Publisher vis_marker_publisher_;
+  ros::Publisher vis_marker_array_publisher_;
+  ros::Publisher clock_publisher_;
+
+  ros::ServiceClient left_ik_service_client_;
+  ros::ServiceClient right_ik_service_client_;
+  ros::ServiceClient planning_service_client_;
+
+  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_1_;  
+  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_2_;  
+  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_3_;  
+
   tf::TransformBroadcaster transform_broadcaster_;
   std::vector<geometry_msgs::TransformStamped> planning_scene_robot_transforms_;  
   std::map<std::string, double> planning_state_joint_values_;  
@@ -484,17 +611,23 @@ int main(int argc, char** argv)
       {
         bool right = (c == 'e');
         psv->setEndEffectorGoal(true, right);
-        puts("------------------");
-        puts("Use 'i/k' for end effector forward/back");
-        puts("Use 'j/l' for end effector left/right");
-        puts("Use 'h/n' for end effector up/down");
-        puts("Use 'r/f' for pitch up/down");
-        puts("Use 'd/g' for yaw left/right");
-        puts("Use 'v/b' for roll up/down");
-        puts("Use 's' to solve for collision free ik given the current end effector position");
-        puts("Use 'q' to exit submenu");
         bool end_effector_stop = false;
+        bool reprint_end = true;
         while(!end_effector_stop) {
+          if(reprint_end) {
+            puts("------------------");
+            puts("Use 'i/k' for end effector forward/back");
+            puts("Use 'j/l' for end effector left/right");
+            puts("Use 'h/n' for end effector up/down");
+            puts("Use 'r/f' for pitch up/down");
+            puts("Use 'd/g' for yaw left/right");
+            puts("Use 'v/b' for roll up/down");
+            puts("Use 's' to solve for collision free ik given the current end effector position");
+            puts("Use 'a/z' to change redundancy");
+            puts("Use 'p' to plan to current end effector pose");
+            puts("Use 'q' to exit submenu");
+            reprint_end = false;
+          }
           if(read(kfd, &c, 1) < 0)
           {
             perror("read():");
@@ -551,6 +684,43 @@ int main(int argc, char** argv)
             break;
           case 's':
             psv->solveIKForEndEffectorPose();
+            break;
+          case 'a':
+            psv->solveIKForEndEffectorPose(HAND_ROT_SPEED);
+            break;
+          case 'z':
+            psv->solveIKForEndEffectorPose(-HAND_ROT_SPEED);
+            break;
+          case 'p':
+            if(psv->solveIKForEndEffectorPose() && psv->planToEndEffectorState()) {
+              puts("------------------");
+              puts("Use 'i/k' to advance/rewind trajectory points");
+              puts("Use 'q' to return to end effector menu");
+              bool trajectory_stop = false;
+              while(!trajectory_stop) {
+                if(read(kfd, &c, 1) < 0)
+                {
+                  perror("read():");
+                  exit(-1);
+                }
+                switch(c) {
+                case 'i': 
+                  psv->moveThroughPlannerTrajectory(1);
+                  break;
+                case 'k':
+                  psv->moveThroughPlannerTrajectory(-1);
+                  break;
+                case 'q':
+                  trajectory_stop = true;
+                  break;
+                default: 
+                  ROS_INFO_STREAM("Invalid key " << c);
+                  break;
+                }
+              }
+              psv->stopShowingPlannerTrajectory();
+              reprint_end = true;
+            }
             break;
           case 'q':
             psv->setEndEffectorGoal(false);
