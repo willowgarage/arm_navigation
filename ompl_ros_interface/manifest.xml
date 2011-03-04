@@ -14,8 +14,6 @@
   <depend package="planning_environment"/>
   <depend package="motion_planning_msgs"/>
 
-  <depend package="diagnostic_msgs" />
-  <depend package="diagnostic_updater" />
 
   <depend package="kinematics_base" />
   <depend package="pluginlib" />
