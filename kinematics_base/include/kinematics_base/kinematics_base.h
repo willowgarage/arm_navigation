@@ -44,6 +44,18 @@
 #include <kinematics_msgs/GetPositionFK.h>
 
 namespace kinematics {
+
+  static const int SUCCESS = 1;
+  static const int TIMED_OUT = -1;
+  static const int NO_IK_SOLUTION = -2;
+  static const int FRAME_TRANSFORM_FAILURE = -3;
+  static const int IK_LINK_INVALID = -4;
+  static const int IK_LINK_IN_COLLISION = -5;
+  static const int STATE_IN_COLLISION = -6;
+  static const int INVALID_LINK_NAME = -7;
+  static const int GOAL_CONSTRAINTS_VIOLATED = -7;
+  static const int INACTIVE = -8;
+
   /**
    * @class KinematicsBase
    * @brief Provides an interface for kinematics solvers.
@@ -59,7 +71,8 @@ namespace kinematics {
        */
        virtual bool getPositionIK(const geometry_msgs::Pose &ik_pose,
                                   const std::vector<double> &ik_seed_state,
-                                  std::vector<double> &solution) = 0;      
+                                  std::vector<double> &solution,
+                                  int &error_code) = 0;      
 
       /**
        * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
@@ -72,7 +85,8 @@ namespace kinematics {
        virtual bool searchPositionIK(const geometry_msgs::Pose &ik_pose,
                                      const std::vector<double> &ik_seed_state,
                                      const double &timeout,
-                                     std::vector<double> &solution) = 0;      
+                                     std::vector<double> &solution,
+                                     int &error_code) = 0;      
 
       /**
        * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
@@ -87,7 +101,8 @@ namespace kinematics {
                                      const double &timeout,
                                      std::vector<double> &solution,
                                      const boost::function<void(const geometry_msgs::Pose &ik_pose,const std::vector<double> &ik_solution,int &error_code)> &desired_pose_callback,
-                                     const boost::function<void(const geometry_msgs::Pose &ik_pose,const std::vector<double> &ik_solution,int &error_code)> &solution_callback) = 0;      
+                                     const boost::function<void(const geometry_msgs::Pose &ik_pose,const std::vector<double> &ik_solution,int &error_code)> &solution_callback,
+                                     int &error_code) = 0;      
 
       /**
        * @brief Given a set of joint angles and a set of links, compute their pose
