@@ -150,9 +150,11 @@ bool OmplRosIKSampler::sampleGoal(const ompl::base::GoalLazySamples *gls, ompl::
   ompl_ros_interface::omplStateToRobotState(scoped_state,
                                             ompl_state_to_robot_state_mapping_,
                                             seed_state);    
+  int error_code;
   if(kinematics_solver_->getPositionIK(ik_poses_[ik_poses_counter_].pose,
                                        seed_state.joint_state.position,
-                                       solution_state.joint_state.position))
+                                       solution_state.joint_state.position,
+				       error_code))
   {
     // motion_planning_msgs::printJointState(solution_state.joint_state);
     ompl_ros_interface::robotStateToOmplState(solution_state,
