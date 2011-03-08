@@ -2,9 +2,11 @@ include Makefile.params
 
 all: copied
 
-include $(shell rospack find mk)/hg_checkout.mk
+# We build from a tarball from the latest version of ompl
 
-copied: wiped download
+include $(shell rospack find mk)/download_unpack_build.mk
+
+copied: wiped $(SOURCE_DIR)/unpacked
 	   touch copied
 
 wipe:

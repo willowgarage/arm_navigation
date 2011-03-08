@@ -2,7 +2,7 @@ include Makefile.params
 
 INSTALL_LOCATION=installation
 
-EXTRA_CMAKE_FLAGS=-DCMAKE_INSTALL_PREFIX=`pwd`/../$(INSTALL_LOCATION) -DOMPL_SOURCE:string="$(HG_DIR)"
+EXTRA_CMAKE_FLAGS=-DCMAKE_INSTALL_PREFIX=`pwd`/../$(INSTALL_LOCATION) -DOMPL_SOURCE:string="$(SOURCE_DIR)"
 
 ompltoplevel:	all installed
 
@@ -20,7 +20,7 @@ extra-clean:
 
 wipeNoClean:
 	make -f Makefile.ompl wipe
-	rm -rf $(INSTALL_LOCATION) $(HG_DIR)
+	rm -rf $(INSTALL_LOCATION) $(SOURCE_DIR)
 
 wipe: wipeNoClean clean
-	rm -rf bin
+	-rm -rf bin

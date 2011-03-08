@@ -1,5 +1,8 @@
-HG_URL = http://ompl.hg.sourceforge.net:8000/hgroot/ompl/ompl
-HG_DIR = hgrepo
-HG_PATCH = console.patch
-HG_BRANCH = default
-HG_REVISION = -r880
+FILENAME = ompl-880.tar.gz
+TARBALL = build/$(FILENAME)
+TARBALL_URL = https://code.ros.org/svn/release/download/thirdparty/ompl/$(FILENAME)
+TARBALL_PATCH = console.patch
+
+SOURCE_DIR = build/ompl_arch
+UNPACK_CMD = tar xzf
+MD5SUM_FILE = $(FILENAME).md5sum
