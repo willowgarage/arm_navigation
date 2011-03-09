@@ -1229,7 +1229,8 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
   if(!state.areJointsWithinBounds(joint_names)) {
     for(unsigned int j = 0; j < joint_names.size(); j++) {
       if(!state.isJointWithinBounds(joint_names[j])) {
-        std::pair<double, double> bounds = state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j]);
+        std::pair<double, double> bounds; 
+        state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j], bounds);
         ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
                         " value: " << state.getJointState(joint_names[j])->getJointStateValues()[0] << 
                         " low: " << bounds.first << " high: " << bounds.second);
@@ -1375,6 +1376,7 @@ bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_mode
                               emp_goal_constraints, path_constraints)) {
       //this means we return the last error code if we are evaluating the whole trajectory
       error_code = suc;
+      trajectory_error_codes.back() = suc;
       if(!evaluate_entire_trajectory) {
         return false;
       }

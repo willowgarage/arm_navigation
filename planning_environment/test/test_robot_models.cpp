@@ -225,7 +225,19 @@ TEST_F(TestRobotModels, SetGetOperations)
 
 TEST_F(TestRobotModels, SetGetBounds)
 {
-  //TODO
+  planning_environment::RobotModels m("robot_description");
+  const planning_models::KinematicModel* kmodel = m.getKinematicModel();
+
+  planning_models::KinematicState state(kmodel);
+
+  state.setKinematicStateToDefault();
+
+  std::map<std::string, double> test_vals;
+  test_vals["r_shoulder_pan_joint"] =  4.0;
+  test_vals["r_wrist_roll_link"] = 4.0;
+  state.setKinematicState(test_vals);
+  EXPECT_FALSE(state.isJointWithinBounds("r_shoulder_pan_joint"));
+  EXPECT_TRUE(state.isJointWithinBounds("r_wrist_roll_joint"));
 }
 
 TEST_F(TestRobotModels, ForwardKinematics)
