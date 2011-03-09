@@ -481,7 +481,8 @@ bool planning_models::KinematicState::JointState::getJointValueBounds(const std:
                                                                       double& low, 
                                                                       double& high) const {
   if(!joint_model_->hasVariable(value_name)) return false;
-  std::pair<double,double> bounds = joint_model_->getVariableBounds(value_name);
+  std::pair<double,double> bounds;
+  joint_model_->getVariableBounds(value_name, bounds);
   low = bounds.first;
   high = bounds.second;
   return true;
@@ -496,8 +497,9 @@ bool planning_models::KinematicState::JointState::areJointStateValuesWithinBound
   for(std::map<std::string, unsigned int>::const_iterator it = joint_state_index_map_.begin();
       it != joint_state_index_map_.end();
       it++) {
-    std::pair<double,double> bounds = joint_model_->getVariableBounds(it->first);
-    if(joint_state_values_[it->second] < bounds.first || joint_state_values_[it->second] > bounds.second) {
+    bool within_bounds;
+    joint_model_->isValueWithinVariableBounds(it->first, joint_state_values_[it->second], within_bounds);
+    if(!within_bounds) {
       return false;
     }
   }

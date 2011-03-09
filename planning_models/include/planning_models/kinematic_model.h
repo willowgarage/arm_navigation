@@ -167,13 +167,13 @@ public:
       return computation_order_map_index_;
     }
     /** \brief Gets the joint state equivalent for given name */  
-    std::string getEquiv(const std::string name) const;
+    std::string getEquiv(const std::string& name) const;
 
     /** \brief Gets the lower and upper bounds for a variable */
-    std::pair<double, double> getVariableBounds(std::string variable) const;
+    bool getVariableBounds(const std::string& variable, std::pair<double, double>& bounds) const;
    
     /** \brief Sets the lower and upper bounds for a variable */
-    void setVariableBounds(std::string variable, double low, double high);
+    bool setVariableBounds(const std::string& variable, double low, double high);
 
     /** \brief Provides a default value for the joint given the joint bounds.
         Most joints will use the default, but the quaternion for floating
@@ -190,6 +190,20 @@ public:
           ret_map[it->first] = (it->second.first + it->second.second)/2.0;
         }
       }
+    }
+    
+    virtual bool isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const 
+    {
+      std::pair<double, double> bounds;
+      if(!getVariableBounds(variable, bounds)) {
+        return false;
+      }
+      if(value < bounds.first || value > bounds.second) {
+        within_bounds = false;
+      } else {
+        within_bounds = true;
+      }
+      return true;
     }
 
     const std::map<std::string, std::pair<double, double> >& getAllVariableBounds() const {
@@ -334,6 +348,9 @@ public:
     virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
     
     virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+    
+    //so we can return true for continuous joints
+    virtual bool isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const;
   };
 	
   /** \brief A link from the robot. Contains the constant transform applied to the link and its geometry */

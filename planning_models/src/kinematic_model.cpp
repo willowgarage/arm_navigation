@@ -877,7 +877,7 @@ planning_models::KinematicModel::JointModel::~JointModel(void)
     delete child_link_model_;
 }
 
-std::string planning_models::KinematicModel::JointModel::getEquiv(const std::string name) const {
+std::string planning_models::KinematicModel::JointModel::getEquiv(const std::string& name) const {
   js_type::left_const_iterator lit = joint_state_equivalents_.left.find(name);
   if(lit != joint_state_equivalents_.left.end()) {
     return lit->second;
@@ -886,25 +886,27 @@ std::string planning_models::KinematicModel::JointModel::getEquiv(const std::str
   }
 }
 
-void planning_models::KinematicModel::JointModel::setVariableBounds(std::string variable, double low, double high) {
+bool planning_models::KinematicModel::JointModel::setVariableBounds(const std::string& variable, double low, double high) {
   if(joint_state_equivalents_.right.find(variable) == joint_state_equivalents_.right.end()) {
     ROS_WARN_STREAM("Can't find variable " << variable << " to set bounds");
-    return;
+    return false;
   }
   joint_state_bounds_[joint_state_equivalents_.right.at(variable)] = std::pair<double,double>(low, high);
+  return true;
 }
 
-std::pair<double, double> planning_models::KinematicModel::JointModel::getVariableBounds(std::string variable) const{
+bool planning_models::KinematicModel::JointModel::getVariableBounds(const std::string& variable, std::pair<double, double>& bounds) const{
   if(joint_state_equivalents_.right.find(variable) == joint_state_equivalents_.right.end()) {
     ROS_WARN_STREAM("Can't find variable " << variable << " to get bounds");
-    return std::pair<double,double>(0.0,0.0);
+    return false;
   }
   std::string config_name = joint_state_equivalents_.right.find(variable)->second;
   if(joint_state_bounds_.find(config_name) == joint_state_bounds_.end()) {
     ROS_WARN_STREAM("No joint bounds for " << config_name);
-    return std::pair<double,double>(0.0,0.0);
+    return false;
   }
-  return joint_state_bounds_.find(config_name)->second;
+  bounds = joint_state_bounds_.find(config_name)->second;
+  return true;
 }
 
 planning_models::KinematicModel::PlanarJointModel::PlanarJointModel(const std::string& name, const MultiDofConfig* multi_dof_config) 
@@ -1076,6 +1078,20 @@ std::vector<double> planning_models::KinematicModel::RevoluteJointModel::compute
   std::vector<double> ret;
   ret.push_back(transform.getRotation().getAngle()*transform.getRotation().getAxis().dot(axis_));
   return ret;
+}
+
+bool planning_models::KinematicModel::RevoluteJointModel::isValueWithinVariableBounds(const std::string& variable, 
+                                                                                      const double& value, 
+                                                                                      bool& within_bounds) const 
+{
+  if(!continuous_) {
+    return JointModel::isValueWithinVariableBounds(variable, value, within_bounds);
+  }
+  if(!hasVariable(variable)) {
+    return false;
+  }
+  within_bounds = true;
+  return true;
 }
 
 /* ------------------------ LinkModel ------------------------ */
