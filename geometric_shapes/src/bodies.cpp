@@ -1089,7 +1089,7 @@ bodies::BodyVector::BodyVector(){
 }
 
 bodies::BodyVector::BodyVector(const std::vector<shapes::Shape*>& shapes, 
-           const std::vector<btTransform>& poses)
+                               const std::vector<btTransform>& poses)
 {
   for(unsigned int i = 0; i < shapes.size(); i++) {
     addBody(shapes[i],poses[i]);
@@ -1108,6 +1108,7 @@ void bodies::BodyVector::addBody(const shapes::Shape* shape, const btTransform& 
   body->setPose(pose);
   BoundingSphere sphere;
   body->computeBoundingSphere(sphere);
+  bodies_.push_back(body);
   bounding_spheres_.push_back(sphere);
   rsqrs_.push_back(sphere.radius*sphere.radius);
 }
