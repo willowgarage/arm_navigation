@@ -336,6 +336,10 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
     response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
     return finish(false);
   }
+
+  //disabling collisions that don't affect this group
+  collision_models_interface_->disableCollisionsForNonUpdatedLinks(physical_joint_group_->getName());
+
   if (!isRequestValid(request,response))
     return finish(false);
 
@@ -379,7 +383,9 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
 
 bool OmplRosPlanningGroup::finish(const bool &result)
 {
-  collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
+  if(collision_models_interface_->getPlanningSceneState() != NULL) {
+    collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
+  }
   return result;
 }
 

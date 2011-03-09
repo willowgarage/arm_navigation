@@ -1,6 +1,7 @@
 ## the list of groups for which motion planning can be performed
 groups: 
   - right_arm 
+  - left_arm 
 
 ## the planner configurations; each config must have a type, which specifies
 ## the planner to be used; other parameters can be specified as well, depending 
