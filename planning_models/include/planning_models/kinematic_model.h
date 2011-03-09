@@ -529,6 +529,15 @@ public:
       return updated_link_model_vector_;
     }
 
+    std::vector<std::string> getUpdatedLinkModelNames() const
+    {
+      std::vector<std::string> ret_vec;
+      for(unsigned int i = 0; i < updated_link_model_vector_.size(); i++) {
+        ret_vec.push_back(updated_link_model_vector_[i]->getName());
+      }
+      return ret_vec;
+    }    
+
   private:
 
     bool is_valid_;
