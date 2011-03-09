@@ -42,6 +42,7 @@
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/linear_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/models/model_utils.h>
 #include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
@@ -177,6 +178,11 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
   motion_planning_msgs::JointTrajectoryWithLimits shortcut, discretized_trajectory;
 
   trajectory_out = trajectory_in;
+
+  collision_models_interface_->disableCollisionsForNonUpdatedLinks(trajectory_in.group_name);
+
+  planning_environment::setRobotStateAndComputeTransforms(trajectory_in.start_state,
+                                                          *collision_models_interface_->getPlanningSceneState());
 
   if (!spline_smoother::checkTrajectoryConsistency(trajectory_out))
     return false;

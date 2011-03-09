@@ -42,6 +42,7 @@
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/cubic_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/models/model_utils.h>
 #include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <motion_planning_msgs/LinkPadding.h>
@@ -62,9 +63,8 @@ public:
   virtual bool ConfigFeasible(const Vector& x);
   virtual bool SegmentFeasible(const Vector& a,const Vector& b);
   bool setInitial(const trajectory_msgs::JointTrajectory &trajectory,
-                  const motion_planning_msgs::OrderedCollisionOperations &ordered_collision_operations,
-                  const std::vector<motion_planning_msgs::AllowedContactSpecification> &allowed_contact_regions,
-                  const std::vector<motion_planning_msgs::LinkPadding> &link_padding,
+                  const std::string& group_name, 
+                  const motion_planning_msgs::RobotState& start_state, 
                   const motion_planning_msgs::Constraints &path_constraints);
   void resetRequest();
   bool isActive();
@@ -106,9 +106,8 @@ void FeasibilityChecker::initialize()
 }
 
 bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &trajectory,
-                                    const motion_planning_msgs::OrderedCollisionOperations &ordered_collision_operations,
-                                    const std::vector<motion_planning_msgs::AllowedContactSpecification> &allowed_contact_regions,
-                                    const std::vector<motion_planning_msgs::LinkPadding> &link_padding,
+                                    const std::string& group_name, 
+                                    const motion_planning_msgs::RobotState &start_state,
                                     const motion_planning_msgs::Constraints &path_constraints)
 {
   std::vector<std::string> child_links;
@@ -121,6 +120,11 @@ bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &traj
     ROS_INFO("Planning scene not set, can't do anything");
     return false;
   }
+
+  collision_models_interface_->disableCollisionsForNonUpdatedLinks(group_name);
+  
+  planning_environment::setRobotStateAndComputeTransforms(start_state,
+                                                         *collision_models_interface_->getPlanningSceneState());
 
   path_constraints_ = path_constraints;
 
@@ -287,9 +291,8 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
   }
   
   feasibility_checker_->setInitial(trajectory_in.trajectory,
-                                   trajectory_in.ordered_collision_operations,
-                                   trajectory_in.allowed_contacts,
-                                   trajectory_in.link_padding,
+                                   trajectory_in.group_name,
+                                   trajectory_in.start_state,
                                    trajectory_in.path_constraints);
   std::vector<Vector> path;        //the sequence of milestones
   Vector vmax,amax;           //velocity and acceleration bounds, respectively

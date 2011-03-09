@@ -42,6 +42,7 @@
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/cubic_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/models/model_utils.h>
 #include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
@@ -179,6 +180,11 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
 
   trajectory_out = trajectory_in;
 
+  collision_models_interface_->disableCollisionsForNonUpdatedLinks(trajectory_in.group_name);
+
+  planning_environment::setRobotStateAndComputeTransforms(trajectory_in.start_state,
+                                                          *collision_models_interface_->getPlanningSceneState());
+
   if(!collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
                                                           trajectory_out.trajectory,
                                                           trajectory_in.goal_constraints,
@@ -265,7 +271,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
         continue;
       if(!trimTrajectory(trajectory_out.trajectory,segment_start_time,segment_end_time))
         continue;
-      ROS_DEBUG("Trimmed trajectory has %u points",trajectory_out.trajectory.points.size());
+      ROS_DEBUG_STREAM("Trimmed trajectory has " << trajectory_out.trajectory.points.size() << " points");
 
       ROS_DEBUG("Shortcut reduced duration from: %f to %f",
                 segment_end_time-segment_start_time,
