@@ -1,12 +1,6 @@
 # A service call to carry out an inverse kinematics computation
 # The inverse kinematics request
 kinematics_msgs/PositionIKRequest ik_request
-# A set of allowable contact regions
-motion_planning_msgs/AllowedContactSpecification[] allowed_contacts
-# A set of ordered collision operations to determine the resultant collision matrix to use
-motion_planning_msgs/OrderedCollisionOperations ordered_collision_operations
-# A set of links for which to alter the padding to the indicated values
-motion_planning_msgs/LinkPadding[] link_padding
 # A set of constraints that the IK must obey
 motion_planning_msgs/Constraints constraints
 # Maximum allowed time for IK calculation
