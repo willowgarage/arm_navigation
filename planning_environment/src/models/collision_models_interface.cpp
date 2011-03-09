@@ -63,10 +63,10 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   planning_environment_msgs::SetPlanningSceneResult res;
   res.ok = true;
 
-  ROS_INFO("Setting planning scene");
+  ROS_DEBUG("Setting planning scene");
 
   if(planning_scene_set_) {
-    ROS_INFO("Reverting planning scene");
+    ROS_DEBUG("Reverting planning scene");
     revertPlanningScene(planning_scene_state_);
     planning_scene_state_ = NULL;
     if(revert_planning_scene_callback_ != NULL) {

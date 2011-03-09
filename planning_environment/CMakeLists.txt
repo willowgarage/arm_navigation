@@ -17,13 +17,12 @@ rosbuild_add_library(planning_environment src/models/robot_models.cpp
 					 src/monitors/collision_space_monitor.cpp
 					 src/monitors/planning_monitor.cpp
 					 src/util/kinematic_state_constraint_evaluator.cpp
-					 src/util/construct_object.cpp
-#                                         src/monitors/joint_state_monitor.cpp)
-)
+					 src/util/construct_object.cpp)
+
 rosbuild_add_openmp_flags(planning_environment)
 rosbuild_link_boost(planning_environment thread)
 
-rosbuild_add_executable(environment_server src/monitors/environment_server.cpp src/monitors/environment_server_setup.cpp)
+rosbuild_add_executable(environment_server src/monitors/environment_server.cpp)
 rosbuild_link_boost(environment_server thread)
 target_link_libraries(environment_server planning_environment)
 

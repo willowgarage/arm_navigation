@@ -84,18 +84,6 @@ public:
     return state_monitor_started_;
   }	
   
-  /** Once everything is functional this advertises any services that the monitor may offer*/
-  virtual void advertiseServices() {
-    //kmsm doesn't have services to advertise
-  }
-
-
-  /** \brief Define a callback for when the state is changed */
-  void setOnStateUpdateCallback(const boost::function<void(void)> &callback)
-  {
-    onStateUpdate_ = callback;
-  }
-
   /** \brief Get the kinematic model that is being used to check for validity */
   const planning_models::KinematicModel* getKinematicModel(void) const
   {

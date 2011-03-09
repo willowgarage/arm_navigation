@@ -174,7 +174,8 @@ public:
 
   bool applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord,
                                                        bool print=false);
-  
+  bool disableCollisionsForNonUpdatedLinks(const std::string& group_name);
+
   bool setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm);
 
   bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& al,
@@ -260,29 +261,44 @@ public:
   // Visualization functions
   //
 
-  void getAllCollisionSpaceObjectMarkers(visualization_msgs::MarkerArray& arr,
-                                         const std_msgs::ColorRGBA static_color,
-                                         const std_msgs::ColorRGBA attached_color,
-                                         const ros::Duration& lifetime) const;
+  void getCollisionMapAsMarkers(visualization_msgs::MarkerArray& arr,
+                                const std_msgs::ColorRGBA& color,
+                                const ros::Duration& lifetime);
 
-  void getAttachedCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
-                                         const std_msgs::ColorRGBA color,
-                                         const ros::Duration& lifetime) const;;
+  void getAllCollisionSpaceObjectMarkers(const planning_models::KinematicState& state,
+                                         visualization_msgs::MarkerArray& arr,
+                                         const std::string& ns, 
+                                         const std_msgs::ColorRGBA& static_color,
+                                         const std_msgs::ColorRGBA& attached_color,
+                                         const ros::Duration& lifetime);
+
+  void getAttachedCollisionObjectMarkers(const planning_models::KinematicState& state,
+                                         visualization_msgs::MarkerArray& arr,
+                                         const std::string& ns, 
+                                         const std_msgs::ColorRGBA& color,
+                                         const ros::Duration& lifetime);
   
   void getStaticCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
-                                       const std_msgs::ColorRGBA color,
+                                       const std::string& ns, 
+                                       const std_msgs::ColorRGBA& color,
                                        const ros::Duration& lifetime) const;
   
   //can't be const because it poses in state
   void getAllCollisionPointMarkers(const planning_models::KinematicState& state,
                                    visualization_msgs::MarkerArray& arr,
-                                   const std_msgs::ColorRGBA color,
+                                   const std_msgs::ColorRGBA& color,
                                    const ros::Duration& lifetime);
 
   void getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
                                         visualization_msgs::MarkerArray& arr,
                                         bool use_default_padding,
                                         const ros::Duration& lifetime) const;
+  void getRobotMeshResourceMarkersGivenState(const planning_models::KinematicState& state,
+                                             visualization_msgs::MarkerArray& arr,
+                                             const std_msgs::ColorRGBA& color,
+                                             const std::string& name, 
+                                             const ros::Duration& lifetime,
+                                             const std::vector<std::string>* names) const;
   
   /** \brief Return the instance of the constructed ODE collision model */  
   const collision_space::EnvironmentModel* getCollisionSpace() const {
@@ -313,12 +329,16 @@ public:
   void writePlanningSceneBag(const std::string& filename,
                              const planning_environment_msgs::PlanningScene& planning_scene) const;
   
-  void readPlanningSceneBag(const std::string& filename,
+  bool readPlanningSceneBag(const std::string& filename,
                             planning_environment_msgs::PlanningScene& planning_scene) const;
 
   
   bool isPlanningSceneSet() const {
     return planning_scene_set_;
+  }
+
+  const std::map<std::string, geometry_msgs::TransformStamped>& getSceneTransformMap() const {
+    return scene_transform_map_;
   }
 
 protected:

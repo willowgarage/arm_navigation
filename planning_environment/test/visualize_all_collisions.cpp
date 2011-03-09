@@ -157,7 +157,9 @@ int main(int argc, char** argv)
                                        point_color,
                                        ros::Duration(.2));
  
-    cmodel.getAllCollisionSpaceObjectMarkers(arr,
+    cmodel.getAllCollisionSpaceObjectMarkers(*state,
+                                             arr,
+                                             "",
                                              stat_color,
                                              attached_color,
                                              ros::Duration(.2));

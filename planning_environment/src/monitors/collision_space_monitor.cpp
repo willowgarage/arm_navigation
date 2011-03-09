@@ -43,11 +43,6 @@
 #include <climits>
 #include <sstream>
 
-static const std::string GET_COLLISION_OBJECTS_SERVICE_NAME = "get_collision_objects";
-static const std::string GET_CURRENT_ALLOWED_COLLISION_MATRIX_SERVICE_NAME = "get_current_allowed_collision_matrix";
-static const std::string SET_ALLOWED_COLLISIONS_SERVICE_NAME="set_allowed_collisions";
-static const std::string REVERT_ALLOWED_COLLISIONS_SERVICE_NAME="revert_allowed_collisions";
-
 namespace planning_environment
 {
     
@@ -60,10 +55,6 @@ static inline double maxCoord(const geometry_msgs::Point32 &point)
 void planning_environment::CollisionSpaceMonitor::setupCSM(void)
 {
   envMonitorStarted_ = false;
-  onBeforeMapUpdate_ = NULL;
-  onAfterMapUpdate_  = NULL;
-  onCollisionObjectUpdate_ = NULL;
-  onAfterAttachCollisionObject_ = NULL;
 
   collisionMapFilter_ = NULL;
   collisionMapUpdateFilter_ = NULL;
@@ -76,10 +67,7 @@ void planning_environment::CollisionSpaceMonitor::setupCSM(void)
   have_map_ = false;
   use_collision_map_ = false;
 
-  nh_.param<double>("pointcloud_padd", pointcloud_padd_, 0.02);
-  nh_.param<double>("object_scale", scale_, 1.0);
-  nh_.param<double>("object_padd", padd_, 0.02);
-
+  nh_.param<double>("pointcloud_padd", pointcloud_padd_, 0.00);
 }
 
 void planning_environment::CollisionSpaceMonitor::startEnvironmentMonitor(void)
@@ -88,10 +76,10 @@ void planning_environment::CollisionSpaceMonitor::startEnvironmentMonitor(void)
     return;
 
   if(use_collision_map_) {
-    collisionMapSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(root_handle_, "collision_map", 1);
+    collisionMapSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(root_handle_, "collision_map_occ", 1);
     collisionMapFilter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(*collisionMapSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
     collisionMapFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionMapCallback, this, _1));
-    ROS_DEBUG("Listening to collision_map using message notifier with target frame %s", collisionMapFilter_->getTargetFramesString().c_str());
+    ROS_INFO("Listening to collision_map using message notifier with target frame %s", collisionMapFilter_->getTargetFramesString().c_str());
     
     collisionMapUpdateSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(root_handle_, "collision_map_update", 1024);
     collisionMapUpdateFilter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(*collisionMapUpdateSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
@@ -108,17 +96,7 @@ void planning_environment::CollisionSpaceMonitor::startEnvironmentMonitor(void)
   attachedCollisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
   attachedCollisionObjectSubscriber_->registerCallback(boost::bind(&CollisionSpaceMonitor::attachObjectCallback, this, _1));    
 
-  advertiseServices();
-
   envMonitorStarted_ = true;
-}
-
-void planning_environment::CollisionSpaceMonitor::advertiseServices() {
-  KinematicModelStateMonitor::advertiseServices();
-  get_objects_service_ = ros::NodeHandle("~").advertiseService(GET_COLLISION_OBJECTS_SERVICE_NAME, &CollisionSpaceMonitor::getObjectsService, this);
-  get_current_collision_map_service_ = ros::NodeHandle("~").advertiseService(GET_CURRENT_ALLOWED_COLLISION_MATRIX_SERVICE_NAME, &CollisionSpaceMonitor::getCurrentAllowedCollisionsService, this);
-  set_allowed_collisions_service_ = ros::NodeHandle("~").advertiseService(SET_ALLOWED_COLLISIONS_SERVICE_NAME, &CollisionSpaceMonitor::setAllowedCollisionsService, this);
-  revert_allowed_collisions_service_ = ros::NodeHandle("~").advertiseService(REVERT_ALLOWED_COLLISIONS_SERVICE_NAME, &CollisionSpaceMonitor::revertAllowedCollisionMatrixToDefaultService, this);  
 }
 
 void planning_environment::CollisionSpaceMonitor::setUseCollisionMap(bool use_collision_map) {
@@ -381,7 +359,8 @@ void planning_environment::CollisionSpaceMonitor::updateCollisionSpace(const map
   std::vector<btTransform> poses;
   
   collisionMapAsBoxes(*collision_map, shapes, poses);
-  cm_->setCollisionMap(shapes, poses, true);
+  //not masking here
+  cm_->setCollisionMap(shapes, poses, false);
   last_map_update_ = collision_map->header.stamp;
   have_map_ = true;
 }
@@ -468,11 +447,7 @@ void planning_environment::CollisionSpaceMonitor::collisionObjectCallback(const 
       cm_->deleteStaticObject(collision_object->id);
       ROS_INFO("Removed object '%s' from collision space", collision_object->id.c_str());
     }
-  }
-
-  if (onCollisionObjectUpdate_)
-    onCollisionObjectUpdate_(collision_object);
-  
+  }  
 }
 
 bool planning_environment::CollisionSpaceMonitor::attachObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr &attached_object)
@@ -485,9 +460,6 @@ bool planning_environment::CollisionSpaceMonitor::attachObjectCallback(const map
       return false;
     } 
     cm_->deleteAllAttachedObjects();
-    if(onAfterAttachCollisionObject_ != NULL) {
-      onAfterAttachCollisionObject_(attached_object); 
-    }
   }
 
   //if there are no objects in the map, clear everything
@@ -540,44 +512,6 @@ bool planning_environment::CollisionSpaceMonitor::attachObjectCallback(const map
                            poses,
                            attached_object->touch_links);
   }
-  return true;
-}
-
-bool planning_environment::CollisionSpaceMonitor::getObjectsService(planning_environment_msgs::GetCollisionObjects::Request &req,
-                                                                    planning_environment_msgs::GetCollisionObjects::Response &res) {
-  cm_->getCollisionSpaceCollisionObjects(res.collision_objects);
-  if(req.include_points) {
-    cm_->getCollisionSpaceCollisionMap(res.points);
-  }
-  cm_->getCollisionSpaceAttachedCollisionObjects(res.attached_collision_objects);
-  return true;
-}
-                                                                   
-
-bool planning_environment::CollisionSpaceMonitor::getCurrentAllowedCollisionsService(planning_environment_msgs::GetAllowedCollisionMatrix::Request& req,
-                                                                                     planning_environment_msgs::GetAllowedCollisionMatrix::Response& res) {
-  cm_->getCollisionSpaceAllowedCollisions(res.matrix);
-  return true;
-}
-
-bool planning_environment::CollisionSpaceMonitor::setAllowedCollisionsService(planning_environment_msgs::SetAllowedCollisions::Request& req,
-                                                                              planning_environment_msgs::SetAllowedCollisions::Response& res)
-{
-  bool ok = cm_->applyOrderedCollisionOperationsToCollisionSpace(req.ord);
-  if(!ok) {
-    ROS_WARN("Can't apply ordered collision operations");
-    return false;
-  }
-  planning_environment_msgs::GetAllowedCollisionMatrix::Request greq;
-  planning_environment_msgs::GetAllowedCollisionMatrix::Response gres;
-  getCurrentAllowedCollisionsService(greq,gres);
-  res.matrix = gres.matrix;
-  return true;
-}
-
-bool planning_environment::CollisionSpaceMonitor::revertAllowedCollisionMatrixToDefaultService(std_srvs::Empty::Request& req,
-                                                                                               std_srvs::Empty::Response& res) {
-  cm_->revertAllowedCollisionToDefault();
   return true;
 }
 

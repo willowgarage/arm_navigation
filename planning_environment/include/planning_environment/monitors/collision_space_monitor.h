@@ -71,7 +71,6 @@ public:
   {
     cm_ = cm;
     setupCSM();
-
   }
 	
   virtual ~CollisionSpaceMonitor(void)
@@ -99,8 +98,6 @@ public:
   /** \brief Stop the environment monitor. */
   void stopEnvironmentMonitor(void);
 	
-  virtual void advertiseServices();
-
   /** \brief Check if the environment monitor is currently started */
   bool isEnvironmentMonitorStarted(void) const
   {
@@ -119,30 +116,6 @@ public:
     return cm_;
   }
 	
-  /** \brief Define a callback for before updating a map */
-  void setOnBeforeMapUpdateCallback(const boost::function<void(const mapping_msgs::CollisionMapConstPtr, bool)> &callback)
-  {
-    onBeforeMapUpdate_ = callback;
-  }
-
-  /** \brief Define a callback for after updating a map */
-  void setOnAfterMapUpdateCallback(const boost::function<void(const mapping_msgs::CollisionMapConstPtr, bool)> &callback)
-  {
-    onAfterMapUpdate_ = callback;
-  }
-
-  /** \brief Define a callback for after updating a map */
-  void setOnAfterAttachCollisionObjectCallback(const boost::function<void(const mapping_msgs::AttachedCollisionObjectConstPtr &attachedObject)> &callback)
-  {
-    onAfterAttachCollisionObject_ = callback;
-  }
-
-  /** \brief Define a callback for after updating objects */
-  void setOnAfterCollisionObjectCallback(const boost::function<void(const mapping_msgs::CollisionObjectConstPtr &attachedObject)> &callback)
-  {
-    onCollisionObjectUpdate_ = callback;
-  }
-
   /** \brief Return true if  map has been received */
   bool haveMap(void) const
   {
@@ -167,27 +140,6 @@ public:
     return pointcloud_padd_;
   }
 	
-  bool getObjectsService(planning_environment_msgs::GetCollisionObjects::Request &req,
-                         planning_environment_msgs::GetCollisionObjects::Response &res);    
-  /** \brief This function changes the allowed collisions 
-      in the collision space to reflect the contents of the
-      message.  This allowed collison set will be in place
-      until revert is called.
-   */
-
-  /** \brief This function gets whatever allowed collision matrix is currently in use
-      by the collision space */
-  bool getCurrentAllowedCollisionsService(planning_environment_msgs::GetAllowedCollisionMatrix::Request& req,
-                                          planning_environment_msgs::GetAllowedCollisionMatrix::Response& res);
-  
-  /** \brief This service sets the allowed collisions using ordered collision operations.  
-      The set collisions will remain in effect until a revert to default is called */
-  bool setAllowedCollisionsService(planning_environment_msgs::SetAllowedCollisions::Request& req,
-                                   planning_environment_msgs::SetAllowedCollisions::Response& res);
-
-  bool revertAllowedCollisionMatrixToDefaultService(std_srvs::Empty::Request& req,
-                                                    std_srvs::Empty::Response& res);
-
   void setUseCollisionMap(bool use);
 
 protected:
@@ -212,48 +164,27 @@ protected:
   void collisionMapUpdateCallback(const mapping_msgs::CollisionMapConstPtr &collisionMap);
   void collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collisionObject);
   virtual bool attachObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr &attachedObject);
-  void addAttachedCollisionObjects(std::vector<std::string>& svec) const;
 
-  CollisionModels                                                *cm_;
-  boost::mutex                                                    mapUpdateLock_;
-  double                                                          pointcloud_padd_;
+  CollisionModels *cm_;
+  double pointcloud_padd_;
 	
-  bool                                                            envMonitorStarted_;
+  bool envMonitorStarted_;
 	
-  bool                                                            have_map_;
-  ros::Time                                                       last_map_update_;	
+  bool have_map_;
+  ros::Time last_map_update_;	
 	
-  message_filters::Subscriber<mapping_msgs::CollisionMap>        *collisionMapSubscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionMap>                  *collisionMapFilter_;
-  message_filters::Subscriber<mapping_msgs::CollisionMap>        *collisionMapUpdateSubscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionMap>                  *collisionMapUpdateFilter_;
-  message_filters::Subscriber<mapping_msgs::CollisionObject>         *collisionObjectSubscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionObject>                   *collisionObjectFilter_;
+  message_filters::Subscriber<mapping_msgs::CollisionMap> *collisionMapSubscriber_;
+  tf::MessageFilter<mapping_msgs::CollisionMap> *collisionMapFilter_;
+  message_filters::Subscriber<mapping_msgs::CollisionMap> *collisionMapUpdateSubscriber_;
+  tf::MessageFilter<mapping_msgs::CollisionMap> *collisionMapUpdateFilter_;
+  message_filters::Subscriber<mapping_msgs::CollisionObject> *collisionObjectSubscriber_;
+  tf::MessageFilter<mapping_msgs::CollisionObject> *collisionObjectFilter_;
 
   message_filters::Subscriber<mapping_msgs::AttachedCollisionObject> *attachedCollisionObjectSubscriber_;
-
-  ros::ServiceServer get_objects_service_;
-  ros::ServiceServer get_current_collision_map_service_;
-  ros::ServiceServer set_allowed_collisions_service_;
-  ros::ServiceServer revert_allowed_collisions_service_;
 
   bool use_collision_map_;
 
   boost::recursive_mutex collision_map_lock_;
-  std::vector<shapes::Shape*> last_collision_map_shapes_;
-  std::vector<btTransform>    last_collision_map_poses_;
-  //true is include, false is currently masked
-  std::vector<bool> last_collision_map_object_mask_;
-
-  mapping_msgs::CollisionMap last_collision_map_;
-  double                                                             scale_;
-  double                                                             padd_;
-
-  boost::function<void(const mapping_msgs::AttachedCollisionObjectConstPtr &attachedObject)> onAfterAttachCollisionObject_;	
-  boost::function<void(const mapping_msgs::CollisionMapConstPtr, bool)> onBeforeMapUpdate_;
-  boost::function<void(const mapping_msgs::CollisionMapConstPtr, bool)> onAfterMapUpdate_;
-  boost::function<void(const mapping_msgs::CollisionObjectConstPtr)>        onCollisionObjectUpdate_;
-    
 };
     
 	

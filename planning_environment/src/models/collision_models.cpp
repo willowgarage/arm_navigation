@@ -56,6 +56,7 @@ planning_environment::CollisionModels::~CollisionModels(void)
 {
   deleteAllStaticObjects();
   deleteAllAttachedObjects();
+  shapes::deleteShapeVector(collision_map_shapes_);
   delete ode_collision_model_;
 }
 
@@ -642,6 +643,7 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
                                                             const std::vector<btTransform>& poses,
                                                             bool mask_before_insertion)
 {
+  shapes::deleteShapeVector(collision_map_shapes_);
   collision_map_shapes_ = shapes::cloneShapeVector(shapes);
   collision_map_poses_ = poses;
   std::vector<btTransform> masked_poses = poses;
@@ -676,15 +678,16 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
       it++) {
     static_object_vector.push_back(it->second);
   }
-
   bodies::maskPosesInsideBodyVectors(poses, static_object_vector, mask);
   std::vector<btTransform> ret_poses;
   std::vector<shapes::Shape*> ret_shapes;
+  unsigned int num_masked = 0;
   for(unsigned int i = 0; i < mask.size(); i++) {
     if(mask[i]) {
       ret_shapes.push_back(shapes[i]);
       ret_poses.push_back(poses[i]);
     } else {
+      num_masked++;
       delete shapes[i];
     }
   }
@@ -964,6 +967,58 @@ bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCol
   return true;
 }
 
+bool planning_environment::CollisionModels::disableCollisionsForNonUpdatedLinks(const std::string& group_name)
+{
+  kmodel_->sharedLock();  
+  const planning_models::KinematicModel::JointModelGroup* joint_model_group = kmodel_->getModelGroup(group_name);
+  collision_space::EnvironmentModel::AllowedCollisionMatrix acm = ode_collision_model_->getCurrentAllowedCollisionMatrix();
+  if(joint_model_group == NULL) {
+    ROS_WARN_STREAM("No joint group " << group_name);
+    return false;
+  }
+  std::vector<std::string> updated_link_names = joint_model_group->getUpdatedLinkModelNames();
+  std::map<std::string, bool> updated_link_map;
+  for(unsigned int i = 0; i < updated_link_names.size(); i++) {
+    updated_link_map[updated_link_names[i]] = true;
+  }
+  std::vector<std::string> all_link_names;
+  kmodel_->getLinkModelNames(all_link_names);
+
+  std::vector<std::string> non_group_names;
+  for(unsigned int i = 0; i < all_link_names.size(); i++) {
+    //some links may not be in the matrix if they don't have collision geometry
+    if(acm.hasEntry(all_link_names[i]) && updated_link_map.find(all_link_names[i]) == updated_link_map.end()) {
+      non_group_names.push_back(all_link_names[i]);
+    }
+  }
+  std::vector<const planning_models::KinematicModel::AttachedBodyModel*> att_bodies = kmodel_->getAttachedBodyModels();
+  for(unsigned int i = 0; i < att_bodies.size(); i++) {
+    if(updated_link_map.find(att_bodies[i]->getAttachedLinkModel()->getName()) == updated_link_map.end()) {
+      non_group_names.push_back(att_bodies[i]->getName());
+    }
+  }
+
+  //now adding in static object names too
+  for(std::map<std::string, bodies::BodyVector*>::const_iterator it = static_object_map_.begin();
+      it != static_object_map_.end();
+      it++) {
+    non_group_names.push_back(it->first);
+  }
+
+  //finally, adding collision map
+  non_group_names.push_back(COLLISION_MAP_NAME);
+
+  //this allows all collisions for these links with each other
+  if(!acm.changeEntry(non_group_names, non_group_names, true)) {
+    ROS_INFO_STREAM("Some problem changing entries");
+    kmodel_->sharedUnlock();  
+    return false;
+  }
+  setAlteredAllowedCollisionMatrix(acm);  
+  kmodel_->sharedUnlock();  
+  return true;
+}
+
 bool planning_environment::CollisionModels::setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm)
 {
   ode_collision_model_->setAlteredCollisionMatrix(acm);
@@ -1137,7 +1192,7 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
                                                 coll_space_contacts,
                                                 num_per_pair);
   ros::WallTime n2 = ros::WallTime::now();
-  ROS_INFO_STREAM("Got " << coll_space_contacts.size() << " collisions in " << (n2-n1).toSec());
+  ROS_DEBUG_STREAM("Got " << coll_space_contacts.size() << " collisions in " << (n2-n1).toSec());
   for(unsigned int i = 0; i < coll_space_contacts.size(); i++) {
     planning_environment_msgs::ContactInformation contact_info;
     contact_info.header.frame_id = getWorldFrameId();
@@ -1400,9 +1455,43 @@ double planning_environment::CollisionModels::getTotalTrajectoryJointLength(plan
 
 //visualization functions
 
+void planning_environment::CollisionModels::getCollisionMapAsMarkers(visualization_msgs::MarkerArray& arr,
+                                                                     const std_msgs::ColorRGBA& color,
+                                                                     const ros::Duration& lifetime) 
+{
+  visualization_msgs::Marker mark;
+  mark.type = visualization_msgs::Marker::CUBE_LIST;
+  mark.color = color;
+  mark.lifetime = lifetime;
+  mark.ns = "collision_map_markers";
+  mark.id = 0;
+  mark.header.frame_id = getWorldFrameId();
+  mark.header.stamp = ros::Time::now();
+  const collision_space::EnvironmentObjects::NamespaceObjects &no = ode_collision_model_->getObjects()->getObjects(COLLISION_MAP_NAME);
+  const unsigned int n = no.shape.size();
+  for (unsigned int i = 0 ; i < n ; ++i) {
+    if (no.shape[i]->type == shapes::BOX) {
+      const shapes::Box* box = static_cast<const shapes::Box*>(no.shape[i]);
+      //first dimension of first box assumed to hold for all boxes
+      if(i == 0) {
+        mark.scale.x = box->size[0];
+        mark.scale.y = box->size[0];
+        mark.scale.z = box->size[0];
+      }
+      const btVector3 &c = no.shape_pose[i].getOrigin();
+      geometry_msgs::Point point;
+      point.x = c.x();
+      point.y = c.y();
+      point.z = c.z();
+      mark.points.push_back(point);
+    }
+  }
+  arr.markers.push_back(mark);
+}
+
 void planning_environment::CollisionModels::getAllCollisionPointMarkers(const planning_models::KinematicState& state,
                                                                         visualization_msgs::MarkerArray& arr,
-                                                                        const std_msgs::ColorRGBA color,
+                                                                        const std_msgs::ColorRGBA& color,
                                                                         const ros::Duration& lifetime)
 {
   std::vector<planning_environment_msgs::ContactInformation> coll_info_vec;
@@ -1441,7 +1530,7 @@ void planning_environment::CollisionModels::getAllCollisionPointMarkers(const pl
     mk.pose.position.z = coll_info_vec[i].position.z;
     mk.pose.orientation.w = 1.0;
     
-    mk.scale.x = mk.scale.y = mk.scale.z = 0.01;
+    mk.scale.x = mk.scale.y = mk.scale.z = 0.035;
 
     mk.color.a = color.a;
     if(mk.color.a == 0.0) {
@@ -1457,7 +1546,8 @@ void planning_environment::CollisionModels::getAllCollisionPointMarkers(const pl
 }
 
 void planning_environment::CollisionModels::getStaticCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
-                                                                            const std_msgs::ColorRGBA color,
+                                                                            const std::string& name,
+                                                                            const std_msgs::ColorRGBA& color,
                                                                             const ros::Duration& lifetime) const
 {
   std::vector<mapping_msgs::CollisionObject> static_objects;
@@ -1468,7 +1558,11 @@ void planning_environment::CollisionModels::getStaticCollisionObjectMarkers(visu
       visualization_msgs::Marker mk;
       mk.header.frame_id = getWorldFrameId();
       mk.header.stamp = ros::Time::now();
-      mk.ns = static_objects[i].id;
+      if(name.empty()) {
+        mk.ns = static_objects[i].id;
+      } else {
+        mk.ns = name;
+      }
       mk.id = j;
       mk.action = visualization_msgs::Marker::ADD;
       mk.pose = static_objects[i].poses[j];
@@ -1485,12 +1579,16 @@ void planning_environment::CollisionModels::getStaticCollisionObjectMarkers(visu
     }
   }
 }
-void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
-                                                                              const std_msgs::ColorRGBA color,
-                                                                              const ros::Duration& lifetime) const
+void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(const planning_models::KinematicState& state,
+                                                                              visualization_msgs::MarkerArray& arr,
+                                                                              const std::string& name,
+                                                                              const std_msgs::ColorRGBA& color,
+                                                                              const ros::Duration& lifetime)
 {
   std::vector<mapping_msgs::AttachedCollisionObject> attached_objects;
   getCollisionSpaceAttachedCollisionObjects(attached_objects);
+
+  ode_collision_model_->updateRobotModel(&state);
 
   std::map<std::string, std::vector<btTransform> > att_pose_map;
   ode_collision_model_->getAttachedBodyPoses(att_pose_map);
@@ -1510,7 +1608,11 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(vi
       visualization_msgs::Marker mk;
       mk.header.frame_id = getWorldFrameId();
       mk.header.stamp = ros::Time::now();
-      mk.ns = attached_objects[i].object.id;
+      if(name.empty()) {
+        mk.ns = attached_objects[i].object.id;
+      } else {
+        mk.ns = name;
+      }
       mk.id = j;
       mk.action = visualization_msgs::Marker::ADD;
       tf::poseTFToMsg(att_pose_map[attached_objects[i].object.id][j], mk.pose);
@@ -1540,13 +1642,73 @@ void planning_environment::CollisionModels::getPlanningSceneGivenState(const pla
   getCollisionSpaceCollisionMap(planning_scene.collision_map);
 }
 
-void planning_environment::CollisionModels::getAllCollisionSpaceObjectMarkers(visualization_msgs::MarkerArray& arr,
-                                                                              const std_msgs::ColorRGBA static_color,
-                                                                              const std_msgs::ColorRGBA attached_color,
-                                                                              const ros::Duration& lifetime) const
+void planning_environment::CollisionModels::getAllCollisionSpaceObjectMarkers(const planning_models::KinematicState& state,
+                                                                              visualization_msgs::MarkerArray& arr,
+                                                                              const std::string& name,
+                                                                              const std_msgs::ColorRGBA& static_color,
+                                                                              const std_msgs::ColorRGBA& attached_color,
+                                                                              const ros::Duration& lifetime)
 {
-  getStaticCollisionObjectMarkers(arr, static_color, lifetime);
-  getAttachedCollisionObjectMarkers(arr, attached_color, lifetime);
+  getStaticCollisionObjectMarkers(arr, name, static_color, lifetime);
+  getAttachedCollisionObjectMarkers(state, arr, name, attached_color, lifetime);
+}
+
+void planning_environment::CollisionModels::getRobotMeshResourceMarkersGivenState(const planning_models::KinematicState& state,
+                                                                                  visualization_msgs::MarkerArray& arr,
+                                                                                  const std_msgs::ColorRGBA& color,
+                                                                                  const std::string& name, 
+                                                                                  const ros::Duration& lifetime,
+                                                                                  const std::vector<std::string>* names) const
+{  
+  boost::shared_ptr<urdf::Model> robot_model = getParsedDescription();
+
+  std::vector<std::string> link_names;
+  if(names == NULL) {
+    kmodel_->getLinkModelNames(link_names);
+  } else {
+    link_names = *names;
+  }
+
+  for(unsigned int i = 0; i < link_names.size(); i++) {
+    boost::shared_ptr<const urdf::Link> urdf_link = robot_model->getLink(link_names[i]);
+    if(!urdf_link) {
+      ROS_INFO_STREAM("Invalid urdf name " << link_names[i]);
+      continue;
+    }
+    if(!urdf_link->collision) {
+      continue;
+    }
+    const urdf::Geometry *geom = urdf_link->collision->geometry.get();
+    if(!geom) {
+      continue;
+    }
+    const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
+    if(!mesh) {
+      continue;
+    }
+    if(mesh->filename.empty()) {
+      continue;
+    }
+    const planning_models::KinematicState::LinkState* ls = state.getLinkState(link_names[i]);
+    if(ls == NULL) {
+      ROS_WARN_STREAM("No link state for name " << names << " though there's a mesh");
+      continue;
+    }
+    visualization_msgs::Marker mark;
+    mark.header.frame_id = getWorldFrameId();
+    mark.header.stamp = ros::Time::now();
+    mark.ns = name;
+    mark.id = i;
+    mark.type = mark.MESH_RESOURCE;
+    mark.scale.x = 1.0;
+    mark.scale.y = 1.0;
+    mark.scale.z = 1.0;
+    mark.color = color;
+    mark.mesh_resource = mesh->filename;
+    mark.lifetime = lifetime;
+    tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(),mark.pose); 
+    arr.markers.push_back(mark);
+  }
 }
 
 void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
@@ -1683,22 +1845,34 @@ void planning_environment::CollisionModels::writePlanningSceneBag(const std::str
   bag.close();
 }
 
-void planning_environment::CollisionModels::readPlanningSceneBag(const std::string& filename,
+bool planning_environment::CollisionModels::readPlanningSceneBag(const std::string& filename,
                                                                  planning_environment_msgs::PlanningScene& planning_scene) const
 {
   rosbag::Bag bag;
-  bag.open(filename, rosbag::bagmode::Read);
+  try {
+    bag.open(filename, rosbag::bagmode::Read);
+  } catch(rosbag::BagException) {
+    ROS_WARN_STREAM("Could not open bag file " << filename);
+    return false;
+  }
 
   std::vector<std::string> topics;
   topics.push_back("planning_scene");
 
   rosbag::View view(bag, rosbag::TopicQuery(topics));
-  
+
+  bool has_one = false;
   BOOST_FOREACH(rosbag::MessageInstance const m, view)
   {
     planning_environment_msgs::PlanningScene::ConstPtr ps = m.instantiate<planning_environment_msgs::PlanningScene>();
     if(ps != NULL) {
       planning_scene = *ps;
+      has_one = true;
     }
   }    
+  if(!has_one) {
+    ROS_WARN_STREAM("Filename " << filename << " does not seem to contain a planning scene");
+    return false;
+  }
+  return true;
 }
