@@ -48,6 +48,7 @@
 #include <actionlib/client/simple_action_client.h>
 #include <motion_planning_msgs/GetMotionPlan.h>
 #include <trajectory_msgs/JointTrajectory.h>
+#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -81,9 +82,18 @@ static const std::string LEFT_IK_LINK = "l_wrist_roll_link";
 static const std::string RIGHT_IK_LINK = "r_wrist_roll_link";
 
 static const std::string PLANNER_SERVICE_NAME="/ompl_planning/plan_kinematic_path";
+static const std::string TRAJECTORY_FILTER_SERVICE_NAME="/trajectory_filter/filter_trajectory_with_constraints";
 
 class PlanningSceneVisualizer {
 public:  
+  enum CollisionStateDisplay {
+    NONE = 0,
+    SCENE = 1,
+    END_EFFECTOR = 2,
+    PLANNER_TRAJECTORY = 3,
+    FILTER_TRAJECTORY = 4
+  };
+
   PlanningSceneVisualizer()
   {
     std::string robot_description_name = nh_.resolveName("robot_description", true);
@@ -91,14 +101,15 @@ public:
     
     vis_marker_publisher_ = nh_.advertise<visualization_msgs::Marker>(VIS_TOPIC_NAME, 128);
     vis_marker_array_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>(VIS_TOPIC_NAME+"_array", 128);
-    
+
     ros::service::waitForService(LEFT_IK_NAME);
     ros::service::waitForService(RIGHT_IK_NAME);
     ros::service::waitForService(PLANNER_SERVICE_NAME);
     
-    left_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(LEFT_IK_NAME);
-    right_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(RIGHT_IK_NAME);
-    planning_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME);
+    left_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(LEFT_IK_NAME, true);
+    right_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(RIGHT_IK_NAME, true);
+    planning_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME, true);
+    trajectory_filter_service_client_ = nh_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER_SERVICE_NAME);
 
     set_planning_scene_action_1_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_1);
     while(!set_planning_scene_action_1_->waitForServer(ros::Duration(.1)));
@@ -108,6 +119,29 @@ public:
 
     set_planning_scene_action_3_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_3);
     while(!set_planning_scene_action_3_->waitForServer(ros::Duration(.1)));
+
+    set_planning_scene_action_4_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_4);
+    while(!set_planning_scene_action_4_->waitForServer(ros::Duration(.1)));
+
+    pole_obj_.object.header.stamp = ros::Time::now();
+    pole_obj_.object.header.frame_id = "r_gripper_r_finger_tip_link";
+    pole_obj_.link_name = "r_gripper_palm_link";
+    pole_obj_.touch_links.push_back("r_gripper_palm_link");
+    pole_obj_.touch_links.push_back("r_gripper_r_finger_link");
+    pole_obj_.touch_links.push_back("r_gripper_l_finger_link");
+    pole_obj_.touch_links.push_back("r_gripper_r_finger_tip_link");
+    pole_obj_.touch_links.push_back("r_gripper_l_finger_tip_link");
+    pole_obj_.object.id = "pole";
+    pole_obj_.object.shapes.resize(1);
+    pole_obj_.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+    pole_obj_.object.shapes[0].dimensions.resize(2);
+    pole_obj_.object.shapes[0].dimensions[0] = .025;
+    pole_obj_.object.shapes[0].dimensions[1] = .4;
+    pole_obj_.object.poses.resize(1);
+    pole_obj_.object.poses[0].position.x = 0.0;
+    pole_obj_.object.poses[0].position.y = 0.0;
+    pole_obj_.object.poses[0].position.z = 0.0;
+    pole_obj_.object.poses[0].orientation.w = 1.0;
 
     //clock_publisher_ = nh_.advertise<rosgraph_msgs::Clock>("/clock", 128);
 
@@ -130,25 +164,37 @@ public:
     attached_color_.g = 0.4;
     attached_color_.b = 0.3;
 
-    end_effector_color_.a = .9;
-    end_effector_color_.r = 1.0;
-    end_effector_color_.b = 0.0;
-    end_effector_color_.g = 0.0;
+    end_effector_bad_color_.a = .9;
+    end_effector_bad_color_.r = 1.0;
+    end_effector_bad_color_.b = 0.0;
+    end_effector_bad_color_.g = 0.0;
+
+    end_effector_good_color_.a = .9;
+    end_effector_good_color_.r = 1.0;
+    end_effector_good_color_.b = 1.0;
+    end_effector_good_color_.g = 0.0;
 
     trajectory_color_.a = .6;
     trajectory_color_.r = 0.0;
     trajectory_color_.b = 1.0;
     trajectory_color_.g = 0.0;
 
+    filter_color_.a = .6;
+    filter_color_.r = 0.0;
+    filter_color_.b = 1.0;
+    filter_color_.g = 1.0;
+
     planning_state_ = NULL;
     end_effector_state_ = NULL;
     trajectory_state_ = NULL;
+    filter_state_ = NULL;
   }
   
   ~PlanningSceneVisualizer() {
     delete set_planning_scene_action_1_;
     delete set_planning_scene_action_2_;
     delete set_planning_scene_action_3_;
+    delete set_planning_scene_action_4_;
     deleteKinematicStates();
     delete cm_;
   }
@@ -166,24 +212,41 @@ public:
       delete trajectory_state_;
       trajectory_state_ = NULL;
     }
+    if(filter_state_ != NULL) {
+      delete filter_state_;
+      filter_state_ = NULL;
+    }
   }
 
   bool loadPlanningScene(const std::string& filename) {
+    lock_scene_.lock();
     if(!cm_->readPlanningSceneBag(filename,
                                   planning_scene_)) {
       ROS_ERROR("Bag file doesn't exist or doesn't contain a planning scene");
       return false;
+    }
+    bool ok = sendPlanningScene();
+    lock_scene_.unlock();
+    return ok;
+  }
+
+  bool sendPlanningScene() {
+    lock_scene_.lock();
+    if(planning_state_ != NULL) {
+      cm_->revertPlanningScene(planning_state_);
+      planning_state_ = NULL;
     }
     deleteKinematicStates();
     setEndEffectorGoal(false);
     planning_state_ = cm_->setPlanningScene(planning_scene_);
     if(planning_state_ == NULL) {
       ROS_ERROR("Something wrong with planning scene");
+      lock_scene_.unlock();
       return false;
     }
     planning_state_joint_values_.clear();
     planning_state_->getKinematicStateValues(planning_state_joint_values_);
-    updateCurrentCollisionSet();
+    setShowCollisions(false);
     ros::WallTime cur_time = ros::WallTime::now();
     rosgraph_msgs::Clock c;
     c.clock.nsec = cur_time.nsec;
@@ -192,19 +255,23 @@ public:
 
     planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
     planning_scene_goal.planning_scene = planning_scene_;
-
+    
     set_planning_scene_action_1_->sendGoal(planning_scene_goal);
     set_planning_scene_action_2_->sendGoal(planning_scene_goal);
     set_planning_scene_action_3_->sendGoal(planning_scene_goal);
+    set_planning_scene_action_4_->sendGoal(planning_scene_goal);
     while(!set_planning_scene_action_1_->waitForResult(ros::Duration(.1)));
     while(!set_planning_scene_action_2_->waitForResult(ros::Duration(.1)));
     while(!set_planning_scene_action_3_->waitForResult(ros::Duration(.1)));
+    while(!set_planning_scene_action_4_->waitForResult(ros::Duration(.1)));
 
     send_start_state_ = true;
+    lock_scene_.unlock();
     return true;
   }
   
   void sendTransformsAndClock() {
+    lock_scene_.lock();
     ros::WallTime cur_time = ros::WallTime::now();
     rosgraph_msgs::Clock c;
     c.clock.nsec = cur_time.nsec;
@@ -212,12 +279,13 @@ public:
     //clock_publisher_.publish(c);
     getAllRobotStampedTransforms(*planning_state_, planning_scene_robot_transforms_, c.clock);
     transform_broadcaster_.sendTransform(planning_scene_robot_transforms_);
+    lock_scene_.unlock();
   };
 
   void resetPlanningStateToStartState() {
     planning_state_->setKinematicState(planning_state_joint_values_);
     if(send_collision_markers_) {
-      updateCurrentCollisionSet();
+      updateCurrentCollisionSet(collision_marker_state_);
     }
   }
 
@@ -244,6 +312,20 @@ public:
     }
   }
 
+  bool togglePole() {
+    if(have_pole_) {
+      planning_scene_.attached_collision_objects.pop_back();
+      have_pole_ = false;      
+      return sendPlanningScene();
+    } else {
+      cm_->convertAttachedCollisionObjectToNewWorldFrame(*planning_state_,
+                                                         pole_obj_);
+      planning_scene_.attached_collision_objects.push_back(pole_obj_);
+      have_pole_ = true;
+      return sendPlanningScene();
+    }
+  }
+
   void moveBase(double vx, double vy, double vt) 
   {
     btTransform cur = planning_state_->getRootTransform();
@@ -253,7 +335,7 @@ public:
     planning_state_->getJointStateVector()[0]->setJointStateValues(cur);
     planning_state_->updateKinematicLinks();
     if(send_collision_markers_) {
-      updateCurrentCollisionSet();
+      updateCurrentCollisionSet(collision_marker_state_);
     }
   }
 
@@ -272,9 +354,15 @@ public:
     if(!end_effector_state_->updateKinematicStateWithLinkAt(end_effector_link_, cur)) {
       ROS_INFO("Problem");
     }
+    if(solveIKForEndEffectorPose(false)) {
+      use_good_ik_color_ = true;
+    } else {
+      use_good_ik_color_ = false;
+      send_ik_solution_ = false;
+    }
   }
   
-  bool solveIKForEndEffectorPose(double change_redundancy = 0.0)
+  bool solveIKForEndEffectorPose(bool show, double change_redundancy = 0.0)
   {
     bool right = (end_effector_link_ == RIGHT_IK_LINK);
     kinematics_msgs::PositionIKRequest ik_request;
@@ -308,10 +396,12 @@ public:
       return false;
     }
     if(ik_res.error_code.val != ik_res.error_code.SUCCESS) {
-      ROS_INFO_STREAM("Call yields bad error code " << ik_res.error_code.val);
+      ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
       return false;
     }
-    send_ik_solution_ = true;
+    if(show) {
+      send_ik_solution_ = true;
+    }
     std::map<std::string, double> joint_values;
     for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
       joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
@@ -322,9 +412,12 @@ public:
 
   void sendMarkers() 
   {
+    lock_scene_.lock();
     visualization_msgs::MarkerArray arr;
     if(send_start_state_) {
-      cm_->getAllCollisionSpaceObjectMarkers(arr,
+      cm_->getAllCollisionSpaceObjectMarkers(*planning_state_,
+                                             arr,
+                                             "",
                                              stat_color_,
                                              attached_color_,
                                              ros::Duration(.2));
@@ -333,28 +426,39 @@ public:
       arr.markers.insert(arr.markers.end(), collision_markers_.markers.begin(), collision_markers_.markers.end());
     }
     if(send_ik_solution_) {
-      const std::vector<const planning_models::KinematicModel::LinkModel*>& updated_links = 
-        cm_->getKinematicModel()->getModelGroup(arm_group_name_)->getUpdatedLinkModels();
-      std::vector<std::string> lnames;
-      lnames.resize(updated_links.size());
-      for(unsigned int i = 0; i < updated_links.size(); i++) {
-        lnames[i] = updated_links[i]->getName();
-      }
+      std::vector<std::string> lnames = cm_->getKinematicModel()->getModelGroup(arm_group_name_)->getUpdatedLinkModelNames();
       cm_->getRobotMeshResourceMarkersGivenState(*end_effector_state_,
                                                  arr,
-                                                 end_effector_color_,
-                                                 "end_effector_pose",
+                                                 end_effector_good_color_,
+                                                 "ik_solution_pose",
                                                  ros::Duration(.2),
                                                  &lnames);
+      cm_->getAttachedCollisionObjectMarkers(*end_effector_state_,
+                                             arr,
+                                             "ik_solution_pose",
+                                             end_effector_good_color_,
+                                             ros::Duration(.2));
     } else if(send_end_effector_goal_markers_) {
+      std_msgs::ColorRGBA col;
+      if(use_good_ik_color_) {
+        col = end_effector_good_color_;
+      } else {
+        col = end_effector_bad_color_;
+      }
       std::vector<std::string> lnames = 
         cm_->getKinematicModel()->getChildLinkModelNames(cm_->getKinematicModel()->getLinkModel(end_effector_link_));
       cm_->getRobotMeshResourceMarkersGivenState(*end_effector_state_,
                                                  arr,
-                                                 end_effector_color_,
-                                                 "ik_solution_pose",
+                                                 col,
+                                                 "end_effector_pose",
                                                  ros::Duration(.2),
                                                  &lnames);
+      cm_->getAttachedCollisionObjectMarkers(*end_effector_state_,
+                                             arr,
+                                             "end_effector_pose",
+                                             col,
+                                             ros::Duration(.2));
+
     }
     if(send_planner_trajectory_) {
       const std::vector<const planning_models::KinematicModel::LinkModel*>& updated_links = 
@@ -370,8 +474,37 @@ public:
                                                  "planner_trajectory",
                                                  ros::Duration(.2),
                                                  &lnames);
+      cm_->getAttachedCollisionObjectMarkers(*trajectory_state_,
+                                             arr,
+                                             "planner_trajectory",
+                                             trajectory_color_,
+                                             ros::Duration(.2));
+
     }
+    if(send_filter_trajectory_) {
+      const std::vector<const planning_models::KinematicModel::LinkModel*>& updated_links = 
+        cm_->getKinematicModel()->getModelGroup(arm_group_name_)->getUpdatedLinkModels();
+      std::vector<std::string> lnames;
+      lnames.resize(updated_links.size());
+      for(unsigned int i = 0; i < updated_links.size(); i++) {
+        lnames[i] = updated_links[i]->getName();
+      }
+      cm_->getRobotMeshResourceMarkersGivenState(*filter_state_,
+                                                 arr,
+                                                 filter_color_,
+                                                 "filter_trajectory",
+                                                 ros::Duration(.2),
+                                                 &lnames);
+      cm_->getAttachedCollisionObjectMarkers(*filter_state_,
+                                             arr,
+                                             "filter_trajectory",
+                                             filter_color_,
+                                             ros::Duration(.2));
+
+    }
+    cm_->getCollisionMapAsMarkers(arr, stat_color_, ros::Duration(.2));
     vis_marker_array_publisher_.publish(arr);
+    lock_scene_.unlock();
   }
 
   void setEndEffectorGoal(bool on, bool right = false) {
@@ -390,6 +523,7 @@ public:
         redundancy_joint_ = LEFT_ARM_REDUNDANCY;
         arm_group_name_ = LEFT_ARM_GROUP;
       }
+      moveEndEffectorMarkers(0.0,0.0,0.0,0.0,0.0,0.0);
     } else if(end_effector_state_ != NULL) {
       delete end_effector_state_;
       end_effector_state_ = NULL;
@@ -423,29 +557,85 @@ public:
       return false;
     }
     send_planner_trajectory_ = true;
-    current_trajectory_point_ = 0;
+    current_planner_trajectory_point_ = 0;
     trajectory_state_ = new planning_models::KinematicState(*planning_state_);
     planner_trajectory_ = plan_res.trajectory.joint_trajectory;
     ROS_INFO_STREAM("Trajectory has " << plan_res.trajectory.joint_trajectory.points.size());
     moveThroughPlannerTrajectory(0);
+    last_goal_constraints_ = plan_req.motion_plan_request.goal_constraints;
+    last_path_constraints_ = plan_req.motion_plan_request.path_constraints;
+    return true;
+  }
+
+  bool filterPlannerTrajectory() {
+    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request filter_req;
+    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response filter_res;
+    
+    planning_environment::convertKinematicStateToRobotState(*planning_state_, ros::Time::now(),
+                                                            cm_->getWorldFrameId(), filter_req.start_state);
+    filter_req.trajectory = planner_trajectory_;
+    filter_req.group_name = arm_group_name_;
+
+    filter_req.goal_constraints = last_goal_constraints_;
+    filter_req.path_constraints = last_path_constraints_;
+    filter_req.allowed_time = ros::Duration(2.0);
+
+    if(!trajectory_filter_service_client_.call(filter_req, filter_res)) {
+      ROS_INFO("Problem with trajectory filter");
+      return false;
+    }
+    if(filter_res.error_code.val != filter_res.error_code.SUCCESS) {
+      ROS_INFO_STREAM("Bad trajectory_filter error code " << filter_res.error_code.val);
+      return false;
+    }
+    send_filter_trajectory_ = true;
+    current_filter_trajectory_point_ = 0;
+    filter_state_ = new planning_models::KinematicState(*planning_state_);
+    filter_trajectory_ = filter_res.trajectory;
+    moveThroughFilterTrajectory(0);   
     return true;
   }
 
   void moveThroughPlannerTrajectory(int step) {
-    if((int) current_trajectory_point_ + step < 0) {
-      current_trajectory_point_ = 0;
-    } else {
-      current_trajectory_point_ = ((int)current_trajectory_point_)+step;
-    }
     unsigned int tsize = planner_trajectory_.points.size(); 
-    if(current_trajectory_point_ >= tsize-1) {
-      current_trajectory_point_ = tsize-1;
+    if(tsize == 0) return;
+    if((int) current_planner_trajectory_point_ + step < 0) {
+      current_planner_trajectory_point_ = 0;
+    } else {
+      current_planner_trajectory_point_ = ((int)current_planner_trajectory_point_)+step;
+    }
+    if(current_planner_trajectory_point_ >= tsize-1) {
+      current_planner_trajectory_point_ = tsize-1;
     }
     std::map<std::string, double> joint_values;
     for(unsigned int i = 0; i < planner_trajectory_.joint_names.size(); i++) {
-      joint_values[planner_trajectory_.joint_names[i]] = planner_trajectory_.points[current_trajectory_point_].positions[i];
+      joint_values[planner_trajectory_.joint_names[i]] = planner_trajectory_.points[current_planner_trajectory_point_].positions[i];
     }
     trajectory_state_->setKinematicState(joint_values);
+    if(send_collision_markers_ && collision_marker_state_ == PLANNER_TRAJECTORY) {
+      updateCurrentCollisionSet(PLANNER_TRAJECTORY);
+    }
+  }
+
+  void moveThroughFilterTrajectory(int step) {
+    unsigned int tsize = filter_trajectory_.points.size(); 
+    if(tsize == 0) return;
+    if((int) current_filter_trajectory_point_ + step < 0) {
+      current_filter_trajectory_point_ = 0;
+    } else {
+      current_filter_trajectory_point_ = ((int)current_filter_trajectory_point_)+step;
+    }
+    if(current_filter_trajectory_point_ >= tsize-1) {
+      current_filter_trajectory_point_ = tsize-1;
+    }
+    std::map<std::string, double> joint_values;
+    for(unsigned int i = 0; i < filter_trajectory_.joint_names.size(); i++) {
+      joint_values[filter_trajectory_.joint_names[i]] = filter_trajectory_.points[current_filter_trajectory_point_].positions[i];
+    }
+    filter_state_->setKinematicState(joint_values);
+    if(send_collision_markers_ && collision_marker_state_ == FILTER_TRAJECTORY) {
+      updateCurrentCollisionSet(FILTER_TRAJECTORY);
+    }
   }
 
   void stopShowingPlannerTrajectory() {
@@ -453,25 +643,49 @@ public:
     delete trajectory_state_;
     trajectory_state_ = NULL;
   }
+
+  void stopShowingFilterTrajectory() {
+    send_filter_trajectory_ = false;
+    delete filter_state_;
+    filter_state_ = NULL;
+  }
   
-  void toggleShowCollisions() {
-    send_collision_markers_ = !send_collision_markers_;
+  void setShowCollisions(bool send_collision_markers, CollisionStateDisplay csd = NONE) {
+    send_collision_markers_ = send_collision_markers;
     if(send_collision_markers_) {
-      updateCurrentCollisionSet();
+      updateCurrentCollisionSet(csd);
     } else {
       collision_markers_.markers.clear();
     }
   }
 
-  void updateCurrentCollisionSet()
+  void updateCurrentCollisionSet(CollisionStateDisplay csd)
   {
+    const planning_models::KinematicState* state = NULL;
+    if(csd == END_EFFECTOR) {
+      state = end_effector_state_;
+    } else if(csd == PLANNER_TRAJECTORY) {
+      state = trajectory_state_;
+    } else if(csd == FILTER_TRAJECTORY) {
+      state = filter_state_;
+    } else {
+      state = planning_state_;
+    }
+    collision_marker_state_ = csd;
     collision_markers_.markers.clear();
-    cm_->getAllCollisionPointMarkers(*planning_state_,
+    if(state == NULL) {
+      return;
+    }
+    cm_->getAllCollisionPointMarkers(*state,
                                      collision_markers_,
                                      point_color_,
                                      ros::Duration(.2)); 
   }
 
+  bool getSendCollisionMarkers() const {
+    return send_collision_markers_;
+  }
+  
 protected:
   ros::NodeHandle nh_;
   planning_environment::CollisionModels* cm_;
@@ -479,26 +693,39 @@ protected:
   planning_models::KinematicState* planning_state_;
   planning_models::KinematicState* end_effector_state_;
   planning_models::KinematicState* trajectory_state_;
+  planning_models::KinematicState* filter_state_;
 
   planning_environment_msgs::PlanningScene planning_scene_;
   trajectory_msgs::JointTrajectory planner_trajectory_;
+  trajectory_msgs::JointTrajectory filter_trajectory_;
+  mapping_msgs::AttachedCollisionObject pole_obj_;
+
+  motion_planning_msgs::Constraints last_goal_constraints_;
+  motion_planning_msgs::Constraints last_path_constraints_;
 
   std::string end_effector_link_;
   std::string arm_group_name_;
   std::string redundancy_joint_;
-  unsigned int current_trajectory_point_;
+  unsigned int current_planner_trajectory_point_;
+  unsigned int current_filter_trajectory_point_;
 
+  CollisionStateDisplay collision_marker_state_;
+  bool have_pole_;
   bool send_start_state_;
   bool send_collision_markers_;
   bool send_end_effector_goal_markers_;
   bool send_ik_solution_;
   bool send_planner_trajectory_;
+  bool send_filter_trajectory_;
+  bool use_good_ik_color_;
   
   std_msgs::ColorRGBA point_color_;
   std_msgs::ColorRGBA stat_color_;
   std_msgs::ColorRGBA attached_color_;
-  std_msgs::ColorRGBA end_effector_color_;
+  std_msgs::ColorRGBA end_effector_bad_color_;
+  std_msgs::ColorRGBA end_effector_good_color_;
   std_msgs::ColorRGBA trajectory_color_;
+  std_msgs::ColorRGBA filter_color_;
 
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
@@ -507,16 +734,19 @@ protected:
   ros::ServiceClient left_ik_service_client_;
   ros::ServiceClient right_ik_service_client_;
   ros::ServiceClient planning_service_client_;
+  ros::ServiceClient trajectory_filter_service_client_;
 
   actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_1_;  
   actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_2_;  
   actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_3_;  
+  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_4_;  
 
   tf::TransformBroadcaster transform_broadcaster_;
   std::vector<geometry_msgs::TransformStamped> planning_scene_robot_transforms_;  
   std::map<std::string, double> planning_state_joint_values_;  
 
   visualization_msgs::MarkerArray collision_markers_;
+  boost::recursive_mutex lock_scene_;
 };
 
 PlanningSceneVisualizer* psv = NULL;
@@ -595,7 +825,9 @@ int main(int argc, char** argv)
       puts("Use 'n/m' for turning left and right");
       puts("Use 'c' to toggle collision markers");
       puts("Use 'r' to reset to original planning state");
+      puts("Use 'y' to mask collision map");
       puts("Use 'w/e' for left/right end effector pose submenu");
+      puts("Use 'p' to toggle pole attached to right end effector");
       puts("Use 'q' to quit");
     }
     
@@ -683,18 +915,22 @@ int main(int argc, char** argv)
                                         -HAND_ROT_SPEED, 0.0, 0.0);
             break;
           case 's':
-            psv->solveIKForEndEffectorPose();
+            psv->solveIKForEndEffectorPose(true);
             break;
           case 'a':
-            psv->solveIKForEndEffectorPose(HAND_ROT_SPEED);
+            psv->solveIKForEndEffectorPose(true, HAND_ROT_SPEED);
             break;
           case 'z':
-            psv->solveIKForEndEffectorPose(-HAND_ROT_SPEED);
+            psv->solveIKForEndEffectorPose(true, -HAND_ROT_SPEED);
             break;
           case 'p':
-            if(psv->solveIKForEndEffectorPose() && psv->planToEndEffectorState()) {
+            if(psv->solveIKForEndEffectorPose(true) && psv->planToEndEffectorState()) {
               puts("------------------");
-              puts("Use 'i/k' to advance/rewind trajectory points");
+              puts("Use 'i/k' to advance/rewind planner trajectory points");
+              puts("Use 'o/l' to advance/rewind filter trajectory points");
+              puts("Use 'f' to call trajectory filter on planner trajectory");
+              puts("Use 'y' to toggle planner trajectory collisions");
+              puts("Use 'h' to toggle filter trajectory collisions");
               puts("Use 'q' to return to end effector menu");
               bool trajectory_stop = false;
               while(!trajectory_stop) {
@@ -710,6 +946,21 @@ int main(int argc, char** argv)
                 case 'k':
                   psv->moveThroughPlannerTrajectory(-1);
                   break;
+                case 'o': 
+                  psv->moveThroughFilterTrajectory(1);
+                  break;
+                case 'l':
+                  psv->moveThroughFilterTrajectory(-1);
+                  break;
+                case 'f':
+                  psv->filterPlannerTrajectory();
+                  break;
+                case 'y':
+                  psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::PLANNER_TRAJECTORY);
+                  break;
+                case 'h':
+                  psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::FILTER_TRAJECTORY);
+                  break;
                 case 'q':
                   trajectory_stop = true;
                   break;
@@ -719,6 +970,8 @@ int main(int argc, char** argv)
                 }
               }
               psv->stopShowingPlannerTrajectory();
+              psv->stopShowingFilterTrajectory();
+              psv->setShowCollisions(false);
               reprint_end = true;
             }
             break;
@@ -750,10 +1003,13 @@ int main(int argc, char** argv)
       psv->moveBase(0.0, 0.0, -BASE_ROT_SPEED);
       break;
     case 'c':
-      psv->toggleShowCollisions();
+      psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::SCENE);
       break;
     case 'r':
       psv->resetPlanningStateToStartState();
+      break;
+    case 'p':
+      psv->togglePole();
       break;
     case 'q':
       stop = true;

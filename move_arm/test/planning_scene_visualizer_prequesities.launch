@@ -1,4 +1,12 @@
 <launch>
+   <param name="/use_sim_time" value="true" />
+
+  <param name="/robot_description" textfile="$(find planning_models)/test_urdf/robot.xml" />
+
+  <!-- send parameters for multidof -->
+  <rosparam command="load" ns="robot_description_planning" file="$(find planning_environment)/test/config/pr2_planning_description.yaml" />
+
+  
    <node pkg="planning_environment" name="wall_clock_server" type="fake_time.py" />
    <node pkg="pr2_arm_kinematics_constraint_aware" type="pr2_arm_kinematics_constraint_aware" name="pr2_right_arm_kinematics" output="screen">    
    	 <!-- IK parameters -->
@@ -16,5 +24,9 @@
    </node>
    <node pkg="ompl_ros_interface" type="ompl_ros" name="ompl_planning" output="screen">
      <rosparam command="load" file="$(find ompl_ros_interface)/test/ompl_planning.yaml" />
+   </node>
+   <node pkg="trajectory_filter_server" name="trajectory_filter" type="trajectory_filter_server" output="screen">
+     <rosparam command="load" file="$(find move_arm)/test/config/joint_limits.yaml"/>
+     <rosparam command="load" file="$(find move_arm)/test/config/filters.yaml"/>
    </node>
 </launch>
