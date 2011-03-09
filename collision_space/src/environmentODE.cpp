@@ -83,7 +83,8 @@ collision_space::EnvironmentModelODE::~EnvironmentModelODE(void)
   if (ODEInitCount == 0)
   {
     ROS_DEBUG("Closing ODE");
-    dCloseODE();
+    //causes faults in some tests - after we call this we can't reinitialize
+    //dCloseODE();
   }
   ODEInitCountLock.unlock();
 }
@@ -781,6 +782,9 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
   }
   num_contacts = std::max(num_contacts, (unsigned int)1);
   
+  //ROS_INFO_STREAM("Testing " << cdata->body_name_1
+  //                << " and " << cdata->body_name_2);
+
   dContactGeom contactGeoms[num_contacts];
   int numc = dCollide(o1, o2, num_contacts,
                       &(contactGeoms[0]), sizeof(dContactGeom));
