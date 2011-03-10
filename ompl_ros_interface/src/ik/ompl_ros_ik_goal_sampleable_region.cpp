@@ -150,9 +150,11 @@ void OmplRosIKSampleableRegion::sampleGoals(const unsigned int &number_goals,
     ompl_ros_interface::omplStateToRobotState(scoped_state,
                                               ompl_state_to_robot_state_mapping_,
                                               seed_state);    
+    int error_code;
     if(kinematics_solver_->getPositionIK(ik_poses_[ik_poses_counter].pose,
                                          seed_state.joint_state.position,
-                                         solution_state.joint_state.position))
+                                         solution_state.joint_state.position,
+					 error_code))
     {
       sampled_states_vector.push_back(solution_state);
       ik_poses_counter++;

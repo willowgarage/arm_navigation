@@ -106,7 +106,8 @@ ompl::base::StateManifoldPtr jointGroupToOmplStateManifoldPtr(const planning_mod
         {
           // the only other case we consider is R^n; since we know that for now at least the only other type of joint available is non-continuous revolute joints
           // we can use the revoluteJoint cast      
-          std::pair<double,double> bounds = revolute_joint->getVariableBounds(revolute_joint->getName());
+          std::pair<double,double> bounds;
+          revolute_joint->getVariableBounds(revolute_joint->getName(), bounds);
           real_vector_bounds.low.push_back(bounds.first);
           real_vector_bounds.high.push_back(bounds.second);
           real_vector_names.push_back(revolute_joint->getName());
@@ -144,6 +145,12 @@ bool addToOmplStateManifold(const planning_models::KinematicModel* kinematic_mod
                             ompl::base::StateManifoldPtr &ompl_state_manifold)
 {
   ompl::base::CompoundStateManifold* state_manifold = dynamic_cast<ompl::base::CompoundStateManifold*> (ompl_state_manifold.get());
+
+  if(!kinematic_model->hasJointModel(joint_name))
+    { 
+      ROS_DEBUG("Could not find joint %s",joint_name.c_str());
+      return false;
+    }
   const planning_models::KinematicModel::JointModel* joint_model = kinematic_model->getJointModel(joint_name);
 
   const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = 
@@ -192,7 +199,8 @@ bool addToOmplStateManifold(const planning_models::KinematicModel* kinematic_mod
         }
         ompl::base::StateManifoldPtr real_vector_manifold = state_manifold->getSubManifold("real_vector");
         double min_value, max_value;
-        std::pair<double,double> bounds = revolute_joint->getVariableBounds(joint_name);
+        std::pair<double,double> bounds;
+        revolute_joint->getVariableBounds(joint_name, bounds);
         min_value = bounds.first;
         max_value = bounds.second;
         real_vector_manifold->as<ompl::base::RealVectorStateManifold>()->addDimension(joint_name,min_value,max_value);    
@@ -972,11 +980,11 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
     {
       if(mapping.mapping_type[j] == ompl_ros_interface::SO2)
         robot_trajectory.joint_trajectory.points[i].positions[mapping.ompl_state_mapping[j]] = path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SO2StateManifold::StateType>(j)->value;
-      else if(mapping.mapping_type[i] == ompl_ros_interface::SE2)
+      else if(mapping.mapping_type[j] == ompl_ros_interface::SE2)
         ompl_ros_interface::SE2ManifoldToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SE2StateManifold::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
-      else if(mapping.mapping_type[i] == ompl_ros_interface::SE3)
+      else if(mapping.mapping_type[j] == ompl_ros_interface::SE3)
         ompl_ros_interface::SE3ManifoldToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SE3StateManifold::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
-      else if(mapping.mapping_type[i] == ompl_ros_interface::SO3)
+      else if(mapping.mapping_type[j] == ompl_ros_interface::SO3)
         ompl_ros_interface::SO3ManifoldToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateManifold::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
       else // real vector value
       {
@@ -1121,7 +1129,7 @@ bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints
 {
   motion_planning_msgs::RobotState robot_state;
   robot_state.joint_state = motion_planning_msgs::jointConstraintsToJointState(constraints.joint_constraints);
-  ROS_DEBUG("There are %d joint constraints",constraints.joint_constraints.size());
+  ROS_DEBUG_STREAM("There are " << constraints.joint_constraints.size() << "  joint constraints");
   for(unsigned int i=0; i < robot_state.joint_state.name.size(); i++)
     ROS_DEBUG("Joint Constraint:: Joint %s: %f",robot_state.joint_state.name[i].c_str(), robot_state.joint_state.position[i]);
 

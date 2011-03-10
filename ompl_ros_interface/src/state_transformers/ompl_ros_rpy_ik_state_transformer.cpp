@@ -90,9 +90,11 @@ bool OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State &omp
   omplStateToPose(ompl_state,pose);
   (*scoped_state_) = ompl_state;
   ompl_ros_interface::omplStateToRobotState(*scoped_state_,ompl_state_to_robot_state_mapping_,seed_state_);
+  int error_code;
   if(kinematics_solver_->getPositionIK(pose,
                                        seed_state_.joint_state.position,
-                                       solution_state_.joint_state.position))
+                                       solution_state_.joint_state.position,
+				       error_code))
   {
     robot_state.joint_state = solution_state_.joint_state;
     return true;

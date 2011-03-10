@@ -76,7 +76,7 @@ bool OmplRosTaskSpacePlanner::initializePlanningManifold(ompl::base::StateManifo
     manifold_names.push_back(static_cast<std::string>(manifold_list[i]));
     ROS_INFO("Adding manifold: %s",manifold_names.back().c_str());
 
-    if(collision_models_interface_->getKinematicModel()->getJointModel(manifold_names.back()))
+    if(collision_models_interface_->getKinematicModel()->hasJointModel(manifold_names.back()))
     {
       addToOmplStateManifold(collision_models_interface_->getKinematicModel(),
                              manifold_names.back(),
