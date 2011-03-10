@@ -156,81 +156,84 @@ protected:
 
 };
 
-// TEST_F(TrajectoryPipelineTest, TestPole)
-// {
-//   mapping_msgs::CollisionObject pole;
+TEST_F(TrajectoryPipelineTest, TestPole)
+{
+  mapping_msgs::CollisionObject pole;
   
-//   pole.header.stamp = ros::Time::now();
-//   pole.header.frame_id = "odom_combined";
-//   pole.id = "pole";
-//   pole.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
-//   pole.shapes.resize(1);
-//   pole.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
-//   pole.shapes[0].dimensions.resize(2);
-//   pole.shapes[0].dimensions[0] = 0.1;
-//   pole.shapes[0].dimensions[1] = 1.5;
-//   pole.poses.resize(1);
-//   pole.poses[0].position.x = .6;
-//   pole.poses[0].position.y = -.6;
-//   pole.poses[0].position.z = .75;
-//   pole.poses[0].orientation.w = 1.0;
+  pole.header.stamp = ros::Time::now();
+  pole.header.frame_id = "odom_combined";
+  pole.id = "pole";
+  pole.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  pole.shapes.resize(1);
+  pole.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  pole.shapes[0].dimensions.resize(2);
+  pole.shapes[0].dimensions[0] = 0.1;
+  pole.shapes[0].dimensions[1] = 1.5;
+  pole.poses.resize(1);
+  pole.poses[0].position.x = .6;
+  pole.poses[0].position.y = -.6;
+  pole.poses[0].position.z = .75;
+  pole.poses[0].orientation.w = 1.0;
 
-//   get_req.planning_scene_diff.collision_objects.push_back(pole);
+  get_req.planning_scene_diff.collision_objects.push_back(pole);
 
-//   GetAndSetPlanningScene();
+  GetAndSetPlanningScene();
 
-//   mplan_req.motion_plan_request.goal_constraints.joint_constraints[0].position = -2.0;
-//   mplan_req.motion_plan_request.goal_constraints.joint_constraints[3].position = -.2;
-//   mplan_req.motion_plan_request.goal_constraints.joint_constraints[5].position = -.2;
+  cm_->writePlanningSceneBag(ros::package::getPath("move_arm")+"/test_pole.bag",
+                             get_res.planning_scene);
 
-//   for(unsigned int i = 0; i < 500; i++) {
-//     motion_planning_msgs::GetMotionPlan::Response mplan_res;
-//     ASSERT_TRUE(planning_service_client_.call(mplan_req, mplan_res));
+  mplan_req.motion_plan_request.goal_constraints.joint_constraints[0].position = -2.0;
+  mplan_req.motion_plan_request.goal_constraints.joint_constraints[3].position = -.2;
+  mplan_req.motion_plan_request.goal_constraints.joint_constraints[5].position = -.2;
+
+  for(unsigned int i = 0; i < 1; i++) {
+    motion_planning_msgs::GetMotionPlan::Response mplan_res;
+    ASSERT_TRUE(planning_service_client_.call(mplan_req, mplan_res));
     
-//     ASSERT_EQ(mplan_res.error_code.val,mplan_res.error_code.SUCCESS);
+    ASSERT_EQ(mplan_res.error_code.val,mplan_res.error_code.SUCCESS);
     
-//     EXPECT_GT(mplan_res.trajectory.joint_trajectory.points.size(), 0);
+    EXPECT_GT(mplan_res.trajectory.joint_trajectory.points.size(), 0);
     
-//     motion_planning_msgs::ArmNavigationErrorCodes error_code;
-//     std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+    motion_planning_msgs::ArmNavigationErrorCodes error_code;
+    std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
     
-//     EXPECT_TRUE(cm_->isJointTrajectoryValid(*planning_scene_state_, 
-//                                        mplan_res.trajectory.joint_trajectory,
-//                                        mplan_req.motion_plan_request.goal_constraints,
-//                                        mplan_req.motion_plan_request.path_constraints,
-//                                        error_code,
-//                                        trajectory_error_codes, false)) << error_code;
+    EXPECT_TRUE(cm_->isJointTrajectoryValid(*planning_scene_state_, 
+                                       mplan_res.trajectory.joint_trajectory,
+                                       mplan_req.motion_plan_request.goal_constraints,
+                                       mplan_req.motion_plan_request.path_constraints,
+                                       error_code,
+                                       trajectory_error_codes, false)) << error_code;
 
-//     planning_environment::setRobotStateAndComputeTransforms(get_res.planning_scene.robot_state, *planning_scene_state_);
-//     double planner_length = cm_->getTotalTrajectoryJointLength(*planning_scene_state_, mplan_res.trajectory.joint_trajectory);
+    planning_environment::setRobotStateAndComputeTransforms(get_res.planning_scene.robot_state, *planning_scene_state_);
+    double planner_length = cm_->getTotalTrajectoryJointLength(*planning_scene_state_, mplan_res.trajectory.joint_trajectory);
 
-//     motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request filter_req;
-//     motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response filter_res;
+    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request filter_req;
+    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response filter_res;
     
-//     filter_req.trajectory = mplan_res.trajectory.joint_trajectory;
+    filter_req.trajectory = mplan_res.trajectory.joint_trajectory;
   
-//     filter_req.goal_constraints = mplan_req.motion_plan_request.goal_constraints;
-//     filter_req.path_constraints = mplan_req.motion_plan_request.path_constraints;
-//     filter_req.allowed_time = ros::Duration(1.0);
+    filter_req.goal_constraints = mplan_req.motion_plan_request.goal_constraints;
+    filter_req.path_constraints = mplan_req.motion_plan_request.path_constraints;
+    filter_req.allowed_time = ros::Duration(1.0);
 
-//     EXPECT_TRUE(trajectory_filter_client_.call(filter_req, filter_res));
+    EXPECT_TRUE(trajectory_filter_client_.call(filter_req, filter_res));
 
-//     EXPECT_TRUE(cm_->isJointTrajectoryValid(*planning_scene_state_, 
-//                                        filter_res.trajectory,
-//                                        mplan_req.motion_plan_request.goal_constraints,
-//                                        mplan_req.motion_plan_request.path_constraints,
-//                                        error_code,
-//                                        trajectory_error_codes, false)) << error_code;
+    EXPECT_TRUE(cm_->isJointTrajectoryValid(*planning_scene_state_, 
+                                       filter_res.trajectory,
+                                       mplan_req.motion_plan_request.goal_constraints,
+                                       mplan_req.motion_plan_request.path_constraints,
+                                       error_code,
+                                       trajectory_error_codes, false)) << error_code;
 
-//     planning_environment::setRobotStateAndComputeTransforms(get_res.planning_scene.robot_state, *planning_scene_state_);
-//     double filter_length = cm_->getTotalTrajectoryJointLength(*planning_scene_state_, filter_res.trajectory);
+    planning_environment::setRobotStateAndComputeTransforms(get_res.planning_scene.robot_state, *planning_scene_state_);
+    double filter_length = cm_->getTotalTrajectoryJointLength(*planning_scene_state_, filter_res.trajectory);
   
-//     EXPECT_GE(planner_length, filter_length);
+    EXPECT_GE(planner_length, filter_length);
 
-//     ROS_INFO_STREAM("Planner points " << mplan_res.trajectory.joint_trajectory.points.size() << " filter points " << filter_res.trajectory.points.size() << " planner length " << planner_length << " filter length " << filter_length);
-//   }
-//   cm_->revertPlanningScene(planning_scene_state_);
-// }
+    ROS_INFO_STREAM("Planner points " << mplan_res.trajectory.joint_trajectory.points.size() << " filter points " << filter_res.trajectory.points.size() << " planner length " << planner_length << " filter length " << filter_length);
+  }
+  cm_->revertPlanningScene(planning_scene_state_);
+}
 
 TEST_F(TrajectoryPipelineTest, TestObjectTable)
 {

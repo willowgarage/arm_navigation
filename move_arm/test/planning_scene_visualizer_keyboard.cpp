@@ -84,6 +84,8 @@ static const std::string RIGHT_IK_LINK = "r_wrist_roll_link";
 static const std::string PLANNER_SERVICE_NAME="/ompl_planning/plan_kinematic_path";
 static const std::string TRAJECTORY_FILTER_SERVICE_NAME="/trajectory_filter/filter_trajectory_with_constraints";
 
+static const ros::Duration PLANNING_DURATION = ros::Duration(5.0);
+
 class PlanningSceneVisualizer {
 public:  
   enum CollisionStateDisplay {
@@ -223,6 +225,7 @@ public:
     if(!cm_->readPlanningSceneBag(filename,
                                   planning_scene_)) {
       ROS_ERROR("Bag file doesn't exist or doesn't contain a planning scene");
+      lock_scene_.unlock();
       return false;
     }
     bool ok = sendPlanningScene();
@@ -313,21 +316,26 @@ public:
   }
 
   bool togglePole() {
+    lock_scene_.lock();
+    bool ok;
     if(have_pole_) {
       planning_scene_.attached_collision_objects.pop_back();
       have_pole_ = false;      
-      return sendPlanningScene();
+      ok =  sendPlanningScene();
     } else {
       cm_->convertAttachedCollisionObjectToNewWorldFrame(*planning_state_,
                                                          pole_obj_);
       planning_scene_.attached_collision_objects.push_back(pole_obj_);
       have_pole_ = true;
-      return sendPlanningScene();
+      ok = sendPlanningScene();
     }
+    lock_scene_.unlock();
+    return ok;
   }
 
   void moveBase(double vx, double vy, double vt) 
   {
+    lock_scene_.lock();
     btTransform cur = planning_state_->getRootTransform();
     double mult = CONTROL_SPEED/100.0;
     cur.setOrigin(btVector3(cur.getOrigin().x()+(vx*mult), cur.getOrigin().y()+(vy*mult), 0.0));
@@ -337,11 +345,13 @@ public:
     if(send_collision_markers_) {
       updateCurrentCollisionSet(collision_marker_state_);
     }
+    lock_scene_.unlock();
   }
 
   void moveEndEffectorMarkers(double vx, double vy, double vz,
                               double vr, double vp, double vw)
   {
+    lock_scene_.lock();
     btTransform cur = end_effector_state_->getLinkState(end_effector_link_)->getGlobalLinkTransform();
     double mult = CONTROL_SPEED/100.0;
     cur.setOrigin(btVector3(cur.getOrigin().x()+(vx*mult), cur.getOrigin().y()+(vy*mult), cur.getOrigin().z()+(vz*mult))); 
@@ -360,6 +370,7 @@ public:
       use_good_ik_color_ = false;
       send_ik_solution_ = false;
     }
+    lock_scene_.unlock();
   }
   
   bool solveIKForEndEffectorPose(bool show, double change_redundancy = 0.0)
@@ -406,7 +417,9 @@ public:
     for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
       joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
     }
+    lock_scene_.lock();
     end_effector_state_->setKinematicState(joint_values);
+    lock_scene_.unlock();
     return true;
   }
 
@@ -507,7 +520,10 @@ public:
     lock_scene_.unlock();
   }
 
+  
+
   void setEndEffectorGoal(bool on, bool right = false) {
+    lock_scene_.lock();
     send_end_effector_goal_markers_ = on;
     send_ik_solution_ = false;
     if(send_end_effector_goal_markers_) {
@@ -528,13 +544,14 @@ public:
       delete end_effector_state_;
       end_effector_state_ = NULL;
     }
+    lock_scene_.unlock();
   }
 
   bool planToEndEffectorState() {
     motion_planning_msgs::GetMotionPlan::Request plan_req;
     plan_req.motion_plan_request.group_name = arm_group_name_;
     plan_req.motion_plan_request.num_planning_attempts = 1;
-    plan_req.motion_plan_request.allowed_planning_time = ros::Duration(2.0);
+    plan_req.motion_plan_request.allowed_planning_time = PLANNING_DURATION;
     const planning_models::KinematicState::JointStateGroup* jsg = end_effector_state_->getJointStateGroup(arm_group_name_);
     plan_req.motion_plan_request.goal_constraints.joint_constraints.resize(jsg->getJointNames().size());
     std::vector<double> joint_values;
@@ -556,14 +573,16 @@ public:
       ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
       return false;
     }
+    lock_scene_.lock();
     send_planner_trajectory_ = true;
     current_planner_trajectory_point_ = 0;
     trajectory_state_ = new planning_models::KinematicState(*planning_state_);
     planner_trajectory_ = plan_res.trajectory.joint_trajectory;
     ROS_INFO_STREAM("Trajectory has " << plan_res.trajectory.joint_trajectory.points.size());
-    moveThroughPlannerTrajectory(0);
+    moveThroughPlannerTrajectory(0, false);
     last_goal_constraints_ = plan_req.motion_plan_request.goal_constraints;
     last_path_constraints_ = plan_req.motion_plan_request.path_constraints;
+    lock_scene_.unlock();
     return true;
   }
 
@@ -588,17 +607,23 @@ public:
       ROS_INFO_STREAM("Bad trajectory_filter error code " << filter_res.error_code.val);
       return false;
     }
+    lock_scene_.lock();
     send_filter_trajectory_ = true;
     current_filter_trajectory_point_ = 0;
     filter_state_ = new planning_models::KinematicState(*planning_state_);
     filter_trajectory_ = filter_res.trajectory;
-    moveThroughFilterTrajectory(0);   
+    moveThroughFilterTrajectory(0, false);   
+    lock_scene_.unlock();
     return true;
   }
 
-  void moveThroughPlannerTrajectory(int step) {
+  void moveThroughPlannerTrajectory(int step, bool print) {
+    lock_scene_.lock();
     unsigned int tsize = planner_trajectory_.points.size(); 
-    if(tsize == 0) return;
+    if(tsize == 0 || trajectory_state_ == NULL) {
+      lock_scene_.unlock();
+      return;
+    }
     if((int) current_planner_trajectory_point_ + step < 0) {
       current_planner_trajectory_point_ = 0;
     } else {
@@ -611,15 +636,30 @@ public:
     for(unsigned int i = 0; i < planner_trajectory_.joint_names.size(); i++) {
       joint_values[planner_trajectory_.joint_names[i]] = planner_trajectory_.points[current_planner_trajectory_point_].positions[i];
     }
+    if(print) {
+      printTrajectoryPoint(planner_trajectory_.joint_names,
+                           planner_trajectory_.points[current_planner_trajectory_point_].positions);
+    }
     trajectory_state_->setKinematicState(joint_values);
     if(send_collision_markers_ && collision_marker_state_ == PLANNER_TRAJECTORY) {
       updateCurrentCollisionSet(PLANNER_TRAJECTORY);
     }
+    lock_scene_.unlock();
   }
 
-  void moveThroughFilterTrajectory(int step) {
+  void printTrajectoryPoint(const std::vector<std::string>& joint_names, const std::vector<double>& joint_values) {
+    for(unsigned int i = 0; i < joint_names.size(); i++) {
+      ROS_INFO_STREAM("Joint name " << joint_names[i] << " value " << joint_values[i]);
+    }
+  }
+
+  void moveThroughFilterTrajectory(int step, bool print) {
+    lock_scene_.lock();
     unsigned int tsize = filter_trajectory_.points.size(); 
-    if(tsize == 0) return;
+    if(tsize == 0 || filter_state_ == NULL) {
+      lock_scene_.unlock();
+      return;
+    }
     if((int) current_filter_trajectory_point_ + step < 0) {
       current_filter_trajectory_point_ = 0;
     } else {
@@ -632,35 +672,47 @@ public:
     for(unsigned int i = 0; i < filter_trajectory_.joint_names.size(); i++) {
       joint_values[filter_trajectory_.joint_names[i]] = filter_trajectory_.points[current_filter_trajectory_point_].positions[i];
     }
+    if(print) {
+      printTrajectoryPoint(filter_trajectory_.joint_names,
+                           filter_trajectory_.points[current_planner_trajectory_point_].positions);
+    }
     filter_state_->setKinematicState(joint_values);
     if(send_collision_markers_ && collision_marker_state_ == FILTER_TRAJECTORY) {
       updateCurrentCollisionSet(FILTER_TRAJECTORY);
     }
+    lock_scene_.unlock();
   }
 
   void stopShowingPlannerTrajectory() {
+    lock_scene_.lock();
     send_planner_trajectory_ = false;
     delete trajectory_state_;
     trajectory_state_ = NULL;
+    lock_scene_.unlock();
   }
 
   void stopShowingFilterTrajectory() {
+    lock_scene_.lock();
     send_filter_trajectory_ = false;
     delete filter_state_;
     filter_state_ = NULL;
+    lock_scene_.unlock();
   }
   
   void setShowCollisions(bool send_collision_markers, CollisionStateDisplay csd = NONE) {
+    lock_scene_.lock();
     send_collision_markers_ = send_collision_markers;
     if(send_collision_markers_) {
       updateCurrentCollisionSet(csd);
     } else {
       collision_markers_.markers.clear();
     }
+    lock_scene_.unlock();
   }
 
   void updateCurrentCollisionSet(CollisionStateDisplay csd)
   {
+    lock_scene_.lock();
     const planning_models::KinematicState* state = NULL;
     if(csd == END_EFFECTOR) {
       state = end_effector_state_;
@@ -674,12 +726,14 @@ public:
     collision_marker_state_ = csd;
     collision_markers_.markers.clear();
     if(state == NULL) {
+      lock_scene_.unlock();
       return;
     }
     cm_->getAllCollisionPointMarkers(*state,
                                      collision_markers_,
                                      point_color_,
                                      ros::Duration(.2)); 
+    lock_scene_.unlock();
   }
 
   bool getSendCollisionMarkers() const {
@@ -931,8 +985,12 @@ int main(int argc, char** argv)
               puts("Use 'f' to call trajectory filter on planner trajectory");
               puts("Use 'y' to toggle planner trajectory collisions");
               puts("Use 'h' to toggle filter trajectory collisions");
+              puts("Use 'z' to toggle printing planning trajectory values");
+              puts("use 'x' to toggle printing filter trajectory values");
               puts("Use 'q' to return to end effector menu");
               bool trajectory_stop = false;
+              bool planner_trajectory_printing = false;
+              bool filter_trajectory_printing = false;
               while(!trajectory_stop) {
                 if(read(kfd, &c, 1) < 0)
                 {
@@ -941,16 +999,16 @@ int main(int argc, char** argv)
                 }
                 switch(c) {
                 case 'i': 
-                  psv->moveThroughPlannerTrajectory(1);
+                  psv->moveThroughPlannerTrajectory(1, planner_trajectory_printing);
                   break;
                 case 'k':
-                  psv->moveThroughPlannerTrajectory(-1);
+                  psv->moveThroughPlannerTrajectory(-1, planner_trajectory_printing);
                   break;
                 case 'o': 
-                  psv->moveThroughFilterTrajectory(1);
+                  psv->moveThroughFilterTrajectory(1, filter_trajectory_printing);
                   break;
                 case 'l':
-                  psv->moveThroughFilterTrajectory(-1);
+                  psv->moveThroughFilterTrajectory(-1,filter_trajectory_printing);
                   break;
                 case 'f':
                   psv->filterPlannerTrajectory();
@@ -960,6 +1018,12 @@ int main(int argc, char** argv)
                   break;
                 case 'h':
                   psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::FILTER_TRAJECTORY);
+                  break;
+                case 'z':
+                  planner_trajectory_printing = !planner_trajectory_printing;
+                  break;
+                case 'x':
+                  filter_trajectory_printing = !filter_trajectory_printing;
                   break;
                 case 'q':
                   trajectory_stop = true;

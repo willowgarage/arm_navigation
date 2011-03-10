@@ -65,20 +65,12 @@
 
 #include <planning_environment/util/construct_object.h>
 #include <planning_environment_msgs/utils.h>
-//#include <planning_environment/monitors/joint_state_monitor.h>
 #include <geometric_shapes/bodies.h>
-
-#include <planning_environment_msgs/GetRobotState.h>
-#include <planning_environment_msgs/GetJointTrajectoryValidity.h>
-#include <planning_environment_msgs/GetStateValidity.h>
-#include <planning_environment_msgs/GetGroupInfo.h>
-#include <planning_environment_msgs/GetEnvironmentSafety.h>
-#include <planning_environment_msgs/SetConstraints.h>
 
 #include <visualization_msgs/MarkerArray.h>
 
-#include <move_arm_head_monitor/HeadMonitorAction.h>
-#include <move_arm_head_monitor/HeadLookAction.h>
+//#include <move_arm_head_monitor/HeadMonitorAction.h>
+//#include <move_arm_head_monitor/HeadLookAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/simple_client_goal_state.h>
 
@@ -126,11 +118,12 @@ typedef struct{
   std::string planner_service_name;
 } MoveArmParameters;
 
-static const std::string ARM_IK_NAME             = "arm_ik";
-static const std::string ARM_FK_NAME             = "arm_fk";
+static const std::string ARM_IK_NAME = "arm_ik";
+static const std::string ARM_FK_NAME = "arm_fk";
 static const std::string TRAJECTORY_FILTER = "filter_trajectory";
 static const std::string DISPLAY_PATH_PUB_TOPIC  = "display_path";
 static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
+static const std::string GET_PLANNING_SCENE_NAME = "get_planning_scene";
 static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
 static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
 
@@ -159,20 +152,9 @@ public:
 
     private_handle_.param<bool>("publish_stats",publish_stats_, true);
 
-    std::string urdf_xml,full_urdf_xml;
-    root_handle_.param("urdf_xml", urdf_xml, std::string("robot_description"));
-    if(!root_handle_.getParam(urdf_xml,full_urdf_xml))
-    {
-      ROS_ERROR("Could not load the xml from parameter server: %s\n", urdf_xml.c_str());
-      robot_model_initialized_ = false;
-    }
-    else
-    {
-      robot_model_.initString(full_urdf_xml);
-      robot_model_initialized_ = true;
-    }
+    collision_models_ = new CollisionModels("robot_description");
 
-    using_head_monitor_ = true;
+    using_head_monitor_ = false;
     num_planning_attempts_ = 0;
     state_ = PLANNING;
     last_monitor_time_ = ros::Time::now();
@@ -187,12 +169,7 @@ public:
 
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
 
-    check_plan_validity_client_ = root_handle_.serviceClient<planning_environment_msgs::GetJointTrajectoryValidity>("get_trajectory_validity");
-    check_env_safe_client_ = root_handle_.serviceClient<planning_environment_msgs::GetEnvironmentSafety>("get_environment_safety");
-    check_state_validity_client_ = root_handle_.serviceClient<planning_environment_msgs::GetStateValidity>("get_state_validity");
-    check_execution_safe_client_ = root_handle_.serviceClient<planning_environment_msgs::GetJointTrajectoryValidity>("get_execution_safety");
-    get_group_info_client_ = root_handle_.serviceClient<planning_environment_msgs::GetGroupInfo>("get_group_info");      
-    get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");      
+    get_planning_scene_client_ = nh_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
     filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
 
@@ -229,12 +206,7 @@ public:
     
     //    ros::service::waitForService(ARM_IK_NAME);
     arm_ik_initialized_ = false;
-    ros::service::waitForService("get_trajectory_validity");
-    ros::service::waitForService("get_environment_safety");
-    ros::service::waitForService("get_state_validity");
-    ros::service::waitForService("get_execution_safety");
-    ros::service::waitForService("get_group_info");
-    ros::service::waitForService("get_robot_state");
+    ros::service::waitForService(GET_PLANNING_SCENE_NAME);
     ros::service::waitForService("filter_trajectory");
 
     action_server_.reset(new actionlib::SimpleActionServer<move_arm_msgs::MoveArmAction>(root_handle_, "move_" + group_name, boost::bind(&MoveArm::execute, this, _1)));
@@ -242,14 +214,6 @@ public:
     display_path_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_PATH_PUB_TOPIC, 1, true);
     display_joint_goal_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_JOINT_GOAL_PUB_TOPIC, 1, true);
     stats_publisher_ = private_handle_.advertise<move_arm_msgs::MoveArmStatistics>("statistics",1,true);
-    motion_planning_msgs::RobotState robot_state;
-    trajectory_msgs::JointTrajectory joint_traj;
-    getRobotState(robot_state);
-    joint_traj.points.push_back(motion_planning_msgs::jointStateToJointTrajectoryPoint(robot_state.joint_state));
-    joint_traj.joint_names = robot_state.joint_state.name;
-
-    visualizePlan(joint_traj);
-    visualizeJointGoal(joint_traj);
     //        fk_client_ = root_handle_.serviceClient<kinematics_msgs::FKService>(ARM_FK_NAME);
   }	
   virtual ~MoveArm()
@@ -268,39 +232,13 @@ public:
       ROS_ERROR("No 'group' parameter specified. Without the name of the group of joints to plan for, action cannot start");
       return false;
     }
-    planning_environment_msgs::GetGroupInfo::Request req;
-    planning_environment_msgs::GetGroupInfo::Response res;
-    req.group_name = group_;
-    if(get_group_info_client_.call(req,res))
-    {
-      if(!res.joint_names.empty())
-      {
-        group_joint_names_ = res.joint_names;
-        group_link_names_ = res.link_names;
-      }
-      else
-      {
-        ROS_ERROR("Could not get the list of joint names in the group: %s",
-                  group_.c_str());
-        return false;
-      }
-    }
-    else
-    {
-      ROS_ERROR("Service call to find group info failed on %s",
-                get_group_info_client_.getService().c_str());
+    const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(group_);
+    if(joint_model_group == NULL) {
+      ROS_WARN_STREAM("No joint group " << group_);
       return false;
     }
-    //now getting all links
-    
-    req.group_name="";
-    if(get_group_info_client_.call(req,res))
-    {
-      all_link_names_ = res.link_names;
-    } else {
-      ROS_INFO("Can't get all link names");
-      return false;
-    }
+    group_joint_names_ = joint_model_group->getJointModelNames();
+    group_link_names_ = joint_model_group->getGroupLinkNames();
     return true;
   }
 	
@@ -792,79 +730,28 @@ private:
       return false;
     }
   }
-  bool isStateValidAtGoal(const motion_planning_msgs::RobotState& state,
-                          motion_planning_msgs::ArmNavigationErrorCodes& error_code)
-  {
-    planning_environment_msgs::GetStateValidity::Request req;
-    planning_environment_msgs::GetStateValidity::Response res;
-    req.robot_state = state;
-    req.check_goal_constraints = true;
-    req.check_collisions = true;
-    planning_environment_msgs::generateDisableAllowedCollisionsWithExclusions(all_link_names_,
-                                                                              group_link_names_,
-                                                                              req.ordered_collision_operations.collision_operations);
-    req.ordered_collision_operations.collision_operations.insert(req.ordered_collision_operations.collision_operations.end(),
-                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.begin(),
-                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.end());
-    req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    req.path_constraints = original_request_.motion_plan_request.path_constraints;
-    req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
-    req.link_padding = original_request_.motion_plan_request.link_padding;
-    if(check_state_validity_client_.call(req,res))
-    {
-      error_code = res.error_code;
-      if(res.error_code.val == res.error_code.SUCCESS)
-        return true;
-      else
-        return false;
-    }
-    else
-    {
-      ROS_ERROR("Service call to check goal validity failed %s",
-                check_state_validity_client_.getService().c_str());
-      return false;
-    }
-  }
-  bool isStateValid(const motion_planning_msgs::RobotState& state,
+  bool isStateValid(const motion_planning_msgs::RobotState& goal_state,
                     motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                    int flag=0)
+                    bool use_goal_constraints=true,
+                    bool use_path_constraints=true)
   {
-    planning_environment_msgs::GetStateValidity::Request req;
-    planning_environment_msgs::GetStateValidity::Response res;
-    req.robot_state = state;
-    addCheckFlags(req,COLLISION_TEST | flag);
-    req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    planning_environment_msgs::generateDisableAllowedCollisionsWithExclusions(all_link_names_,
-                                                                              group_link_names_,
-                                                                              req.ordered_collision_operations.collision_operations);
-    req.ordered_collision_operations.collision_operations.insert(req.ordered_collision_operations.collision_operations.end(),
-                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.begin(),
-                                                                 original_request_.motion_plan_request.ordered_collision_operations.collision_operations.end());
-    //for(unsigned int i = 0; i < req.ordered_collision_operations.collision_operations.size(); i++) {
-    //  ROS_INFO_STREAM("Disabling collisions between " << req.ordered_collision_operations.collision_operations[i].object1
-    //                  << " and " << req.ordered_collision_operations.collision_operations[i].object2);
-    //}
+    planning_environment::setRobotStateAndComputeTransforms(goal_state, *planning_scene_state_);
+    motion_planning_msgs::Constraints goal_constraints;
+    if(use_goal_constraints) {
+      goal_constraints = original_request_.motion_plan_request.goal_constraints;
+    }
+    motion_planning_msgs::Constraints path_constraints;
+    if(use_path_constraints) {
+      path_constraints = original_request_.motion_plan_request.path_constraints;
+    }
 
-    req.path_constraints = original_request_.motion_plan_request.path_constraints;
-    req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
-    req.link_padding = original_request_.motion_plan_request.link_padding;
-    if(check_state_validity_client_.call(req,res))
-    {
-      error_code = res.error_code;
-      if(res.error_code.val == res.error_code.SUCCESS)
-        return true;
-      else
-      {
-        move_arm_action_result_.contacts = res.contacts;
-        return false;
-      }
-    }
-    else
-    {
-      ROS_ERROR("Service call to check state validity failed on %s",check_state_validity_client_.getService().c_str());
-      return false;
-    }
+    return collision_models_->isKinematicStateValid(*planning_scene_state_,
+                                                    group_joint_names_,
+                                                    error_code,
+                                                    goal_constraints,
+                                                    path_constraints);
   }
+
   void discretizeTrajectory(const trajectory_msgs::JointTrajectory &trajectory, 
                             trajectory_msgs::JointTrajectory &trajectory_out,
                             const double &trajectory_discretization)
@@ -986,7 +873,7 @@ private:
     //checking current state for validity
     motion_planning_msgs::RobotState empty_state;
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
-    if(!isStateValid(empty_state, error_code) && !move_arm_parameters_.disable_collision_monitoring){
+    if(!isStateValid(get_planning_scene_res_.robot_state, error_code, false, true)) {
       if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_IN_COLLISION;
         ROS_ERROR("Starting state is in collision, can't plan");
@@ -1585,8 +1472,14 @@ private:
   {
     motion_planning_msgs::GetMotionPlan::Request req;	    
     moveArmGoalToPlannerRequest(goal,req);	    
+
+    if(!getPlanningSceneAndModifiedConstraints(req.motion_plan_request)) {
+      ROS_INFO("Problem setting planning scene");
+      return;
+    }
+
     original_request_ = req;
-    ROS_INFO("Received new goal");
+
     ros::Rate move_arm_rate(move_arm_frequency_);
     move_arm_action_result_.contacts.clear();
     move_arm_action_result_.error_code.val = 0;
@@ -1596,6 +1489,7 @@ private:
     {	    	    
       if (action_server_->isPreemptRequested())
       {
+        revertPlanningScene();
         move_arm_stats_.preempted = true;
         if(publish_stats_)
           publishStats();
@@ -1605,11 +1499,15 @@ private:
         {
           move_arm_action_result_.contacts.clear();
           move_arm_action_result_.error_code.val = 0;
-          moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
-          ROS_INFO("Received new goal, will preempt previous goal");
-          original_request_ = req;
           if (controller_status_ == QUEUED || controller_status_ == ACTIVE)
             stopTrajectory();
+          moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
+          ROS_INFO("Received new goal, will preempt previous goal");
+          if(!getPlanningSceneAndModifiedConstraints(req.motion_plan_request)) {
+            ROS_INFO("Problem setting planning scene");
+            return;
+          }
+          original_request_ = req;
           state_ = PLANNING;
         }
         else               //if we've been preempted explicitly we need to shut things down
@@ -1617,6 +1515,7 @@ private:
           ROS_INFO("The move arm action was preempted by the action client. Preempting this goal.");
           if (controller_status_ == QUEUED || controller_status_ == ACTIVE)
             stopTrajectory();
+          revertPlanningScene();
           resetStateMachine();
           action_server_->setPreempted();
           return;
@@ -1646,6 +1545,33 @@ private:
     ROS_INFO("Node was killed, aborting");
     action_server_->setAborted(move_arm_action_result_);
   }
+
+  bool getPlanningSceneAndModifiedConstraints(motion_planning_msgs::MotionPlanRequest& motion_plan_request) {
+    get_req.group_name = group_;
+    get_req.goal_constraints = motion_plan_request.goal_constraints;
+    get_req.path_constraints = motion_plan_request.path_constraints;
+
+    if(!get_planning_scene_client_->call(get_req, get_res)) {
+      ROS_WARN("Can't get planning scene");
+      return false;
+    }
+
+    motion_plan_request.goal_constraints = get_res.transformed_goal_constraints;
+    motion_plan_request.path_constraints = get_res.transformed_path_constraints;
+
+    planning_scene_state_ = collision_models_->setPlanningScene(get_res.planning_scene);
+
+    if(planning_scene_state_ == NULL) {
+      ROS_WARN("Problems setting local state");
+      return false;
+    }
+  }
+
+  bool revertPlanningScene() {
+    collision_models_->revertPlanningScene(planning_scene_state_);
+    planning_scene_state_ = NULL;
+  }
+
   ///
   /// End State machine
   ///
@@ -1814,13 +1740,14 @@ private:
   boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
   boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> >  head_look_client_;
 
-  ros::ServiceClient get_group_info_client_, get_state_client_;
-  ros::ServiceClient ik_client_, check_state_at_goal_client_, check_plan_validity_client_;
-  ros::ServiceClient check_env_safe_client_, check_execution_safe_client_, check_state_validity_client_;
+  ros::ServiceClient ik_client_;
   ros::ServiceClient trajectory_start_client_,trajectory_cancel_client_,trajectory_query_client_;	
   ros::NodeHandle private_handle_, root_handle_;
   boost::shared_ptr<actionlib::SimpleActionServer<move_arm_msgs::MoveArmAction> > action_server_;	
 
+  planning_environment_msgs::GetPlanningScene::Request get_planning_scene_req_;
+  planning_environment_msgs::GetPlanningScene::Response get_planning_scene_res_;
+  
   tf::TransformListener *tf_;
   MoveArmState state_;
   double move_arm_frequency_;      	

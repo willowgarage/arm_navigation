@@ -25,7 +25,7 @@
    <node pkg="ompl_ros_interface" type="ompl_ros" name="ompl_planning" output="screen">
      <rosparam command="load" file="$(find ompl_ros_interface)/test/ompl_planning.yaml" />
    </node>
-   <node pkg="trajectory_filter_server" name="trajectory_filter" type="trajectory_filter_server" output="screen">
+   <node pkg="trajectory_filter_server" name="trajectory_filter" type="trajectory_filter_server" output="screen" launch-prefix="xterm -e">
      <rosparam command="load" file="$(find move_arm)/test/config/joint_limits.yaml"/>
      <rosparam command="load" file="$(find move_arm)/test/config/filters.yaml"/>
    </node>
