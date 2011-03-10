@@ -241,6 +241,7 @@ motion_planning_msgs::RobotTrajectory OmplRosJointPlanner::getSolutionPath()
 {
   motion_planning_msgs::RobotTrajectory robot_trajectory;
   ompl::geometric::PathGeometric solution = planner_->getSolutionPath();
+  solution.interpolate();
   omplPathGeometricToRobotTrajectory(solution,robot_trajectory);
   return robot_trajectory;
 }
