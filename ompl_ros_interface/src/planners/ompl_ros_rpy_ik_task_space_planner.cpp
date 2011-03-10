@@ -65,7 +65,7 @@ motion_planning_msgs::RobotTrajectory OmplRosRPYIKTaskSpacePlanner::getSolutionP
   motion_planning_msgs::RobotTrajectory robot_trajectory;
   
   ompl::geometric::PathGeometric path = planner_->getSolutionPath();
-  path.interpolate(300);
+  path.interpolate();
   unsigned int num_points = path.states.size();
   ROS_DEBUG("Path has %d waypoints",(int)path.states.size());
   for(unsigned int i=0; i < num_points; i++)

@@ -977,11 +977,11 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
     {
       if(mapping.mapping_type[j] == ompl_ros_interface::SO2)
         robot_trajectory.joint_trajectory.points[i].positions[mapping.ompl_state_mapping[j]] = path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SO2StateManifold::StateType>(j)->value;
-      else if(mapping.mapping_type[i] == ompl_ros_interface::SE2)
+      else if(mapping.mapping_type[j] == ompl_ros_interface::SE2)
         ompl_ros_interface::SE2ManifoldToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SE2StateManifold::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
-      else if(mapping.mapping_type[i] == ompl_ros_interface::SE3)
+      else if(mapping.mapping_type[j] == ompl_ros_interface::SE3)
         ompl_ros_interface::SE3ManifoldToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SE3StateManifold::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
-      else if(mapping.mapping_type[i] == ompl_ros_interface::SO3)
+      else if(mapping.mapping_type[j] == ompl_ros_interface::SO3)
         ompl_ros_interface::SO3ManifoldToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateManifold::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
       else // real vector value
       {
