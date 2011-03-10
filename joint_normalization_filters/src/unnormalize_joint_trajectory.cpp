@@ -45,7 +45,3 @@ PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryWithConstraints,
 PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectory,
                          joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectory::Request>,
                          filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>)
-
-PLUGINLIB_REGISTER_CLASS(UnNormalizeJointTrajectoryWithLimits,
-                         joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>,
-                         filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)

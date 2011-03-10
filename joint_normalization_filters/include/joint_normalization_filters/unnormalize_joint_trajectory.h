@@ -62,15 +62,6 @@ private:
   //! Flag that tells us if the robot model was initialized successfully
   bool robot_model_initialized_;
 
-  //! The latest joint states received
-  sensor_msgs::JointState::ConstPtr raw_joint_states_;
-
-  //! Subscriber to joint states topic
-  ros::Subscriber joint_states_sub_;
-
-  //! Remembers the latest joint state
-  void jointStatesCallback(const sensor_msgs::JointState::ConstPtr& states);
-
 public:
   UnNormalizeJointTrajectory();
   virtual ~UnNormalizeJointTrajectory();
@@ -82,8 +73,6 @@ public:
 template <typename T>
 UnNormalizeJointTrajectory<T>::UnNormalizeJointTrajectory()
 {
-  joint_states_sub_ = nh_.subscribe("joint_states", 1, &UnNormalizeJointTrajectory::jointStatesCallback, this);
-
   std::string urdf_xml,full_urdf_xml;
   nh_.param("urdf_xml", urdf_xml, std::string("robot_description"));
   if(!nh_.getParam(urdf_xml,full_urdf_xml))
@@ -118,10 +107,13 @@ bool UnNormalizeJointTrajectory<T>::smooth(const T& trajectory_in,
     return false;
   }
 
-  if (raw_joint_states_.get() == NULL)
-  {
-    ROS_ERROR("Did not receive current robot state message");
+  if(trajectory_in.start_state.joint_state.name.size() == 0) {
+    ROS_WARN_STREAM("Unnormalizer requires the start state to be set");
     return false;
+  }
+  std::map<std::string, double> joint_values;
+  for(unsigned int i = 0; i < trajectory_in.start_state.joint_state.name.size(); i++) {
+    joint_values[trajectory_in.start_state.joint_state.name[i]] = trajectory_in.start_state.joint_state.position[i];
   }
 
   std::vector<double> current_values;
@@ -130,18 +122,12 @@ bool UnNormalizeJointTrajectory<T>::smooth(const T& trajectory_in,
   for (size_t i=0; i<input_trajectory.joint_names.size(); i++)
   {
     std::string name = input_trajectory.joint_names[i];
-    size_t j;
-    for (j=0; j<raw_joint_states_->name.size(); j++)
-    {
-      if (name == raw_joint_states_->name[j]) break;
-    }
-    if ( j==raw_joint_states_->name.size())
-    {
-      ROS_ERROR("Joint name %s not found in raw joint state message", name.c_str());
+    if(joint_values.find(name) == joint_values.end()) {
+      ROS_WARN_STREAM("No value set in start state for joint name " << name);
       return false;
     }
     //first waypoint is unnormalized relative to current joint states
-    current_values.push_back(raw_joint_states_->position.at(j));
+    current_values.push_back(joint_values[name]);
     
     boost::shared_ptr<const urdf::Joint> joint = robot_model_.getJoint(name);
     if (joint.get() == NULL)
@@ -173,14 +159,6 @@ bool UnNormalizeJointTrajectory<T>::smooth(const T& trajectory_in,
   trajectory_out.trajectory = normalized_trajectory;
   return true;
 }
-
-//! Remembers the latest joint state
-template <typename T>
-void UnNormalizeJointTrajectory<T>::jointStatesCallback(const sensor_msgs::JointState::ConstPtr& states)
-{
-  raw_joint_states_ = states;
-}
-
 }
 
 #endif /* UNNORMALIZE_JOINT_TRAJECTORY_H_ */

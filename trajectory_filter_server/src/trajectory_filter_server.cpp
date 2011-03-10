@@ -129,6 +129,7 @@ void TrajectoryFilterServer::getLimits(const trajectory_msgs::JointTrajectory& t
 
     if (limit_it == joint_limits_.end())
     {
+      limits.joint_name = trajectory.joint_names[i];
       limits.has_position_limits = false;
       limits.has_velocity_limits = false;
       limits.has_acceleration_limits = false;
