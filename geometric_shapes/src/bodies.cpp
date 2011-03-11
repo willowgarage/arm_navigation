@@ -1106,10 +1106,9 @@ bodies::BodyVector::~BodyVector() {
 void bodies::BodyVector::addBody(const shapes::Shape* shape, const btTransform& pose) {
   bodies::Body* body = bodies::createBodyFromShape(shape);
   body->setPose(pose);
+  bodies_.push_back(body);
   BoundingSphere sphere;
   body->computeBoundingSphere(sphere);
-  bodies_.push_back(body);
-  bounding_spheres_.push_back(sphere);
   rsqrs_.push_back(sphere.radius*sphere.radius);
 }
 
@@ -1125,12 +1124,14 @@ const bodies::Body* bodies::BodyVector::getBody(unsigned int i) const
   return bodies_[i];
 }
 
-const bodies::BoundingSphere& bodies::BodyVector::getBoundingSphere(unsigned int i) const
+bodies::BoundingSphere bodies::BodyVector::getBoundingSphere(unsigned int i) const
 {
-  if(i >= bounding_spheres_.size()) {
+  if(i >= bodies_.size()) {
     ROS_WARN("Trying to get sphere for body we don't have.  Probably segfault");
   }
-  return bounding_spheres_[i];
+  BoundingSphere sphere;
+  bodies_[i]->computeBoundingSphere(sphere);
+  return sphere;
 }
 
 double bodies::BodyVector::getBoundingSphereRadiusSquared(unsigned int i) const

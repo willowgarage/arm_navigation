@@ -453,14 +453,13 @@ public:
 
   const Body* getBody(unsigned int i) const;
 
-  const BoundingSphere& getBoundingSphere(unsigned int i) const;
+  BoundingSphere getBoundingSphere(unsigned int i) const;
   
   double getBoundingSphereRadiusSquared(unsigned int i) const;
 
 private:
 
   std::vector<Body*> bodies_;
-  std::vector<BoundingSphere> bounding_spheres_;
   std::vector<double> rsqrs_;
 
 };
