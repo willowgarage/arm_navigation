@@ -42,10 +42,9 @@
 **/
 
 #include <ros/ros.h>
-#include "planning_environment/monitors/collision_space_monitor.h"
+#include "planning_environment/models/collision_models.h"
 #include "planning_environment/util/construct_object.h"
 
-#include <geometric_shapes/bodies.h>
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
 #include <sensor_msgs/PointCloud.h>
@@ -59,22 +58,27 @@ public:
 
   ClearKnownObjects(void): nh_("~")
   {    
-    rm_ = new planning_environment::CollisionModels("robot_description");
+    cm_ = new planning_environment::CollisionModels("robot_description");
     ROS_INFO("Starting");
-    if (rm_->loadedModels())
+    if (cm_->loadedModels())
     {
-      kmsm_ = new planning_environment::CollisionSpaceMonitor(rm_, &tf_);
-      nh_.param<std::string>("fixed_frame", fixed_frame_, kmsm_->getWorldFrameId());
-      nh_.param<double>("object_scale", scale_, 1.0);
-      nh_.param<double>("object_padd", padd_, 0.02);
+      fixed_frame_ = cm_->getWorldFrameId();
+
       nh_.param<std::string>("sensor_frame", sensor_frame_, std::string());
       nh_.param<bool>("filter_static_objects", filter_static_objects_, false);
 
-      kmsm_->startEnvironmentMonitor();
-
-      ROS_INFO("Clearing points on known objects using '%s' as fixed frame, %f padding and %f scaling", fixed_frame_.c_str(), padd_, scale_);
-	    
       cloudPublisher_ = root_handle_.advertise<sensor_msgs::PointCloud>("cloud_out", 1);	    
+      collisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
+      collisionObjectFilter_ = new tf::MessageFilter<mapping_msgs::CollisionObject>(*collisionObjectSubscriber_, *tf_, cm_->getWorldFrameId(), 1024);
+      collisionObjectFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionObjectCallback, this, _1));
+      ROS_DEBUG("Listening to object_in_map using message notifier with target frame %s", collisionObjectFilter_->getTargetFramesString().c_str());
+      
+      //using regular message filter as there's no header
+      attachedCollisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
+      attachedCollisionObjectSubscriber_->registerCallback(boost::bind(&CollisionSpaceMonitor::attachObjectCallback, this, _1));    
+
+
+
       kmsm_->setOnAfterAttachCollisionObjectCallback(boost::bind(&ClearKnownObjects::attachObjectEvent, this, _1));
       if(filter_static_objects_) {
         kmsm_->setOnAfterCollisionObjectCallback(boost::bind(&ClearKnownObjects::objectUpdateEvent, this, _1));

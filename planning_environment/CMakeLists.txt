@@ -17,7 +17,8 @@ rosbuild_add_library(planning_environment src/models/robot_models.cpp
 					 src/monitors/collision_space_monitor.cpp
 					 src/monitors/planning_monitor.cpp
 					 src/util/kinematic_state_constraint_evaluator.cpp
-					 src/util/construct_object.cpp)
+					 src/util/construct_object.cpp
+					 src/monitors/monitor_utils.cpp)
 
 rosbuild_add_openmp_flags(planning_environment)
 rosbuild_link_boost(planning_environment thread)
@@ -44,10 +45,9 @@ target_link_libraries(visualize_planning_scene planning_environment)
 #rosbuild_link_boost(view_state_validity thread)
 #rosbuild_add_openmp_flags(view_state_validity)
 
-#rosbuild_add_executable(clear_known_objects src/tools/clear_known_objects.cpp) 
-#target_link_libraries(clear_known_objects planning_environment)
-#rosbuild_link_boost(clear_known_objects thread)
-#rosbuild_add_openmp_flags(clear_known_objects)
+rosbuild_add_executable(filter_attached_objects src/tools/filter_attached_objects.cpp) 
+target_link_libraries(filter_attached_objects planning_environment)
+rosbuild_link_boost(filter_attached_objects thread)
 
 #rosbuild_add_executable(display_planner_collision_model src/tools/display_planner_collision_model.cpp) 
 #target_link_libraries(display_planner_collision_model planning_environment)

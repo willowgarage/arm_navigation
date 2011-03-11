@@ -109,10 +109,13 @@ public:
                                             geometry_msgs::QuaternionStamped& ret_quat) const;
 
   //
-  // Object handling functions
+  // Functions for updating the position of attached objects
   //
-    
-  void updateRobotModelPose(const planning_models::KinematicState& state);
+
+  bool updateAttachedBodyPosesForLink(const planning_models::KinematicState& state,
+                                      const std::string& link_name);
+
+  bool updateAttachedBodyPoses(const planning_models::KinematicState& state);
 
   //this function will fail if the header is not in the world frame
   bool addStaticObject(const mapping_msgs::CollisionObject& obj);
@@ -159,6 +162,11 @@ public:
   
   bool convertAttachedObjectToStaticObject(const std::string& object_name,
                                            const std::string& link_name);
+
+  const std::map<std::string, std::map<std::string, bodies::BodyVector*> >& getLinkAttachedObjects() const
+  {
+    return link_attached_objects_;
+  }
 
   //
   // Handling collision space functions
@@ -341,7 +349,17 @@ public:
     return scene_transform_map_;
   }
 
+  void bodiesLock() {
+    bodies_lock_.lock();
+  }
+
+  void bodiesUnlock() {
+    bodies_lock_.unlock();
+  }
+
 protected:
+
+  boost::recursive_mutex bodies_lock_;
 
   std::vector<shapes::Shape*> collision_map_shapes_;
   std::vector<btTransform> collision_map_poses_;

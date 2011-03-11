@@ -545,29 +545,46 @@ bool planning_environment::CollisionModels::convertQuaternionGivenWorldTransform
   return true;
 }
 
-void planning_environment::CollisionModels::updateRobotModelPose(const planning_models::KinematicState& state)
+bool planning_environment::CollisionModels::updateAttachedBodyPosesForLink(const planning_models::KinematicState& state,
+                                                                           const std::string& link_name)
 {
-  ode_collision_model_->updateRobotModel(&state);
+  bodiesLock();
+  if(link_attached_objects_.find(link_name) == link_attached_objects_.end()) {
+    bodiesUnlock();
+    return false;
+  }
+  const planning_models::KinematicState::LinkState* ls = state.getLinkState(link_name);
+  for(unsigned int j = 0; j < ls->getAttachedBodyStateVector().size(); j++) {
+    const planning_models::KinematicState::AttachedBodyState* att_state = ls->getAttachedBodyStateVector()[j];
+    std::map<std::string, bodies::BodyVector*>::iterator bvit = link_attached_objects_[link_name].find(att_state->getName());
+    if(bvit == link_attached_objects_[link_name].end()) {
+      ROS_WARN_STREAM("State out of sync with attached body vector for attached body " << att_state->getName());
+      bodiesUnlock();
+      return false;
+    }
+    if(bvit->second->getSize() != att_state->getGlobalCollisionBodyTransforms().size()) {
+      ROS_WARN_STREAM("State out of sync with attached body vector for attached body " << att_state->getName());
+      bodiesUnlock();
+      return false;
+    }
+    for(unsigned int k = 0; k < att_state->getGlobalCollisionBodyTransforms().size(); k++) {
+      bvit->second->setPose(k, att_state->getGlobalCollisionBodyTransforms()[k]);
+    }
+  }
+  bodiesUnlock();
+  return true;
+}
+
+bool planning_environment::CollisionModels::updateAttachedBodyPoses(const planning_models::KinematicState& state)
+{
   for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::iterator it = link_attached_objects_.begin();
       it != link_attached_objects_.end();
       it++) {
-    const planning_models::KinematicState::LinkState* ls = state.getLinkState(it->first);
-    for(unsigned int j = 0; j < ls->getAttachedBodyStateVector().size(); j++) {
-      const planning_models::KinematicState::AttachedBodyState* att_state = ls->getAttachedBodyStateVector()[j];
-      std::map<std::string, bodies::BodyVector*>::iterator bvit = it->second.find(att_state->getName());
-      if(bvit == it->second.end()) {
-        ROS_WARN_STREAM("State out of sync with attached body vector for attached body " << att_state->getName());
-        continue;
-      }
-      if(bvit->second->getSize() != att_state->getGlobalCollisionBodyTransforms().size()) {
-        ROS_WARN_STREAM("State out of sync with attached body vector for attached body " << att_state->getName());
-        continue;
-      }
-      for(unsigned int k = 0; k < att_state->getGlobalCollisionBodyTransforms().size(); k++) {
-        bvit->second->setPose(k, att_state->getGlobalCollisionBodyTransforms()[k]);
-      }
+    if(!updateAttachedBodyPosesForLink(state, it->first)) {
+      return false;
     }
   }
+  return true;
 }
 
 bool planning_environment::CollisionModels::addStaticObject(const mapping_msgs::CollisionObject& obj)
@@ -599,30 +616,36 @@ void planning_environment::CollisionModels::addStaticObject(const std::string& n
   if(ode_collision_model_->hasObject(name)) {
     deleteStaticObject(name);
   }
+  bodiesLock();
   static_object_map_[name] = new bodies::BodyVector(shapes,poses);
   ode_collision_model_->lock();
   ode_collision_model_->addObjects(name, shapes, poses);
   ode_collision_model_->unlock();
+  bodiesUnlock();
 }
 
 void planning_environment::CollisionModels::deleteStaticObject(const std::string& name)
 {
-  ode_collision_model_->lock();
+  bodiesLock();
   delete static_object_map_.find(name)->second;
+  ode_collision_model_->lock();
   ode_collision_model_->clearObjects(name);
   ode_collision_model_->unlock();
+  bodiesUnlock();
 }
 
 void planning_environment::CollisionModels::deleteAllStaticObjects() {
-  ode_collision_model_->lock();
+  bodiesLock();
   for(std::map<std::string, bodies::BodyVector*>::iterator it = static_object_map_.begin();
       it != static_object_map_.end();
       it++) {
     delete it->second;
   }
   static_object_map_.clear();
+  ode_collision_model_->lock();
   ode_collision_model_->clearObjects();
   ode_collision_model_->unlock();
+  bodiesUnlock();
 }
 
 void planning_environment::CollisionModels::setCollisionMap(const mapping_msgs::CollisionMap& map, 
@@ -671,6 +694,7 @@ void planning_environment::CollisionModels::remaskCollisionMap() {
 void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector<shapes::Shape*>& shapes,
                                                                      std::vector<btTransform>& poses)
 {
+  bodiesLock();
   std::vector<bool> mask;
   std::vector<bodies::BodyVector*> static_object_vector;
   for(std::map<std::string, bodies::BodyVector*>::iterator it = static_object_map_.begin();
@@ -693,6 +717,7 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
   }
   shapes = ret_shapes;
   poses = ret_poses;
+  bodiesUnlock();
 }
 
 bool planning_environment::CollisionModels::addAttachedObject(const mapping_msgs::AttachedCollisionObject& att)
@@ -734,6 +759,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
     ROS_WARN_STREAM("No link " << link_name << " for attaching " << object_name);
     return false;
   }
+  bodiesLock();
   if(link_attached_objects_.find(link_name) != link_attached_objects_.end()) {
     if(link_attached_objects_[link_name].find(object_name) !=
        link_attached_objects_[link_name].end()) {
@@ -756,6 +782,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
                                                            shapes);
   kmodel_->addAttachedBodyModel(link->getName(),ab);
   ode_collision_model_->updateAttachedBodies();
+  bodiesUnlock();
   return true;
 }
    
@@ -763,26 +790,32 @@ bool planning_environment::CollisionModels::deleteAttachedObject(const std::stri
                                                                  const std::string& link_name)
 
 {
+  bodiesLock();
   if(link_attached_objects_.find(link_name) != link_attached_objects_.end()) {
     if(link_attached_objects_[link_name].find(object_id) !=
        link_attached_objects_[link_name].end()) {
+      //similarly, doing kmodel work first
+      kmodel_->clearLinkAttachedBodyModel(link_name, object_id);
       delete link_attached_objects_[link_name][object_id];
       link_attached_objects_[link_name].erase(object_id);
-      kmodel_->clearLinkAttachedBodyModel(link_name, object_id);
     } else {
       ROS_WARN_STREAM("Link " << link_name << " has no object " << object_id << " to delete");
+      bodiesUnlock();
       return false;
     }
   } else {
     ROS_WARN_STREAM("No link " << link_name << " for attached object delete");
+    bodiesUnlock();
     return false;
   }
   ode_collision_model_->updateAttachedBodies();
+  bodiesUnlock();
   return true;
 }
 
 void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::string& link_name)
 {
+  bodiesLock();
   for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::iterator it = link_attached_objects_.begin();
       it != link_attached_objects_.end();
       it++) {
@@ -808,6 +841,7 @@ void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::
   ode_collision_model_->lock();
   ode_collision_model_->updateAttachedBodies();
   ode_collision_model_->unlock();
+  bodiesUnlock();
 }
 
 bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(const std::string& object_name,
@@ -823,6 +857,7 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
     ROS_WARN_STREAM("No static object named " << object_name << " to convert");
     return false;
   }
+  bodiesLock();
   link_attached_objects_[link_name][object_name] = static_object_map_[object_name];
   static_object_map_.erase(object_name);
 
@@ -853,6 +888,7 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
 
   ode_collision_model_->clearObjects(object_name);
   ode_collision_model_->updateAttachedBodies();
+  bodiesUnlock();
   return true;
 }
 
@@ -870,6 +906,7 @@ bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
     ROS_WARN_STREAM("No attached body " << object_name << " attached to link " << link_name);
     return false;
   }
+  bodiesLock();
 
   static_object_map_[object_name] = link_attached_objects_[link_name][object_name];
   link_attached_objects_[link_name].erase(object_name);
@@ -884,6 +921,7 @@ bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
 
   if(att == NULL) {
     ROS_WARN_STREAM("Something seriously out of sync");
+    bodiesUnlock();
     return false;
   }
   std::vector<shapes::Shape*> shapes = shapes::cloneShapeVector(att->getShapes());
@@ -898,6 +936,7 @@ bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
   kmodel_->clearLinkAttachedBodyModel(link_name, object_name);
 
   ode_collision_model_->updateAttachedBodies();
+  bodiesUnlock();
   return true;
 }
 
@@ -1140,6 +1179,8 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
 {
   avec.clear();
 
+  kmodel_->sharedLock();
+
   std::vector<const planning_models::KinematicModel::AttachedBodyModel*> att_vec = kmodel_->getAttachedBodyModels();
   for(unsigned int i = 0; i < att_vec.size(); i++) 
   {
@@ -1160,30 +1201,42 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
     ao.object.id = att_vec[i]->getName();
     avec.push_back(ao);
   }
+
+  kmodel_->sharedUnlock();
 }
 
 bool planning_environment::CollisionModels::isKinematicStateInCollision(const planning_models::KinematicState& state)                                                                     
 {
+  ode_collision_model_->lock();
   ode_collision_model_->updateRobotModel(&state);
-  return(ode_collision_model_->isCollision());
+  bool in_coll = ode_collision_model_->isCollision();
+  ode_collision_model_->unlock();
+  return in_coll;
 }
 
 bool planning_environment::CollisionModels::isKinematicStateInSelfCollision(const planning_models::KinematicState& state)
 {
+  ode_collision_model_->lock();
   ode_collision_model_->updateRobotModel(&state);
-  return(ode_collision_model_->isSelfCollision());
+  bool in_coll = ode_collision_model_->isSelfCollision();
+  ode_collision_model_->unlock();
+  return in_coll;
 }
 
 bool planning_environment::CollisionModels::isKinematicStateInEnvironmentCollision(const planning_models::KinematicState& state)
 {
+  ode_collision_model_->lock();
   ode_collision_model_->updateRobotModel(&state);
-  return(ode_collision_model_->isEnvironmentCollision());
+  bool in_coll = ode_collision_model_->isEnvironmentCollision();
+  ode_collision_model_->unlock();
+  return in_coll;
 }
 
 void planning_environment::CollisionModels::getAllCollisionsForState(const planning_models::KinematicState& state,
                                                                      std::vector<planning_environment_msgs::ContactInformation>& contacts,
                                                                      unsigned int num_per_pair) 
 {
+  ode_collision_model_->lock();
   ode_collision_model_->updateRobotModel(&state);
   std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
   std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
@@ -1218,6 +1271,7 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
     contact_info.position.z = contact.pos.z();
     contacts.push_back(contact_info);
   }
+  ode_collision_model_->unlock();
 }
 
 bool planning_environment::CollisionModels::isKinematicStateValid(const planning_models::KinematicState& state,
@@ -1249,7 +1303,7 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
   }
   ode_collision_model_->updateRobotModel(&state);
   if(isKinematicStateInCollision(state)) {
-    error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;
+    error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;    
     return false;
   }
   return true;
@@ -1587,6 +1641,7 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(co
                                                                               const std_msgs::ColorRGBA& color,
                                                                               const ros::Duration& lifetime)
 {
+  ode_collision_model_->lock();
   std::vector<mapping_msgs::AttachedCollisionObject> attached_objects;
   getCollisionSpaceAttachedCollisionObjects(attached_objects);
 
@@ -1630,6 +1685,7 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(co
       arr.markers.push_back(mk);
     }
   }
+  ode_collision_model_->unlock();
 }
 
 void planning_environment::CollisionModels::getPlanningSceneGivenState(const planning_models::KinematicState& state,

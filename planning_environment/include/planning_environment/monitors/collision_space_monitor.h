@@ -37,25 +37,13 @@
 #ifndef PLANNING_ENVIRONMENT_MONITORS_COLLISION_SPACE_MONITOR_
 #define PLANNING_ENVIRONMENT_MONITORS_COLLISION_SPACE_MONITOR_
 
-#include "planning_environment/models/collision_models.h"
-#include "planning_environment/monitors/kinematic_model_state_monitor.h"
-
-//#include <motion_planning_msgs/AcceptableContact.h>
-
-
-#include <motion_planning_msgs/AllowedContactSpecification.h>
-#include <motion_planning_msgs/OrderedCollisionOperations.h>
-#include <motion_planning_msgs/LinkPadding.h>
+#include <planning_environment/models/collision_models.h>
+#include <planning_environment/monitors/kinematic_model_state_monitor.h>
 #include <mapping_msgs/CollisionMap.h>
 #include <mapping_msgs/CollisionObject.h>
 #include <mapping_msgs/AttachedCollisionObject.h>
 #include <boost/thread/mutex.hpp>
-#include <planning_environment_msgs/GetAllowedCollisionMatrix.h>
-#include <planning_environment_msgs/GetCollisionObjects.h>
-#include <planning_environment_msgs/SetAllowedCollisions.h>
 #include <std_srvs/Empty.h>
-
-#include <geometric_shapes_msgs/Shape.h>
 
 namespace planning_environment
 {
@@ -144,14 +132,6 @@ public:
 
 protected:
   
-  bool createAndPoseShapes(const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
-                           const std::vector<geometry_msgs::Pose>& orig_poses,
-                           const std_msgs::Header& header, 
-                           const std::string& frame_to,
-                           std::vector<shapes::Shape*>& conv_shapes,
-                           std::vector<btTransform>& conv_poses);
-  
-
   void setupCSM(void);
   void updateCollisionSpace(const mapping_msgs::CollisionMapConstPtr &collisionMap, bool clear);
   void collisionMapAsSpheres(const mapping_msgs::CollisionMapConstPtr &collisionMap,

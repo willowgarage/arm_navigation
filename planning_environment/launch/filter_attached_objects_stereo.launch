@@ -1,0 +1,8 @@
+
+<launch> 
+ <node pkg="planning_environment" type="filter_attached_objects" name="filter_attached_objects_stereo" output="screen" launch-prefix="xterm -e gdb --args">
+    <remap from="cloud_in" to="/narrow_stereo/points" />
+    <remap from="cloud_out" to="/narrow_stereo/points_filtered_attached" />
+    <param name="sensor_frame" type="string" value="narrow_stereo_optical_frame" />			
+  </node>
+</launch>

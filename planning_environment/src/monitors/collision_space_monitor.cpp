@@ -33,15 +33,12 @@
 *********************************************************************/
 
 /** \author Ioan Sucan, E. Gil Jones */
-
-#include "planning_environment/monitors/collision_space_monitor.h"
-#include "planning_environment/util/construct_object.h"
-#include <geometry_msgs/PointStamped.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometric_shapes/shape_operations.h>
 #include <boost/bind.hpp>
 #include <climits>
 #include <sstream>
+
+#include <planning_environment/monitors/collision_space_monitor.h>
+#include <planning_environment/monitors/monitor_utils.h>
 
 namespace planning_environment
 {
@@ -365,154 +362,15 @@ void planning_environment::CollisionSpaceMonitor::updateCollisionSpace(const map
   have_map_ = true;
 }
 
-bool planning_environment::CollisionSpaceMonitor::createAndPoseShapes(const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
-                                                                      const std::vector<geometry_msgs::Pose>& orig_poses,
-                                                                      const std_msgs::Header& header, 
-                                                                      const std::string& frame_to,
-                                                                      std::vector<shapes::Shape*>& conv_shapes,
-                                                                      std::vector<btTransform>& conv_poses)
-{
-  conv_shapes.clear();
-  conv_poses.clear();
-  bool shapes_ok = true;
-  for(unsigned int i = 0; i < orig_shapes.size(); i++) {
-    shapes::Shape *shape = constructObject(orig_shapes[i]);
-    if(shape == NULL) {
-      shapes_ok = false;
-      break;
-    }
-    conv_shapes.push_back(shape);
-    std::string err_string;
-    ros::Time tm;
-    geometry_msgs::PoseStamped temp_pose;
-    temp_pose.pose = orig_poses[i];
-    temp_pose.header = header;
-    geometry_msgs::PoseStamped trans_pose;
-    if (tf_->getLatestCommonTime(frame_to, temp_pose.header.frame_id, tm, &err_string) == tf::NO_ERROR) {
-      temp_pose.header.stamp = tm;
-      try {
-        tf_->transformPose(frame_to, temp_pose, trans_pose);
-      } catch(tf::TransformException& ex) {
-        ROS_ERROR_STREAM("Unable to transform object from frame " << temp_pose.header.frame_id << " to " << frame_to << " error is " << ex.what());
-        shapes_ok = false;
-        break;
-      }
-      btTransform pose;
-      tf::poseMsgToTF(trans_pose.pose, pose);
-      ROS_DEBUG_STREAM("Object is at " << pose.getOrigin().x() << " " << pose.getOrigin().y());
-      conv_poses.push_back(pose);
-    } else {
-      ROS_ERROR_STREAM("Something wrong with tf");
-      shapes_ok = false;
-      break;
-    }
-  }
-  if(!shapes_ok) {
-    for(unsigned int i=0; i < conv_shapes.size(); i++) {
-      delete conv_shapes[i];
-    }
-    conv_shapes.clear();
-    conv_poses.clear();
-    return false;
-  }
-  return true;
-
-}
 
 void planning_environment::CollisionSpaceMonitor::collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collision_object)
 {
-  if (collision_object->operation.operation == mapping_msgs::CollisionObjectOperation::ADD) {
-    std::vector<shapes::Shape*> shapes;
-    std::vector<btTransform> poses;
-    bool shapes_ok = createAndPoseShapes(collision_object->shapes,
-                                         collision_object->poses,
-                                         collision_object->header,
-                                         cm_->getWorldFrameId(),
-                                         shapes,
-                                         poses);
-    if(!shapes_ok) {
-      ROS_INFO_STREAM("Not adding attached object " << collision_object->id 
-                      << " to collision space because something's wrong with the shapes");
-    } else {
-      cm_->addStaticObject(collision_object->id,
-                           shapes,
-                           poses);
-      ROS_INFO("Added %u object to namespace %s in collision space", (unsigned int)shapes.size(),collision_object->id.c_str()); 
-    } 
-  } else {
-    if(collision_object->id == "all") {
-      ROS_INFO("Clearing all collision objects");
-      cm_->deleteAllStaticObjects();
-    } else {
-      cm_->deleteStaticObject(collision_object->id);
-      ROS_INFO("Removed object '%s' from collision space", collision_object->id.c_str());
-    }
-  }  
+  processCollisionObjectMsg(collision_object, *tf_, cm_);
 }
 
 bool planning_environment::CollisionSpaceMonitor::attachObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr &attached_object)
 {
-  ROS_INFO("Calling attached object callback");
-
-  if(attached_object->link_name == "all") { //attached_object->REMOVE_ALL_ATTACHED_OBJECTS) {
-    if(attached_object->object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE) {
-      ROS_WARN("Can't perform any action for all attached bodies except remove");
-      return false;
-    } 
-    cm_->deleteAllAttachedObjects();
-  }
-
-  //if there are no objects in the map, clear everything
-  unsigned int n = attached_object->object.shapes.size();
-
-  const mapping_msgs::CollisionObject& obj = attached_object->object;
-      
-  if(n == 0) {
-    if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
-      cm_->deleteAllAttachedObjects();
-      return true;
-    } else if (obj.operation.operation == mapping_msgs::CollisionObjectOperation::ADD){
-      ROS_INFO("Remove must also be specified to delete all attached bodies");
-      return false;
-    } 
-  } 
-    
-  if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
-    cm_->convertAttachedObjectToStaticObject(obj.id,
-                                             attached_object->link_name);
-    ROS_INFO_STREAM("Adding in attached object as regular object " << obj.id);
-  } else if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
-    cm_->convertStaticObjectToAttachedObject(obj.id,
-                                             attached_object->link_name,
-                                             attached_object->touch_links);
-    ROS_INFO_STREAM("Adding in static object as attached object " << obj.id);
-  } else if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
-    cm_->deleteAttachedObject(obj.id,
-                              attached_object->link_name);
-  } else {
-    std::vector<shapes::Shape*> shapes;
-    std::vector<btTransform> poses;
-    bool shapes_ok = createAndPoseShapes(obj.shapes,
-                                         obj.poses,
-                                         obj.header,
-                                         attached_object->link_name,
-                                         shapes,
-                                         poses);
-    if(!shapes_ok) {
-      for(unsigned int i = 0; i < shapes.size(); i++) {
-        delete shapes[i];
-      }
-      ROS_INFO_STREAM("Not adding attached object " << obj.id
-                      << " to collision space because something's wrong with the shapes");
-      return true;
-    }
-    cm_->addAttachedObject(obj.id,
-                           attached_object->link_name,
-                           shapes,
-                           poses,
-                           attached_object->touch_links);
-  }
-  return true;
+  return processAttachedCollisionObjectMsg(attached_object, *tf_, cm_);
 }
 
 
