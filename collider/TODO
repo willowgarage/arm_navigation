@@ -1,0 +1,15 @@
+
+TODO collider
+---------------------------------
+
+ - enable self-filtering in launch file
+
+ - implement bounded query for occupied nodes 
+   (-> building-sized environments)
+
+ - optionally disable updating of freespace 
+   (-> enormous speedup)
+
+ - cleanup params structure
+
+ 
