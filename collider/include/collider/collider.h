@@ -176,6 +176,9 @@ class Collider {
   ros::Publisher cmap_publisher_, static_map_publisher_, pointcloud_publisher_, marker_pub_,
                   octomap_visualization_pub_, octomap_visualization_free_pub_;
 
+  ros::Publisher octomap_visualization_attached_pub_, octomap_visualization_attached_array_pub_;
+  std_msgs::ColorRGBA attached_color_;
+
   ros::ServiceServer reset_service_, dummy_reset_service_, transparent_service_;
 
   ros::Subscriber*  camera_info_subscriber_;

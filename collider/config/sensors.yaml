@@ -5,7 +5,7 @@ cloud_sources:
     point_subsample: 1
     sensor_frame: narrow_stereo_optical_frame
     sensor_stereo_other_frame: narrow_stereo_gazebo_r_stereo_camera_optical_frame
-  - name: /tilt_scan_cloud_filtered2
+  - name: /tilt_scan_cloud_filtered2x
     frame_subsample: 1
     point_subsample: 1
     sensor_frame: laser_tilt_link

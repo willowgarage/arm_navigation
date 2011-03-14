@@ -48,7 +48,14 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
    
   ros::NodeHandle priv("~");
 
-  priv.param<std::string>("fixed_frame", fixed_frame_, "base_link");
+  cm_ = new planning_environment::CollisionModels("robot_description");
+  fixed_frame_ = cm_->getWorldFrameId();
+
+  attached_color_.a = 0.5;
+  attached_color_.r = 0.6;
+  attached_color_.g = 0.4;
+  attached_color_.b = 0.3;
+  
   priv.param<double>("resolution", resolution_, 0.1);
   priv.param<double>("max_range", max_range_, -1.0); // default: full beam length
   priv.param<int>("pruning_period", pruning_period_, 5);
@@ -95,6 +102,8 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
   marker_pub_ = root_handle_.advertise<visualization_msgs::Marker>("visualization_marker", 10);
   octomap_visualization_pub_ = root_handle_.advertise<visualization_msgs::Marker>("occupied_cells", 10);
   octomap_visualization_free_pub_ = root_handle_.advertise<visualization_msgs::Marker>("free_cells", 10);
+  octomap_visualization_attached_pub_ = root_handle_.advertise<visualization_msgs::Marker>("attached_objects", 10);
+  octomap_visualization_attached_array_pub_ = root_handle_.advertise<visualization_msgs::MarkerArray>("attached_objects_array", 10);
   cmap_publisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_out", 1, true);
   static_map_publisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_occ_static", 1);
   pointcloud_publisher_ = root_handle_.advertise<sensor_msgs::PointCloud2>("point_cloud_out", 1, true);
@@ -414,7 +423,7 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
                                                                inside_mask)) {
     pcl::PointCloud<pcl::PointXYZ>::iterator it = pcl_cloud.points.begin();
     unsigned int i = 0;
-    while(it != pcl_cloud.end()) {
+    while(it != pcl_cloud.points.end()) {
       if(inside_mask[i++] == robot_self_filter::INSIDE) {
         it = pcl_cloud.points.erase(it);
       } else {
@@ -423,6 +432,24 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
     }
   }
 
+  {
+    planning_models::KinematicState state(cm_->getKinematicModel());
+    state.setKinematicStateToDefault();
+    
+    planning_environment::updateAttachedObjectBodyPoses(cm_,
+                                                        state,
+                                                        tf_);
+    
+    visualization_msgs::MarkerArray arr;
+    cm_->getAttachedCollisionObjectMarkers(state,
+                                           arr,
+                                           "filter_attached",
+                                           attached_color_,
+                                           ros::Duration(.2));
+    
+    octomap_visualization_attached_array_pub_.publish(arr);
+  }
+  
   std_msgs::Header global_header = cloud->header;
   global_header.frame_id = fixed_frame_;
 
@@ -546,6 +573,24 @@ void Collider::cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud, co
         it++;
       }
     }
+  }
+
+  {
+    planning_models::KinematicState state(cm_->getKinematicModel());
+    state.setKinematicStateToDefault();
+    
+    planning_environment::updateAttachedObjectBodyPoses(cm_,
+                                                        state,
+                                                        tf_);
+    
+    visualization_msgs::MarkerArray arr;
+    cm_->getAttachedCollisionObjectMarkers(state,
+                                           arr,
+                                           "filter_attached",
+                                           attached_color_,
+                                           ros::Duration(.2));
+    
+    octomap_visualization_attached_array_pub_.publish(arr);
   }
 
   // copy data to octomap pointcloud
