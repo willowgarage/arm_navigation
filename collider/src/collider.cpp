@@ -36,7 +36,7 @@
  *********************************************************************/
 
 #include "collider/collider.h"
-
+#include <planning_environment/monitors/monitor_utils.h>
 
 
 #define CAMERA_STEREO_OFFSET_LEFT 128
@@ -179,7 +179,7 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
 
   robot_mask_right_ = new robot_self_filter::SelfMask(tf_, links);
   robot_mask_left_ = new robot_self_filter::SelfMask(tf_, links);
-  ROS_INFO("Robot self mask initialized with %d links", links.size());
+  ROS_INFO_STREAM("Robot self mask initialized with " << links.size() << " links");
 
 
 
@@ -314,10 +314,14 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
     }
   }
 
+  attached_collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
+  attached_collision_object_subscriber_->registerCallback(boost::bind(&Collider::attachedObjectCallback, this, _1));    
+
   reset_service_ = priv.advertiseService("reset", &Collider::reset, this);
   dummy_reset_service_ = priv.advertiseService("dummy_reset", &Collider::dummyReset, this);
 
-  action_server_.reset( new actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", boost::bind(&Collider::makeStaticCollisionMap, this, _1)));
+  action_server_.reset( new actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", boost::bind(&Collider::makeStaticCollisionMap, this, _1), false));
+  action_server_->start();
 
 }
 
@@ -327,7 +331,8 @@ Collider::~Collider() {
   delete collision_octree_;
   delete robot_mask_right_;
   delete robot_mask_left_;
-
+  delete attached_collision_object_subscriber_;
+  
   for(unsigned int i = 0; i < sub_filtered_clouds_.size(); ++i){
     delete sub_filtered_clouds_[i];
   }
@@ -337,6 +342,10 @@ Collider::~Collider() {
   for(unsigned int i = 0; i < sync_vector_.size(); ++i) {
     delete sync_vector_[i];
   }
+}
+
+void Collider::attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object) {
+  planning_environment::processAttachedCollisionObjectMsg(attached_object, tf_, cm_);
 }
 
 void Collider::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &cam_info){
@@ -392,8 +401,27 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
   // //  dturtle:
   pcl_ros::transformAsMatrix (to_world, eigen_transform);
   pcl_ros::transformPointCloud (eigen_transform, *cloud, transformed_cloud);
+
   pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
   pcl::fromROSMsg (transformed_cloud, pcl_cloud);
+
+  std::vector<int> inside_mask;
+  //filtering out attached object inside points
+  if(planning_environment::computeAttachedObjectPointCloudMask(pcl_cloud,
+                                                               cm_->getWorldFrameId(),
+                                                               cm_,
+                                                               tf_,
+                                                               inside_mask)) {
+    pcl::PointCloud<pcl::PointXYZ>::iterator it = pcl_cloud.points.begin();
+    unsigned int i = 0;
+    while(it != pcl_cloud.end()) {
+      if(inside_mask[i++] == robot_self_filter::INSIDE) {
+        it = pcl_cloud.points.erase(it);
+      } else {
+        it++;
+      }
+    }
+  }
 
   std_msgs::Header global_header = cloud->header;
   global_header.frame_id = fixed_frame_;
@@ -405,10 +433,12 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
 
   pcl::PointCloud<pcl::PointXYZ> pcl_cloud_raw;
   pcl::fromROSMsg (*cloud_raw, pcl_cloud_raw);
+
   // copy data to octomap pointcloud
   octomap::Pointcloud octo_pointcloud;
   octomap::pointcloudPCLToOctomap(pcl_cloud, octo_pointcloud);
   double elapsed_transform = (ros::WallTime::now() - begin_transform).toSec();
+
 
   octomap::point3d sensor_origin = getSensorOrigin(cloud->header);
 
@@ -495,9 +525,28 @@ void Collider::cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud, co
   // //  dturtle:
   pcl_ros::transformAsMatrix (to_world, eigen_transform);
   pcl_ros::transformPointCloud (eigen_transform, *cloud, transformed_cloud);
+
   pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
   pcl::fromROSMsg (transformed_cloud, pcl_cloud);
   transformed_cloud.header.frame_id = fixed_frame_;
+
+  std::vector<int> inside_mask;
+  //filtering out attached object inside points
+  if(planning_environment::computeAttachedObjectPointCloudMask(pcl_cloud,
+                                                               cm_->getWorldFrameId(),
+                                                               cm_,
+                                                               tf_,
+                                                               inside_mask)) {
+    pcl::PointCloud<pcl::PointXYZ>::iterator it = pcl_cloud.points.begin();
+    unsigned int i = 0;
+    while(it != pcl_cloud.end()) {
+      if(inside_mask[i++] == robot_self_filter::INSIDE) {
+        it = pcl_cloud.points.erase(it);
+      } else {
+        it++;
+      }
+    }
+  }
 
   // copy data to octomap pointcloud
   octomap::Pointcloud octo_pointcloud;
@@ -572,7 +621,22 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const o
   robot_mask_right_->assumeFrame(fixed_frame_, sensor_header.stamp, sensor_header.frame_id, self_filter_min_dist_);
   robot_mask_left_->assumeFrame(fixed_frame_, sensor_header.stamp, other_stereo_frame, self_filter_min_dist_);
 
+  btVector3 sensor_pos_right, sensor_pos_left;
+  planning_models::KinematicState state(cm_->getKinematicModel());
+  planning_environment::configureForAttachedBodyMask(state, 
+                                                     cm_,
+                                                     tf_, 
+                                                     sensor_header.frame_id,
+                                                     sensor_header.stamp,
+                                                     sensor_pos_right);
 
+  planning_environment::configureForAttachedBodyMask(state, 
+                                                     cm_,
+                                                     tf_, 
+                                                     other_stereo_frame,
+                                                     sensor_header.stamp,
+                                                     sensor_pos_left);
+  
   octomap::point3d min;
   octomap::point3d max;
   computeBBX(sensor_header, min, max);
@@ -595,7 +659,9 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const o
 
     // ignore point if it is in the shadow of the robot:
     if (robot_mask_right_->getMaskIntersection(octomap::pointOctomapToTf(it->first)) == robot_self_filter::SHADOW
-    		|| robot_mask_left_->getMaskIntersection(octomap::pointOctomapToTf(it->first)) == robot_self_filter::SHADOW)
+        || robot_mask_left_->getMaskIntersection(octomap::pointOctomapToTf(it->first)) == robot_self_filter::SHADOW
+        || planning_environment::computeAttachedObjectPointMask(cm_, octomap::pointOctomapToTf(it->first), sensor_pos_right) == robot_self_filter::SHADOW
+        || planning_environment::computeAttachedObjectPointMask(cm_, octomap::pointOctomapToTf(it->first), sensor_pos_left) == robot_self_filter::SHADOW)
     {
       continue;
     }

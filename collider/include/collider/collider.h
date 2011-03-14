@@ -58,11 +58,13 @@
 #include <boost/bind.hpp>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <mapping_msgs/AttachedCollisionObject.h>
 #include <collision_environment_msgs/MakeStaticCollisionMapAction.h>
 #include <actionlib/server/simple_action_server.h>
 #include <image_transport/image_transport.h>
 #include <image_geometry/pinhole_camera_model.h>
 #include <robot_self_filter/self_mask.h>
+#include <planning_environment/models/collision_models.h>
 
 #include <vector>
 #include <algorithm>
@@ -133,6 +135,8 @@ class Collider {
                     const sensor_msgs::PointCloud2::ConstPtr &cloud_raw, const std::string topic_name);
   void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &cam_info);
 
+  void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object);
+
   // obstacle cleaning
   void degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin, octomap::OcTree5D& tree);
   void computeBBX(const std_msgs::Header& sensor_header, octomap::point3d& bbx_min, octomap::point3d& bbx_max);
@@ -163,6 +167,9 @@ class Collider {
   tf::TransformListener tf_;
   std::vector<message_filters::Subscriber<sensor_msgs::PointCloud2>* > message_filter_subscribers_;
   std::vector<tf::MessageFilter<sensor_msgs::PointCloud2>* > message_filters_;
+
+  planning_environment::CollisionModels *cm_;
+  message_filters::Subscriber<mapping_msgs::AttachedCollisionObject> *attached_collision_object_subscriber_;
 
   ros::NodeHandle root_handle_;
 

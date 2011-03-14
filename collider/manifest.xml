@@ -23,6 +23,7 @@
   <depend package="image_transport"/>
   <depend package="image_geometry"/>
   <depend package="robot_self_filter"/>
+  <depend package="planning_environment"/>
 
 </package>
 
