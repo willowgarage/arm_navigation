@@ -413,6 +413,9 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
 
   pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
   pcl::fromROSMsg (transformed_cloud, pcl_cloud);
+  
+  pcl_cloud.header.frame_id = cm_->getWorldFrameId();
+  pcl_cloud.header.stamp = cloud->header.stamp;
 
   std::vector<int> inside_mask;
   //filtering out attached object inside points
@@ -423,13 +426,16 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
                                                                inside_mask)) {
     pcl::PointCloud<pcl::PointXYZ>::iterator it = pcl_cloud.points.begin();
     unsigned int i = 0;
+    unsigned int count = 0;
     while(it != pcl_cloud.points.end()) {
       if(inside_mask[i++] == robot_self_filter::INSIDE) {
         it = pcl_cloud.points.erase(it);
+	count++;
       } else {
         it++;
       }
     }
+    ROS_INFO_STREAM("Filtering " << count << " points");
   }
 
   {
