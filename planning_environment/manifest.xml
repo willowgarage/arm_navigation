@@ -25,7 +25,9 @@
   <depend package="planning_models" />
   <depend package="collision_space" />
   <depend package="planning_environment_msgs" />
-  
+  <depend package="pcl_ros" />
+  <depend package="robot_self_filter" />
+
   <url>http://ros.org/wiki/planning_environment</url>
 
   <export>

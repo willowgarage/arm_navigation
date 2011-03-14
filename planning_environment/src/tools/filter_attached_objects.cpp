@@ -48,9 +48,12 @@
 
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
-#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <mapping_msgs/AttachedCollisionObject.h>
+#include <robot_self_filter/self_mask.h>
+#include <pcl/ros/conversions.h>
+#include <pcl_ros/transforms.h>
 
 class FilterAttachedObjects
 {
@@ -59,16 +62,15 @@ public:
   FilterAttachedObjects(void): priv_handle_("~")
   {    
     cm_ = new planning_environment::CollisionModels("robot_description");
-    fixed_frame_ = cm_->getWorldFrameId();
-    
     priv_handle_.param<std::string>("sensor_frame", sensor_frame_, std::string());
     
-    cloud_publisher_ = root_handle_.advertise<sensor_msgs::PointCloud>("cloud_out", 1);	    
+    cloud_publisher_ = root_handle_.advertise<sensor_msgs::PointCloud2>("cloud_out", 1);	    
+    cloud_publisher_shadow_ = root_handle_.advertise<sensor_msgs::PointCloud2>("cloud_out_shadow", 1);	    
     attached_collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
     attached_collision_object_subscriber_->registerCallback(boost::bind(&FilterAttachedObjects::attachedObjectCallback, this, _1));    
     
-    cloud_subscriber_ = new message_filters::Subscriber<sensor_msgs::PointCloud>(root_handle_, "cloud_in", 1);
-    cloud_filter_ = new tf::MessageFilter<sensor_msgs::PointCloud>(*cloud_subscriber_, tf_, fixed_frame_, 1);
+    cloud_subscriber_ = new message_filters::Subscriber<sensor_msgs::PointCloud2>(root_handle_, "cloud_in", 1);
+    cloud_filter_ = new tf::MessageFilter<sensor_msgs::PointCloud2>(*cloud_subscriber_, tf_, cm_->getWorldFrameId(), 1);
     cloud_filter_->registerCallback(boost::bind(&FilterAttachedObjects::cloudCallback, this, _1));
 
     attached_color_.a = 0.5;
@@ -88,155 +90,76 @@ public:
     delete attached_collision_object_subscriber_;
     delete cm_;
   }
-    
-  bool computeMask(const sensor_msgs::PointCloud &cloud, std::vector<int> &mask)
-  {
-    // compute mask for cloud
-    int n = cloud.points.size();
-    mask.resize(n, 1);
-
-    cm_->bodiesLock();
-    
-    const std::map<std::string, std::map<std::string, bodies::BodyVector*> >& link_att_objects = cm_->getLinkAttachedObjects();
-
-    if(link_att_objects.empty()) {
-      cm_->bodiesUnlock();
-      return false;
-    }
-
-    planning_models::KinematicState state(cm_->getKinematicModel());
-    state.setKinematicStateToDefault();
-
-    //this gets all the attached bodies in their correct current positions according to tf
-    geometry_msgs::PoseStamped ps;
-    ps.pose.orientation.w = 1.0;
-    for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::const_iterator it = link_att_objects.begin();
-        it != link_att_objects.end();
-        it++) {
-      ps.header.frame_id = it->first;
-      std::string es;
-      if (tf_.getLatestCommonTime(fixed_frame_, it->first, ps.header.stamp, &es) != tf::NO_ERROR) {
-        ROS_INFO_STREAM("Problem transforming into fixed frame from " << it->first << ".  Error string " << es);
-        continue;
-      }
-      geometry_msgs::PoseStamped psout;
-      tf_.transformPose(fixed_frame_, ps, psout);
-      btTransform link_trans;
-      tf::poseMsgToTF(psout.pose, link_trans);
-      state.updateKinematicStateWithLinkAt(it->first, link_trans);
-      cm_->updateAttachedBodyPosesForLink(state, it->first);
-    }
-
-    visualization_msgs::MarkerArray arr;
-    cm_->getAttachedCollisionObjectMarkers(state,
-                                           arr,
-                                           "filter_attached",
-                                           attached_color_,
-                                           ros::Duration(.2));
-	
-    vis_marker_array_publisher_.publish(arr);
-
-    // transform pointcloud into fixed frame, if needed
-    sensor_msgs::PointCloud temp;
-    const sensor_msgs::PointCloud *cloudTransf = &cloud;
-    if (fixed_frame_ != cloud.header.frame_id) {
-      tf_.transformPointCloud(fixed_frame_, cloud, temp);
-      cloudTransf = &temp;
-    }
-	
-    btVector3 sensor_pos(0, 0, 0);
-      
-    // compute the origin of the sensor in the frame of the cloud
-    if (!sensor_frame_.empty()) {
-      ros::Time tm;
-      std::string err;
-      if (tf_.getLatestCommonTime(sensor_frame_.c_str(), fixed_frame_.c_str(), tm, &err) == tf::NO_ERROR) {
-        try {
-          tf::StampedTransform transf;
-          tf_.lookupTransform(fixed_frame_, sensor_frame_, tm, transf);
-          sensor_pos = transf.getOrigin();
-        } catch(tf::TransformException& ex) {
-          ROS_ERROR("Unable to lookup transform from %s to %s. Exception: %s", sensor_frame_.c_str(), fixed_frame_.c_str(), ex.what());
-          sensor_pos.setValue(0, 0, 0);
-        }
-      } else {
-        ROS_WARN("No common time between %s and %s", sensor_frame_.c_str(), fixed_frame_.c_str());
-        sensor_pos.setValue(0, 0, 0);
-      }
-    }
-            
-    //#pragma omp parallel for
-    unsigned int filter_count = 0;    
-
-    for (int i = 0 ; i < n ; ++i) {
-      btVector3 pt = btVector3(cloudTransf->points[i].x, cloudTransf->points[i].y, cloudTransf->points[i].z);
-      btVector3 dir(sensor_pos - pt);
-      dir.normalize();
-      int out = 1;
-
-      for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::const_iterator it = link_att_objects.begin();
-          out && it != link_att_objects.end();
-          it++) {
-        for(std::map<std::string, bodies::BodyVector*>::const_iterator it2 = it->second.begin();
-            out && it2 != it->second.end();
-            it2++) {
-          for(unsigned int k = 0; out && k < it2->second->getSize(); k++) {
-            //ROS_INFO_STREAM("Sphere distance " << it2->second->getBoundingSphere(k).center.distance2(pt)
-            //                << " squared " << it2->second->getBoundingSphereRadiusSquared(k));
-            if(it2->second->getBoundingSphere(k).center.distance2(pt) < it2->second->getBoundingSphereRadiusSquared(k)) {
-              if(it2->second->getBody(k)->containsPoint(pt) || it2->second->getBody(k)->intersectsRay(pt, dir)) {
-                out = 0;
-                filter_count++;
-              }
-            }
-          }
-        }
-      }
-      mask[i] = out;
-    }
-    cm_->bodiesUnlock();
-    return true;
-  }
-    
-  void cloudCallback(const sensor_msgs::PointCloudConstPtr &cloud)
+        
+  void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud)
   {
     ROS_DEBUG("Got pointcloud that is %f seconds old", (ros::Time::now() - cloud->header.stamp).toSec());
-	
-    std::vector<int> mask;
-    if(computeMask(*cloud, mask)) {
-      // publish new cloud
-      const unsigned int np = cloud->points.size();
-      sensor_msgs::PointCloud data_out;
-	    
-      // fill in output data with points that are NOT in the known objects
-      data_out.header = cloud->header;	  
-	    
-      data_out.points.resize(0);
-      data_out.points.reserve(np);
-	    
-      data_out.channels.resize(cloud->channels.size());
-      for (unsigned int i = 0 ; i < data_out.channels.size() ; ++i)
-      {
-        ROS_ASSERT(cloud->channels[i].values.size() == cloud->points.size());
-        data_out.channels[i].name = cloud->channels[i].name;
-        data_out.channels[i].values.reserve(cloud->channels[i].values.size());
-      }
-	    
-      for (unsigned int i = 0 ; i < np ; ++i)
-        if (mask[i])
-        {
-          data_out.points.push_back(cloud->points[i]);
-          for (unsigned int j = 0 ; j < data_out.channels.size() ; ++j)
-            data_out.channels[j].values.push_back(cloud->channels[j].values[i]);
-        }
-
-      ROS_DEBUG("Published filtered cloud (%d points out of %d)", (int)data_out.points.size(), (int)cloud->points.size());
-      cloud_publisher_.publish(data_out);
-    }
-    else
+    
     {
-      cloud_publisher_.publish(*cloud);
-      ROS_DEBUG("Republished unchanged cloud");
+      planning_models::KinematicState state(cm_->getKinematicModel());
+      state.setKinematicStateToDefault();
+      
+      planning_environment::updateAttachedObjectBodyPoses(cm_,
+                                                          state,
+                                                          tf_);
+      
+      visualization_msgs::MarkerArray arr;
+      cm_->getAttachedCollisionObjectMarkers(state,
+                                             arr,
+                                             "filter_attached",
+                                             attached_color_,
+                                             ros::Duration(.2));
+      
+      vis_marker_array_publisher_.publish(arr);
+    }
+      
+    pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
+    pcl::fromROSMsg(*cloud, pcl_cloud);
+
+    std::vector<int> mask;
+
+    if(planning_environment::computeAttachedObjectPointCloudMask(pcl_cloud, 
+                                                                 sensor_frame_,
+                                                                 cm_,
+                                                                 tf_,
+                                                                 mask)) {
+      // publish new cloud
+      const unsigned int np = pcl_cloud.size();
+            
+      pcl::PointCloud<pcl::PointXYZ> inside_masked_cloud;
+      pcl::PointCloud<pcl::PointXYZ> shadow_cloud;
+      
+      inside_masked_cloud.header = pcl_cloud.header;
+      shadow_cloud.header = pcl_cloud.header;
+      
+      inside_masked_cloud.points.reserve(np);
+      shadow_cloud.points.reserve(np);
+
+      for (unsigned int i = 0; i < np; ++i) {
+        if(mask[i] != robot_self_filter::INSIDE) {
+          inside_masked_cloud.points.push_back(pcl_cloud.points[i]);
+        } 
+        if(mask[i] == robot_self_filter::SHADOW) {
+          shadow_cloud.points.push_back(pcl_cloud.points[i]);
+        }
+      }
+      sensor_msgs::PointCloud2 out;
+      pcl::toROSMsg(inside_masked_cloud, out);
+      cloud_publisher_.publish(out);
+      
+      sensor_msgs::PointCloud2 out_shadow;
+      pcl::toROSMsg(shadow_cloud, out_shadow);
+      cloud_publisher_shadow_.publish(out_shadow);
+    } else {
+      sensor_msgs::PointCloud2 out;
+      pcl::toROSMsg(pcl_cloud, out);
+      cloud_publisher_.publish(out);
+
+      pcl::PointCloud<pcl::PointXYZ> empty_cloud;
+      empty_cloud.header = pcl_cloud.header;
+      sensor_msgs::PointCloud2 out_shadow;
+      pcl::toROSMsg(empty_cloud, out_shadow);
+      cloud_publisher_shadow_.publish(out_shadow);
     }
   }
        
@@ -249,13 +172,13 @@ public:
   tf::TransformListener tf_;
   planning_environment::CollisionModels *cm_;
 
-  message_filters::Subscriber<sensor_msgs::PointCloud> *cloud_subscriber_;
-  tf::MessageFilter<sensor_msgs::PointCloud> *cloud_filter_;
+  message_filters::Subscriber<sensor_msgs::PointCloud2> *cloud_subscriber_;
+  tf::MessageFilter<sensor_msgs::PointCloud2> *cloud_filter_;
 
   message_filters::Subscriber<mapping_msgs::AttachedCollisionObject> *attached_collision_object_subscriber_;
 
-  std::string fixed_frame_;
   ros::Publisher cloud_publisher_;    
+  ros::Publisher cloud_publisher_shadow_;    
 
   std::string sensor_frame_;
 
@@ -269,7 +192,7 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "clear_known_objects");
 
-  ros::AsyncSpinner spinner(2); // Use 2 threads
+  ros::AsyncSpinner spinner(1); // Use 2 threads
   spinner.start();
   
   FilterAttachedObjects cko;

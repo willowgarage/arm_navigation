@@ -45,6 +45,8 @@
 #include <mapping_msgs/CollisionObject.h>
 #include <mapping_msgs/AttachedCollisionObject.h>
 #include <planning_environment/models/collision_models.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 
 namespace planning_environment 
 {
@@ -65,5 +67,29 @@ bool processAttachedCollisionObjectMsg(const mapping_msgs::AttachedCollisionObje
                                        tf::TransformListener& tf,
                                        CollisionModels* cm);
 
+void updateAttachedObjectBodyPoses(planning_environment::CollisionModels* cm,
+                                   planning_models::KinematicState& state,
+                                   tf::TransformListener& tf);
+
+bool computeAttachedObjectPointCloudMask(const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud,
+                                         const std::string& sensor_frame,
+                                         CollisionModels* cm,
+                                         tf::TransformListener& tf,
+                                         std::vector<int> &mask);
+
+void updateAttachedObjectBodyPoses(planning_environment::CollisionModels* cm,
+                                   planning_models::KinematicState& state,
+                                   tf::TransformListener& tf);
+
+bool configureForAttachedBodyMask(planning_models::KinematicState& state,
+                                  planning_environment::CollisionModels* cm,
+                                  tf::TransformListener& tf,
+                                  const std::string& sensor_frame,
+                                  const ros::Time& sensor_time,
+                                  btVector3& sensor_pos);
+
+int computeAttachedObjectPointMask(const planning_environment::CollisionModels* cm,
+                                   const btVector3 &pt, 
+                                   const btVector3 &sensor_pos);
 }
 #endif

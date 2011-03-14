@@ -349,17 +349,17 @@ public:
     return scene_transform_map_;
   }
 
-  void bodiesLock() {
+  void bodiesLock() const {
     bodies_lock_.lock();
   }
 
-  void bodiesUnlock() {
+  void bodiesUnlock() const {
     bodies_lock_.unlock();
   }
 
 protected:
 
-  boost::recursive_mutex bodies_lock_;
+  mutable boost::recursive_mutex bodies_lock_;
 
   std::vector<shapes::Shape*> collision_map_shapes_;
   std::vector<btTransform> collision_map_poses_;

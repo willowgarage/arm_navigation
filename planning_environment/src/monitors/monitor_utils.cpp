@@ -36,6 +36,9 @@
 
 #include <planning_environment/monitors/monitor_utils.h>
 #include <planning_environment/util/construct_object.h>
+#include <robot_self_filter/self_mask.h>
+#include <pcl_ros/transforms.h>
+
 
 bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
                                                const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
@@ -194,3 +197,154 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
   return true;
 }
 
+void planning_environment::updateAttachedObjectBodyPoses(planning_environment::CollisionModels* cm,
+                                                         planning_models::KinematicState& state,
+                                                         tf::TransformListener& tf)
+{
+  cm->bodiesLock();
+  
+  const std::map<std::string, std::map<std::string, bodies::BodyVector*> >& link_att_objects = cm->getLinkAttachedObjects();
+  
+  if(link_att_objects.empty()) {
+    cm->bodiesUnlock();
+    return;
+  }
+
+  //this gets all the attached bodies in their correct current positions according to tf
+  geometry_msgs::PoseStamped ps;
+  ps.pose.orientation.w = 1.0;
+  for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::const_iterator it = link_att_objects.begin();
+      it != link_att_objects.end();
+      it++) {
+    ps.header.frame_id = it->first;
+    std::string es;
+    if (tf.getLatestCommonTime(cm->getWorldFrameId(), it->first, ps.header.stamp, &es) != tf::NO_ERROR) {
+      ROS_INFO_STREAM("Problem transforming into fixed frame from " << it->first << ".  Error string " << es);
+      continue;
+    }
+    geometry_msgs::PoseStamped psout;
+    tf.transformPose(cm->getWorldFrameId(), ps, psout);
+    btTransform link_trans;
+    tf::poseMsgToTF(psout.pose, link_trans);
+    state.updateKinematicStateWithLinkAt(it->first, link_trans);
+    cm->updateAttachedBodyPosesForLink(state, it->first);
+  }
+  cm->bodiesUnlock();
+}
+
+//assumes that the point is in the world frame
+//and that state has been set
+int planning_environment::computeAttachedObjectPointMask(const planning_environment::CollisionModels* cm,
+                                                         const btVector3 &pt, 
+                                                         const btVector3 &sensor_pos)
+{
+  cm->bodiesLock();
+  const std::map<std::string, std::map<std::string, bodies::BodyVector*> > link_att_objects = cm->getLinkAttachedObjects();
+
+  btVector3 dir(sensor_pos - pt);
+  dir.normalize();
+  
+  for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::const_iterator it = link_att_objects.begin();
+      it != link_att_objects.end();
+      it++) {
+    for(std::map<std::string, bodies::BodyVector*>::const_iterator it2 = it->second.begin();
+        it2 != it->second.end();
+        it2++) {
+      for(unsigned int k = 0; k < it2->second->getSize(); k++) {
+        //ROS_INFO_STREAM("Sphere distance " << it2->second->getBoundingSphere(k).center.distance2(pt)
+        //                << " squared " << it2->second->getBoundingSphereRadiusSquared(k));
+        if(it2->second->getBoundingSphere(k).center.distance2(pt) < it2->second->getBoundingSphereRadiusSquared(k)) {
+          it2->second->getBody(k)->containsPoint(pt);
+          cm->bodiesUnlock();
+          return robot_self_filter::INSIDE;
+        }
+        if(it2->second->getBody(k)->intersectsRay(pt, dir)) {
+          cm->bodiesUnlock();
+          return robot_self_filter::SHADOW;
+        }
+      }
+    }
+  }
+  cm->bodiesUnlock();
+  return robot_self_filter::OUTSIDE;
+}
+
+bool planning_environment::configureForAttachedBodyMask(planning_models::KinematicState& state,
+                                                        planning_environment::CollisionModels* cm,
+                                                        tf::TransformListener& tf,
+                                                        const std::string& sensor_frame,
+                                                        const ros::Time& sensor_time,
+                                                        btVector3& sensor_pos)
+{
+  state.setKinematicStateToDefault();
+
+  cm->bodiesLock();
+  
+  const std::map<std::string, std::map<std::string, bodies::BodyVector*> >& link_att_objects = cm->getLinkAttachedObjects();
+  
+  if(link_att_objects.empty()) {
+    cm->bodiesUnlock();
+    return false;
+  }
+
+  planning_environment::updateAttachedObjectBodyPoses(cm,
+                                                      state,
+                                                      tf);
+  
+  sensor_pos.setValue(0.0,0.0,0.0);
+
+  // compute the origin of the sensor in the frame of the cloud
+  if (!sensor_frame.empty()) {
+    std::string err;
+    try {
+      tf::StampedTransform transf;
+      tf.lookupTransform(cm->getWorldFrameId(), sensor_frame, sensor_time, transf);
+      sensor_pos = transf.getOrigin();
+    } catch(tf::TransformException& ex) {
+      ROS_ERROR("Unable to lookup transform from %s to %s. Exception: %s", sensor_frame.c_str(), cm->getWorldFrameId().c_str(), ex.what());
+      sensor_pos.setValue(0, 0, 0);
+    }
+  } 
+  cm->bodiesUnlock();
+  return true;
+}
+                                                         
+bool planning_environment::computeAttachedObjectPointCloudMask(const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud,
+                                                               const std::string& sensor_frame,
+                                                               planning_environment::CollisionModels* cm,
+                                                               tf::TransformListener& tf,
+                                                               std::vector<int> &mask)
+{
+
+  // compute mask for cloud
+  int n = pcl_cloud.points.size();
+  mask.resize(n, robot_self_filter::OUTSIDE);
+
+  //state lock before body lock
+  planning_models::KinematicState state(cm->getKinematicModel());
+  
+  btVector3 sensor_pos;
+  
+  planning_environment::configureForAttachedBodyMask(state,
+                                                     cm,
+                                                     tf,
+                                                     sensor_frame,
+                                                     pcl_cloud.header.stamp,
+                                                     sensor_pos);
+
+  // transform pointcloud into fixed frame, if needed
+  if (cm->getWorldFrameId() != pcl_cloud.header.frame_id) {
+    pcl::PointCloud<pcl::PointXYZ> trans_cloud = pcl_cloud;
+    pcl_ros::transformPointCloud(cm->getWorldFrameId(), pcl_cloud, trans_cloud,tf);
+    for (int i = 0 ; i < n ; ++i) {
+      btVector3 pt = btVector3(trans_cloud.points[i].x, trans_cloud.points[i].y, trans_cloud.points[i].z);
+      mask[i] = computeAttachedObjectPointMask(cm, pt, sensor_pos);
+    }
+  } else {
+    for (int i = 0 ; i < n ; ++i) {
+      btVector3 pt = btVector3(pcl_cloud.points[i].x, pcl_cloud.points[i].y, pcl_cloud.points[i].z);
+      mask[i] = computeAttachedObjectPointMask(cm, pt, sensor_pos);
+    }
+  }
+  return true;
+}
