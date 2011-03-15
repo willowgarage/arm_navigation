@@ -79,12 +79,9 @@ void planning_environment::JointStateMonitor::jointStateCallback(const sensor_ms
   boost::mutex::scoped_lock lock(state_mutex_);
   if(first_time_)
   {
-    joint_state_.header.stamp = ros::Time::now();
     joint_state_.header.frame_id = "base_footprint";
     joint_state_.name = joint_state->name;
     joint_state_.position.resize(joint_state->position.size());
-    for(unsigned int i=0; i < joint_state->position.size(); i++)
-      joint_state_.position[i]   = angles::normalize_angle(joint_state->position[i]);          
     for(unsigned int i=0; i < joint_state_.name.size(); i++)
     {
       joint_state_index_[joint_state_.name[i]] = i;
@@ -96,11 +93,14 @@ void planning_environment::JointStateMonitor::jointStateCallback(const sensor_ms
       }
     }
   }
-  else
+  joint_state_.header.stamp = ros::Time::now();
+  for(unsigned int i=0; i < joint_state->position.size(); i++)
   {
-    joint_state_.header.stamp = ros::Time::now();
-    for(unsigned int i=0; i < joint_state->position.size(); i++)
-      joint_state_.position[i]   = angles::normalize_angle(joint_state->position[i]);          
+    boost::shared_ptr<const urdf::Joint> joint = robot_model_.getJoint(joint_state_.name[i]);
+    if (joint->type == urdf::Joint::CONTINUOUS)
+      joint_state_.position[i] = angles::normalize_angle(joint_state->position[i]);
+    else
+      joint_state_.position[i] = joint_state->position[i];
   }
   first_time_ = false;
   last_update_ = joint_state->header.stamp;
