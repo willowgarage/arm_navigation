@@ -42,7 +42,6 @@
 #include <pr2_controllers_msgs/JointTrajectoryAction.h>
 #include <actionlib/client/action_client.h>
 
-#include <planning_environment/monitors/joint_state_monitor.h>
 #include <motion_planning_msgs/convert_messages.h>
 
 #include <boost/thread/condition.hpp>
@@ -295,7 +294,7 @@ public:
   {
     // get the current state
     double d = 0.0;
-    sensor_msgs::JointState current = state_monitor_.getJointState(goal.trajectory.joint_names);
+    sensor_msgs::JointState current;// = state_monitor_.getJointState(goal.trajectory.joint_names);
     for (unsigned int i = 0 ; i < current.position.size() ; ++i)
     {
       double dif = current.position[i] - goal.trajectory.points[0].positions[i];
@@ -349,7 +348,7 @@ private:
   JointExecutorActionClient::GoalHandle goal_handle_;
   boost::shared_ptr<actionlib::SimpleActionServer<pr2_controllers_msgs::JointTrajectoryAction> > action_server_;
   ros::ServiceClient get_state_client_, check_trajectory_validity_client_, filter_trajectory_client_;
-  planning_environment::JointStateMonitor state_monitor_;
+  //planning_environment::JointStateMonitor state_monitor_;
   bool active_goal_;
   ControllerState state_;
 };
