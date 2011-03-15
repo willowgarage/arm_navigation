@@ -62,14 +62,18 @@ class IKUtilities:
     #initialize all service functions
     #if wait_for_services = 0, you must call check_services_and_get_ik_info externally before running any of the IK/FK functions
     def __init__(self, whicharm, tf_listener = None, wait_for_services = 1): #whicharm is 'right' or 'left'
-        self.srvroot = '/pr2_'+whicharm+'_arm_kinematics/'
+        
+        #gets the robot_prefix from the parameter server. Default is pr2 
+        robot_prefix = rospy.get_param('~robot_prefix', 'pr2') 
+        self.srvroot = '/'+robot_prefix+'_'+whicharm+'_arm_kinematics/' 
 
-        #set this to 0 to disable collision-aware IK
-        self.perception_running = 1
+        #If collision_aware_ik is set to 0, then collision-aware IK is disabled 
+ 	self.perception_running = rospy.get_param('~collision_aware_ik', 1) 
 
         self._ik_service = rospy.ServiceProxy(self.srvroot+'get_ik', GetPositionIK)
         if self.perception_running:
             self._ik_service_with_collision = rospy.ServiceProxy(self.srvroot+'get_constraint_aware_ik', GetConstraintAwarePositionIK)
+
         self._fk_service = rospy.ServiceProxy(self.srvroot+'get_fk', GetPositionFK)
         self._query_service = rospy.ServiceProxy(self.srvroot+'get_ik_solver_info', GetKinematicSolverInfo)
         self._check_state_validity_service = rospy.ServiceProxy('/environment_server/get_state_validity', GetStateValidity)
@@ -92,14 +96,26 @@ class IKUtilities:
             if element[0].isupper():
                 self.error_code_dict[eval('ArmNavigationErrorCodes.'+element)] = element
 
-        #good additional start angles to try for IK
-        self.start_angles_list = [[-0.697, 1.002, 0.021, -0.574, 0.286, -0.095, 1.699],
-                                  [-1.027, 0.996, 0.034, -0.333, -3.541, -0.892, 1.694],
-                                  [0.031, -0.124, -2.105, -1.145, -1.227, -1.191, 2.690],
-                                  [0.410, 0.319, -2.231, -0.839, -2.751, -1.763, 5.494],
-                                  [0.045, 0.859, 0.059, -0.781, -1.579, -0.891, 7.707],
-                                  [0.420, 0.759, 0.014, -1.099, -3.204, -1.907, 8.753],
-                                  [-0.504, 1.297, -1.857, -1.553, -4.453, -1.308, 9.572]]
+        #reads the start angles from the parameter server 
+        start_angles_list = rospy.get_param('~ik_start_angles', []) 
+ 		         
+        #good additional start angles to try for IK for the PR2, used  
+        #if no start angles were provided 
+        if start_angles_list == []: 
+            self.start_angles_list = [[-0.697, 1.002, 0.021, -0.574, 0.286, -0.095, 1.699], 
+                                      [-1.027, 0.996, 0.034, -0.333, -3.541, -0.892, 1.694], 
+                                      [0.031, -0.124, -2.105, -1.145, -1.227, -1.191, 2.690], 
+                                      [0.410, 0.319, -2.231, -0.839, -2.751, -1.763, 5.494], 
+                                      [0.045, 0.859, 0.059, -0.781, -1.579, -0.891, 7.707], 
+                                      [0.420, 0.759, 0.014, -1.099, -3.204, -1.907, 8.753], 
+                                      [-0.504, 1.297, -1.857, -1.553, -4.453, -1.308, 9.572]] 
+        else: 
+            self.start_angles_list = start_angles_list 
+
+        if whicharm == 'left':
+            for i in range(len(self.start_angles_list)):
+                for joint_ind in [0, 2, 4]:
+                    self.start_angles_list[i][joint_ind] *= -1.
 
         #changes the set of ids used to show the arrows every other call
         self.pose_id_set = 0
@@ -197,7 +213,7 @@ class IKUtilities:
             return None
         self.link_name = link_name
 
-        header = roslib.msg.Header()
+        header = rospy.Header()
         header.stamp = rospy.get_rostime()
         header.frame_id = 'base_link'
         joint_state = JointState(header, self.joint_names, angles, [], [])
@@ -658,8 +674,9 @@ class IKUtilities:
                     error_codes.extend([4]*(len(steps)-stepind-1)) #4=aborted before checking
                     break
 
-            #if we found a successful trajectory, stop and return it
-            if not any(error_codes):
+            #if we didn't abort, stop and return the trajectory
+            #if not any(error_codes):
+            else:
                 break
 
         if start_from_end:

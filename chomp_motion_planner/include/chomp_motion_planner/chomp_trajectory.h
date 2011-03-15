@@ -145,12 +145,12 @@ public:
   /**
    * \brief Gets the block of the trajectory which can be optimized
    */
-  Eigen::BlockReturnType<Eigen::MatrixXd>::Type getFreeTrajectoryBlock();
+  Eigen::Block<Eigen::MatrixXd, Eigen::Dynamic, Eigen::Dynamic>  getFreeTrajectoryBlock();
 
   /**
    * \brief Gets the block of free (optimizable) trajectory for a single joint
    */
-  Eigen::BlockReturnType<Eigen::MatrixXd>::Type getFreeJointTrajectoryBlock(int joint);
+  Eigen::Block<Eigen::MatrixXd, Eigen::Dynamic, Eigen::Dynamic> getFreeJointTrajectoryBlock(int joint);
 
   /**
    * \brief Updates the full trajectory (*this) from the group trajectory
@@ -249,12 +249,12 @@ inline Eigen::MatrixXd& ChompTrajectory::getTrajectory()
   return trajectory_;
 }
 
-inline Eigen::BlockReturnType<Eigen::MatrixXd>::Type ChompTrajectory::getFreeTrajectoryBlock()
+inline Eigen::Block<Eigen::MatrixXd, Eigen::Dynamic, Eigen::Dynamic> ChompTrajectory::getFreeTrajectoryBlock()
 {
   return trajectory_.block(start_index_, 0, getNumFreePoints(), getNumJoints());
 }
 
-inline Eigen::BlockReturnType<Eigen::MatrixXd>::Type ChompTrajectory::getFreeJointTrajectoryBlock(int joint)
+inline Eigen::Block<Eigen::MatrixXd, Eigen::Dynamic, Eigen::Dynamic> ChompTrajectory::getFreeJointTrajectoryBlock(int joint)
 {
   return trajectory_.block(start_index_, joint, getNumFreePoints(), 1);
 }
