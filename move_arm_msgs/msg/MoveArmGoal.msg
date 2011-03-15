@@ -3,6 +3,9 @@
 # using the MotionPlanRequest specified here
 string planner_service_name
 
+# A planning scene diff
+planning_environment_msgs/PlanningScene planning_scene_diff
+
 # A motion planning request
 motion_planning_msgs/MotionPlanRequest motion_plan_request
 
