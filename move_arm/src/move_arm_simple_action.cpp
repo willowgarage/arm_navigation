@@ -69,6 +69,12 @@
 
 #include <visualization_msgs/MarkerArray.h>
 
+#include <planning_environment/models/collision_models.h>
+#include <planning_environment/models/model_utils.h>
+#include <planning_environment_msgs/GetPlanningScene.h>
+#include <planning_environment_msgs/SetPlanningSceneAction.h>
+#include <planning_environment_msgs/GetRobotState.h>
+
 //#include <move_arm_head_monitor/HeadMonitorAction.h>
 //#include <move_arm_head_monitor/HeadLookAction.h>
 #include <actionlib/client/simple_action_client.h>
@@ -123,7 +129,13 @@ static const std::string ARM_FK_NAME = "arm_fk";
 static const std::string TRAJECTORY_FILTER = "filter_trajectory";
 static const std::string DISPLAY_PATH_PUB_TOPIC  = "display_path";
 static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
+
+static const std::string SET_PLANNING_SCENE_NAME ="set_planning_scene";
+//bunch of statics for remapping purposes
 static const std::string GET_PLANNING_SCENE_NAME = "get_planning_scene";
+static const std::string ARM_KINEMATICS_NAME="arm_kinematics";
+static const std::string PLANNER_NAME="planner";
+static const std::string TRAJECTORY_FILTER_NAME="trajectory_filter";
 static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
 static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
 
@@ -152,7 +164,9 @@ public:
 
     private_handle_.param<bool>("publish_stats",publish_stats_, true);
 
-    collision_models_ = new CollisionModels("robot_description");
+    planning_scene_state_ = NULL;
+
+    collision_models_ = new planning_environment::CollisionModels("robot_description");
 
     using_head_monitor_ = false;
     num_planning_attempts_ = 0;
@@ -168,48 +182,61 @@ public:
     } 
 
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
-
-    get_planning_scene_client_ = nh_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
     filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
+    get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");      
 
-    if(using_head_monitor_) {
-      head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
-      head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("head_look_action", true));
-      
-      const unsigned int MAX_TRIES = 5;
-      unsigned int tries = 0;
-      
-      while(!head_monitor_client_->waitForServer(ros::Duration(10))) {
-	ROS_INFO("Waiting for head monitor server");
-	tries++;
-	if(tries >= MAX_TRIES) {
-	  ROS_INFO("Can't talk to head monitor, not using");
-	  using_head_monitor_ = false;
-	  break;
-	}
-      }
-      //still need to check for this
-      if(using_head_monitor_) {
-	tries = 0;
-	while(!head_look_client_->waitForServer(ros::Duration(10))) {
-	  ROS_INFO("Waiting for head look server");
-	  tries++;
-	  if(tries >= MAX_TRIES) {
-	    ROS_INFO("Can't talk to head look client, not using");
-	    using_head_monitor_ = false;
-	    break;
-	  }
-	}
+    get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
+    
+    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(ARM_KINEMATICS_NAME+"+"+SET_PLANNING_SCENE_NAME));
+    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(PLANNER_NAME+"+"+SET_PLANNING_SCENE_NAME));
+    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(TRAJECTORY_FILTER_NAME+"+"+SET_PLANNING_SCENE_NAME));
+    
+    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
+      while(1) {
+        set_planning_scene_clients_[i]->waitForServer(ros::Duration(1.0));
+        ROS_INFO_STREAM("Waiting for planning scene action for " << i);
       }
     }
+
+    // if(using_head_monitor_) {
+    //   head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
+    //   head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("head_look_action", true));
+      
+    //   const unsigned int MAX_TRIES = 5;
+    //   unsigned int tries = 0;
+      
+    //   while(!head_monitor_client_->waitForServer(ros::Duration(10))) {
+    //     ROS_INFO("Waiting for head monitor server");
+    //     tries++;
+    //     if(tries >= MAX_TRIES) {
+    //       ROS_INFO("Can't talk to head monitor, not using");
+    //       using_head_monitor_ = false;
+    //       break;
+    //     }
+    //   }
+    //   //still need to check for this
+    //   if(using_head_monitor_) {
+    //     tries = 0;
+    //     while(!head_look_client_->waitForServer(ros::Duration(10))) {
+    //       ROS_INFO("Waiting for head look server");
+    //       tries++;
+    //       if(tries >= MAX_TRIES) {
+    //         ROS_INFO("Can't talk to head look client, not using");
+    //         using_head_monitor_ = false;
+    //         break;
+    //       }
+    //     }
+    //   }
+    // }
     
     //    ros::service::waitForService(ARM_IK_NAME);
     arm_ik_initialized_ = false;
     ros::service::waitForService(GET_PLANNING_SCENE_NAME);
     ros::service::waitForService("filter_trajectory");
 
-    action_server_.reset(new actionlib::SimpleActionServer<move_arm_msgs::MoveArmAction>(root_handle_, "move_" + group_name, boost::bind(&MoveArm::execute, this, _1)));
+    action_server_.reset(new actionlib::SimpleActionServer<move_arm_msgs::MoveArmAction>(root_handle_, "move_" + group_name, boost::bind(&MoveArm::execute, this, _1), false));
+    action_server_->start();
 
     display_path_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_PATH_PUB_TOPIC, 1, true);
     display_joint_goal_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_JOINT_GOAL_PUB_TOPIC, 1, true);
@@ -218,6 +245,12 @@ public:
   }	
   virtual ~MoveArm()
   {
+    revertPlanningScene();
+    delete collision_models_;
+    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
+      delete set_planning_scene_clients_[i];
+    }
+    delete controller_action_client_;
   }
 
   bool configure()
@@ -232,7 +265,7 @@ public:
       ROS_ERROR("No 'group' parameter specified. Without the name of the group of joints to plan for, action cannot start");
       return false;
     }
-    const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(group_);
+    const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_->getKinematicModel()->getModelGroup(group_);
     if(joint_model_group == NULL) {
       ROS_WARN_STREAM("No joint group " << group_);
       return false;
@@ -265,14 +298,14 @@ private:
 
     ROS_DEBUG("Acting on goal to pose ...");// we do IK to find corresponding states
     ROS_DEBUG("Position constraint: %f %f %f",
-             req.motion_plan_request.goal_constraints.position_constraints[0].position.x,
-             req.motion_plan_request.goal_constraints.position_constraints[0].position.y,
+              req.motion_plan_request.goal_constraints.position_constraints[0].position.x,
+              req.motion_plan_request.goal_constraints.position_constraints[0].position.y,
               req.motion_plan_request.goal_constraints.position_constraints[0].position.z);
     ROS_DEBUG("Orientation constraint: %f %f %f %f",
-             req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.x,
-             req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.y,
-             req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.z,
-             req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.w);
+              req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.x,
+              req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.y,
+              req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.z,
+              req.motion_plan_request.goal_constraints.orientation_constraints[0].orientation.w);
 
     geometry_msgs::PoseStamped tpose = motion_planning_msgs::poseConstraintsToPoseStamped(req.motion_plan_request.goal_constraints.position_constraints[0],
                                                                                           req.motion_plan_request.goal_constraints.orientation_constraints[0]);
@@ -290,11 +323,9 @@ private:
                   solution))
     {
       /*if(!checkIK(tpose,link_name,solution))
-         ROS_ERROR("IK solution does not get to desired pose");
+        ROS_ERROR("IK solution does not get to desired pose");
       */
-      motion_planning_msgs::RobotState ik_sanity_check;
-      ik_sanity_check.joint_state.header = tpose.header;
-
+      std::map<std::string, double> joint_values;
       for (unsigned int i = 0 ; i < solution.name.size() ; ++i)
       {
         motion_planning_msgs::JointConstraint jc;
@@ -303,11 +334,16 @@ private:
         jc.tolerance_below = 0.01;
         jc.tolerance_above = 0.01;
         req.motion_plan_request.goal_constraints.joint_constraints.push_back(jc);
-        ik_sanity_check.joint_state.name.push_back(jc.joint_name);
-        ik_sanity_check.joint_state.position.push_back(jc.position);
+        joint_values[jc.joint_name] = jc.position;
       }
       motion_planning_msgs::ArmNavigationErrorCodes error_code;
-      if(!isStateValidAtGoal(ik_sanity_check, error_code))
+      resetToStartState(planning_scene_state_);
+      planning_scene_state_->setKinematicState(joint_values);
+      if(!collision_models_->isKinematicStateValid(*planning_scene_state_,
+                                                  group_joint_names_,
+                                                  error_code,
+                                                  original_request_.motion_plan_request.goal_constraints,
+                                                  original_request_.motion_plan_request.path_constraints))
       {
         ROS_INFO("IK returned joint state for goal that doesn't seem to be valid");
         if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
@@ -334,16 +370,11 @@ private:
     kinematics_msgs::GetConstraintAwarePositionIK::Response response;
 	    
     request.ik_request.pose_stamped = pose_stamped_msg;
-    if(!getRobotState(request.ik_request.robot_state)) {
-      return false;
-    }
+    request.ik_request.robot_state = original_request_.motion_plan_request.start_state;
     request.ik_request.ik_seed_state = request.ik_request.robot_state;
     request.ik_request.ik_link_name = link_name;
     request.timeout = ros::Duration(ik_allowed_time_);
-    request.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
-    request.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
     request.constraints = original_request_.motion_plan_request.goal_constraints;
-    request.link_padding = original_request_.motion_plan_request.link_padding;
     if (ik_client_.call(request, response))
     {
       move_arm_action_result_.error_code = response.error_code;
@@ -424,12 +455,8 @@ private:
       trajectory_out = req.trajectory;
       return true;
     }
-
-    req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
-    req.link_padding = original_request_.motion_plan_request.link_padding;
     req.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
     ros::Time smoothing_time = ros::Time::now();
     if(filter_trajectory_client_.call(req,res))
@@ -459,7 +486,7 @@ private:
 
     for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
       std::string name = trajectory.joint_names[j];
-      boost::shared_ptr<const urdf::Joint> joint = robot_model_.getJoint(name);
+      boost::shared_ptr<const urdf::Joint> joint = collision_models_->getParsedDescription()->getJoint(name);
       if (joint.get() == NULL)
       {
         ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
@@ -506,76 +533,76 @@ private:
   }
 
   bool removeCompletedTrajectory(const trajectory_msgs::JointTrajectory &trajectory_in, 
-                        trajectory_msgs::JointTrajectory &trajectory_out, bool zero_vel_acc)
+                                 trajectory_msgs::JointTrajectory &trajectory_out, bool zero_vel_acc)
   {
 
-    trajectory_out.header = trajectory_in.header;
-    trajectory_out.header.stamp = ros::Time::now();
-    trajectory_out.joint_names = trajectory_in.joint_names;
-    trajectory_out.points.clear();
+    // trajectory_out.header = trajectory_in.header;
+    // trajectory_out.header.stamp = ros::Time::now();
+    // trajectory_out.joint_names = trajectory_in.joint_names;
+    // trajectory_out.points.clear();
 
-    if(trajectory_in.points.empty())
-    {
-      ROS_WARN("No points in input trajectory");
-      return true;
-    }
+    // if(trajectory_in.points.empty())
+    // {
+    //   ROS_WARN("No points in input trajectory");
+    //   return true;
+    // }
     
-    motion_planning_msgs::RobotState state;
-    if(!getRobotState(state)) {
-      return false;
-    }
+    // motion_planning_msgs::RobotState state;
+    // if(!getRobotState(state)) {
+    //   return false;
+    // }
     
-    sensor_msgs::JointState current_state = state.joint_state;
+    // sensor_msgs::JointState current_state = state.joint_state;
 
-    int current_position_index = 0;        
-    //Get closest state in given trajectory
-    current_position_index = closestStateOnTrajectory(trajectory_in, current_state, current_position_index, trajectory_in.points.size() - 1);
-    if (current_position_index < 0)
-    {
-      ROS_ERROR("Unable to identify current state in trajectory");
-      return false;
-    } else {
-      ROS_INFO_STREAM("Closest state is " << current_position_index << " of " << trajectory_in.points.size());
-    }
+    // int current_position_index = 0;        
+    // //Get closest state in given trajectory
+    // current_position_index = closestStateOnTrajectory(trajectory_in, current_state, current_position_index, trajectory_in.points.size() - 1);
+    // if (current_position_index < 0)
+    // {
+    //   ROS_ERROR("Unable to identify current state in trajectory");
+    //   return false;
+    // } else {
+    //   ROS_INFO_STREAM("Closest state is " << current_position_index << " of " << trajectory_in.points.size());
+    // }
     
-    // Start one ahead of returned closest state index to make sure first trajectory point is not behind current state
-    for(unsigned int i = current_position_index+1; i < trajectory_in.points.size(); ++i)
-    {
-      trajectory_out.points.push_back(trajectory_in.points[i]);
-    }
+    // // Start one ahead of returned closest state index to make sure first trajectory point is not behind current state
+    // for(unsigned int i = current_position_index+1; i < trajectory_in.points.size(); ++i)
+    // {
+    //   trajectory_out.points.push_back(trajectory_in.points[i]);
+    // }
 
-    if(trajectory_out.points.empty())
-    {
-      ROS_WARN("No points in output trajectory");
-      return false;
-    }	
+    // if(trajectory_out.points.empty())
+    // {
+    //   ROS_WARN("No points in output trajectory");
+    //   return false;
+    // }	
 
-    ros::Duration first_time = trajectory_out.points[0].time_from_start;
+    // ros::Duration first_time = trajectory_out.points[0].time_from_start;
 
-    if(first_time < ros::Duration(.1)) {
-      ROS_INFO("First time less than one-tenth of a second");
-      first_time = ros::Duration(0.0);
-    } else {
-      first_time -= ros::Duration(.1);
-    }
+    // if(first_time < ros::Duration(.1)) {
+    //   ROS_INFO("First time less than one-tenth of a second");
+    //   first_time = ros::Duration(0.0);
+    // } else {
+    //   first_time -= ros::Duration(.1);
+    // }
 
-    for(unsigned int i=0; i < trajectory_out.points.size(); ++i)
-    {
-      if(trajectory_out.points[i].time_from_start > first_time) {
-        trajectory_out.points[i].time_from_start -= first_time;
-      } else {
-        ROS_INFO_STREAM("Not enough time in time from start for trajectory point " << i);
-      }
-    }
+    // for(unsigned int i=0; i < trajectory_out.points.size(); ++i)
+    // {
+    //   if(trajectory_out.points[i].time_from_start > first_time) {
+    //     trajectory_out.points[i].time_from_start -= first_time;
+    //   } else {
+    //     ROS_INFO_STREAM("Not enough time in time from start for trajectory point " << i);
+    //   }
+    // }
 
-    //if(zero_vel_acc)
-    //{
-    for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i) {
-      for(unsigned int j=0; j < trajectory_out.points.size(); ++j) {
-	trajectory_out.points[j].velocities[i] = 0;
-	trajectory_out.points[j].accelerations[i] = 0;
-      }
-    }
+    // //if(zero_vel_acc)
+    // //{
+    // for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i) {
+    //   for(unsigned int j=0; j < trajectory_out.points.size(); ++j) {
+    //     trajectory_out.points[j].velocities[i] = 0;
+    //     trajectory_out.points[j].accelerations[i] = 0;
+    //   }
+    // }
 
     return true;
 
@@ -585,173 +612,7 @@ private:
   ///
   /// End Trajectory Filtering
   ///
-
-  ///
-  /// State and trajectory validity checks
-  ///
-  /** \brief Check the joint goal if it is valid */
-  bool checkJointGoal(motion_planning_msgs::GetMotionPlan::Request &req, motion_planning_msgs::ArmNavigationErrorCodes& error_code)
-  {
-    ROS_DEBUG("Checking validity of joint goal");
-    motion_planning_msgs::RobotState empty_state;
-    empty_state.joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
-    if (isStateValid(empty_state,
-                     error_code,
-                     JOINT_LIMITS_TEST))
-    {
-      ROS_DEBUG("Joint goal passed joint limits/collision test");
-      return true;
-    }
-    else
-    {
-      if(move_arm_parameters_.accept_invalid_goals)
-        return true;
-      else
-      {
-        return false;
-      }
-    }
-  }
-
-  
-  /** \brief Checks if the last state in a trajectory actually reaches the desired point */
-  bool checkTrajectoryReachesGoal(const trajectory_msgs::JointTrajectory& joint_traj, motion_planning_msgs::ArmNavigationErrorCodes& error_code)
-  {
-    motion_planning_msgs::RobotState last_state_in_trajectory;
-    last_state_in_trajectory.joint_state.header = joint_traj.header;
-    last_state_in_trajectory.joint_state.position = joint_traj.points.back().positions;
-    last_state_in_trajectory.joint_state.name = joint_traj.joint_names;
-    if(!isStateValidAtGoal(last_state_in_trajectory, error_code))
-    {
-      if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
-        ROS_WARN("Checked trajectory does not seem to result in satisfying goal constraints");
-      } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
-        ROS_WARN("Checked trajectory seems to end in collision");
-      } else {
-        ROS_WARN_STREAM("Some other problem with planner path " << error_code.val);
-      }
-      return false;
-    }
-    return true;
-  }
-
-  bool isEnvironmentSafe()
-  {
-    planning_environment_msgs::GetEnvironmentSafety::Request req;
-    planning_environment_msgs::GetEnvironmentSafety::Response res;
-    if(check_env_safe_client_.call(req,res))
-    {
-      if(res.error_code.val == res.error_code.SUCCESS)
-        return true;
-      else
-        return false;
-    }
-    else
-    {
-      ROS_ERROR("Service call to environment server failed on %s",check_env_safe_client_.getService().c_str());
-      return false;
-    }
-  }
-  bool isTrajectoryValid(const trajectory_msgs::JointTrajectory &traj, motion_planning_msgs::ArmNavigationErrorCodes& error_code)
-  {
-    planning_environment_msgs::GetJointTrajectoryValidity::Request req;
-    planning_environment_msgs::GetJointTrajectoryValidity::Response res;
-        
-    ROS_DEBUG("Received trajectory has %d points with %d joints",
-              (int) traj.points.size(),
-              (int)traj.joint_names.size());
-
-    req.trajectory = traj;
-    if(!getRobotState(req.robot_state))
-    {
-      ROS_ERROR("Could not get robot state");
-      error_code.val = error_code.ROBOT_STATE_STALE;
-      return false;
-    }
-
-    req.check_path_constraints = true;
-    req.check_collisions = true;
-    req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
-    req.path_constraints = original_request_.motion_plan_request.path_constraints;
-    req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
-    req.link_padding = original_request_.motion_plan_request.link_padding;
-    if(check_plan_validity_client_.call(req,res))
-    {
-      error_code = res.error_code;
-      if(res.error_code.val == res.error_code.SUCCESS)
-        return true;
-      else
-      {
-        move_arm_action_result_.error_code = res.error_code;
-        move_arm_action_result_.contacts = res.contacts;
-        ROS_ERROR("Trajectory invalid");
-        return false;
-      }
-    }
-    else
-    {
-      ROS_ERROR("Service call to check trajectory validity failed on %s",check_plan_validity_client_.getService().c_str());
-      error_code.val = error_code.COLLISION_CHECKING_UNAVAILABLE;
-      return false;
-    }
-  }
-  bool isExecutionSafe()
-  {
-    planning_environment_msgs::GetJointTrajectoryValidity::Request req;
-    planning_environment_msgs::GetJointTrajectoryValidity::Response res;
-        
-    //    req.trajectory = current_trajectory_;
-    discretizeTrajectory(current_trajectory_,req.trajectory,trajectory_discretization_);
-    if(!getRobotState(req.robot_state))
-      return false;
-    req.check_path_constraints = true;
-    req.check_collisions = true;
-    req.allowed_contacts = original_request_.motion_plan_request.allowed_contacts;
-    req.ordered_collision_operations = original_request_.motion_plan_request.ordered_collision_operations;
-    req.path_constraints = original_request_.motion_plan_request.path_constraints;
-    req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
-    req.link_padding = original_request_.motion_plan_request.link_padding;
-    if(check_execution_safe_client_.call(req,res))
-    {
-      if(res.error_code.val == res.error_code.SUCCESS)
-        return true;
-      else
-      {
-        move_arm_action_result_.error_code = res.error_code;
-        move_arm_action_result_.contacts = res.contacts;
-        return false;
-      }
-    }
-    else
-    {
-      ROS_ERROR("Service call to check execution safety failed on %s",
-                check_execution_safe_client_.getService().c_str());
-      return false;
-    }
-  }
-  bool isStateValid(const motion_planning_msgs::RobotState& goal_state,
-                    motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                    bool use_goal_constraints=true,
-                    bool use_path_constraints=true)
-  {
-    planning_environment::setRobotStateAndComputeTransforms(goal_state, *planning_scene_state_);
-    motion_planning_msgs::Constraints goal_constraints;
-    if(use_goal_constraints) {
-      goal_constraints = original_request_.motion_plan_request.goal_constraints;
-    }
-    motion_planning_msgs::Constraints path_constraints;
-    if(use_path_constraints) {
-      path_constraints = original_request_.motion_plan_request.path_constraints;
-    }
-
-    return collision_models_->isKinematicStateValid(*planning_scene_state_,
-                                                    group_joint_names_,
-                                                    error_code,
-                                                    goal_constraints,
-                                                    path_constraints);
-  }
-
+ 
   void discretizeTrajectory(const trajectory_msgs::JointTrajectory &trajectory, 
                             trajectory_msgs::JointTrajectory &trajectory_out,
                             const double &trajectory_discretization)
@@ -809,26 +670,19 @@ private:
     else
       return false;
   }                   
-  void addCheckFlags(planning_environment_msgs::GetStateValidity::Request &req, 
-                     const int &flag)
-  {
-    if(flag & COLLISION_TEST)
-      req.check_collisions = true;
-    if(flag & PATH_CONSTRAINTS_TEST)
-      req.check_path_constraints = true;
-    if(flag & GOAL_CONSTRAINTS_TEST)
-      req.check_goal_constraints = true;
-    if(flag & JOINT_LIMITS_TEST)
-      req.check_joint_limits = true;
+
+  //stubbing out for now
+  bool isExecutionSafe() {
+    return true;
   }
-  bool getRobotState(motion_planning_msgs::RobotState &robot_state)
+
+  bool getRobotState(planning_models::KinematicState* state)
   {
     planning_environment_msgs::GetRobotState::Request req;
     planning_environment_msgs::GetRobotState::Response res;
     if(get_state_client_.call(req,res))
     {
-      robot_state = res.robot_state;
-      return true;
+      planning_environment::setRobotStateAndComputeTransforms(res.robot_state, *state);
     }
     else
     {
@@ -836,6 +690,7 @@ private:
                 get_state_client_.getService().c_str());
       return false;
     }
+    return true;
   }
   ///
   /// End Helper Functions
@@ -856,24 +711,31 @@ private:
     move_arm_parameters_.disable_collision_monitoring = goal->disable_collision_monitoring;
     move_arm_parameters_.allowed_planning_time = goal->motion_plan_request.allowed_planning_time.toSec();
     move_arm_parameters_.planner_service_name = goal->planner_service_name;
-    visualizeAllowedContactRegions(req.motion_plan_request.allowed_contacts);
-    ROS_INFO("Move arm: %d allowed contact regions",(int)req.motion_plan_request.allowed_contacts.size());
-    for(unsigned int i=0; i < req.motion_plan_request.allowed_contacts.size(); i++)
-    {
-      ROS_INFO("Position                    : (%f,%f,%f)",req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.x,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.y,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.z);
-      ROS_INFO("Frame id                    : %s",req.motion_plan_request.allowed_contacts[i].pose_stamped.header.frame_id.c_str());
-      ROS_INFO("Depth                       : %f",req.motion_plan_request.allowed_contacts[i].penetration_depth);
-      ROS_INFO("Link                        : %s",req.motion_plan_request.allowed_contacts[i].link_names[0].c_str());
-      ROS_INFO(" ");
-    }
+    // visualizeAllowedContactRegions(req.motion_plan_request.allowed_contacts);
+    // ROS_INFO("Move arm: %d allowed contact regions",(int)req.motion_plan_request.allowed_contacts.size());
+    // for(unsigned int i=0; i < req.motion_plan_request.allowed_contacts.size(); i++)
+    // {
+    //   ROS_INFO("Position                    : (%f,%f,%f)",req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.x,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.y,req.motion_plan_request.allowed_contacts[i].pose_stamped.pose.position.z);
+    //   ROS_INFO("Frame id                    : %s",req.motion_plan_request.allowed_contacts[i].pose_stamped.header.frame_id.c_str());
+    //   ROS_INFO("Depth                       : %f",req.motion_plan_request.allowed_contacts[i].penetration_depth);
+    //   ROS_INFO("Link                        : %s",req.motion_plan_request.allowed_contacts[i].link_names[0].c_str());
+    //   ROS_INFO(" ");
+    // }
   }
   bool doPrePlanningChecks(motion_planning_msgs::GetMotionPlan::Request &req,  
                            motion_planning_msgs::GetMotionPlan::Response &res)
   {
-    //checking current state for validity
-    motion_planning_msgs::RobotState empty_state;
+    motion_planning_msgs::Constraints empty_goal_constraints;
+    if(planning_scene_state_ == NULL) {
+      ROS_INFO("Can't do pre-planning checks without planning state");
+    }
+    resetToStartState(planning_scene_state_);
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
-    if(!isStateValid(get_planning_scene_res_.robot_state, error_code, false, true)) {
+    if(!collision_models_->isKinematicStateValid(*planning_scene_state_,
+                                                 group_joint_names_,
+                                                 error_code,
+                                                 empty_goal_constraints,
+                                                 original_request_.motion_plan_request.path_constraints)) {
       if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_IN_COLLISION;
         ROS_ERROR("Starting state is in collision, can't plan");
@@ -897,8 +759,14 @@ private:
         return false;
       }
     }
-    //if (isJointGoal(req))
-    if(!checkJointGoal(req, error_code))
+    motion_planning_msgs::RobotState empty_state;
+    empty_state.joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
+    planning_environment::setRobotStateAndComputeTransforms(empty_state, *planning_scene_state_);
+    if(!collision_models_->isKinematicStateValid(*planning_scene_state_,
+                                                 group_joint_names_,
+                                                 error_code,
+                                                 original_request_.motion_plan_request.goal_constraints,
+                                                 original_request_.motion_plan_request.path_constraints))
     {
       if(error_code.val == error_code.JOINT_LIMITS_VIOLATED) {
         ROS_ERROR("Will not plan to requested joint goal since it violates joint limits constraints");
@@ -918,14 +786,6 @@ private:
   bool createPlan(motion_planning_msgs::GetMotionPlan::Request &req,  
                   motion_planning_msgs::GetMotionPlan::Response &res)
   {
-    if (!isEnvironmentSafe())
-    {
-      ROS_WARN("Environment is not safe. Will not issue request for planning");
-      return false;
-    }        
-    if(!getRobotState(req.motion_plan_request.start_state))
-      return false;
-
     ros::ServiceClient planning_client = root_handle_.serviceClient<motion_planning_msgs::GetMotionPlan>(move_arm_parameters_.planner_service_name);
     move_arm_stats_.planner_service_name = move_arm_parameters_.planner_service_name;
     ROS_DEBUG("Issuing request for motion plan");		    
@@ -938,19 +798,6 @@ private:
         return false;
       }
       ROS_INFO("Motion planning succeeded");
-      motion_planning_msgs::ArmNavigationErrorCodes error_code;
-      if(!checkTrajectoryReachesGoal(res.trajectory.joint_trajectory, error_code)) {
-        if(move_arm_parameters_.accept_partial_plans)
-        {
-          ROS_WARN("Returned path from planner does not reach a valid goal");
-          return true;
-        }
-        else
-        {
-          ROS_ERROR("Returned path from planner does not satisfy goal");
-          return false;
-        }
-      }
       return true;
     }
     else
@@ -988,11 +835,11 @@ private:
 
   void stopMonitoring()
   {
-    if(using_head_monitor_ && head_monitor_client_->getState().state_ == actionlib::SimpleClientGoalState::ACTIVE)
-    {
-      head_monitor_client_->cancelGoal();
-      head_monitor_client_->waitForResult(ros::Duration(0.1));
-    }
+    // if(using_head_monitor_ && head_monitor_client_->getState().state_ == actionlib::SimpleClientGoalState::ACTIVE)
+    // {
+    //   head_monitor_client_->cancelGoal();
+    //   head_monitor_client_->waitForResult(ros::Duration(0.1));
+    // }
   }
 
   bool stopTrajectory()
@@ -1010,7 +857,7 @@ private:
     current_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
 
     if(using_head_monitor_ && head_monitor_time_offset_ > 0.5)
-	current_trajectory.header.stamp += ros::Duration(head_monitor_time_offset_ - 0.5);
+      current_trajectory.header.stamp += ros::Duration(head_monitor_time_offset_ - 0.5);
 
     pr2_controllers_msgs::JointTrajectoryGoal goal;  
     goal.trajectory = current_trajectory;
@@ -1020,24 +867,24 @@ private:
       ROS_INFO("Joint: %d name: %s",i,goal.trajectory.joint_names[i].c_str());
 
     /*    for(unsigned int i = 0; i < goal.trajectory.points.size(); i++)
-      {
-	ROS_INFO("%f: %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-		  goal.trajectory.points[i].time_from_start.toSec(),
-		  goal.trajectory.points[i].positions[0],
-		  goal.trajectory.points[i].positions[1],
-		  goal.trajectory.points[i].positions[2],
-		  goal.trajectory.points[i].positions[3],
-		  goal.trajectory.points[i].positions[4],
-		  goal.trajectory.points[i].positions[5],
-		  goal.trajectory.points[i].positions[6],
-		  goal.trajectory.points[i].velocities[0],
-		  goal.trajectory.points[i].velocities[1],
-		  goal.trajectory.points[i].velocities[2],
-		  goal.trajectory.points[i].velocities[3],
-		  goal.trajectory.points[i].velocities[4],
-		  goal.trajectory.points[i].velocities[5],
-		  goal.trajectory.points[i].velocities[6]);
-		  }*/
+          {
+          ROS_INFO("%f: %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+          goal.trajectory.points[i].time_from_start.toSec(),
+          goal.trajectory.points[i].positions[0],
+          goal.trajectory.points[i].positions[1],
+          goal.trajectory.points[i].positions[2],
+          goal.trajectory.points[i].positions[3],
+          goal.trajectory.points[i].positions[4],
+          goal.trajectory.points[i].positions[5],
+          goal.trajectory.points[i].positions[6],
+          goal.trajectory.points[i].velocities[0],
+          goal.trajectory.points[i].velocities[1],
+          goal.trajectory.points[i].velocities[2],
+          goal.trajectory.points[i].velocities[3],
+          goal.trajectory.points[i].velocities[4],
+          goal.trajectory.points[i].velocities[5],
+          goal.trajectory.points[i].velocities[6]);
+          }*/
     controller_goal_handle_ = controller_action_client_->sendGoal(goal,boost::bind(&MoveArm::controllerTransitionCallback, this, _1));
 
     controller_status_ = QUEUED;
@@ -1116,16 +963,10 @@ private:
     // get the current state
     double d = 0.0;
 
-    motion_planning_msgs::RobotState state;
-    if(!getRobotState(state)) {
-      return;
-    }
 
     std::map<std::string, double> val_map;
-    for(unsigned int i = 0; i < state.joint_state.name.size(); i++) {
-      val_map[state.joint_state.name[i]] = state.joint_state.position[i];
-    }
-
+    resetToStartState(planning_scene_state_);
+    planning_scene_state_->getKinematicStateValues(val_map);
     sensor_msgs::JointState current;
     current.name = trajectory_out.joint_names;
     current.position.resize(trajectory_out.joint_names.size());
@@ -1135,12 +976,12 @@ private:
     std::map<std::string, bool> continuous;
     for(unsigned int j = 0; j < trajectory_in.joint_names.size(); j++) {
       std::string name = trajectory_in.joint_names[j];
-      boost::shared_ptr<const urdf::Joint> joint = robot_model_.getJoint(name);
+      boost::shared_ptr<const urdf::Joint> joint = collision_models_->getParsedDescription()->getJoint(name);
       if (joint.get() == NULL)
-	{
-	  ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
-	  return;
-	}
+      {
+        ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
+        return;
+      }
       if (joint->type == urdf::Joint::CONTINUOUS) {
         continuous[name] = true;
       } else {
@@ -1194,6 +1035,7 @@ private:
   bool executeCycle(motion_planning_msgs::GetMotionPlan::Request &req)
   {
     motion_planning_msgs::GetMotionPlan::Response res;
+    motion_planning_msgs::ArmNavigationErrorCodes error_code;
     
     switch(state_)
     {
@@ -1207,22 +1049,32 @@ private:
           return true;
 
         visualizeJointGoal(req);
-        motion_planning_msgs::RobotState empty_state;
-        motion_planning_msgs::ArmNavigationErrorCodes error_code;
-        if(isStateValidAtGoal(empty_state, error_code))
-        {
+        resetToStartState(planning_scene_state_);
+        if(collision_models_->isKinematicStateValid(*planning_scene_state_,
+                                                    group_joint_names_,
+                                                    error_code,
+                                                    original_request_.motion_plan_request.goal_constraints,
+                                                    original_request_.motion_plan_request.path_constraints)) {
           resetStateMachine();
 	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
 	  action_server_->setSucceeded(move_arm_action_result_);
-          ROS_INFO("Apparently we reached the goal without planning");
+          ROS_INFO("Apparently start state satisfies goal");
           return true;
         }
         ros::Time planning_time = ros::Time::now();
         if(createPlan(req,res))
         {
+          std::vector<motion_planning_msgs::ArmNavigationErrorCodes> traj_error_codes;
           move_arm_stats_.planning_time = (ros::Time::now()-planning_time).toSec();
           ROS_DEBUG("createPlan succeeded");
-          if(!isTrajectoryValid(res.trajectory.joint_trajectory, error_code))
+          resetToStartState(planning_scene_state_);
+          if(!collision_models_->isJointTrajectoryValid(*planning_scene_state_,
+                                                        res.trajectory.joint_trajectory, 
+                                                        original_request_.motion_plan_request.goal_constraints,
+                                                        original_request_.motion_plan_request.path_constraints,
+                                                        error_code,
+                                                        traj_error_codes,
+                                                        false))
           {
             if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Planner trajectory collides");
@@ -1235,11 +1087,11 @@ private:
             }
 	    num_planning_attempts_++;
 	    if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
-	      {
-		resetStateMachine();
-		action_server_->setAborted(move_arm_action_result_);
-		return true;
-	      }
+            {
+              resetStateMachine();
+              action_server_->setAborted(move_arm_action_result_);
+              return true;
+            }
           }
           else{
             ROS_DEBUG("Trajectory validity check was successful");
@@ -1277,15 +1129,15 @@ private:
         if(filterTrajectory(current_trajectory_, filtered_trajectory))
         {
           motion_planning_msgs::ArmNavigationErrorCodes error_code;
-          if(!checkTrajectoryReachesGoal(filtered_trajectory, error_code)) {
-            ROS_WARN("Filtered trajectory does not satisfy goal. Will replan");
-            state_ = PLANNING;
-	    break;
-            //resetStateMachine();
-            //action_server_->setAborted(move_arm_action_result_);
-            //return true;
-          }
-          if(!isTrajectoryValid(filtered_trajectory, error_code))
+          std::vector<motion_planning_msgs::ArmNavigationErrorCodes> traj_error_codes;
+          resetToStartState(planning_scene_state_);
+          if(!collision_models_->isJointTrajectoryValid(*planning_scene_state_,
+                                                        filtered_trajectory,
+                                                        original_request_.motion_plan_request.goal_constraints,
+                                                        original_request_.motion_plan_request.path_constraints,
+                                                        error_code,
+                                                        traj_error_codes,
+                                                        false))
           {
             if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Filtered trajectory collides");
@@ -1309,21 +1161,21 @@ private:
           current_trajectory_ = filtered_trajectory;
         }
 
-	if(using_head_monitor_)
-	{
-          move_arm_head_monitor::HeadLookGoal look_goal;
+	// if(using_head_monitor_)
+	// {
+        //   move_arm_head_monitor::HeadLookGoal look_goal;
 
-          look_goal.target_time = ros::Time::now() + ros::Duration(0.01);
-          look_goal.target_link = head_monitor_link_;
-          look_goal.target_x = head_monitor_link_x_;
-          look_goal.target_y = head_monitor_link_y_;
-          look_goal.target_z = head_monitor_link_z_;
+        //   look_goal.target_time = ros::Time::now() + ros::Duration(0.01);
+        //   look_goal.target_link = head_monitor_link_;
+        //   look_goal.target_x = head_monitor_link_x_;
+        //   look_goal.target_y = head_monitor_link_y_;
+        //   look_goal.target_z = head_monitor_link_z_;
 
-          ROS_DEBUG("Looking at target link before starting trajectory");
+        //   ROS_DEBUG("Looking at target link before starting trajectory");
 
-          if(head_look_client_->sendGoalAndWait(look_goal, ros::Duration(4.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED)
-            ROS_WARN("Head look didn't succeed before timeout, starting anyway");
-	}
+        //   if(head_look_client_->sendGoalAndWait(look_goal, ros::Duration(4.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED)
+        //     ROS_WARN("Head look didn't succeed before timeout, starting anyway");
+	// }
 
 
         ROS_DEBUG("Sending trajectory");
@@ -1332,21 +1184,21 @@ private:
         {
           state_ = MONITOR;
 	  
-	  if(using_head_monitor_)
-	  {
-            move_arm_head_monitor::HeadMonitorGoal monitor_goal;
+	  // if(using_head_monitor_)
+	  // {
+          //   move_arm_head_monitor::HeadMonitorGoal monitor_goal;
 
-            monitor_goal.stop_time = current_trajectory_.header.stamp + (current_trajectory_.points.end()-1)->time_from_start;
-            monitor_goal.max_frequency = head_monitor_max_frequency_;
-            monitor_goal.time_offset = ros::Duration(head_monitor_time_offset_);
-            monitor_goal.target_link = head_monitor_link_;
-            monitor_goal.target_x = head_monitor_link_x_;
-            monitor_goal.target_y = head_monitor_link_y_;
-            monitor_goal.target_z = head_monitor_link_z_;
+          //   monitor_goal.stop_time = current_trajectory_.header.stamp + (current_trajectory_.points.end()-1)->time_from_start;
+          //   monitor_goal.max_frequency = head_monitor_max_frequency_;
+          //   monitor_goal.time_offset = ros::Duration(head_monitor_time_offset_);
+          //   monitor_goal.target_link = head_monitor_link_;
+          //   monitor_goal.target_x = head_monitor_link_x_;
+          //   monitor_goal.target_y = head_monitor_link_y_;
+          //   monitor_goal.target_z = head_monitor_link_z_;
 
-            ROS_DEBUG("Starting head monitoring");
-            head_monitor_client_->sendGoal(monitor_goal);
-	  }
+          //   ROS_DEBUG("Starting head monitoring");
+          //   head_monitor_client_->sendGoal(monitor_goal);
+	  // }
 
         }
         else
@@ -1371,9 +1223,13 @@ private:
 
           motion_planning_msgs::RobotState empty_state;
           motion_planning_msgs::ArmNavigationErrorCodes state_error_code;
-          if(isStateValidAtGoal(empty_state, state_error_code))
+          getRobotState(planning_scene_state_);
+          if(collision_models_->isKinematicStateValid(*planning_scene_state_,
+                                                      group_joint_names_,
+                                                      error_code,
+                                                      original_request_.motion_plan_request.goal_constraints,
+                                                      original_request_.motion_plan_request.path_constraints))
           {
-            resetStateMachine();
             move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
             action_server_->setSucceeded(move_arm_action_result_);
             if(controller_error_code.val == controller_error_code.TRAJECTORY_CONTROLLER_FAILED) {
@@ -1400,7 +1256,7 @@ private:
             state_ = PLANNING;
             break;
           }
-        }            
+        }
         if(!move_arm_parameters_.disable_collision_monitoring && action_server_->isActive())
         {          
           ROS_DEBUG("Monitoring trajectory");
@@ -1412,16 +1268,16 @@ private:
           if(!isExecutionSafe())
           {
             ROS_INFO("Stopping trajectory since it is unsafe");
-
-	    if(using_head_monitor_)
-	    {
-	      pause_start_time_ = ros::Time::now();
-	      state_ = PAUSE;
-	    }
-	    else
-	    {
-	      state_ = PLANNING;
-	    }
+            
+            if(using_head_monitor_)
+            {
+              pause_start_time_ = ros::Time::now();
+              state_ = PAUSE;
+            }
+            else
+            {
+              state_ = PLANNING;
+            }
 
             stopTrajectory();
 
@@ -1434,11 +1290,11 @@ private:
         if(isExecutionSafe())
         {
           ROS_INFO("Safe to resume, trying to remove completed trajectory section");
-	  trajectory_msgs::JointTrajectory shortened_trajectory;
-	  if(removeCompletedTrajectory(current_trajectory_, shortened_trajectory, true))
-	  {
+          trajectory_msgs::JointTrajectory shortened_trajectory;
+          if(removeCompletedTrajectory(current_trajectory_, shortened_trajectory, true))
+          {
             current_trajectory_ = shortened_trajectory;
-	    ROS_INFO("Shortening trajectory succeeded, starting control");	
+            ROS_INFO("Shortening trajectory succeeded, starting control");	
             state_ = START_CONTROL;
           }
           else
@@ -1467,16 +1323,22 @@ private:
       return true;
     }
     return false;		
-  }	
+  }
   void execute(const move_arm_msgs::MoveArmGoalConstPtr& goal)
   {
     motion_planning_msgs::GetMotionPlan::Request req;	    
     moveArmGoalToPlannerRequest(goal,req);	    
 
-    if(!getPlanningSceneAndModifiedConstraints(req.motion_plan_request)) {
+    if(!getAndSetPlanningScene(goal->planning_scene_diff)) {
       ROS_INFO("Problem setting planning scene");
       return;
     }
+
+    collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
+                                                                req.motion_plan_request.goal_constraints);
+
+    collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
+                                                                req.motion_plan_request.path_constraints);
 
     original_request_ = req;
 
@@ -1501,12 +1363,19 @@ private:
           move_arm_action_result_.error_code.val = 0;
           if (controller_status_ == QUEUED || controller_status_ == ACTIVE)
             stopTrajectory();
-          moveArmGoalToPlannerRequest((action_server_->acceptNewGoal()),req);
+          const move_arm_msgs::MoveArmGoalConstPtr& new_goal = action_server_->acceptNewGoal();
+          moveArmGoalToPlannerRequest(new_goal,req);
           ROS_INFO("Received new goal, will preempt previous goal");
-          if(!getPlanningSceneAndModifiedConstraints(req.motion_plan_request)) {
+          if(!getAndSetPlanningScene(new_goal->planning_scene_diff)) {
             ROS_INFO("Problem setting planning scene");
             return;
           }
+          
+          collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
+                                                                      req.motion_plan_request.goal_constraints);
+          
+          collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
+                                                                      req.motion_plan_request.path_constraints);
           original_request_ = req;
           state_ = PLANNING;
         }
@@ -1546,30 +1415,53 @@ private:
     action_server_->setAborted(move_arm_action_result_);
   }
 
-  bool getPlanningSceneAndModifiedConstraints(motion_planning_msgs::MotionPlanRequest& motion_plan_request) {
-    get_req.group_name = group_;
-    get_req.goal_constraints = motion_plan_request.goal_constraints;
-    get_req.path_constraints = motion_plan_request.path_constraints;
+  bool getAndSetPlanningScene(const planning_environment_msgs::PlanningScene& planning_diff) {
+    planning_environment_msgs::GetPlanningScene::Request planning_scene_req;
+    planning_environment_msgs::GetPlanningScene::Response planning_scene_res;
 
-    if(!get_planning_scene_client_->call(get_req, get_res)) {
+    revertPlanningScene();
+
+    planning_scene_req.planning_scene_diff = planning_diff;
+
+    if(!get_planning_scene_client_.call(planning_scene_req, planning_scene_res)) {
       ROS_WARN("Can't get planning scene");
       return false;
     }
 
-    motion_plan_request.goal_constraints = get_res.transformed_goal_constraints;
-    motion_plan_request.path_constraints = get_res.transformed_path_constraints;
+    current_planning_scene_ = planning_scene_res.planning_scene;
 
-    planning_scene_state_ = collision_models_->setPlanningScene(get_res.planning_scene);
+    planning_scene_state_ = collision_models_->setPlanningScene(current_planning_scene_);
 
     if(planning_scene_state_ == NULL) {
       ROS_WARN("Problems setting local state");
       return false;
     }
+    
+    planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
+    planning_scene_goal.planning_scene = current_planning_scene_;
+    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
+      set_planning_scene_clients_[i]->sendGoal(planning_scene_goal);
+    }
+    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
+      while(!set_planning_scene_clients_[i]->waitForResult(ros::Duration(1.0))) {
+        ROS_INFO_STREAM("Waiting for response from planning scene client " << i);
+      }
+    }
+    return true;
+  }
+
+
+
+  void resetToStartState(planning_models::KinematicState* state) {
+    planning_environment::setRobotStateAndComputeTransforms(current_planning_scene_.robot_state, *state);
   }
 
   bool revertPlanningScene() {
-    collision_models_->revertPlanningScene(planning_scene_state_);
-    planning_scene_state_ = NULL;
+    if(planning_scene_state_ != NULL) {
+      collision_models_->revertPlanningScene(planning_scene_state_);
+      planning_scene_state_ = NULL;
+    }
+    return true;
   }
 
   ///
@@ -1620,30 +1512,25 @@ private:
     motion_planning_msgs::DisplayTrajectory d_path;
     d_path.model_id = req.motion_plan_request.group_name;
     d_path.trajectory.joint_trajectory = motion_planning_msgs::jointConstraintsToJointTrajectory(req.motion_plan_request.goal_constraints.joint_constraints);
-    if(!getRobotState(d_path.robot_state))
-    {
-      ROS_ERROR("Could not get robot state");
-    }
-    else
-    {
-      display_joint_goal_publisher_.publish(d_path);
-      ROS_INFO("Displaying move arm joint goal.");
-    }
+    resetToStartState(planning_scene_state_);
+    planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                            ros::Time::now(),
+                                                            collision_models_->getWorldFrameId(),
+                                                            d_path.robot_state);
+    display_joint_goal_publisher_.publish(d_path);
+    ROS_INFO("Displaying move arm joint goal.");
   }
   void visualizeJointGoal(const trajectory_msgs::JointTrajectory &trajectory)
   {
     ROS_DEBUG("Displaying joint goal");
     motion_planning_msgs::DisplayTrajectory d_path;
     d_path.trajectory.joint_trajectory = trajectory;
-    if(!getRobotState(d_path.robot_state))
-    {
-      ROS_ERROR("Could not get robot state");
-    }
-    else
-    {
-      display_joint_goal_publisher_.publish(d_path);
-      ROS_INFO("Displaying move arm joint goal.");
-    }
+    resetToStartState(planning_scene_state_);
+    planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                            ros::Time::now(),
+                                                            collision_models_->getWorldFrameId(),
+                                                            d_path.robot_state);
+    display_joint_goal_publisher_.publish(d_path);
   }
   void visualizePlan(const trajectory_msgs::JointTrajectory &trajectory)
   {
@@ -1653,10 +1540,12 @@ private:
     motion_planning_msgs::DisplayTrajectory d_path;
     d_path.model_id = original_request_.motion_plan_request.group_name;
     d_path.trajectory.joint_trajectory = trajectory;
-    if(!getRobotState(d_path.robot_state))
-      ROS_ERROR("Could not get robot state");
-    else
-      display_path_publisher_.publish(d_path);
+    resetToStartState(planning_scene_state_);
+    planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                            ros::Time::now(),
+                                                            collision_models_->getWorldFrameId(),
+                                                            d_path.robot_state);
+    display_path_publisher_.publish(d_path);
   }
   void visualizeAllowedContactRegions(const std::vector<motion_planning_msgs::AllowedContactSpecification> &allowed_contacts)
   {
@@ -1737,16 +1626,22 @@ private:
 
   std::string group_;
 
-  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
-  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> >  head_look_client_;
+  //boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
+  //boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> >  head_look_client_;
 
   ros::ServiceClient ik_client_;
   ros::ServiceClient trajectory_start_client_,trajectory_cancel_client_,trajectory_query_client_;	
   ros::NodeHandle private_handle_, root_handle_;
   boost::shared_ptr<actionlib::SimpleActionServer<move_arm_msgs::MoveArmAction> > action_server_;	
 
+  planning_environment::CollisionModels* collision_models_;
+
   planning_environment_msgs::GetPlanningScene::Request get_planning_scene_req_;
   planning_environment_msgs::GetPlanningScene::Response get_planning_scene_res_;
+  planning_environment_msgs::PlanningScene current_planning_scene_;
+  planning_models::KinematicState* planning_scene_state_;
+
+  std::vector<actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;
   
   tf::TransformListener *tf_;
   MoveArmState state_;
@@ -1765,16 +1660,13 @@ private:
 
   motion_planning_msgs::GetMotionPlan::Request original_request_;
 
-  //! A model of the robot to see which joints wrap around
-  urdf::Model robot_model_;
-  //! Flag that tells us if the robot model was initialized successfully
-  bool robot_model_initialized_;
-
   ros::Publisher display_path_publisher_;
   ros::Publisher display_joint_goal_publisher_;
   ros::Publisher allowed_contact_regions_publisher_;
   ros::ServiceClient filter_trajectory_client_;
   ros::ServiceClient fk_client_;
+  ros::ServiceClient get_state_client_;
+  ros::ServiceClient get_planning_scene_client_;
   MoveArmParameters move_arm_parameters_;
   ControllerStatus controller_status_;
 

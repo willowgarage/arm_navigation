@@ -13,8 +13,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(move_arm_monitor src/move_arm_setup.cpp src/move_arm_monitor.cpp)
 #rosbuild_link_boost(move_arm_monitor thread)
 
-#rosbuild_add_executable(move_arm_simple_action src/move_arm_simple_action.cpp)
-#rosbuild_link_boost(move_arm_simple_action thread)
+rosbuild_add_executable(move_arm_simple_action src/move_arm_simple_action.cpp)
+rosbuild_link_boost(move_arm_simple_action thread)
 
 rosbuild_add_executable(planning_scene_visualizer_keyboard test/planning_scene_visualizer_keyboard.cpp)
 target_link_libraries(planning_scene_visualizer_keyboard planning_environment)
