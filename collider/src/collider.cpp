@@ -358,7 +358,7 @@ void Collider::attachedObjectCallback(const mapping_msgs::AttachedCollisionObjec
 }
 
 void Collider::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &cam_info){
-  ROS_INFO("Got camera info: %d x %d\n", cam_info->height, cam_info->width);
+  ROS_DEBUG("Got camera info: %d x %d\n", cam_info->height, cam_info->width);
   cam_model_.fromCameraInfo(*cam_info);
   cam_model_initialized_ = true;
   delete camera_info_subscriber_;
@@ -435,7 +435,7 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
         it++;
       }
     }
-    ROS_INFO_STREAM("Filtering " << count << " points");
+    ROS_DEBUG_STREAM("Filtering " << count << " points");
   }
 
   {
@@ -519,7 +519,7 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
   double elapsed_send = (ros::WallTime::now() - begin_send).toSec();
 
   double total_elapsed = (ros::WallTime::now() - begin_cb).toSec();
-  ROS_INFO("Total cloudCombinedCB %d pts: %f (transf: %f, update: %f, clear: %f, get occ: %f, send map: %f)",
+  ROS_DEBUG("Total cloudCombinedCB %d pts: %f (transf: %f, update: %f, clear: %f, get occ: %f, send map: %f)",
 		  int(pcl_cloud.size()), total_elapsed, elapsed_transform, elapsed_insert, elapsed_degrade, elapsed_get_occupied, elapsed_send);
 
 }
@@ -654,8 +654,8 @@ void Collider::cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud, co
   double elapsed_send = (ros::WallTime::now() - begin_send).toSec();
 
   double total_elapsed = (ros::WallTime::now() - begin_cb).toSec();
-  ROS_INFO("Total cloudCB: %f (Update %d pnts: %f, clearing: %f, get occupied: %f, send map: %f)",
-		  total_elapsed, int(pcl_cloud.size()), elapsed_insert, elapsed_degrade, elapsed_get_occupied, elapsed_send);
+  ROS_DEBUG("Total cloudCB: %f (Update %d pnts: %f, clearing: %f, get occupied: %f, send map: %f)",
+            total_elapsed, int(pcl_cloud.size()), elapsed_insert, elapsed_degrade, elapsed_get_occupied, elapsed_send);
 
 }
 
