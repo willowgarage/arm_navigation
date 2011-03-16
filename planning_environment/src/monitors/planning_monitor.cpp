@@ -44,8 +44,7 @@ void planning_environment::PlanningMonitor::loadParams(void)
 {
 }
 
-bool planning_environment::PlanningMonitor::getCompletePlanningScene(const std::string& group_name,
-                                                                     const planning_environment_msgs::PlanningScene& planning_diff,
+bool planning_environment::PlanningMonitor::getCompletePlanningScene(const planning_environment_msgs::PlanningScene& planning_diff,
                                                                      const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
                                                                      planning_environment_msgs::PlanningScene& planning_scene){
   //creating state    

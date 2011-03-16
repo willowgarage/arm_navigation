@@ -69,7 +69,6 @@ inline bool setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotS
   std::vector<std::string> missing_states;
   bool complete = state.setKinematicState(joint_state_map, missing_states);
   if(!complete) {
-    ROS_INFO_STREAM("Joint state incomplete");
     if(missing_states.empty()) {
       ROS_INFO("Incomplete, but no missing states");
     }

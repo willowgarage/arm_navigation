@@ -449,21 +449,11 @@ bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTrans
     if(!convertPointGivenWorldTransform(state,
                                         trans_frame,
                                         constraints.position_constraints[i].header,
-                                        constraints.position_constraints[i].target_point_offset,
-                                        ps)) {
-      return false;
-    }
-
-    constraints.position_constraints[i].header = ps.header;
-    constraints.position_constraints[i].target_point_offset = ps.point;
-
-    if(!convertPointGivenWorldTransform(state,
-                                        trans_frame,
-                                        constraints.position_constraints[i].header,
                                         constraints.position_constraints[i].position,
                                         ps)) {
       return false;
     }
+    constraints.position_constraints[i].header = ps.header;
     constraints.position_constraints[i].position = ps.point;
     
     geometry_msgs::QuaternionStamped qs;
@@ -1013,6 +1003,7 @@ bool planning_environment::CollisionModels::disableCollisionsForNonUpdatedLinks(
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = ode_collision_model_->getCurrentAllowedCollisionMatrix();
   if(joint_model_group == NULL) {
     ROS_WARN_STREAM("No joint group " << group_name);
+    kmodel_->sharedUnlock();  
     return false;
   }
   std::vector<std::string> updated_link_names = joint_model_group->getUpdatedLinkModelNames();
@@ -1045,7 +1036,9 @@ bool planning_environment::CollisionModels::disableCollisionsForNonUpdatedLinks(
   }
 
   //finally, adding collision map
-  non_group_names.push_back(COLLISION_MAP_NAME);
+  if(acm.hasEntry(COLLISION_MAP_NAME)) {
+    non_group_names.push_back(COLLISION_MAP_NAME);
+  }
 
   //this allows all collisions for these links with each other
   if(!acm.changeEntry(non_group_names, non_group_names, true)) {

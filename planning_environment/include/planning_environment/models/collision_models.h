@@ -306,7 +306,7 @@ public:
                                              const std_msgs::ColorRGBA& color,
                                              const std::string& name, 
                                              const ros::Duration& lifetime,
-                                             const std::vector<std::string>* names) const;
+                                             const std::vector<std::string>* names = NULL) const;
   
   /** \brief Return the instance of the constructed ODE collision model */  
   const collision_space::EnvironmentModel* getCollisionSpace() const {

@@ -90,8 +90,7 @@ private:
   bool getPlanningScene(planning_environment_msgs::GetPlanningScene::Request &req, 
                         planning_environment_msgs::GetPlanningScene::Response &res) 
   {
-    planning_monitor_->getCompletePlanningScene(req.group_name,
-                                                req.planning_scene_diff,
+    planning_monitor_->getCompletePlanningScene(req.planning_scene_diff,
                                                 req.operations,
                                                 res.planning_scene);
     return true;
@@ -101,8 +100,7 @@ private:
                         planning_environment_msgs::LogPlanningScene::Response &res) 
   {
     planning_environment_msgs::PlanningScene full_planning_scene;
-    planning_monitor_->getCompletePlanningScene("",
-                                                req.planning_scene_diff,
+    planning_monitor_->getCompletePlanningScene(req.planning_scene_diff,
                                                 req.operations,
                                                 full_planning_scene);
     std::string filename = req.filename;
