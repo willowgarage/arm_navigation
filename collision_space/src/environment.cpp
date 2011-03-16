@@ -241,31 +241,36 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(cons
                                                                             const std::vector<std::string>& change_names,
                                                                             bool allowed)
 {
+  bool ok = true;
   if(allowed_entries_bimap_.left.find(name) == allowed_entries_bimap_.left.end()) {
-    return false;
+    ROS_INFO_STREAM("No entry for " << name);
+    ok = false;
+    return ok;
   }
   unsigned int ind_1 = allowed_entries_bimap_.left.find(name)->second;
   for(unsigned int i = 0; i < change_names.size(); i++) {
     if(allowed_entries_bimap_.left.find(change_names[i]) == allowed_entries_bimap_.left.end()) {
-      return false;
+      ROS_INFO_STREAM("No entry for " << change_names[i]);
+      ok = false;
     }
     unsigned int ind_2 = allowed_entries_bimap_.left.find(change_names[i])->second;
     allowed_entries_[ind_1][ind_2] = allowed;
     allowed_entries_[ind_2][ind_1] = allowed;
   }
-  return true;
+  return ok;
 }
 
 bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::vector<std::string>& change_names_1,
                                                                             const std::vector<std::string>& change_names_2,
                                                                             bool allowed)
 {
+  bool ok = true;
   for(unsigned int i = 0; i < change_names_1.size(); i++) {
     if(!changeEntry(change_names_1[i], change_names_2, allowed)) {
-      return false;
+      ok = false;
     }
   }
-  return true;
+  return ok;
 }
 
 bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count) const
