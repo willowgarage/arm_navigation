@@ -1,6 +1,3 @@
-# group_name for configuring allowed_collisions
-string group_name
-
 # Diffs from the planning scene
 PlanningScene planning_scene_diff
 
