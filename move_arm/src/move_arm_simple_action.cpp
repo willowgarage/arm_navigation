@@ -188,13 +188,15 @@ public:
 
     get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
     
-    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(ARM_KINEMATICS_NAME+"+"+SET_PLANNING_SCENE_NAME));
-    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(PLANNER_NAME+"+"+SET_PLANNING_SCENE_NAME));
-    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(TRAJECTORY_FILTER_NAME+"+"+SET_PLANNING_SCENE_NAME));
+    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(ARM_KINEMATICS_NAME+"/"+SET_PLANNING_SCENE_NAME));
+    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(PLANNER_NAME+"/"+SET_PLANNING_SCENE_NAME));
+    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(TRAJECTORY_FILTER_NAME+"/"+SET_PLANNING_SCENE_NAME));
     
     for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      while(1) {
-        set_planning_scene_clients_[i]->waitForServer(ros::Duration(1.0));
+      while(ros::ok()) {
+        if(set_planning_scene_clients_[i]->waitForServer(ros::Duration(1.0))) {
+          break;
+        }
         ROS_INFO_STREAM("Waiting for planning scene action for " << i);
       }
     }
@@ -313,7 +315,7 @@ private:
     sensor_msgs::JointState solution;		
 
     ROS_INFO("IK request");
-    ROS_INFO("link_name   : %s",tpose.header.frame_id.c_str());
+    ROS_INFO("link_name   : %s",link_name.c_str());
     ROS_INFO("frame_id    : %s",tpose.header.frame_id.c_str());
     ROS_INFO("position    : (%f,%f,%f)",tpose.pose.position.x,tpose.pose.position.y,tpose.pose.position.z);
     ROS_INFO("orientation : (%f,%f,%f,%f)",tpose.pose.orientation.x,tpose.pose.orientation.y,tpose.pose.orientation.z,tpose.pose.orientation.w);
@@ -455,6 +457,12 @@ private:
       trajectory_out = req.trajectory;
       return true;
     }
+    resetToStartState(planning_scene_state_);
+    planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                            ros::Time::now(),
+                                                            collision_models_->getWorldFrameId(),
+                                                            req.start_state);
+    req.group_name = group_;
     req.path_constraints = original_request_.motion_plan_request.path_constraints;
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
     req.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
@@ -746,6 +754,7 @@ private:
         move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.JOINT_LIMITS_VIOLATED;;
         ROS_ERROR("Start state violates joint limits, can't plan.");
       }
+      ROS_INFO("Setting aborted because start state invalid");
       action_server_->setAborted(move_arm_action_result_);
       return false;
     }
@@ -755,6 +764,7 @@ private:
       ROS_INFO("Planning to a pose goal");
       if(!convertPoseGoalToJointGoal(req))
       {
+        ROS_INFO("Setting aborted because ik failed");
         action_server_->setAborted(move_arm_action_result_);
         return false;
       }
@@ -778,6 +788,7 @@ private:
         ROS_ERROR("Will not plan to requested joint goal since it violates path constraints");
         move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
       }
+      ROS_INFO_STREAM("Setting aborted becuase joint goal is problematic");
       action_server_->setAborted(move_arm_action_result_);
       return false;
     }
@@ -1089,6 +1100,7 @@ private:
 	    if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
             {
               resetStateMachine();
+              ROS_INFO_STREAM("Setting aborted because we're out of planning attempts");
               action_server_->setAborted(move_arm_action_result_);
               return true;
             }
@@ -1109,6 +1121,7 @@ private:
           if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
           {
             resetStateMachine();
+            ROS_INFO_STREAM("Setting aborted because we're out of planning attempts");
             action_server_->setAborted(move_arm_action_result_);
             return true;
           }
@@ -1159,6 +1172,11 @@ private:
             ROS_DEBUG("Trajectory validity check was successful");
           }
           current_trajectory_ = filtered_trajectory;
+        } else {
+          resetStateMachine();
+          ROS_INFO_STREAM("Setting aborted because trajectory filter call failed");
+          action_server_->setAborted(move_arm_action_result_);
+          return true;              
         }
 
 	// if(using_head_monitor_)
@@ -1204,11 +1222,12 @@ private:
         else
         {
           resetStateMachine();
+          ROS_INFO("Setting aborted because we couldn't send the trajectory");
           action_server_->setAborted(move_arm_action_result_);
           return true;              
         }
         break;
-      }	
+      }
     case MONITOR:
       {
         move_arm_action_feedback_.state = "monitor";
@@ -1231,6 +1250,7 @@ private:
                                                       original_request_.motion_plan_request.path_constraints))
           {
             move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
+            resetStateMachine();
             action_server_->setSucceeded(move_arm_action_result_);
             if(controller_error_code.val == controller_error_code.TRAJECTORY_CONTROLLER_FAILED) {
               ROS_INFO("Trajectory controller failed but we seem to be at goal");
@@ -1253,6 +1273,7 @@ private:
             }
             resetStateMachine();
             action_server_->setAborted(move_arm_action_result_);
+            ROS_INFO("Trajectory controller done but not in good state");
             state_ = PLANNING;
             break;
           }
@@ -1341,6 +1362,11 @@ private:
                                                                 req.motion_plan_request.path_constraints);
 
     original_request_ = req;
+    planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                            ros::Time::now(),
+                                                            collision_models_->getWorldFrameId(),
+                                                            original_request_.motion_plan_request.start_state);
+    
 
     ros::Rate move_arm_rate(move_arm_frequency_);
     move_arm_action_result_.contacts.clear();
@@ -1377,6 +1403,11 @@ private:
           collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
                                                                       req.motion_plan_request.path_constraints);
           original_request_ = req;
+          planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                                  ros::Time::now(),
+                                                                  collision_models_->getWorldFrameId(),
+                                                                  original_request_.motion_plan_request.start_state);
+
           state_ = PLANNING;
         }
         else               //if we've been preempted explicitly we need to shut things down
@@ -1443,7 +1474,7 @@ private:
       set_planning_scene_clients_[i]->sendGoal(planning_scene_goal);
     }
     for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      while(!set_planning_scene_clients_[i]->waitForResult(ros::Duration(1.0))) {
+      while(ros::ok() && !set_planning_scene_clients_[i]->waitForResult(ros::Duration(1.0))) {
         ROS_INFO_STREAM("Waiting for response from planning scene client " << i);
       }
     }
