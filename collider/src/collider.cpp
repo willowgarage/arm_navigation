@@ -39,11 +39,6 @@
 #include <planning_environment/monitors/monitor_utils.h>
 
 
-#define CAMERA_STEREO_OFFSET_LEFT 128
-#define CAMERA_STEREO_OFFSET_RIGHT 0
-
-
-
 Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespace_(false) {
    
   ros::NodeHandle priv("~");
@@ -332,6 +327,8 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
   action_server_.reset( new actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", boost::bind(&Collider::makeStaticCollisionMap, this, _1), false));
   action_server_->start();
 
+  get_octomap_service_ = root_handle_.advertiseService("octomap_binary", &Collider::octomapSrv, this);
+
 }
 
 
@@ -360,6 +357,7 @@ void Collider::attachedObjectCallback(const mapping_msgs::AttachedCollisionObjec
 void Collider::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &cam_info){
   ROS_DEBUG("Got camera info: %d x %d\n", cam_info->height, cam_info->width);
   cam_model_.fromCameraInfo(*cam_info);
+  cam_size_ = cam_model_.fullResolution();
   cam_model_initialized_ = true;
   delete camera_info_subscriber_;
 }
@@ -804,17 +802,17 @@ void Collider::computeBBX(const std_msgs::Header& sensor_header, octomap::point3
   cv::Point2d uv [4];
   uv[0].x = camera_stereo_offset_left_;
   uv[0].y = 0;
-  uv[1].x = cam_model_.width() + camera_stereo_offset_right_;
+  uv[1].x = cam_size_.width + camera_stereo_offset_right_;
   uv[1].y = 0;
-  uv[2].x = cam_model_.width() + camera_stereo_offset_right_;
-  uv[2].y = cam_model_.height();
+  uv[2].x = cam_size_.width + camera_stereo_offset_right_;
+  uv[2].y = cam_size_.height;
   uv[3].x = camera_stereo_offset_left_;
-  uv[3].y = cam_model_.height();
+  uv[3].y = cam_size_.height;
 
   // transform to 3d space
   cv::Point3d xyz [4];
   for (int i=0;i<4;i++) {
-    cam_model_.projectPixelTo3dRay(uv[i], xyz[i]);
+	xyz[i] = cam_model_.projectPixelTo3dRay(uv[i]);
     cv::Point3d xyz_05 = xyz[i] * 0.5;
     xyz[i] *= 5.; // 5meters
     p[i].x = xyz[i].x;
@@ -904,12 +902,12 @@ bool Collider::inSensorCone(const tf::Transform& transform, const octomap::point
   // fprintf(stderr, "%.2f,%.2f,%.2f  %.2f,%.2f,%.2f\n", pt_cv.x, pt_cv.y, pt_cv.z, pt_cv2.x, pt_cv2.y, pt_cv2.z);
     
 
-  cv::Point2d uv;
-  cam_model_.project3dToPixel(pt_cv, uv);
+
+  cv::Point2d uv = cam_model_.project3dToPixel(pt_cv);
   return ( (uv.x >= camera_stereo_offset_left_)
-           && (uv.x < cam_model_.width() + camera_stereo_offset_right_)
+           && (uv.x < cam_size_.width + camera_stereo_offset_right_)
            && (uv.y >= 0) 
-           && (uv.y < cam_model_.height()) );
+           && (uv.y < cam_size_.height) );
 }
 
 
@@ -923,11 +921,11 @@ bool Collider::isOccludedRaw(const tf::Transform& transform, const octomap::poin
   
   //  fprintf(stderr, "%.2f,%.2f,%.2f  %.2f,%.2f,%.2f\n", pt_cv.x, pt_cv.y, pt_cv.z, pt_cv2.x, pt_cv2.y, pt_cv2.z);
   
-  cv::Point2d uv;
-  cam_model_.project3dToPixel(pt_cv, uv);
+  cv::Point2d uv = cam_model_.project3dToPixel(pt_cv);
 
   // out of image range?
-  if ((uv.x < 0) || (uv.y < 0) || (uv.x > cam_model_.width()) || (uv.y > cam_model_.height())) return false;
+  if ((uv.x < 0) || (uv.y < 0) || (uv.x > cam_size_.width) || (uv.y > cam_size_.height))
+	  return false;
   
   double range = (p-sensor_origin).norm();
   double sensor_range = pcl_cloud_raw(uv.x, uv.y).z;
@@ -1079,5 +1077,15 @@ void Collider::makeStaticCollisionMap(const collision_environment_msgs::MakeStat
     publishCollisionMap(pointlist, head, static_map_publisher_);
   }
   action_server_->setSucceeded();
+}
+
+bool Collider::octomapSrv(octomap_ros::GetOctomap::Request  &req, octomap_ros::GetOctomap::Response &res){
+	ROS_DEBUG("Sending map data on service request");
+
+	res.map.header.frame_id = fixed_frame_;
+	res.map.header.stamp = ros::Time::now();
+	octomap::octomapMapToMsg(*collision_octree_, res.map);
+
+	return true;
 }
 

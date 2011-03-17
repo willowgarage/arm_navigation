@@ -71,6 +71,8 @@
 
 #include <octomap/OcTree5D.h>
 #include <octomap_ros/OctomapROS.h>
+#include <octomap_ros/OctomapBinary.h>
+#include <octomap_ros/GetOctomap.h>
 
 
 class Collider {
@@ -160,6 +162,7 @@ class Collider {
   bool reset(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
   void makeStaticCollisionMap(const collision_environment_msgs::MakeStaticCollisionMapGoalConstPtr& goal);
   bool dummyReset(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+  bool octomapSrv(octomap_ros::GetOctomap::Request  &req, octomap_ros::GetOctomap::Response &res);
 
 
  protected:
@@ -179,7 +182,7 @@ class Collider {
   ros::Publisher octomap_visualization_attached_pub_, octomap_visualization_attached_array_pub_;
   std_msgs::ColorRGBA attached_color_;
 
-  ros::ServiceServer reset_service_, dummy_reset_service_, transparent_service_;
+  ros::ServiceServer reset_service_, dummy_reset_service_, transparent_service_, get_octomap_service_;
 
   ros::Subscriber*  camera_info_subscriber_;
   
@@ -200,6 +203,7 @@ class Collider {
   int camera_stereo_offset_left_;
   int camera_stereo_offset_right_;
   std_msgs::ColorRGBA color_free_, color_occupied_;
+  cv::Size cam_size_;
 
   BoxInfo workspace_box_;
 
