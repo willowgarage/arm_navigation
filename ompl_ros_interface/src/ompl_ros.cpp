@@ -74,7 +74,8 @@ bool OmplRos::initialize(const std::string &param_server_prefix)
     ROS_ERROR("Could not find groups for planning under %s",param_server_prefix.c_str());
     return false;
   }
-
+  ROS_INFO_STREAM("Namespace prefix is " << param_server_prefix);
+  
   if(!initializePlanningMap(param_server_prefix,group_names))
   {
     ROS_ERROR("Could not initialize planning groups from the param server");
@@ -159,7 +160,7 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
 
   if(!node_handle_.hasParam(param_server_prefix+"/"+group_name+"/planner_type"))
   {
-    ROS_ERROR("Planner type not defined for group %s",group_name.c_str());
+    ROS_ERROR_STREAM("Planner type not defined for group " << group_name << " param name " << param_server_prefix+"/"+group_name+"/planner_type");
     return false;
   }
 
@@ -192,6 +193,9 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
   else
   {
     ROS_ERROR("No planner type %s available",planner_type.c_str());
+    std::string cast;
+    node_handle_.getParam(param_server_prefix+"/"+group_name, cast);
+    ROS_ERROR_STREAM("Here " << cast);
     return false;
   }
 

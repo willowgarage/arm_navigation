@@ -49,8 +49,6 @@ rosbuild_add_library(ompl_ros_interface
 rosbuild_link_boost(ompl_ros_interface thread)
 rosbuild_add_executable(ompl_ros src/main.cpp)
 target_link_libraries(ompl_ros ompl_ros_interface)
-rosbuild_add_compile_flags(ompl_ros "-pg")
-rosbuild_add_link_flags(ompl_ros "-pg")
 
 rosbuild_add_executable(test_ompl_planning test/test_ompl_planning.cpp) 
 rosbuild_declare_test(test_ompl_planning)
