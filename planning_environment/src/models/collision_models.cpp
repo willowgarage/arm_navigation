@@ -665,7 +665,7 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
   } 
   ode_collision_model_->lock();
   ode_collision_model_->clearObjects(COLLISION_MAP_NAME);
-  if(shapes.size() > 0.0) {
+  if(shapes.size() > 0) {
     ode_collision_model_->addObjects(COLLISION_MAP_NAME, shapes, masked_poses);
   }
   ode_collision_model_->unlock();
@@ -1294,7 +1294,6 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
     error_code.val = error_code.GOAL_CONSTRAINTS_VIOLATED;
     return false;
   }
-  ode_collision_model_->updateRobotModel(&state);
   if(isKinematicStateInCollision(state)) {
     error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;    
     return false;
