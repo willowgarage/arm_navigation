@@ -659,7 +659,7 @@ void Collider::cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud, co
 
 
 void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin,
-                                  const std::string& other_stereo_frame, octomap::OcTree5D& tree, pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) {
+                                  const std::string& other_stereo_frame, octomap::OcTreeStamped& tree, pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) {
 
   tf::StampedTransform trans;
   // tf_.lookupTransform (fixed_frame_, sensor_header.frame_id, sensor_header.stamp, trans);
@@ -691,12 +691,12 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const o
   computeBBX(sensor_header, min, max);
 
   // query map for occupied leafs within a given BBX and time frame
-  std::list<std::pair<octomap::point3d, octomap::OcTreeNode5D*> > nodes;
+  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> > nodes;
   tree.getOccupiedNodesUpdateTimeBBX(nodes, 3, time(NULL), min, max);
 
 
 
-  std::list<std::pair<octomap::point3d, octomap::OcTreeNode5D*> >::iterator it = nodes.begin();
+  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> >::iterator it = nodes.begin();
   for ( ; it != nodes.end(); ++it) {
 
 
@@ -728,7 +728,7 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const o
 
 
 void Collider::degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin,
-                                         octomap::OcTree5D& tree) {
+                                         octomap::OcTreeStamped& tree) {
 
   // degrade ALL nodes
   //  tree.degradeOutdatedNodes(1);
@@ -739,7 +739,7 @@ void Collider::degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, 
   computeBBX(sensor_header, min, max);
 
   // query map for occupied leafs within a given BBX and time frame
-  std::list<std::pair<octomap::point3d, octomap::OcTreeNode5D*> > nodes;
+  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> > nodes;
   tree.getOccupiedNodesUpdateTimeBBX(nodes, 1, time(NULL), min, max);
 
   tf::StampedTransform trans;
@@ -749,7 +749,7 @@ void Collider::degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, 
   tf::Transform to_sensor = trans;
 
 
-  for (std::list<std::pair<octomap::point3d, octomap::OcTreeNode5D*> >::iterator it = nodes.begin();
+  for (std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> >::iterator it = nodes.begin();
        it != nodes.end(); ++it) {
 
     // ignore point if not in sensor cone

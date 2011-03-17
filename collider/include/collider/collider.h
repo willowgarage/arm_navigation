@@ -69,7 +69,7 @@
 #include <vector>
 #include <algorithm>
 
-#include <octomap/OcTree5D.h>
+#include <octomap/OcTreeStamped.h>
 #include <octomap_ros/OctomapROS.h>
 #include <octomap_ros/OctomapBinary.h>
 #include <octomap_ros/GetOctomap.h>
@@ -84,8 +84,7 @@ class Collider {
 
  public:
 
-  typedef octomap::OcTree5D OcTreeType;
-  //  typedef octomap::OcTree OcTreeType;
+  typedef octomap::OcTreeStamped OcTreeType;
   
   /// Struct to hold config options for subscribed PointClouds
   struct CloudInfo 
@@ -140,13 +139,13 @@ class Collider {
   void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object);
 
   // obstacle cleaning
-  void degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin, octomap::OcTree5D& tree);
+  void degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin, octomap::OcTreeStamped& tree);
   void computeBBX(const std_msgs::Header& sensor_header, octomap::point3d& bbx_min, octomap::point3d& bbx_max);
   bool inSensorCone(const tf::Transform& transform, /* const roslib::Header& sensor_header,  */const octomap::point3d& p) const;
   bool isOccludedMap(const octomap::point3d& sensor_origin, const octomap::point3d& p) const;
   octomap::point3d getSensorOrigin(const std_msgs::Header& sensor_header);
   void degradeOutdatedRaw(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin,
-                          const std::string& other_stereo_frame, octomap::OcTree5D& tree,
+                          const std::string& other_stereo_frame, octomap::OcTreeStamped& tree,
                           pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw);
   bool isOccludedRaw (/* const roslib::Header& sensor_header,  */const tf::Transform& transform, const octomap::point3d& sensor_origin, 
                       const octomap::point3d& p, pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) ;
