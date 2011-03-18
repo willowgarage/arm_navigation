@@ -254,9 +254,10 @@ int planning_environment::computeAttachedObjectPointMask(const planning_environm
         //ROS_INFO_STREAM("Sphere distance " << it2->second->getBoundingSphere(k).center.distance2(pt)
         //                << " squared " << it2->second->getBoundingSphereRadiusSquared(k));
         if(it2->second->getBoundingSphere(k).center.distance2(pt) < it2->second->getBoundingSphereRadiusSquared(k)) {
-          it2->second->getBody(k)->containsPoint(pt);
-          cm->bodiesUnlock();
-          return robot_self_filter::INSIDE;
+          if(it2->second->getBody(k)->containsPoint(pt)) {
+	    cm->bodiesUnlock();
+	    return robot_self_filter::INSIDE;
+	  }
         }
         if(it2->second->getBody(k)->intersectsRay(pt, dir)) {
           cm->bodiesUnlock();
@@ -334,6 +335,7 @@ bool planning_environment::computeAttachedObjectPointCloudMask(const pcl::PointC
 
   // transform pointcloud into fixed frame, if needed
   if (cm->getWorldFrameId() != pcl_cloud.header.frame_id) {
+    ROS_INFO_STREAM("Transforming from frame " << pcl_cloud.header.frame_id);
     pcl::PointCloud<pcl::PointXYZ> trans_cloud = pcl_cloud;
     pcl_ros::transformPointCloud(cm->getWorldFrameId(), pcl_cloud, trans_cloud,tf);
     for (int i = 0 ; i < n ; ++i) {
