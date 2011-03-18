@@ -201,11 +201,15 @@ bool TrajectoryFilterServer::loadURDF()
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "trajectory_filter_server");
+
+  ros::AsyncSpinner spinner(1); 
+  spinner.start();   
+
   trajectory_filter_server::TrajectoryFilterServer traj_filter_server;
   if(traj_filter_server.init())
   {
     ROS_INFO("Started trajectory filter server");
-    ros::spin();  
+    ros::waitForShutdown();
   }
   else
   {
@@ -213,6 +217,7 @@ int main(int argc, char** argv)
     ROS_ERROR("Check your filters.yaml file to make sure it is configured correctly");
     ROS_ERROR("Also check the ROS parameter: service_type in your launch file");
     ROS_ERROR("The message type in the service request must match the type that the filters are acting on");
+    ros::shutdown();
   }
   return 0;
 }
