@@ -130,12 +130,8 @@ static const std::string TRAJECTORY_FILTER = "filter_trajectory";
 static const std::string DISPLAY_PATH_PUB_TOPIC  = "display_path";
 static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
 
-static const std::string SET_PLANNING_SCENE_NAME ="set_planning_scene";
 //bunch of statics for remapping purposes
 static const std::string GET_PLANNING_SCENE_NAME = "get_planning_scene";
-static const std::string ARM_KINEMATICS_NAME="arm_kinematics";
-static const std::string PLANNER_NAME="planner";
-static const std::string TRAJECTORY_FILTER_NAME="trajectory_filter";
 static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
 static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
 
@@ -184,23 +180,12 @@ public:
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
     filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
+    vis_marker_publisher_ = root_handle_.advertise<visualization_msgs::Marker>("move_" + group_name+"_markers", 128);
+    vis_marker_array_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("move_" + group_name+"_markers_array", 128);
     get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");      
 
     get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
     
-    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(ARM_KINEMATICS_NAME+"/"+SET_PLANNING_SCENE_NAME));
-    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(PLANNER_NAME+"/"+SET_PLANNING_SCENE_NAME));
-    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(TRAJECTORY_FILTER_NAME+"/"+SET_PLANNING_SCENE_NAME));
-    
-    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      while(ros::ok()) {
-        if(set_planning_scene_clients_[i]->waitForServer(ros::Duration(1.0))) {
-          break;
-        }
-        ROS_INFO_STREAM("Waiting for planning scene action for " << i);
-      }
-    }
-
     // if(using_head_monitor_) {
     //   head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
     //   head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("head_look_action", true));
@@ -249,9 +234,6 @@ public:
   {
     revertPlanningScene();
     delete collision_models_;
-    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      delete set_planning_scene_clients_[i];
-    }
     delete controller_action_client_;
   }
 
@@ -747,6 +729,28 @@ private:
       if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_IN_COLLISION;
         ROS_ERROR("Starting state is in collision, can't plan");
+        visualization_msgs::MarkerArray arr;
+        std_msgs::ColorRGBA point_color_;
+        point_color_.a = 1.0;
+        point_color_.r = 1.0;
+        point_color_.g = .8;
+        point_color_.b = 0.04;
+
+        collision_models_->getAllCollisionPointMarkers(*planning_scene_state_,
+                                                       arr,
+                                                       point_color_,
+                                                       ros::Duration(0.0)); 
+        std_msgs::ColorRGBA col;
+        col.a = .9;
+        col.r = 1.0;
+        col.b = 1.0;
+        col.g = 0.0;
+        collision_models_->getRobotTrimeshMarkersGivenState(*planning_scene_state_,
+                                                            arr,
+                                                            true,
+                                                            ros::Duration(0.0));
+
+        vis_marker_array_publisher_.publish(arr);
       } else if (error_code.val == error_code.PATH_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_VIOLATES_PATH_CONSTRAINTS;
         ROS_ERROR("Starting state violated path constraints, can't plan");;
@@ -1466,18 +1470,7 @@ private:
     if(planning_scene_state_ == NULL) {
       ROS_WARN("Problems setting local state");
       return false;
-    }
-    
-    planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
-    planning_scene_goal.planning_scene = current_planning_scene_;
-    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      set_planning_scene_clients_[i]->sendGoal(planning_scene_goal);
-    }
-    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      while(ros::ok() && !set_planning_scene_clients_[i]->waitForResult(ros::Duration(1.0))) {
-        ROS_INFO_STREAM("Waiting for response from planning scene client " << i);
-      }
-    }
+    }    
     return true;
   }
 
@@ -1672,8 +1665,6 @@ private:
   planning_environment_msgs::PlanningScene current_planning_scene_;
   planning_models::KinematicState* planning_scene_state_;
 
-  std::vector<actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;
-  
   tf::TransformListener *tf_;
   MoveArmState state_;
   double move_arm_frequency_;      	
@@ -1694,6 +1685,8 @@ private:
   ros::Publisher display_path_publisher_;
   ros::Publisher display_joint_goal_publisher_;
   ros::Publisher allowed_contact_regions_publisher_;
+  ros::Publisher vis_marker_publisher_;
+  ros::Publisher vis_marker_array_publisher_;
   ros::ServiceClient filter_trajectory_client_;
   ros::ServiceClient fk_client_;
   ros::ServiceClient get_state_client_;
