@@ -76,7 +76,7 @@ class IKUtilities:
 
         self._fk_service = rospy.ServiceProxy(self.srvroot+'get_fk', GetPositionFK)
         self._query_service = rospy.ServiceProxy(self.srvroot+'get_ik_solver_info', GetKinematicSolverInfo)
-        self._check_state_validity_service = rospy.ServiceProxy('/environment_server/get_state_validity', GetStateValidity)
+        self._check_state_validity_service = rospy.ServiceProxy('/planning_scene_validity_server/get_state_validity', GetStateValidity)
 
         #wait for IK/FK/query services and get the joint names and limits 
         if wait_for_services:
@@ -258,19 +258,20 @@ class IKUtilities:
             ik_request.robot_state = IK_robot_state
 
         try:
-            if collision_aware and self.perception_running:
-                col_free_ik_request = GetConstraintAwarePositionIKRequest()
-                col_free_ik_request.ik_request = ik_request
-                col_free_ik_request.timeout = rospy.Duration(10.0) #timeout after 10 seconds
-
-                if ordered_collision_operations != None:
-                    col_free_ik_request.ordered_collision_operations = ordered_collision_operations
-                if link_padding != None:
-                    col_free_ik_request.link_padding = link_padding
-
-                resp = self._ik_service_with_collision(col_free_ik_request)
-            else:
-                resp = self._ik_service(ik_request, rospy.Duration(10.0))        
+            #if collision_aware and self.perception_running:
+            col_free_ik_request = GetConstraintAwarePositionIKRequest()
+            col_free_ik_request.ik_request = ik_request
+            col_free_ik_request.timeout = rospy.Duration(10.0) #timeout after 10 seconds
+            
+            if ordered_collision_operations != None:
+                col_free_ik_request.ordered_collision_operations = ordered_collision_operations
+            if link_padding != None:
+                col_free_ik_request.link_padding = link_padding
+                    
+            resp = self._ik_service_with_collision(col_free_ik_request)
+            #else:
+                #rospy.loginfo("running non collision aware ik")
+                #resp = self._ik_service(ik_request, rospy.Duration(10.0))        
         except rospy.ServiceException, e:
             rospy.logwarn("IK service call failed! error msg: %s"%e)
             return (None, None)

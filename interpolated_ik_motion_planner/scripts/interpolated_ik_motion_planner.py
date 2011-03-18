@@ -199,10 +199,10 @@ class InterpolatedIKService:
         reordered_start_angles = []
 
         #get the current joint states for the robot
-        joint_states_msg = rospy.wait_for_message('joint_states', JointState, 10.0)
-        if not joint_states_msg:
-            rospy.logerr("unable to get joint_states message")
-            return 0
+        #joint_states_msg = rospy.wait_for_message('joint_states', JointState, 10.0)
+        #if not joint_states_msg:
+        #    rospy.logerr("unable to get joint_states message")
+        #    return 0
 
         #get the desired start angles for each IK arm joint in turn from start_state.joint_state.position
         #(use the current angle if not specified)
@@ -212,30 +212,32 @@ class InterpolatedIKService:
             if joint_name in joint_names and start_angles:
                 index = joint_names.index(joint_name)
                 reordered_start_angles.append(start_angles[index])
-                
+            else:
+                rospy.logerror("bad")
+
             #desired start angle not specified, use the current angle
-            elif joint_name in joint_states_msg.name:
-                index = joint_states_msg.name.index(joint_name)
-                current_position = joint_states_msg.position[index]
-                reordered_start_angles.append(current_position)
+#elif 0: #joint_name in joint_states_msg.name:
+#                index = joint_states_msg.name.index(joint_name)
+#                current_position = joint_states_msg.position[index]
+#                reordered_start_angles.append(current_position)
 
             #malformed joint_states message?
-            else:
-                rospy.logerr("an expected arm joint,"+joint_name+"was not found!")
-                return 0
+#            else:
+#                rospy.logerr("an expected arm joint,"+joint_name+"was not found!")
+#                return 0
 
         #get additional desired joint angles (such as for the gripper) to pass through to IK
         additional_joint_angles = []
         additional_joint_names = []
         for (ind, joint_name) in enumerate(joint_names):
             if joint_name not in self.ik_utils.joint_names:
-                rospy.loginfo("found %s"%joint_name)
+                #rospy.loginfo("found %s"%joint_name)
                 additional_joint_angles.append(start_angles[ind])
                 additional_joint_names.append(joint_name)
         IK_robot_state = None
         if additional_joint_angles:
-            rospy.loginfo("adding additional start angles for:"+str(additional_joint_names))
-            rospy.loginfo("additional joint angles:"+str(additional_joint_angles))
+            #rospy.loginfo("adding additional start angles for:"+str(additional_joint_names))
+            #rospy.loginfo("additional joint angles:"+str(additional_joint_angles))
             IK_robot_state = RobotState()
             IK_robot_state.joint_state.name = additional_joint_names
             IK_robot_state.joint_state.position = additional_joint_angles
@@ -283,14 +285,14 @@ class InterpolatedIKService:
         goal_pose_stamped.pose = Pose(Point(*goal_pos_list), Quaternion(*goal_quat_list))
 
         #get the ordered collision operations, if there are any
-        ordered_collision_operations = req.motion_plan_request.ordered_collision_operations
-        if ordered_collision_operations.collision_operations == []:
-            ordered_collision_operations = None
+        ordered_collision_operations = None #req.motion_plan_request.ordered_collision_operations
+        #if ordered_collision_operations.collision_operations == []:
+        #    ordered_collision_operations = None
 
         #get the link paddings, if there are any
-        link_padding = req.motion_plan_request.link_padding
-        if link_padding == []:
-            link_padding = None
+        link_padding = None #req.motion_plan_request.link_padding
+        #if link_padding == []:
+        #    link_padding = None
 
         #RUN!  Check the Cartesian path for consistent, non-colliding IK solutions
         (trajectory, error_codes) = self.ik_utils.check_cartesian_path(start_pose_stamped, \
@@ -352,7 +354,7 @@ class InterpolatedIKService:
 
         trajectory_error_codes = [ArmNavigationErrorCodes(val=error_code_dict[error_code]) for error_code in error_codes]
         res.trajectory_error_codes = trajectory_error_codes 
-
+        res.error_code.val = ArmNavigationErrorCodes.SUCCESS
 #         rospy.loginfo("trajectory:")
 #         for ind in range(len(trajectory)):
 #             rospy.loginfo("error code "+ str(error_codes[ind]) + " pos : " + self.pplist(trajectory[ind]))
