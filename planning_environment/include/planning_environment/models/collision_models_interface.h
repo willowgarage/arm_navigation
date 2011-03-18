@@ -87,6 +87,7 @@ protected:
 
   boost::function<void(const planning_environment_msgs::PlanningScene &scene)> set_planning_scene_callback_;
   boost::function<void(void)> revert_planning_scene_callback_;
+  ros::ServiceClient env_server_register_client_;
 
   actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction> *action_server_;
 };

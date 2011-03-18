@@ -42,6 +42,11 @@
 #include <planning_environment_msgs/GetPlanningScene.h>
 #include <planning_environment_msgs/LogPlanningScene.h>
 #include <ros/package.h>
+#include <std_srvs/Empty.h>
+#include <planning_environment_msgs/SetPlanningSceneAction.h>
+#include <actionlib/client/simple_action_client.h>
+
+static const std::string SET_PLANNING_SCENE_NAME ="set_planning_scene";
 
 namespace planning_environment
 {
@@ -51,20 +56,31 @@ public:
   EnvironmentServer() :
   private_handle_("~")
   {
+    private_handle_.param<bool>("use_monitor", use_monitor_, true);
     private_handle_.param<bool>("use_collision_map", use_collision_map_, false);
 
     std::string robot_description_name = root_handle_.resolveName("robot_description", true);
 
     collision_models_ = new planning_environment::CollisionModels(robot_description_name);
-    planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
-    planning_monitor_->setUseCollisionMap(use_collision_map_);
+    if(use_monitor_) {
+      planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
+      planning_monitor_->setUseCollisionMap(use_collision_map_);
 
-    planning_monitor_->waitForState();
-    planning_monitor_->startEnvironmentMonitor();
-    while(root_handle_.ok() && use_collision_map_ && !planning_monitor_->haveMap()){
-      ros::Duration().fromSec(0.05).sleep();
+      planning_monitor_->waitForState();
+      planning_monitor_->startEnvironmentMonitor();
+      bool printed = false;
+      while(root_handle_.ok() && use_collision_map_ && !planning_monitor_->haveMap()){
+        ros::Duration().fromSec(1.0).sleep();
+        if(!printed) {
+          ROS_INFO_STREAM("Waiting for collision map");
+          printed = true;
+        }
+      }
+    } else {
+      planning_monitor_ = NULL;
     }
-
+    
+    register_planning_scene_service_ = root_handle_.advertiseService("register_planning_scene", &EnvironmentServer::registerPlanningScene, this);
     get_robot_state_service_ = private_handle_.advertiseService("get_robot_state", &EnvironmentServer::getRobotState, this);
     get_planning_scene_service_ = private_handle_.advertiseService("get_planning_scene", &EnvironmentServer::getPlanningScene, this);
     log_planning_scene_service_ = private_handle_.advertiseService("log_planning_scene", &EnvironmentServer::logPlanningScene, this);
@@ -74,11 +90,37 @@ public:
 	
   virtual ~EnvironmentServer()
   {
+    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
+      delete set_planning_scene_clients_[i];
+    }
     delete collision_models_;
-    delete planning_monitor_;
+    if(planning_monitor_) {
+      delete planning_monitor_;
+    }
   }
 	
 private:
+  
+  bool registerPlanningScene(std_srvs::Empty::Request &req,
+                             std_srvs::Empty::Response &res)
+  {
+    if(req.__connection_header->find("callerid") == req.__connection_header->end()) {
+      ROS_ERROR_STREAM("Request has no callerid");
+      return false;
+    }
+    std::string callerid = req.__connection_header->find("callerid")->second;
+    planning_scene_client_names_.push_back(callerid);
+    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(callerid+"/"+SET_PLANNING_SCENE_NAME, true));
+    while(ros::ok()) {
+      if(!set_planning_scene_clients_.back()->waitForServer(ros::Duration(1.0))) {
+        ROS_INFO_STREAM("Couldn't connect back to action server for " << callerid);
+      } else {
+        break;
+      }
+    }
+    ROS_INFO_STREAM("Successfully connected to planning scene action server for " << callerid);
+    return true;
+  }
 		
   bool getRobotState(planning_environment_msgs::GetRobotState::Request &req, 
                      planning_environment_msgs::GetRobotState::Response &res)
@@ -90,9 +132,24 @@ private:
   bool getPlanningScene(planning_environment_msgs::GetPlanningScene::Request &req, 
                         planning_environment_msgs::GetPlanningScene::Response &res) 
   {
-    planning_monitor_->getCompletePlanningScene(req.planning_scene_diff,
-                                                req.operations,
-                                                res.planning_scene);
+    if(use_monitor_) {
+      planning_monitor_->getCompletePlanningScene(req.planning_scene_diff,
+                                                  req.operations,
+                                                  res.planning_scene);
+    } else {
+      //TODO - need to be able to load planning scenes
+      res.planning_scene = req.planning_scene_diff;
+    }
+    planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
+    planning_scene_goal.planning_scene = res.planning_scene;
+    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
+      set_planning_scene_clients_[i]->sendGoal(planning_scene_goal);
+    }
+    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
+      while(ros::ok() && !set_planning_scene_clients_[i]->waitForResult(ros::Duration(1.0))) {
+        ROS_INFO_STREAM("Waiting for response from planning scene client " << planning_scene_client_names_[i] << ".  State is " << set_planning_scene_clients_[i]->getState().state_);
+      }
+    }
     return true;
   }
 
@@ -123,11 +180,16 @@ private:
   planning_environment::PlanningMonitor *planning_monitor_;
   tf::TransformListener tf_;	
 
+  bool use_monitor_;
   bool use_collision_map_;
 
   ros::ServiceServer get_robot_state_service_;
   ros::ServiceServer get_planning_scene_service_;
   ros::ServiceServer log_planning_scene_service_;
+
+  std::vector<std::string> planning_scene_client_names_;
+  ros::ServiceServer register_planning_scene_service_;
+  std::vector<actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;
 };    
 }
 

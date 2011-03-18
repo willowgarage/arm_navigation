@@ -34,8 +34,12 @@
 
 /** \author E. Gil Jones */
 
+#include <std_srvs/Empty.h>
+
 #include "planning_environment/models/collision_models_interface.h"
 #include "planning_environment/models/model_utils.h"
+
+static const std::string REGISTER_PLANNING_SCENE_NAME = "register_planning_scene";
 
 planning_environment::CollisionModelsInterface::CollisionModelsInterface(const std::string& description)
   : CollisionModels(description)
@@ -45,9 +49,29 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
   set_planning_scene_callback_ = NULL;
   revert_planning_scene_callback_ = NULL;
 
+  ros::NodeHandle root_nh;
+  std::string env_service_name = root_nh.resolveName(REGISTER_PLANNING_SCENE_NAME, true);
+
+  while(root_nh.ok()) {
+    if(ros::service::waitForService(env_service_name, ros::Duration(1.0))) {
+      break;
+    }
+    ROS_INFO_STREAM("Waiting for environment server planning scene registration service " << env_service_name);
+  }
+  
+  //need to create action server before we request
   action_server_ = new actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction>(priv_nh_, "set_planning_scene",
                                                                                                         boost::bind(&CollisionModelsInterface::setPlanningSceneCallback, this, _1), false);
   action_server_->start();
+
+
+  env_server_register_client_ = root_nh.serviceClient<std_srvs::Empty>(env_service_name);
+
+  std_srvs::Empty::Request req;
+  std_srvs::Empty::Response res;
+  if(!env_server_register_client_.call(req, res)) {
+    ROS_INFO_STREAM("Couldn't register for planning scenes");
+  }
 }
 
 planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
@@ -94,6 +118,7 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   feedback.ready = true;
   action_server_->publishFeedback(feedback);
   action_server_->setSucceeded(res);
+  ROS_INFO_STREAM("Sending succeeded");
 }
 
 void planning_environment::CollisionModelsInterface::resetToStartState(planning_models::KinematicState& state) const {
