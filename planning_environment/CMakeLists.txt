@@ -18,6 +18,7 @@ rosbuild_add_library(planning_environment src/models/robot_models.cpp
 					 src/monitors/planning_monitor.cpp
 					 src/util/kinematic_state_constraint_evaluator.cpp
 					 src/util/construct_object.cpp
+					 src/models/model_utils.cpp
 					 src/monitors/monitor_utils.cpp)
 
 rosbuild_add_openmp_flags(planning_environment)
