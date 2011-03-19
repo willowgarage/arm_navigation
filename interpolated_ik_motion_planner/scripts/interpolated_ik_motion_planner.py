@@ -213,7 +213,8 @@ class InterpolatedIKService:
                 index = joint_names.index(joint_name)
                 reordered_start_angles.append(start_angles[index])
             else:
-                rospy.logerror("bad")
+                rospy.logerr("missing joint angle, can't deal")
+                return 0
 
             #desired start angle not specified, use the current angle
 #elif 0: #joint_name in joint_states_msg.name:
