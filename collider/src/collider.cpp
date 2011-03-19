@@ -327,7 +327,9 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
   action_server_.reset( new actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", boost::bind(&Collider::makeStaticCollisionMap, this, _1), false));
   action_server_->start();
 
+  // queries on the map:
   get_octomap_service_ = root_handle_.advertiseService("octomap_binary", &Collider::octomapSrv, this);
+  occupancy_point_service_ = root_handle_.advertiseService("occupancy_point", &Collider::occupancyPointSrv, this);
 
 }
 
@@ -472,6 +474,7 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
 
 
   octomap::point3d sensor_origin = getSensorOrigin(cloud->header);
+  tf::Point sensor_origin_tf = octomap::pointOctomapToTf(sensor_origin);
 
   // integrate pointcloud into map
   ros::WallTime begin_insert = ros::WallTime::now();
@@ -482,7 +485,7 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
 
   // remove outdated occupied nodes -----
   ros::WallTime begin_degrade = ros::WallTime::now();
-  degradeOutdatedRaw(cloud->header, sensor_origin, settings.sensor_stereo_other_frame_, *collision_octree_, pcl_cloud_raw);
+  degradeOutdatedRaw(cloud->header, sensor_origin_tf, settings.sensor_stereo_other_frame_, pcl_cloud_raw);
 
   double elapsed_degrade = (ros::WallTime::now() - begin_degrade).toSec();
 
@@ -658,8 +661,8 @@ void Collider::cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud, co
 }
 
 
-void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin,
-                                  const std::string& other_stereo_frame, octomap::OcTreeStamped& tree, pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) {
+void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const tf::Point& sensor_origin,
+                                  const std::string& other_stereo_frame, const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) {
 
   tf::StampedTransform trans;
   // tf_.lookupTransform (fixed_frame_, sensor_header.frame_id, sensor_header.stamp, trans);
@@ -689,36 +692,69 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const o
   octomap::point3d min;
   octomap::point3d max;
   computeBBX(sensor_header, min, max);
+  unsigned query_time = time(NULL);
+  unsigned max_update_time = 3;
+  for(OcTreeType::leaf_bbx_iterator it = collision_octree_->begin_leafs_bbx(min,max),
+      end=collision_octree_->end_leafs_bbx(); it!= end; ++it)
+  {
+    if (collision_octree_->isNodeOccupied(*it) && !it->updatedSince(query_time, max_update_time)){
+      tf::Point pos(it.getX(), it.getY(), it.getZ());
+      tf::Point posRel = to_sensor(pos);
+      cv::Point2d uv = cam_model_.project3dToPixel(cv::Point3d(posRel.x(), posRel.y(), posRel.z()));
 
-  // query map for occupied leafs within a given BBX and time frame
-  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> > nodes;
-  tree.getOccupiedNodesUpdateTimeBBX(nodes, 3, time(NULL), min, max);
+      // ignore point if not in sensor cone
+      if (!inSensorCone(uv))
+        continue;
 
+      // ignore point if it is occluded in the map
+      if (isOccludedRaw(uv, pos.distance(sensor_origin), pcl_cloud_raw))
+        continue;
 
+      // ignore point if it is in the shadow of the robot:
+      if (robot_mask_right_->getMaskIntersection(pos) == robot_self_filter::SHADOW
+          || robot_mask_left_->getMaskIntersection(pos) == robot_self_filter::SHADOW
+          || planning_environment::computeAttachedObjectPointMask(cm_, pos, sensor_pos_right) == robot_self_filter::SHADOW
+          || planning_environment::computeAttachedObjectPointMask(cm_, pos, sensor_pos_left) == robot_self_filter::SHADOW)
+      {
+        continue;
+      }
 
-  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> >::iterator it = nodes.begin();
-  for ( ; it != nodes.end(); ++it) {
+      // otherwise: degrade node
+      collision_octree_->integrateMissNoTime(&*it);
 
-
-    // ignore point if not in sensor cone
-    if (!inSensorCone(to_sensor, it->first)) continue;
-
-    // ignore point if it is occluded in the map
-    if (isOccludedRaw(to_sensor, sensor_origin, it->first, pcl_cloud_raw)) continue;
-
-    // ignore point if it is in the shadow of the robot:
-    if (robot_mask_right_->getMaskIntersection(octomap::pointOctomapToTf(it->first)) == robot_self_filter::SHADOW
-        || robot_mask_left_->getMaskIntersection(octomap::pointOctomapToTf(it->first)) == robot_self_filter::SHADOW
-        || planning_environment::computeAttachedObjectPointMask(cm_, octomap::pointOctomapToTf(it->first), sensor_pos_right) == robot_self_filter::SHADOW
-        || planning_environment::computeAttachedObjectPointMask(cm_, octomap::pointOctomapToTf(it->first), sensor_pos_left) == robot_self_filter::SHADOW)
-    {
-      continue;
     }
-
-
-    // degrade node
-    collision_octree_->integrateMissNoTime(it->second);
   }
+
+//  // query map for occupied leafs within a given BBX and time frame
+//  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> > nodes;
+//  tree.getOccupiedNodesUpdateTimeBBX(nodes, 3, time(NULL), min, max);
+//
+//
+//
+//  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> >::iterator it = nodes.begin();
+//  for ( ; it != nodes.end(); ++it) {
+//
+//
+//    // ignore point if not in sensor cone
+//    if (!inSensorCone(to_sensor, it->first))
+//      continue;
+//
+//    // ignore point if it is occluded in the map
+//    if (isOccludedRaw(to_sensor, sensor_origin, it->first, pcl_cloud_raw))
+//        continue;
+//
+//    // ignore point if it is in the shadow of the robot:
+//    if (robot_mask_right_->getMaskIntersection(octomap::pointOctomapToTf(it->first)) == robot_self_filter::SHADOW
+//        || robot_mask_left_->getMaskIntersection(octomap::pointOctomapToTf(it->first)) == robot_self_filter::SHADOW
+//        || planning_environment::computeAttachedObjectPointMask(cm_, octomap::pointOctomapToTf(it->first), sensor_pos_right) == robot_self_filter::SHADOW
+//        || planning_environment::computeAttachedObjectPointMask(cm_, octomap::pointOctomapToTf(it->first), sensor_pos_left) == robot_self_filter::SHADOW)
+//    {
+//      continue;
+//    }
+//
+//    // degrade node
+//    collision_octree_->integrateMissNoTime(it->second);
+//  }
 /*  std_msgs::Header marker_header = sensor_header;
   marker_header.frame_id = fixed_frame_;
   publishMarkerArray(shadow_voxels, marker_header, octomap_debug_pub_);*/
@@ -751,9 +787,12 @@ void Collider::degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, 
 
   for (std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> >::iterator it = nodes.begin();
        it != nodes.end(); ++it) {
+    tf::Point pos = octomap::pointOctomapToTf(it->first);
+    tf::Point posRel = to_sensor(pos);
+    cv::Point2d uv = cam_model_.project3dToPixel(cv::Point3d(posRel.x(), posRel.y(), posRel.z()));
 
     // ignore point if not in sensor cone
-    if (!inSensorCone(to_sensor, it->first)) continue;
+    if (!inSensorCone(uv)) continue;
 
     // ignore point if it is occluded in the map
     if (isOccludedMap(sensor_origin, it->first)) continue;
@@ -894,40 +933,25 @@ void Collider::computeBBX(const std_msgs::Header& sensor_header, octomap::point3
 }
 
 
-bool Collider::inSensorCone(const tf::Transform& transform, const octomap::point3d& p) const {
-  tf::Vector3 ptf(p.x(), p.y(), p.z());
-  ptf = transform(ptf);
-  cv::Point3d pt_cv(ptf.x(), ptf.y(), ptf.z());
-
-  // fprintf(stderr, "%.2f,%.2f,%.2f  %.2f,%.2f,%.2f\n", pt_cv.x, pt_cv.y, pt_cv.z, pt_cv2.x, pt_cv2.y, pt_cv2.z);
-    
-
-
-  cv::Point2d uv = cam_model_.project3dToPixel(pt_cv);
-  return ( (uv.x >= camera_stereo_offset_left_)
-           && (uv.x < cam_size_.width + camera_stereo_offset_right_)
-           && (uv.y >= 0) 
-           && (uv.y < cam_size_.height) );
+bool Collider::inSensorCone(const cv::Point2d& uv) const {
+  // Check if projected 2D coordinate in pixel range.
+  // This check is a little more restrictive than it should be by using
+  // 1 pixel less to account for rounding / discretization errors.
+  // Otherwise points on the corner are accounted to be in the sensor cone.
+  return ( (uv.x > camera_stereo_offset_left_+1)
+           && (uv.x < cam_size_.width + camera_stereo_offset_right_ - 2)
+           && (uv.y > 1)
+           && (uv.y < cam_size_.height-2) );
 }
 
 
 
-bool Collider::isOccludedRaw(const tf::Transform& transform, const octomap::point3d& sensor_origin,
-                             const octomap::point3d& p, pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) {
-
-  tf::Vector3 ptf(p.x(), p.y(), p.z());
-  ptf = transform(ptf);
-  cv::Point3d pt_cv(ptf.x(), ptf.y(), ptf.z());
-  
-  //  fprintf(stderr, "%.2f,%.2f,%.2f  %.2f,%.2f,%.2f\n", pt_cv.x, pt_cv.y, pt_cv.z, pt_cv2.x, pt_cv2.y, pt_cv2.z);
-  
-  cv::Point2d uv = cam_model_.project3dToPixel(pt_cv);
+bool Collider::isOccludedRaw(const cv::Point2d& uv, double range, const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) {
 
   // out of image range?
   if ((uv.x < 0) || (uv.y < 0) || (uv.x > cam_size_.width) || (uv.y > cam_size_.height))
 	  return false;
   
-  double range = (p-sensor_origin).norm();
   double sensor_range = pcl_cloud_raw(uv.x, uv.y).z;
 
   return (sensor_range < range);
@@ -1087,5 +1111,28 @@ bool Collider::octomapSrv(octomap_ros::GetOctomap::Request  &req, octomap_ros::G
 	octomap::octomapMapToMsg(*collision_octree_, res.map);
 
 	return true;
+}
+
+bool Collider::occupancyPointSrv(collision_environment_msgs::OccupancyPointQuery::Request &req,
+                                  collision_environment_msgs::OccupancyPointQuery::Response &res){
+
+  octomap::OcTreeNodeStamped* node = collision_octree_->search(req.point.x, req.point.y, req.point.z);
+  if (node){
+    if (collision_octree_->isNodeOccupied(node))
+      res.occupancy=collision_environment_msgs::OccupancyPointQueryResponse::OCCUPIED;
+    else
+      res.occupancy=collision_environment_msgs::OccupancyPointQueryResponse::FREE;
+  } else{
+    res.occupancy = collision_environment_msgs::OccupancyPointQueryResponse::UNKNOWN;
+  }
+
+	return true;
+}
+
+bool Collider::occupancyBBXSrv(collision_environment_msgs::OccupancyBBXQuery::Request &req,
+                                collision_environment_msgs::OccupancyBBXQuery::Response &res){
+
+  // TODO: stub (iterators missing)
+  return true;
 }
 

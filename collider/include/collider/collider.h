@@ -60,6 +60,8 @@
 #include <visualization_msgs/Marker.h>
 #include <mapping_msgs/AttachedCollisionObject.h>
 #include <collision_environment_msgs/MakeStaticCollisionMapAction.h>
+#include <collision_environment_msgs/OccupancyPointQuery.h>
+#include <collision_environment_msgs/OccupancyBBXQuery.h>
 #include <actionlib/server/simple_action_server.h>
 #include <image_transport/image_transport.h>
 #include <image_geometry/pinhole_camera_model.h>
@@ -141,14 +143,13 @@ class Collider {
   // obstacle cleaning
   void degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin, octomap::OcTreeStamped& tree);
   void computeBBX(const std_msgs::Header& sensor_header, octomap::point3d& bbx_min, octomap::point3d& bbx_max);
-  bool inSensorCone(const tf::Transform& transform, /* const roslib::Header& sensor_header,  */const octomap::point3d& p) const;
+  bool inSensorCone(const cv::Point2d& uv) const;
   bool isOccludedMap(const octomap::point3d& sensor_origin, const octomap::point3d& p) const;
   octomap::point3d getSensorOrigin(const std_msgs::Header& sensor_header);
-  void degradeOutdatedRaw(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin,
-                          const std::string& other_stereo_frame, octomap::OcTreeStamped& tree,
-                          pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw);
-  bool isOccludedRaw (/* const roslib::Header& sensor_header,  */const tf::Transform& transform, const octomap::point3d& sensor_origin, 
-                      const octomap::point3d& p, pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw) ;
+  void degradeOutdatedRaw(const std_msgs::Header& sensor_header, const tf::Point& sensor_origin,
+                          const std::string& other_stereo_frame,
+                          const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw);
+  bool isOccludedRaw (const cv::Point2d& uv, double range, const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw);
 
   //const tf::Transform& transform, 
 
@@ -161,7 +162,11 @@ class Collider {
   bool reset(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
   void makeStaticCollisionMap(const collision_environment_msgs::MakeStaticCollisionMapGoalConstPtr& goal);
   bool dummyReset(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+  // occupancy queries:
   bool octomapSrv(octomap_ros::GetOctomap::Request  &req, octomap_ros::GetOctomap::Response &res);
+  bool occupancyPointSrv(collision_environment_msgs::OccupancyPointQuery::Request &req, collision_environment_msgs::OccupancyPointQuery::Response &res);
+  bool occupancyBBXSrv(collision_environment_msgs::OccupancyBBXQuery::Request &req, collision_environment_msgs::OccupancyBBXQuery::Response &res);
+
 
 
  protected:
@@ -181,7 +186,8 @@ class Collider {
   ros::Publisher octomap_visualization_attached_pub_, octomap_visualization_attached_array_pub_;
   std_msgs::ColorRGBA attached_color_;
 
-  ros::ServiceServer reset_service_, dummy_reset_service_, transparent_service_, get_octomap_service_;
+  ros::ServiceServer reset_service_, dummy_reset_service_, transparent_service_,
+                      get_octomap_service_, occupancy_point_service_;
 
   ros::Subscriber*  camera_info_subscriber_;
   
