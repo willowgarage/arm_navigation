@@ -330,6 +330,8 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
   // queries on the map:
   get_octomap_service_ = root_handle_.advertiseService("octomap_binary", &Collider::octomapSrv, this);
   occupancy_point_service_ = root_handle_.advertiseService("occupancy_point", &Collider::occupancyPointSrv, this);
+  occupancy_bbx_service_ = root_handle_.advertiseService("occupancy_in_bbx", &Collider::occupancyBBXSrv, this);
+  occupancy_bbx_size_service_ = root_handle_.advertiseService("occupancy_in_bbx_size", &Collider::occupancyBBXSizeSrv, this);
 
 }
 
@@ -697,7 +699,9 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const t
   for(OcTreeType::leaf_bbx_iterator it = collision_octree_->begin_leafs_bbx(min,max),
       end=collision_octree_->end_leafs_bbx(); it!= end; ++it)
   {
-    if (collision_octree_->isNodeOccupied(*it) && !it->updatedSince(query_time, max_update_time)){
+    if (collision_octree_->isNodeOccupied(*it) &&
+        ((query_time - it->getTimestamp()) > max_update_time))
+    {
       tf::Point pos(it.getX(), it.getY(), it.getZ());
       tf::Point posRel = to_sensor(pos);
       cv::Point2d uv = cam_model_.project3dToPixel(cv::Point3d(posRel.x(), posRel.y(), posRel.z()));
@@ -710,7 +714,7 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const t
       if (isOccludedRaw(uv, pos.distance(sensor_origin), pcl_cloud_raw))
         continue;
 
-      // ignore point if it is in the shadow of the robot:
+      // ignore point if it is in the shadow of the robot or attached object
       if (robot_mask_right_->getMaskIntersection(pos) == robot_self_filter::SHADOW
           || robot_mask_left_->getMaskIntersection(pos) == robot_self_filter::SHADOW
           || planning_environment::computeAttachedObjectPointMask(cm_, pos, sensor_pos_right) == robot_self_filter::SHADOW
@@ -765,42 +769,40 @@ void Collider::degradeOutdatedRaw(const std_msgs::Header& sensor_header, const t
 
 void Collider::degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin,
                                          octomap::OcTreeStamped& tree) {
-
-  // degrade ALL nodes
-  //  tree.degradeOutdatedNodes(1);
+  tf::StampedTransform trans;
+  tf_.lookupTransform (sensor_header.frame_id, fixed_frame_, sensor_header.stamp, trans);
+  tf::Transform to_sensor = trans;
 
   // compute bbx from sensor cone
   octomap::point3d min;
   octomap::point3d max;
   computeBBX(sensor_header, min, max);
 
-  // query map for occupied leafs within a given BBX and time frame
-  std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> > nodes;
-  tree.getOccupiedNodesUpdateTimeBBX(nodes, 1, time(NULL), min, max);
+  unsigned query_time = time(NULL);
+  unsigned max_update_time = 1;
+  for(OcTreeType::leaf_bbx_iterator it = collision_octree_->begin_leafs_bbx(min,max),
+      end=collision_octree_->end_leafs_bbx(); it!= end; ++it)
+  {
+    if (collision_octree_->isNodeOccupied(*it) &&
+        ((query_time - it->getTimestamp()) > max_update_time))
+    {
+      tf::Point pos(it.getX(), it.getY(), it.getZ());
+      tf::Point posRel = to_sensor(pos);
+      cv::Point2d uv = cam_model_.project3dToPixel(cv::Point3d(posRel.x(), posRel.y(), posRel.z()));
 
-  tf::StampedTransform trans;
-  // tf_.lookupTransform (fixed_frame_, sensor_header.frame_id, sensor_header.stamp, trans);
-  // tf::Transform to_world = trans;
-  tf_.lookupTransform (sensor_header.frame_id, fixed_frame_, sensor_header.stamp, trans);
-  tf::Transform to_sensor = trans;
+      // ignore point if not in sensor cone
+      if (!inSensorCone(uv))
+        continue;
 
+      // ignore point if it is occluded in the map
+      if (isOccludedMap(sensor_origin, it.getCoordinate()))
+        continue;
 
-  for (std::list<std::pair<octomap::point3d, octomap::OcTreeNodeStamped*> >::iterator it = nodes.begin();
-       it != nodes.end(); ++it) {
-    tf::Point pos = octomap::pointOctomapToTf(it->first);
-    tf::Point posRel = to_sensor(pos);
-    cv::Point2d uv = cam_model_.project3dToPixel(cv::Point3d(posRel.x(), posRel.y(), posRel.z()));
+      // otherwise: degrade node
+      collision_octree_->integrateMissNoTime(&*it);
 
-    // ignore point if not in sensor cone
-    if (!inSensorCone(uv)) continue;
-
-    // ignore point if it is occluded in the map
-    if (isOccludedMap(sensor_origin, it->first)) continue;
-
-    // degrade node
-    collision_octree_->integrateMissNoTime(it->second);
+    }
   }
-
 }
 
 
@@ -1132,7 +1134,49 @@ bool Collider::occupancyPointSrv(collision_environment_msgs::OccupancyPointQuery
 bool Collider::occupancyBBXSrv(collision_environment_msgs::OccupancyBBXQuery::Request &req,
                                 collision_environment_msgs::OccupancyBBXQuery::Response &res){
 
-  // TODO: stub (iterators missing)
+  OcTreeType::leaf_bbx_iterator it = collision_octree_->begin_leafs_bbx(octomap::pointMsgToOctomap(req.min),
+                                                                    octomap::pointMsgToOctomap(req.max));
+  OcTreeType::leaf_bbx_iterator end = collision_octree_->end_leafs_bbx();
+
+  geometry_msgs::Point pt;
+  for(; it!= end; ++it){
+    pt.x = it.getX();
+    pt.y = it.getY();
+    pt.z = it.getZ();
+
+    if (collision_octree_->isNodeOccupied(*it)){
+      res.occupied.push_back(pt);
+    } else {
+      res.free.push_back(pt);
+    }
+  }
+  res.resolution = collision_octree_->getResolution();
+
+  return true;
+}
+
+bool Collider::occupancyBBXSizeSrv(collision_environment_msgs::OccupancyBBXSizeQuery::Request &req,
+                                collision_environment_msgs::OccupancyBBXSizeQuery::Response &res){
+
+  octomap::point3d center = octomap::pointMsgToOctomap(req.center);
+  octomap::point3d size = octomap::pointMsgToOctomap(req.size);
+  OcTreeType::leaf_bbx_iterator it = collision_octree_->begin_leafs_bbx(center - (size*0.5), center + (size*0.5));
+  OcTreeType::leaf_bbx_iterator end = collision_octree_->end_leafs_bbx();
+
+  geometry_msgs::Point pt;
+  for(; it!= end; ++it){
+    pt.x = it.getX();
+    pt.y = it.getY();
+    pt.z = it.getZ();
+
+    if (collision_octree_->isNodeOccupied(*it)){
+      res.occupied.push_back(pt);
+    } else {
+      res.free.push_back(pt);
+    }
+  }
+  res.resolution = collision_octree_->getResolution();
+
   return true;
 }
 
