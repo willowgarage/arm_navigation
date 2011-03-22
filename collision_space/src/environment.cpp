@@ -276,6 +276,16 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(cons
       ok = false;
     }
     unsigned int ind_2 = allowed_entries_bimap_.left.find(change_names[i])->second;
+    if(ind_1 >= allowed_entries_.size()) {
+      ROS_ERROR_STREAM("Got an index entry for name " << name << " ind "  << ind_1 << " but only have " 
+                       << allowed_entries_.size() << " in allowed collision matrix.");
+      return false;
+    }
+    if(ind_2 >= allowed_entries_[ind_1].size()) {
+      ROS_ERROR_STREAM("Got an index entry for name " << change_names[i] << " index " << ind_2 << " but only have " << 
+                       allowed_entries_[ind_1].size() << " in allowed collision matrix.");
+      return false;
+    }
     allowed_entries_[ind_1][ind_2] = allowed;
     allowed_entries_[ind_2][ind_1] = allowed;
   }
