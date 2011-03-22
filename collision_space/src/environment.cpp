@@ -159,12 +159,34 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::removeEntry(cons
   if(allowed_entries_bimap_.left.find(name) == allowed_entries_bimap_.left.end()) {
     return false;
   }
+  unsigned int last_index = allowed_entries_bimap_.size()-1;
   unsigned int ind = allowed_entries_bimap_.left.find(name)->second;
   allowed_entries_.erase(allowed_entries_.begin()+ind);
   for(unsigned int i = 0; i < allowed_entries_.size(); i++) {
     allowed_entries_[i].erase(allowed_entries_[i].begin()+ind);
   }
   allowed_entries_bimap_.left.erase(name);
+  //if this is last ind, no need to decrement
+  if(ind != last_index) {
+    //sanity checks
+    entry_type::right_iterator it = allowed_entries_bimap_.right.find(last_index);
+    if(it == allowed_entries_bimap_.right.end()) {
+      ROS_INFO_STREAM("Something wrong with last index " << last_index << " ind " << ind);
+    }
+    //now we need to decrement the index for everything after this
+    for(unsigned int i = ind+1; i <= last_index; i++) {
+      entry_type::right_iterator it = allowed_entries_bimap_.right.find(i);
+      if(it == allowed_entries_bimap_.right.end()) {
+        ROS_WARN_STREAM("Problem in replace " << i);
+        return false;
+      }
+      bool successful_replace = allowed_entries_bimap_.right.replace_key(it, i-1);
+      if(!successful_replace) {
+        ROS_WARN_STREAM("Can't replace");
+        return false;
+      } 
+    }
+  }
   return true;
 }
 
@@ -342,7 +364,7 @@ const collision_space::EnvironmentModel::AllowedCollisionMatrix&
 collision_space::EnvironmentModel::getCurrentAllowedCollisionMatrix() const {
   if(use_altered_collision_matrix_) {
     return altered_collision_matrix_;
-  }
+  } 
   return default_collision_matrix_;
 }
 
