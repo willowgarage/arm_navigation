@@ -1094,6 +1094,7 @@ bool planning_environment::CollisionModels::computeAllowedContact(const motion_p
 
 void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const
 {
+  ode_collision_model_->lock();
   cmap.header.frame_id = getWorldFrameId();
   cmap.header.stamp = ros::Time::now();
   cmap.boxes.clear();
@@ -1120,6 +1121,7 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mappin
       cmap.boxes.push_back(obb);
     }
   }
+  ode_collision_model_->unlock();
 }
 
 void planning_environment::CollisionModels::revertAllowedCollisionToDefault() {
@@ -1142,6 +1144,7 @@ void planning_environment::CollisionModels::getCollisionSpaceAllowedCollisions(p
 
 void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject> &omap) const
 {
+  ode_collision_model_->lock();
   omap.clear();
   const collision_space::EnvironmentObjects *eo = ode_collision_model_->getObjects();
   std::vector<std::string> ns = eo->getNamespaces();
@@ -1168,6 +1171,7 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(st
     }
     omap.push_back(o);
   }
+  ode_collision_model_->unlock();
 }
 
 void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject> &avec) const
@@ -1175,6 +1179,7 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
   avec.clear();
 
   kmodel_->sharedLock();
+  ode_collision_model_->lock();
 
   std::vector<const planning_models::KinematicModel::AttachedBodyModel*> att_vec = kmodel_->getAttachedBodyModels();
   for(unsigned int i = 0; i < att_vec.size(); i++) 
@@ -1196,7 +1201,7 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
     ao.object.id = att_vec[i]->getName();
     avec.push_back(ao);
   }
-
+  ode_collision_model_->unlock();
   kmodel_->sharedUnlock();
 }
 
