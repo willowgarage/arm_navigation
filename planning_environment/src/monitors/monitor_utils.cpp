@@ -335,7 +335,6 @@ bool planning_environment::computeAttachedObjectPointCloudMask(const pcl::PointC
 
   // transform pointcloud into fixed frame, if needed
   if (cm->getWorldFrameId() != pcl_cloud.header.frame_id) {
-    ROS_INFO_STREAM("Transforming from frame " << pcl_cloud.header.frame_id);
     pcl::PointCloud<pcl::PointXYZ> trans_cloud = pcl_cloud;
     pcl_ros::transformPointCloud(cm->getWorldFrameId(), pcl_cloud, trans_cloud,tf);
     for (int i = 0 ; i < n ; ++i) {
