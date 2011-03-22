@@ -66,9 +66,9 @@ public:
 	
   bool getCompletePlanningScene(const planning_environment_msgs::PlanningScene& planning_diff,
                                 const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
-                                planning_environment_msgs::PlanningScene& planning_scene);
+                                planning_environment_msgs::PlanningScene& planning_scene) const;
 
-  void getAllFixedFrameTransforms(std::vector<geometry_msgs::TransformStamped>& transform_vec);
+  void getAllFixedFrameTransforms(std::vector<geometry_msgs::TransformStamped>& transform_vec) const;
 
 protected:
 

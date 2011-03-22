@@ -46,7 +46,7 @@ void planning_environment::PlanningMonitor::loadParams(void)
 
 bool planning_environment::PlanningMonitor::getCompletePlanningScene(const planning_environment_msgs::PlanningScene& planning_diff,
                                                                      const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
-                                                                     planning_environment_msgs::PlanningScene& planning_scene){
+                                                                     planning_environment_msgs::PlanningScene& planning_scene) const{
   //creating state    
   planning_models::KinematicState set_state(getKinematicModel());    
   //setting state to current values
@@ -215,7 +215,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
   return true;
 }   
 
-void planning_environment::PlanningMonitor::getAllFixedFrameTransforms(std::vector<geometry_msgs::TransformStamped>& transform_vec)
+void planning_environment::PlanningMonitor::getAllFixedFrameTransforms(std::vector<geometry_msgs::TransformStamped>& transform_vec) const
 {
   transform_vec.clear();
 
@@ -234,7 +234,7 @@ void planning_environment::PlanningMonitor::getAllFixedFrameTransforms(std::vect
   for(unsigned int i = 0; i < all_frame_names.size(); i++) {
     if(all_frame_names[i] != cm_->getWorldFrameId() && 
        !cm_->getKinematicModel()->hasLinkModel(all_frame_names[i])) {
-      ROS_INFO_STREAM("Adding fixed frame transform for frame " << all_frame_names[i]);
+      ROS_DEBUG_STREAM("Adding fixed frame transform for frame " << all_frame_names[i]);
       geometry_msgs::PoseStamped ident_pose;
       ident_pose.header.frame_id = cm_->getWorldFrameId();
       ident_pose.pose.orientation.w = 1.0;

@@ -279,14 +279,16 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
     addAttachedObject(conv_att_objects[i]);
   }
 
+  //TODO - allowed contacts
+  //have to call this first, because it reverts the allowed collision matrix
+  setCollisionMap(planning_scene.collision_map, true);
+
   if(planning_scene.link_padding.size() > 0) {
     applyLinkPaddingToCollisionSpace(planning_scene.link_padding);
   }
   if(!planning_scene.allowed_collision_matrix.link_names.empty()) {
     ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
   }
-  //TODO - allowed contacts
-  setCollisionMap(planning_scene.collision_map, true);
 
   //now we create again
   state = new planning_models::KinematicState(kmodel_);

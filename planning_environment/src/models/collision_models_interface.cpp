@@ -41,7 +41,7 @@
 
 static const std::string REGISTER_PLANNING_SCENE_NAME = "register_planning_scene";
 
-planning_environment::CollisionModelsInterface::CollisionModelsInterface(const std::string& description)
+planning_environment::CollisionModelsInterface::CollisionModelsInterface(const std::string& description, bool register_with_server)
   : CollisionModels(description)
 {
   planning_scene_state_ = NULL;
@@ -52,7 +52,7 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
   ros::NodeHandle root_nh;
   std::string env_service_name = root_nh.resolveName(REGISTER_PLANNING_SCENE_NAME, true);
 
-  while(root_nh.ok()) {
+  while(register_with_server && root_nh.ok()) {
     if(ros::service::waitForService(env_service_name, ros::Duration(1.0))) {
       break;
     }
@@ -64,13 +64,14 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
                                                                                                         boost::bind(&CollisionModelsInterface::setPlanningSceneCallback, this, _1), false);
   action_server_->start();
 
-
-  env_server_register_client_ = root_nh.serviceClient<std_srvs::Empty>(env_service_name);
-
-  std_srvs::Empty::Request req;
-  std_srvs::Empty::Response res;
-  if(!env_server_register_client_.call(req, res)) {
-    ROS_INFO_STREAM("Couldn't register for planning scenes");
+  if(register_with_server) {
+    env_server_register_client_ = root_nh.serviceClient<std_srvs::Empty>(env_service_name);
+    
+    std_srvs::Empty::Request req;
+    std_srvs::Empty::Response res;
+    if(!env_server_register_client_.call(req, res)) {
+      ROS_INFO_STREAM("Couldn't register for planning scenes");
+    }
   }
 }
 

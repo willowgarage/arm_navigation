@@ -756,7 +756,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForConstraints)
   pos.header.frame_id = "base_footprint";
   pos.header.stamp = ros::Time::now();
   pos.link_name = "r_wrist_roll_link";
-  pos.target_point_offset.x = .5;
+  pos.position.x = .5;
   pos.constraint_region_orientation.w = 1.0;
 
   goal_constraints.position_constraints.push_back(pos);
@@ -765,7 +765,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForConstraints)
                                               goal_constraints);
 
   EXPECT_TRUE(goal_constraints.position_constraints[0].header.frame_id == "odom_combined");
-  EXPECT_LE(fabs(goal_constraints.position_constraints[0].target_point_offset.x-4.5), VERY_SMALL) ;
+  EXPECT_LE(fabs(goal_constraints.position_constraints[0].position.x-4.5), VERY_SMALL) ;
   
   //checking that if we turn around then we should subtract .5 in x
 
@@ -786,7 +786,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForConstraints)
   
 
   EXPECT_TRUE(goal_constraints.position_constraints[0].header.frame_id == "odom_combined");
-  EXPECT_LE(fabs(goal_constraints.position_constraints[0].target_point_offset.x-3.5), VERY_SMALL) ;
+  EXPECT_LE(fabs(goal_constraints.position_constraints[0].position.x-3.5), VERY_SMALL) ;
 }
 
 int main(int argc, char **argv)

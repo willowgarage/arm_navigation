@@ -54,7 +54,7 @@ public:
   // Constructors
   //
 	
-  CollisionModelsInterface(const std::string &description);
+  CollisionModelsInterface(const std::string &description, bool register_with_server = true);
 
   virtual ~CollisionModelsInterface(void);
  

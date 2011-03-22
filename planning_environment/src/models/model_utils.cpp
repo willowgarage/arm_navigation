@@ -261,8 +261,8 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const motion
       svec1 = model->getModelGroup((*it).object1)->getGroupLinkNames();
       special1 = true;
     }
-    if(model->getModelGroup((*it).object2)) {
-      svec2 = model->getModelGroup((*it).object1)->getGroupLinkNames();
+    if(model->getModelGroup((*it).object2) != NULL) {
+      svec2 = model->getModelGroup((*it).object2)->getGroupLinkNames();
       special2 = true;
     }
     if(!special1) {
@@ -273,7 +273,7 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const motion
     }
 
     bool first_all = false;
-    bool second_all = true;
+    bool second_all = false;
     for(unsigned int j = 0; j < svec1.size(); j++) {
       if(svec1[j] == (*it).COLLISION_SET_ALL) {
         first_all = true;
@@ -307,7 +307,7 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const motion
     } else {
       bool ok = matrix.changeEntry(svec1, svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
       if(!ok) {
-        ROS_INFO_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
+        ROS_WARN_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
         all_ok = false;
       }
     }

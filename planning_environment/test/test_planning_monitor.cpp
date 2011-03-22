@@ -101,9 +101,8 @@ protected:
   }
 
   bool CallPlanningScene() {
-    return planning_monitor_->getCompletePlanningScene(group_name_,
-                                                       planning_scene_diff_,
-                                                       operations,
+    return planning_monitor_->getCompletePlanningScene(planning_scene_diff_,
+                                                       operations_,
                                                        planning_scene_);
   }
 
@@ -122,7 +121,7 @@ protected:
   planning_environment_msgs::PlanningScene planning_scene_diff_;
   planning_environment_msgs::PlanningScene planning_scene_;
 
-  motion_planning_msgs::OrderedCollisionOperations operations;
+  motion_planning_msgs::OrderedCollisionOperations operations_;
   
 };
 
@@ -225,6 +224,44 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   //now they should be different
   EXPECT_EQ(planning_scene_.attached_collision_objects[0].object.header.frame_id, "odom_combined");
   EXPECT_EQ(planning_scene_.attached_collision_objects[1].object.header.frame_id, "base_footprint");
+
+  test_collision_models.revertPlanningScene(state);
+
+  //now we mess with ordered collision operations
+  motion_planning_msgs::CollisionOperation cop;
+  cop.object1 = "l_end_effector";
+  cop.object2 = "obj3";
+  cop.operation = cop.DISABLE;
+  operations_.collision_operations.push_back(cop);
+
+  cop.object1 = "up_end_effector";
+  cop.object2 = "obj3";
+  cop.operation = cop.DISABLE;
+  operations_.collision_operations.push_back(cop);
+
+  CallPlanningScene();
+
+  state = test_collision_models.setPlanningScene(planning_scene_);
+  ASSERT_TRUE(state != NULL);
+
+  const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm = test_collision_models.getCollisionSpace()->getCurrentAllowedCollisionMatrix();
+  
+  bool allowed;
+  EXPECT_TRUE(acm.getAllowedCollision("l_gripper_l_finger_tip_link", "obj3", allowed));
+  EXPECT_TRUE(allowed);
+
+  EXPECT_TRUE(acm.getAllowedCollision("l_gripper_l_finger_tip_link", "obj2", allowed));
+  EXPECT_FALSE(allowed);
+
+  //defaults shouldn't have changed
+  const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm2 = test_collision_models.getCollisionSpace()->getDefaultAllowedCollisionMatrix();
+  
+  EXPECT_TRUE(acm2.getAllowedCollision("l_gripper_l_finger_tip_link", "obj3", allowed));
+  EXPECT_FALSE(allowed);
+
+  EXPECT_TRUE(acm2.getAllowedCollision("l_gripper_l_finger_tip_link", "obj2", allowed));
+  EXPECT_FALSE(allowed);
+
 
   test_collision_models.revertPlanningScene(state);
 }
@@ -358,8 +395,11 @@ TEST_F(PlanningMonitorTest, ChangingRobotState)
 TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 {
 
+  ros::AsyncSpinner async(2);
+  async.start();
+
   std::string robot_description_name = nh_.resolveName("robot_description", true);
-  planning_environment::CollisionModelsInterface test_collision_models(robot_description_name);
+  planning_environment::CollisionModelsInterface test_collision_models(robot_description_name, false);
 
   //this test is important because calling the service calls collision checking from a different thread
   test_collision_models.addSetPlanningSceneCallback(boost::bind(&PlanningMonitorTest::setPlanningSceneCallback, this, _1));
@@ -374,9 +414,6 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
   planning_environment_msgs::SetPlanningSceneGoal goal;
   
   goal.planning_scene = planning_scene_;
-
-  ros::AsyncSpinner async(2);
-  async.start();
 
   ASSERT_TRUE(ac.waitForServer());
 
