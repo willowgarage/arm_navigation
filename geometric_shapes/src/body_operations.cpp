@@ -38,16 +38,25 @@
 
 void bodies::maskPosesInsideBodyVectors(const std::vector<btTransform>& poses,
                                         const std::vector<bodies::BodyVector*>& bvs,
-                                        std::vector<bool>& mask) {
+                                        std::vector<bool>& mask,
+                                        bool use_padded) {
   mask.resize(poses.size(), false);
   for(unsigned int i = 0; i < poses.size(); i++) {
     bool inside = false;
     btVector3 pt = poses[i].getOrigin();
     for(unsigned int j = 0; !inside && j < bvs.size(); j++) {
       for(unsigned int k = 0;!inside && k < bvs[j]->getSize(); k++) {
-        if(bvs[j]->getBoundingSphere(k).center.distance2(pt) < bvs[j]->getBoundingSphereRadiusSquared(k)) {
-          if(bvs[j]->getBody(k)->containsPoint(pt)) {
-            inside = true;
+        if(!use_padded) {
+          if(bvs[j]->getBoundingSphere(k).center.distance2(pt) < bvs[j]->getBoundingSphereRadiusSquared(k)) {
+            if(bvs[j]->getBody(k)->containsPoint(pt)) {
+              inside = true;
+            }
+          }
+        } else {
+          if(bvs[j]->getPaddedBoundingSphere(k).center.distance2(pt) < bvs[j]->getPaddedBoundingSphereRadiusSquared(k)) {
+            if(bvs[j]->getPaddedBody(k)->containsPoint(pt)) {
+              inside = true;
+            }
           }
         }
       }

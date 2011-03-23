@@ -439,11 +439,12 @@ public:
   BodyVector();
 
   BodyVector(const std::vector<shapes::Shape*>& shapes, 
-             const std::vector<btTransform>& poses);
+             const std::vector<btTransform>& poses,
+             double padding);
   
   ~BodyVector();
 
-  void addBody(const shapes::Shape* shape, const btTransform& pose);
+  void addBody(const shapes::Shape* shape, const btTransform& pose, double padding = 0.0);
 
   void setPose(unsigned int i, const btTransform& pose);
 
@@ -451,16 +452,26 @@ public:
     return bodies_.size();
   }
 
+  double getPadding() const {
+    return padding_;
+  }
+
   const Body* getBody(unsigned int i) const;
+  const Body* getPaddedBody(unsigned int i) const;
 
   BoundingSphere getBoundingSphere(unsigned int i) const;
+  BoundingSphere getPaddedBoundingSphere(unsigned int i) const;
   
   double getBoundingSphereRadiusSquared(unsigned int i) const;
+  double getPaddedBoundingSphereRadiusSquared(unsigned int i) const;
 
 private:
 
   std::vector<Body*> bodies_;
+  double padding_;
+  std::vector<Body*> padded_bodies_;
   std::vector<double> rsqrs_;
+  std::vector<double> padded_rsqrs_;
 
 };
     

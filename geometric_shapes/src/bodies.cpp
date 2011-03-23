@@ -1089,10 +1089,12 @@ bodies::BodyVector::BodyVector(){
 }
 
 bodies::BodyVector::BodyVector(const std::vector<shapes::Shape*>& shapes, 
-                               const std::vector<btTransform>& poses)
+                               const std::vector<btTransform>& poses,
+                               double padding)
 {
+  padding_ = padding;
   for(unsigned int i = 0; i < shapes.size(); i++) {
-    addBody(shapes[i],poses[i]);
+    addBody(shapes[i],poses[i], padding_);
   }
 }
 
@@ -1101,21 +1103,35 @@ bodies::BodyVector::~BodyVector() {
   for(unsigned int i = 0; i < bodies_.size(); i++) {
     delete bodies_[i];
   }
+  for(unsigned int i = 0; i < padded_bodies_.size(); i++) {
+    delete padded_bodies_[i];
+  }
 }
 
-void bodies::BodyVector::addBody(const shapes::Shape* shape, const btTransform& pose) {
+void bodies::BodyVector::addBody(const shapes::Shape* shape, const btTransform& pose, double padding) {
   bodies::Body* body = bodies::createBodyFromShape(shape);
   body->setPose(pose);
   bodies_.push_back(body);
   BoundingSphere sphere;
   body->computeBoundingSphere(sphere);
   rsqrs_.push_back(sphere.radius*sphere.radius);
+  if(padding > 0.0) {
+    bodies::Body* padded_body = bodies::createBodyFromShape(shape);
+    padded_body->setPose(pose);
+    padded_bodies_.push_back(padded_body);
+    BoundingSphere padded_sphere;
+    padded_body->computeBoundingSphere(padded_sphere);
+    padded_rsqrs_.push_back(padded_sphere.radius*padded_sphere.radius);
+  }
 }
 
 void bodies::BodyVector::setPose(unsigned int i, const btTransform& pose)
 {
   if(i >= bodies_.size()) return;
   bodies_[i]->setPose(pose);
+  if(padding_ > 0.0) {
+    padded_bodies_[i]->setPose(pose);
+  }
 }
 
 const bodies::Body* bodies::BodyVector::getBody(unsigned int i) const
@@ -1123,6 +1139,16 @@ const bodies::Body* bodies::BodyVector::getBody(unsigned int i) const
   if(i >= bodies_.size()) return NULL;
   return bodies_[i];
 }
+
+const bodies::Body* bodies::BodyVector::getPaddedBody(unsigned int i) const
+{
+  if(i >= bodies_.size()) return NULL;
+  if(padding_ > 0.0) {
+    return padded_bodies_[i];
+  } 
+  return bodies_[i];
+}
+
 
 bodies::BoundingSphere bodies::BodyVector::getBoundingSphere(unsigned int i) const
 {
@@ -1134,10 +1160,32 @@ bodies::BoundingSphere bodies::BodyVector::getBoundingSphere(unsigned int i) con
   return sphere;
 }
 
+bodies::BoundingSphere bodies::BodyVector::getPaddedBoundingSphere(unsigned int i) const
+{
+  if(i >= bodies_.size()) {
+    ROS_WARN("Trying to get sphere for body we don't have.  Probably segfault");
+  }
+  BoundingSphere sphere;
+  if(padding_ > 0.0) {
+    padded_bodies_[i]->computeBoundingSphere(sphere);
+  } else {
+    bodies_[i]->computeBoundingSphere(sphere);
+  }
+  return sphere;
+}
+
 double bodies::BodyVector::getBoundingSphereRadiusSquared(unsigned int i) const
 {
   if(i >= rsqrs_.size()) {
     return -1.0;
   }
   return rsqrs_[i];
+}
+
+double bodies::BodyVector::getPaddedBoundingSphereRadiusSquared(unsigned int i) const
+{
+  if(i >= rsqrs_.size()) {
+    return -1.0;
+  }
+  return padded_rsqrs_[i];
 }

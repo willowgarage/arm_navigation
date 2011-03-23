@@ -51,6 +51,7 @@ namespace bodies {
 
 void maskPosesInsideBodyVectors(const std::vector<btTransform>& poses,
                                 const std::vector<bodies::BodyVector*>& bvs,
-                                std::vector<bool>& mask);
+                                std::vector<bool>& mask,
+                                bool use_padded);
 }
 #endif
