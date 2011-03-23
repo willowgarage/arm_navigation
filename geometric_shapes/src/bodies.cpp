@@ -1118,6 +1118,7 @@ void bodies::BodyVector::addBody(const shapes::Shape* shape, const btTransform& 
   if(padding > 0.0) {
     bodies::Body* padded_body = bodies::createBodyFromShape(shape);
     padded_body->setPose(pose);
+    padded_body->setPadding(padding);
     padded_bodies_.push_back(padded_body);
     BoundingSphere padded_sphere;
     padded_body->computeBoundingSphere(padded_sphere);
