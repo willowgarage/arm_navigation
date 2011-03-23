@@ -42,6 +42,15 @@ groups:
       left_arm
       right_arm
 
+# The default padding to assign to agent links for the purposes
+# of environmental collision checking
+default_robot_padding: .02
+
+# The default padding to assign to collision objects and attached
+# collision objects for the purposes of filtering them from the
+# collision map
+default_object_padding: .03
+
 #This must contain all pairs of links that have intersecting meshes to
 #get an accurate collision checking result.  It can optionally contain
 #all pairs of meshes that cannot possibly be in contact with each

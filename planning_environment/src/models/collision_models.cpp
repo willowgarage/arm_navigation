@@ -102,15 +102,9 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
     }
   }
 
-  //ROS_INFO_STREAM("Padd is " << padd_);
-
-  //now we do paddings in the private namespace
-  ros::NodeHandle priv("~");
-
-  priv.param("default_robot_padding", default_padd_, 0.01);
-  priv.param("robot_scale", default_scale_, 1.0);
-
-  //ROS_INFO_STREAM("Padd is " << padd_);
+  nh_.param(description_ + "_planning/default_robot_padding", default_padd_, 0.01);
+  nh_.param(description_ + "_planning/default_robot_scale", default_scale_, 1.0);
+  nh_.param(description_ + "_planning/default_object_padding", object_padd_, 0.03);
 
   const std::vector<planning_models::KinematicModel::LinkModel*>& coll_links = kmodel_->getLinkModelsWithCollisionGeometry();
   
@@ -119,6 +113,8 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
     default_link_padding_map_[coll_links[i]->getName()] = default_padd_;
     coll_names.push_back(coll_links[i]->getName());
   }
+
+  ros::NodeHandle priv("~");
 
   if(priv.hasParam("link_padding")) {
     XmlRpc::XmlRpcValue link_padding_xml;
@@ -594,22 +590,30 @@ bool planning_environment::CollisionModels::addStaticObject(const mapping_msgs::
     tf::poseMsgToTF(obj.poses[i], pose);
     poses.push_back(pose);
   }
+  double padding = object_padd_;
+  if(obj.padding < 0.0) {
+    padding = 0.0;
+  } else if(obj.padding > 0.0){
+    padding = obj.padding;
+  }
   addStaticObject(obj.id,
                   shapes, 
-                  poses);
+                  poses,
+                  padding);
   return true;
 }
 
 //note - ownership of shape passes in
 void planning_environment::CollisionModels::addStaticObject(const std::string& name,
                                                             std::vector<shapes::Shape*>& shapes,
-                                                            const std::vector<btTransform>& poses)
+                                                            const std::vector<btTransform>& poses,
+                                                            double padding)
 {
   if(ode_collision_model_->hasObject(name)) {
     deleteStaticObject(name);
   }
   bodiesLock();
-  static_object_map_[name] = new bodies::BodyVector(shapes,poses);
+  static_object_map_[name] = new bodies::BodyVector(shapes, poses, padding);
   ode_collision_model_->lock();
   ode_collision_model_->addObjects(name, shapes, poses);
   ode_collision_model_->unlock();
@@ -694,7 +698,7 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
       it++) {
     static_object_vector.push_back(it->second);
   }
-  bodies::maskPosesInsideBodyVectors(poses, static_object_vector, mask);
+  bodies::maskPosesInsideBodyVectors(poses, static_object_vector, mask, true);
   std::vector<btTransform> ret_poses;
   std::vector<shapes::Shape*> ret_shapes;
   unsigned int num_masked = 0;
@@ -728,11 +732,18 @@ bool planning_environment::CollisionModels::addAttachedObject(const mapping_msgs
     tf::poseMsgToTF(obj.poses[i], pose);
     poses.push_back(pose);
   }
+  double padding = object_padd_;
+  if(obj.padding < 0.0) {
+    padding = 0.0;
+  } else if(obj.padding > 0.0){
+    padding = obj.padding;
+  }
   if(!addAttachedObject(obj.id,
                         att.link_name,
                         shapes,
                         poses,
-                        att.touch_links)) {
+                        att.touch_links,
+                        padding)) {
     ROS_INFO_STREAM("Problem attaching " << obj.id);
     shapes::deleteShapeVector(shapes);
   }
@@ -744,7 +755,8 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
                                                               const std::string& link_name,
                                                               std::vector<shapes::Shape*>& shapes,
                                                               const std::vector<btTransform>& poses,
-                                                              const std::vector<std::string>& touch_links)
+                                                              const std::vector<std::string>& touch_links,
+                                                              double padding)
 {
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
   if(link == NULL) {
@@ -761,7 +773,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
     }
   }
 
-  link_attached_objects_[link_name][object_name] = new bodies::BodyVector(shapes,poses);  
+  link_attached_objects_[link_name][object_name] = new bodies::BodyVector(shapes, poses, padding);  
 
   std::vector<std::string> modded_touch_links = touch_links;
   if(find(touch_links.begin(), touch_links.end(), link_name) == touch_links.end()) {
@@ -1169,6 +1181,11 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(st
         o.poses.push_back(pose);
       }
     }
+    if(static_object_map_.find(ns[i]) == static_object_map_.end()) {
+      ROS_WARN_STREAM("No matching internal object named " << ns[i]);
+    } else {
+      o.padding = static_object_map_.find(ns[i])->second->getPadding();
+    }
     omap.push_back(o);
   }
   ode_collision_model_->unlock();
@@ -1199,6 +1216,14 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
     }
     ao.touch_links = att_vec[i]->getTouchLinks();
     ao.object.id = att_vec[i]->getName();
+    if(link_attached_objects_.find(ao.link_name) == link_attached_objects_.end()) {
+      ROS_WARN_STREAM("No matching attached objects for link " << ao.link_name);
+    } else if(link_attached_objects_.find(ao.link_name)->second.find(ao.object.id) == 
+              link_attached_objects_.find(ao.link_name)->second.end()) {
+      ROS_WARN_STREAM("No matching attached objects for link " << ao.link_name << " object " << ao.object.id);
+    } else {
+      ao.object.padding = link_attached_objects_.find(ao.link_name)->second.find(ao.object.id)->second->getPadding();
+    }
     avec.push_back(ao);
   }
   ode_collision_model_->unlock();

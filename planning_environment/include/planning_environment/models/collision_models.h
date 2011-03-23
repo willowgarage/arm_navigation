@@ -122,7 +122,8 @@ public:
 
   void addStaticObject(const std::string& name,
                        std::vector<shapes::Shape*>& shapes,
-                       const std::vector<btTransform>& poses);
+                       const std::vector<btTransform>& poses,
+                       double padding);
 
   void deleteStaticObject(const std::string& name);
   
@@ -149,7 +150,8 @@ public:
                          const std::string& link_name,
                          std::vector<shapes::Shape*>& shapes,
                          const std::vector<btTransform>& poses,
-                         const std::vector<std::string>& touch_links);
+                         const std::vector<std::string>& touch_links,
+                         double padding);
 
   bool deleteAttachedObject(const std::string& object_id,
                             const std::string& link_name);
@@ -314,23 +316,28 @@ public:
   }
 
   /** \brief Get the scaling to be used for the robot parts when inserted in the collision space */
-  double getDefaultScale(void)
+  double getDefaultScale(void) const
   {
     return default_scale_;
   }
 	
   /** \brief Get the padding to be used for the robot parts when inserted in the collision space */
-  double getDefaultPadding(void)
+  double getDefaultPadding(void) const
   {
     return default_padd_;
   }
 
-  void getDefaultOrderedCollisionOperations(std::vector<motion_planning_msgs::CollisionOperation> &self_collision)
+  double getDefaultObjectPadding(void) const
+  {
+    return object_padd_;
+  }
+
+  void getDefaultOrderedCollisionOperations(std::vector<motion_planning_msgs::CollisionOperation> &self_collision) const
   {
     self_collision = default_collision_operations_;
   }
       
-  const std::map<std::string,double>& getDefaultLinkPaddingMap() const{
+  const std::map<std::string,double>& getDefaultLinkPaddingMap() const {
     return default_link_padding_map_;
   }
 
@@ -377,6 +384,7 @@ protected:
 
   double default_scale_;
   double default_padd_;
+  double object_padd_;
   std::vector<double> bounding_planes_;
 
   std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;

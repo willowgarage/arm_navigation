@@ -114,9 +114,16 @@ bool planning_environment::processCollisionObjectMsg(const mapping_msgs::Collisi
                       << " to collision space because something's wrong with the shapes");
       return false;
     } else {
+      double padding = cm->getDefaultObjectPadding();
+      if(collision_object->padding < 0.0) {
+        padding = 0.0;
+      } else if(collision_object->padding > 0.0) {
+        padding = collision_object->padding;
+      }
       cm->addStaticObject(collision_object->id,
-                           shapes,
-                           poses);
+                          shapes,
+                          poses,
+                          padding);
       ROS_INFO("Added %u object to namespace %s in collision space", (unsigned int)shapes.size(),collision_object->id.c_str()); 
     } 
   } else {
@@ -188,11 +195,18 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
                       << " to collision space because something's wrong with the shapes");
       return true;
     }
+    double padding = cm->getDefaultObjectPadding();
+    if(attached_object->object.padding < 0.0) {
+      padding = 0.0;
+    } else if(attached_object->object.padding > 0.0){
+      padding = attached_object->object.padding;
+    }
     cm->addAttachedObject(obj.id,
-                           attached_object->link_name,
+                          attached_object->link_name,
                           shapes,
                           poses,
-                          attached_object->touch_links);
+                          attached_object->touch_links,
+                          padding);
   }
   return true;
 }
@@ -253,13 +267,13 @@ int planning_environment::computeAttachedObjectPointMask(const planning_environm
       for(unsigned int k = 0; k < it2->second->getSize(); k++) {
         //ROS_INFO_STREAM("Sphere distance " << it2->second->getBoundingSphere(k).center.distance2(pt)
         //                << " squared " << it2->second->getBoundingSphereRadiusSquared(k));
-        if(it2->second->getBoundingSphere(k).center.distance2(pt) < it2->second->getBoundingSphereRadiusSquared(k)) {
-          if(it2->second->getBody(k)->containsPoint(pt)) {
+        if(it2->second->getPaddedBoundingSphere(k).center.distance2(pt) < it2->second->getPaddedBoundingSphereRadiusSquared(k)) {
+          if(it2->second->getPaddedBody(k)->containsPoint(pt)) {
 	    cm->bodiesUnlock();
 	    return robot_self_filter::INSIDE;
 	  }
         }
-        if(it2->second->getBody(k)->intersectsRay(pt, dir)) {
+        if(it2->second->getPaddedBody(k)->intersectsRay(pt, dir)) {
           cm->bodiesUnlock();
           return robot_self_filter::SHADOW;
         }
