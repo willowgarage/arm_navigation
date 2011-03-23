@@ -296,10 +296,10 @@ public:
   /**********************************************************************/
 
   /** \brief Provide interface to a lock. Use carefully! */
-  void lock(void);
+  void lock(void) const;
 	
   /** \brief Provide interface to a lock. Use carefully! */
-  void unlock(void);
+  void unlock(void) const;
 
   /** \brief Enable/disable verbosity */
   void setVerbose(bool verbose);
@@ -313,7 +313,7 @@ public:
 protected:
         
   /** \brief Mutex used to lock the datastructure */
-  boost::recursive_mutex lock_;
+  mutable boost::recursive_mutex lock_;
 
   /** \brief Flag to indicate whether verbose mode is on */
   bool verbose_;

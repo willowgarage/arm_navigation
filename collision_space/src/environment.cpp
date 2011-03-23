@@ -354,12 +354,12 @@ void collision_space::EnvironmentModel::setRobotModel(const planning_models::Kin
   default_link_padding_map_ = link_padding_map;
 }
 
-void collision_space::EnvironmentModel::lock(void)
+void collision_space::EnvironmentModel::lock(void) const
 {
   lock_.lock();
 }
 
-void collision_space::EnvironmentModel::unlock(void)
+void collision_space::EnvironmentModel::unlock(void) const
 {
   lock_.unlock();
 }
