@@ -140,6 +140,7 @@ class Collider {
   void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &cam_info);
 
   void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object);
+  void objectCallback(const mapping_msgs::CollisionObjectConstPtr& object);
 
   // obstacle cleaning
   void degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin, octomap::OcTreeStamped& tree);
@@ -179,6 +180,7 @@ class Collider {
 
   planning_environment::CollisionModels *cm_;
   message_filters::Subscriber<mapping_msgs::AttachedCollisionObject> *attached_collision_object_subscriber_;
+  message_filters::Subscriber<mapping_msgs::CollisionObject> *collision_object_subscriber_;
 
   ros::NodeHandle root_handle_;
 

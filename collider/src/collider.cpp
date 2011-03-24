@@ -321,6 +321,9 @@ Collider::Collider(): root_handle_(""), pruning_counter_(0), transparent_freespa
   attached_collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
   attached_collision_object_subscriber_->registerCallback(boost::bind(&Collider::attachedObjectCallback, this, _1));    
 
+  collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);	
+  collision_object_subscriber_->registerCallback(boost::bind(&Collider::objectCallback, this, _1));    
+
   reset_service_ = priv.advertiseService("reset", &Collider::reset, this);
   dummy_reset_service_ = priv.advertiseService("dummy_reset", &Collider::dummyReset, this);
 
@@ -342,6 +345,7 @@ Collider::~Collider() {
   delete robot_mask_right_;
   delete robot_mask_left_;
   delete attached_collision_object_subscriber_;
+  delete collision_object_subscriber_;
   
   for(unsigned int i = 0; i < sub_filtered_clouds_.size(); ++i){
     delete sub_filtered_clouds_[i];
@@ -356,6 +360,10 @@ Collider::~Collider() {
 
 void Collider::attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object) {
   planning_environment::processAttachedCollisionObjectMsg(attached_object, tf_, cm_);
+}
+
+void Collider::objectCallback(const mapping_msgs::CollisionObjectConstPtr& object) {
+  planning_environment::processCollisionObjectMsg(object, tf_, cm_);
 }
 
 void Collider::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &cam_info){
@@ -819,7 +827,22 @@ octomap::point3d Collider::getSensorOrigin(const std_msgs::Header& sensor_header
 
   geometry_msgs::Point p;
   p.x=p.y=p.z=0;
-  tf_.transformPoint(fixed_frame_, stamped_in, stamped_out);
+  try {
+    tf_.transformPoint(fixed_frame_, stamped_in, stamped_out);
+  } catch(tf::TransformException& ex) {
+    ros::Time t;
+    std::string err_string;
+    ROS_INFO_STREAM("Transforming sensor origin using latest common time because there's a tf problem");
+    if (tf_.getLatestCommonTime(fixed_frame_, stamped_in.header.frame_id, stamped_in.header.stamp, &err_string) == tf::NO_ERROR) {
+      try {
+	tf_.transformPoint(fixed_frame_, stamped_in, stamped_out);
+      } catch(...) {
+	ROS_WARN_STREAM("Still can't transform sensor origin between " << fixed_frame_ << " and " << stamped_in.header.frame_id);
+      }
+    } else {
+      ROS_WARN_STREAM("No common time between " << fixed_frame_ << " and " << stamped_in.header.frame_id);
+    }
+  }
   octomap::point3d retval (stamped_out.point.x, stamped_out.point.y, stamped_out.point.z);
 
   return retval;
