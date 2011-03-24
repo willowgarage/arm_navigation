@@ -65,11 +65,26 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
 
   //this transform 
   btTransform set_world_transform = set_state.getRootTransform();
-  
+
+  //getting all the stuff from the current collision space
+  cm_->getCollisionSpace()->lock();
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm_->getCollisionSpace()->getDefaultAllowedCollisionMatrix();
-  
+
+  ROS_INFO_STREAM("Setting has collision map " << acm.hasEntry("collision_map"));
+
   //first we deal with collision object diffs
   cm_->getCollisionSpaceCollisionObjects(planning_scene.collision_objects);
+
+  //NOTE - this should be unmasked in collision_space_monitor;
+  cm_->getCollisionSpaceCollisionMap(planning_scene.collision_map);
+
+  //now attached objects
+  cm_->getCollisionSpaceAttachedCollisionObjects(planning_scene.attached_collision_objects);
+
+  std::map<std::string, double> cur_link_padding = cm_->getCollisionSpace()->getCurrentLinkPaddingMap();
+
+  cm_->getCollisionSpace()->unlock(); 
+
   for(unsigned int i = 0; i < planning_diff.collision_objects.size(); i++) {
     std::string object_name = planning_diff.collision_objects[i].id;
     if(object_name == "all") {
@@ -112,8 +127,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
     }
   }
   
-  //now attached objects
-  cm_->getCollisionSpaceAttachedCollisionObjects(planning_scene.attached_collision_objects);
+
   for(unsigned int i = 0; i < planning_diff.attached_collision_objects.size(); i++) {
     std::string link_name = planning_diff.attached_collision_objects[i].link_name;
     std::string object_name = planning_diff.attached_collision_objects[i].object.id;
@@ -163,7 +177,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
       }
       if(planning_diff.attached_collision_objects[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
         if(!already_have) {
-          ROS_WARN_STREAM("Diff remove specified for object " << object_name << " which we don't seem to have");
+          ROS_WARN_STREAM("Diff remove specified for object " << object_name << " which we don't seem to have");	  
           return false;
         }
         acm.removeEntry((*it).object.id);
@@ -184,7 +198,6 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
     }
   }
 
-  std::map<std::string, double> cur_link_padding = cm_->getCollisionSpace()->getCurrentLinkPaddingMap();
   for(unsigned int i = 0; i < planning_diff.link_padding.size(); i++) {
     //note - for things like attached objects this might just add them to the mix, but that's fine
     cur_link_padding[planning_diff.link_padding[i].link_name] = planning_diff.link_padding[i].padding;
@@ -210,8 +223,6 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
   
   convertFromACMToACMMsg(acm, planning_scene.allowed_collision_matrix);
 
-  //NOTE - this should be unmasked in collision_space_monitor;
-  cm_->getCollisionSpaceCollisionMap(planning_scene.collision_map);
   return true;
 }   
 
