@@ -160,10 +160,12 @@ public:
 
   bool convertStaticObjectToAttachedObject(const std::string& object_name,
                                            const std::string& link_name,
+                                           const btTransform& link_pose,
                                            const std::vector<std::string>& touch_links);
   
   bool convertAttachedObjectToStaticObject(const std::string& object_name,
-                                           const std::string& link_name);
+                                           const std::string& link_name,
+                                           const btTransform& link_pose);
 
   const std::map<std::string, std::map<std::string, bodies::BodyVector*> >& getLinkAttachedObjects() const
   {

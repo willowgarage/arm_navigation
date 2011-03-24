@@ -51,6 +51,11 @@
 namespace planning_environment 
 {
 
+bool getLatestIdentityTransform(const std::string& to_frame,
+                                const std::string& from_frame,
+                                tf::TransformListener& tf,
+                                btTransform& pose); 
+
 bool createAndPoseShapes(tf::TransformListener& tf, 
                          const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
                          const std::vector<geometry_msgs::Pose>& orig_poses,

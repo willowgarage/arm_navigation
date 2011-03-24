@@ -39,7 +39,33 @@
 #include <robot_self_filter/self_mask.h>
 #include <pcl_ros/transforms.h>
 
-
+bool planning_environment::getLatestIdentityTransform(const std::string& to_frame,
+                                                      const std::string& from_frame,
+                                                      tf::TransformListener& tf,
+                                                      btTransform& pose) 
+{
+  geometry_msgs::PoseStamped temp_pose;
+  temp_pose.pose.orientation.w = 1.0;
+  temp_pose.header.frame_id = from_frame;
+  geometry_msgs::PoseStamped trans_pose;
+  ros::Time tm;
+  std::string err_string;
+  if (tf.getLatestCommonTime(to_frame, temp_pose.header.frame_id, tm, &err_string) == tf::NO_ERROR) {
+    temp_pose.header.stamp = tm;
+    try {
+      tf.transformPose(to_frame, temp_pose, trans_pose);
+    } catch(tf::TransformException& ex) {
+      ROS_ERROR_STREAM("Unable to transform object from frame " << temp_pose.header.frame_id << " to " << to_frame << " error is " << ex.what());
+      return false;
+    }
+  } else {
+    ROS_ERROR_STREAM("No latest time for transforming " << from_frame << " to " << to_frame);
+    return false;
+  }
+  tf::poseMsgToTF(trans_pose.pose, pose);
+  return true;
+}
+                                                
 bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
                                                const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
                                                const std::vector<geometry_msgs::Pose>& orig_poses,
@@ -51,6 +77,11 @@ bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
   conv_shapes.clear();
   conv_poses.clear();
   bool shapes_ok = true;
+  btTransform ident_trans;
+  if(!getLatestIdentityTransform(frame_to, header.frame_id, tf, ident_trans)) {
+    ROS_WARN_STREAM("Can't get identity pose to transform shapes");
+    return false;
+  }
   for(unsigned int i = 0; i < orig_shapes.size(); i++) {
     shapes::Shape *shape = constructObject(orig_shapes[i]);
     if(shape == NULL) {
@@ -58,30 +89,9 @@ bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
       break;
     }
     conv_shapes.push_back(shape);
-    std::string err_string;
-    ros::Time tm;
-    geometry_msgs::PoseStamped temp_pose;
-    temp_pose.pose = orig_poses[i];
-    temp_pose.header = header;
-    geometry_msgs::PoseStamped trans_pose;
-    if (tf.getLatestCommonTime(frame_to, temp_pose.header.frame_id, tm, &err_string) == tf::NO_ERROR) {
-      temp_pose.header.stamp = tm;
-      try {
-        tf.transformPose(frame_to, temp_pose, trans_pose);
-      } catch(tf::TransformException& ex) {
-        ROS_ERROR_STREAM("Unable to transform object from frame " << temp_pose.header.frame_id << " to " << frame_to << " error is " << ex.what());
-        shapes_ok = false;
-        break;
-      }
-      btTransform pose;
-      tf::poseMsgToTF(trans_pose.pose, pose);
-      ROS_DEBUG_STREAM("Object is at " << pose.getOrigin().x() << " " << pose.getOrigin().y());
-      conv_poses.push_back(pose);
-    } else {
-      ROS_ERROR_STREAM("Something wrong with tf");
-      shapes_ok = false;
-      break;
-    }
+    btTransform shape_pose;
+    tf::poseMsgToTF(orig_poses[i], shape_pose);
+    conv_poses.push_back(ident_trans*shape_pose);
   }
   if(!shapes_ok) {
     for(unsigned int i=0; i < conv_shapes.size(); i++) {
@@ -92,7 +102,6 @@ bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
     return false;
   }
   return true;
-
 }
 
 bool planning_environment::processCollisionObjectMsg(const mapping_msgs::CollisionObjectConstPtr &collision_object,
@@ -140,8 +149,9 @@ bool planning_environment::processCollisionObjectMsg(const mapping_msgs::Collisi
 
 bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs::AttachedCollisionObjectConstPtr &attached_object,
                                                              tf::TransformListener& tf,
-                                                             CollisionModels* cm)
+                                                             planning_environment::CollisionModels* cm)
 {
+  
   if(attached_object->link_name == "all") { //attached_object->REMOVE_ALL_ATTACHED_OBJECTS) {
     if(attached_object->object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE) {
       ROS_WARN("Can't perform any action for all attached bodies except remove");
@@ -164,16 +174,27 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
       return false;
     } 
   } 
-    
-  if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
-    cm->convertAttachedObjectToStaticObject(obj.id,
-                                            attached_object->link_name);
-    ROS_INFO_STREAM("Adding in attached object as regular object " << obj.id);
-  } else if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
-    cm->convertStaticObjectToAttachedObject(obj.id,
-                                            attached_object->link_name,
-                                            attached_object->touch_links);
-    ROS_INFO_STREAM("Adding in static object as attached object " << obj.id);
+  
+  if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT
+     || obj.operation.operation == mapping_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
+    //getting link pose in the world frame
+    btTransform link_pose;
+    if(!getLatestIdentityTransform(cm->getWorldFrameId(), attached_object->link_name, tf, link_pose)) {
+      ROS_WARN_STREAM("Can't get transform for link " << attached_object->link_name);
+      return false;
+    }
+    if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
+      cm->convertAttachedObjectToStaticObject(obj.id,
+                                              attached_object->link_name,
+                                              link_pose);
+      ROS_INFO_STREAM("Adding in attached object as regular object " << obj.id);
+    } else {
+      cm->convertStaticObjectToAttachedObject(obj.id,
+                                              attached_object->link_name,
+                                              link_pose,
+                                              attached_object->touch_links);
+      ROS_INFO_STREAM("Adding in static object as attached object " << obj.id);
+    }
   } else if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
     cm->deleteAttachedObject(obj.id,
                              attached_object->link_name);

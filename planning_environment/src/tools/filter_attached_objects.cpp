@@ -68,6 +68,9 @@ public:
     cloud_publisher_shadow_ = root_handle_.advertise<sensor_msgs::PointCloud2>("cloud_out_shadow", 1);	    
     attached_collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
     attached_collision_object_subscriber_->registerCallback(boost::bind(&FilterAttachedObjects::attachedObjectCallback, this, _1));    
+
+    collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);	
+    collision_object_subscriber_->registerCallback(boost::bind(&FilterAttachedObjects::objectCallback, this, _1));    
     
     cloud_subscriber_ = new message_filters::Subscriber<sensor_msgs::PointCloud2>(root_handle_, "cloud_in", 1);
     cloud_filter_ = new tf::MessageFilter<sensor_msgs::PointCloud2>(*cloud_subscriber_, tf_, cm_->getWorldFrameId(), 1);
@@ -88,6 +91,7 @@ public:
     delete cloud_filter_;
     delete cloud_subscriber_;
     delete attached_collision_object_subscriber_;
+    delete collision_object_subscriber_;
     delete cm_;
   }
         
@@ -98,18 +102,29 @@ public:
     {
       planning_models::KinematicState state(cm_->getKinematicModel());
       state.setKinematicStateToDefault();
-      
+
+      visualization_msgs::MarkerArray arr;      
       planning_environment::updateAttachedObjectBodyPoses(cm_,
                                                           state,
                                                           tf_);
       
-      visualization_msgs::MarkerArray arr;
       cm_->getAttachedCollisionObjectMarkers(state,
                                              arr,
                                              "filter_attached",
                                              attached_color_,
                                              ros::Duration(.2));
+
+      std_msgs::ColorRGBA static_color;
+      static_color.a = 0.5;
+      static_color.r = 0.0;
+      static_color.g = 1.0;
+      static_color.b = 0.3;
       
+      cm_->getStaticCollisionObjectMarkers(arr,
+                                           "filter_attached",
+                                           static_color,
+                                           ros::Duration(.2));
+
       vis_marker_array_publisher_.publish(arr);
     }
       
@@ -163,6 +178,10 @@ public:
     }
   }
        
+  void objectCallback(const mapping_msgs::CollisionObjectConstPtr& object) {
+    planning_environment::processCollisionObjectMsg(object, tf_, cm_);
+  }
+  
   void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object) {
     planning_environment::processAttachedCollisionObjectMsg(attached_object, tf_, cm_);
   }
@@ -176,6 +195,7 @@ public:
   tf::MessageFilter<sensor_msgs::PointCloud2> *cloud_filter_;
 
   message_filters::Subscriber<mapping_msgs::AttachedCollisionObject> *attached_collision_object_subscriber_;
+  message_filters::Subscriber<mapping_msgs::CollisionObject> *collision_object_subscriber_;
 
   ros::Publisher cloud_publisher_;    
   ros::Publisher cloud_publisher_shadow_;    

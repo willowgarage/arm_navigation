@@ -673,6 +673,8 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
   ode_collision_model_->clearObjects(COLLISION_MAP_NAME);
   if(shapes.size() > 0) {
     ode_collision_model_->addObjects(COLLISION_MAP_NAME, shapes, masked_poses);
+  } else {
+    ROS_INFO_STREAM("Not adding any collision points");
   }
   ode_collision_model_->unlock();
 }
@@ -711,6 +713,7 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
       delete shapes[i];
     }
   }
+  ROS_INFO_STREAM("Should be masking " << num_masked << " points");
   shapes = ret_shapes;
   poses = ret_poses;
   bodiesUnlock();
@@ -848,8 +851,10 @@ void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::
   bodiesUnlock();
 }
 
+//Link pose must be in world frame
 bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(const std::string& object_name,
                                                                                 const std::string& link_name,
+                                                                                const btTransform& link_pose,
                                                                                 const std::vector<std::string>& touch_links)
 {
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
@@ -882,7 +887,14 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
         poses.push_back(no.shape_pose[j]);
       }
     }
-  }        
+  } 
+
+  btTransform link_pose_inv = link_pose.inverse();
+  //now we need to convert all these poses from the world frame into the link frame
+  for(unsigned int i = 0; i < poses.size(); i++) {
+    poses[i] = link_pose_inv*poses[i];
+  }
+
   planning_models::KinematicModel::AttachedBodyModel* ab = 
     new planning_models::KinematicModel::AttachedBodyModel(link, object_name,
                                                            poses,
@@ -897,20 +909,23 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
 }
 
 bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(const std::string& object_name,
-                                                                                const std::string& link_name)
+                                                                                const std::string& link_name,
+                                                                                const btTransform& link_pose)
 {
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
   if(link == NULL) {
     ROS_WARN_STREAM("No link " << link_name << " with attached object " << object_name);
     return false;
   }
+  bodiesLock();
+
   if(link_attached_objects_.find(link_name) == link_attached_objects_.end() ||
      link_attached_objects_[link_name].find(object_name) == link_attached_objects_[link_name].end()) 
   {
     ROS_WARN_STREAM("No attached body " << object_name << " attached to link " << link_name);
+    bodiesUnlock();
     return false;
   }
-  bodiesLock();
 
   static_object_map_[object_name] = link_attached_objects_[link_name][object_name];
   link_attached_objects_[link_name].erase(object_name);
@@ -929,16 +944,12 @@ bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
     return false;
   }
   std::vector<shapes::Shape*> shapes = shapes::cloneShapeVector(att->getShapes());
-  std::map<std::string, std::vector<btTransform> > att_pose_map;
-  ode_collision_model_->getAttachedBodyPoses(att_pose_map);
-  if(att_pose_map.find(att->getName()) == att_pose_map.end()) {
-    ROS_WARN_STREAM("No poses for " << att->getName());
-    shapes::deleteShapeVector(shapes);
-    return false;
+  std::vector<btTransform> poses;
+  for(unsigned int i = 0; i < att->getAttachedBodyFixedTransforms().size(); i++) {
+    poses.push_back(link_pose*att->getAttachedBodyFixedTransforms()[i]);
   }
-  ode_collision_model_->addObjects(object_name, shapes, att_pose_map[att->getName()]);  
   kmodel_->clearLinkAttachedBodyModel(link_name, object_name);
-
+  ode_collision_model_->addObjects(object_name, shapes, poses);  
   ode_collision_model_->updateAttachedBodies();
   bodiesUnlock();
   return true;
