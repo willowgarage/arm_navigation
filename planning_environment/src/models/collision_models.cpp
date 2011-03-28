@@ -273,6 +273,13 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
     addAttachedObject(conv_att_objects[i]);
   }
 
+  //now we create again after adding the attached objects
+  state = new planning_models::KinematicState(kmodel_);
+  setRobotStateAndComputeTransforms(planning_scene.robot_state, *state);  
+
+  //this updates the attached bodies before we mask the collision map
+  updateAttachedBodyPoses(*state);
+
   //TODO - allowed contacts
   //have to call this first, because it reverts the allowed collision matrix
   setCollisionMap(planning_scene.collision_map, true);
@@ -284,12 +291,7 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
   if(!planning_scene.allowed_collision_matrix.link_names.empty()) {
     ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
   }
-
   ode_collision_model_->unlock();
-
-  //now we create again
-  state = new planning_models::KinematicState(kmodel_);
-  setRobotStateAndComputeTransforms(planning_scene.robot_state, *state);  
 
   planning_scene_set_ = true;
   return state;
@@ -797,6 +799,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
     }
   }
 
+  //the poses will be totally incorrect until they are updated with a state
   link_attached_objects_[link_name][object_name] = new bodies::BodyVector(shapes, poses, padding);  
 
   std::vector<std::string> modded_touch_links = touch_links;
@@ -812,6 +815,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
   ode_collision_model_->lock();
   ode_collision_model_->updateAttachedBodies();
   ode_collision_model_->unlock();
+
   bodiesUnlock();
   return true;
 }
