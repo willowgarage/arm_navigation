@@ -172,7 +172,6 @@ private:
     return true;
   }
 
-
 private:
 	
   ros::NodeHandle root_handle_, private_handle_;

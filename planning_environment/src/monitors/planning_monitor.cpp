@@ -70,16 +70,26 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
   cm_->getCollisionSpace()->lock();
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm_->getCollisionSpace()->getDefaultAllowedCollisionMatrix();
 
-  ROS_INFO_STREAM("Setting has collision map " << acm.hasEntry("collision_map"));
-
   //first we deal with collision object diffs
   cm_->getCollisionSpaceCollisionObjects(planning_scene.collision_objects);
 
+  for(unsigned int i = 0; i < planning_scene.collision_objects.size(); i++) {
+    if(!acm.hasEntry(planning_scene.collision_objects[i].id)) {
+      ROS_ERROR_STREAM("Sanity check failing - no entry in acm for collision space object " << planning_scene.collision_objects[i].id);
+    } 
+  }
+  
   //NOTE - this should be unmasked in collision_space_monitor;
   cm_->getCollisionSpaceCollisionMap(planning_scene.collision_map);
 
   //now attached objects
   cm_->getCollisionSpaceAttachedCollisionObjects(planning_scene.attached_collision_objects);
+
+  for(unsigned int i = 0; i < planning_scene.attached_collision_objects.size(); i++) {
+    if(!acm.hasEntry(planning_scene.attached_collision_objects[i].object.id)) {
+      ROS_ERROR_STREAM("Sanity check failing - no entry in acm for attached collision space object " << planning_scene.attached_collision_objects[i].object.id);
+    } 
+  }
 
   std::map<std::string, double> cur_link_padding = cm_->getCollisionSpace()->getCurrentLinkPaddingMap();
 
@@ -258,8 +268,9 @@ void planning_environment::PlanningMonitor::getAllFixedFrameTransforms(std::vect
       try {
         tf_->transformPose(all_frame_names[i], ident_pose, trans_pose);
       } catch(tf::TransformException& ex) {
-        ROS_WARN_STREAM("Unable to transform object from frame " << all_frame_names[i] << " to fixed frame " 
-                         << cm_->getWorldFrameId() << " tf error is " << ex.what());
+        //just not going to cache this one
+	//ROS_WARN_STREAM("Unable to transform object from frame " << all_frame_names[i] << " to fixed frame " 
+        //                 << cm_->getWorldFrameId() << " tf error is " << ex.what());
         continue;
       }
       geometry_msgs::TransformStamped f;

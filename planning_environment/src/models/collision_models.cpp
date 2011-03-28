@@ -240,8 +240,6 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
     delete state;
     return NULL;
   }
-  planning_scene_set_ = true;
-
   std::vector<mapping_msgs::CollisionObject> conv_objects;
   std::vector<mapping_msgs::AttachedCollisionObject> conv_att_objects;
 
@@ -282,24 +280,30 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
   if(planning_scene.link_padding.size() > 0) {
     applyLinkPaddingToCollisionSpace(planning_scene.link_padding);
   }
+  ode_collision_model_->lock();
   if(!planning_scene.allowed_collision_matrix.link_names.empty()) {
     ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
   }
+
+  ode_collision_model_->unlock();
 
   //now we create again
   state = new planning_models::KinematicState(kmodel_);
   setRobotStateAndComputeTransforms(planning_scene.robot_state, *state);  
 
+  planning_scene_set_ = true;
   return state;
 }
 
 void planning_environment::CollisionModels::revertPlanningScene(planning_models::KinematicState* ks) {
+  bodiesLock();
   delete ks;
   planning_scene_set_ = false;
   deleteAllStaticObjects();
   deleteAllAttachedObjects();
   revertAllowedCollisionToDefault();
   revertCollisionSpacePaddingToDefault();
+  bodiesUnlock();
 }
 
 ///
@@ -475,7 +479,13 @@ bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTrans
       return false;
     }
     constraints.orientation_constraints[i].header = qs.header;
-    constraints.orientation_constraints[i].orientation = qs.quaternion; 
+    constraints.orientation_constraints[i].orientation = qs.quaternion;
+    ROS_INFO_STREAM("Converted quaternion " << i << " in frame " << trans_frame << " is "
+		    << constraints.orientation_constraints[i].orientation.x
+		    << constraints.orientation_constraints[i].orientation.y
+		    << constraints.orientation_constraints[i].orientation.z
+		    << constraints.orientation_constraints[i].orientation.w);
+		    
   }
   
   for(unsigned int i = 0; i < constraints.visibility_constraints.size(); i++) {
@@ -674,7 +684,7 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
   if(shapes.size() > 0) {
     ode_collision_model_->addObjects(COLLISION_MAP_NAME, shapes, masked_poses);
   } else {
-    ROS_INFO_STREAM("Not adding any collision points");
+    ROS_INFO_STREAM("Not setting an collision map objects");
   }
   ode_collision_model_->unlock();
 }
@@ -694,13 +704,25 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
 {
   bodiesLock();
   std::vector<bool> mask;
-  std::vector<bodies::BodyVector*> static_object_vector;
+  std::vector<bodies::BodyVector*> object_vector;
+  //masking out static objects
   for(std::map<std::string, bodies::BodyVector*>::iterator it = static_object_map_.begin();
       it != static_object_map_.end();
       it++) {
-    static_object_vector.push_back(it->second);
+    object_vector.push_back(it->second);
   }
-  bodies::maskPosesInsideBodyVectors(poses, static_object_vector, mask, true);
+  //also masking out attached objects
+  for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::iterator it = link_attached_objects_.begin();
+      it != link_attached_objects_.end();
+      it++) {
+    for(std::map<std::string, bodies::BodyVector*>::iterator it2 = it->second.begin();
+	it2 != it->second.end();
+	it2++) {
+      object_vector.push_back(it2->second);
+      ROS_INFO_STREAM("Pushing back " << it2->first << " padding " << it2->second->getPadding());
+    }    
+  }
+  bodies::maskPosesInsideBodyVectors(poses, object_vector, mask, true);
   std::vector<btTransform> ret_poses;
   std::vector<shapes::Shape*> ret_shapes;
   unsigned int num_masked = 0;
@@ -713,7 +735,6 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
       delete shapes[i];
     }
   }
-  ROS_INFO_STREAM("Should be masking " << num_masked << " points");
   shapes = ret_shapes;
   poses = ret_poses;
   bodiesUnlock();
@@ -788,7 +809,9 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
                                                            modded_touch_links,
                                                            shapes);
   kmodel_->addAttachedBodyModel(link->getName(),ab);
+  ode_collision_model_->lock();
   ode_collision_model_->updateAttachedBodies();
+  ode_collision_model_->unlock();
   bodiesUnlock();
   return true;
 }
@@ -815,7 +838,9 @@ bool planning_environment::CollisionModels::deleteAttachedObject(const std::stri
     bodiesUnlock();
     return false;
   }
+  ode_collision_model_->lock();
   ode_collision_model_->updateAttachedBodies();
+  ode_collision_model_->unlock();
   bodiesUnlock();
   return true;
 }
@@ -902,8 +927,12 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
                                                            shapes);
   kmodel_->addAttachedBodyModel(link->getName(),ab);
 
+  ode_collision_model_->lock();
+  //doing these in this order because clearObjects will take the entry
+  //out of the allowed collision matrix and the update puts it back in
   ode_collision_model_->clearObjects(object_name);
   ode_collision_model_->updateAttachedBodies();
+  ode_collision_model_->unlock();
   bodiesUnlock();
   return true;
 }
@@ -949,8 +978,12 @@ bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
     poses.push_back(link_pose*att->getAttachedBodyFixedTransforms()[i]);
   }
   kmodel_->clearLinkAttachedBodyModel(link_name, object_name);
-  ode_collision_model_->addObjects(object_name, shapes, poses);  
+  ode_collision_model_->lock();
+  //updating attached objects first because it clears the entry from the allowed collision matrix
   ode_collision_model_->updateAttachedBodies();
+  //and then this adds it back in
+  ode_collision_model_->addObjects(object_name, shapes, poses);  
+  ode_collision_model_->unlock();
   bodiesUnlock();
   return true;
 }
@@ -976,7 +1009,9 @@ void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(con
     }
   }
   
+  ode_collision_model_->lock();
   ode_collision_model_->setAlteredLinkPadding(link_padding_map);  
+  ode_collision_model_->unlock();
 }
 
 void planning_environment::CollisionModels::getCurrentLinkPadding(std::vector<motion_planning_msgs::LinkPadding>& link_padding)
@@ -1017,7 +1052,9 @@ bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCol
     //printAllowedCollisionMatrix(acm);
   }
 
+  ode_collision_model_->lock();
   ode_collision_model_->setAlteredCollisionMatrix(acm);
+  ode_collision_model_->unlock();
   return true;
 }
 
@@ -1078,7 +1115,9 @@ bool planning_environment::CollisionModels::disableCollisionsForNonUpdatedLinks(
 
 bool planning_environment::CollisionModels::setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm)
 {
+  ode_collision_model_->lock();
   ode_collision_model_->setAlteredCollisionMatrix(acm);
+  ode_collision_model_->unlock();
   return true;
 }
 
@@ -1329,7 +1368,7 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
     error_code.val = error_code.JOINT_LIMITS_VIOLATED;
     return false;
   }
-  if(!doesKinematicStateObeyConstraints(state, path_constraints)) {
+  if(!doesKinematicStateObeyConstraints(state, path_constraints, true)) {
     error_code.val = error_code.PATH_CONSTRAINTS_VIOLATED;
     return false;
   }
@@ -1341,6 +1380,7 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
     error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;    
     return false;
   }
+  error_code.val = error_code.SUCCESS;
   return true;
 }
 
@@ -1379,6 +1419,7 @@ bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_mode
                                                                    const bool evaluate_entire_trajectory)  
 {
   error_code.val = error_code.SUCCESS;
+  trajectory_error_codes.clear();
   
   //now we need to start evaluating the trajectory
   std::map<std::string, double> joint_value_map;
@@ -1591,19 +1632,9 @@ void planning_environment::CollisionModels::getAllCollisionPointMarkers(const pl
   std::map<std::string, unsigned> ns_counts;
   for(unsigned int i = 0; i < coll_info_vec.size(); i++) {
     std::string ns_name;
-    if(coll_info_vec[i].body_type_1 == planning_environment_msgs::ContactInformation::ROBOT_LINK ||
-       coll_info_vec[i].body_type_1 == planning_environment_msgs::ContactInformation::OBJECT) {
-      ns_name = coll_info_vec[i].contact_body_1;
-    } else {
-      ns_name = coll_info_vec[i].attached_body_1;
-    }
+    ns_name = coll_info_vec[i].contact_body_1;
     ns_name +="+";
-    if(coll_info_vec[i].body_type_2 == planning_environment_msgs::ContactInformation::ROBOT_LINK ||
-       coll_info_vec[i].body_type_2 == planning_environment_msgs::ContactInformation::OBJECT) {
-      ns_name += coll_info_vec[i].contact_body_2;
-    } else {
-      ns_name += coll_info_vec[i].attached_body_2;
-    }
+    ns_name += coll_info_vec[i].contact_body_2;
     if(ns_counts.find(ns_name) == ns_counts.end()) {
       ns_counts[ns_name] = 0;
     } else {

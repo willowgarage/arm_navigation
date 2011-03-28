@@ -53,6 +53,9 @@ public:
     std::string robot_description_name = root_handle_.resolveName("robot_description", true);
     collision_models_interface_ = new planning_environment::CollisionModelsInterface(robot_description_name);
 
+    vis_marker_publisher_ = root_handle_.advertise<visualization_msgs::Marker>("planning_scene_markers", 128);
+    vis_marker_array_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("planning_scene_markers_array", 128);
+
     get_trajectory_validity_service_ = private_handle_.advertiseService("get_trajectory_validity", &PlanningSceneValidityServer::getTrajectoryValidity, this);
     get_state_validity_service_ = private_handle_.advertiseService("get_state_validity", &PlanningSceneValidityServer::getStateValidity, this);
   }
@@ -89,13 +92,64 @@ public:
     if(req.check_joint_limits) {
       joint_names = req.robot_state.joint_state.name;
     }
-    collision_models_interface_->isKinematicStateValid(*collision_models_interface_->getPlanningSceneState(),
-                                                       joint_names,
-                                                       res.error_code,
-                                                       goal_constraints,
-                                                       path_constraints);
+    bool valid = collision_models_interface_->isKinematicStateValid(*collision_models_interface_->getPlanningSceneState(),
+								    joint_names,
+								    res.error_code,
+								    goal_constraints,
+								    path_constraints);
+    if(!valid) {
+      std_msgs::ColorRGBA col;
+      col.a = .9;
+      col.r = 1.0;
+      col.b = 1.0;
+      col.g = 0.0;
+      visualization_msgs::MarkerArray arr;
+      collision_models_interface_->getRobotMeshResourceMarkersGivenState(*collision_models_interface_->getPlanningSceneState(),
+                                                                         arr,
+                                                                         col,
+                                                                         "start_pose",
+                                                                         ros::Duration(0.0));
+      vis_marker_array_publisher_.publish(arr);
+    }
     return true;
   }
+
+  void broadcastPlanningSceneMarkers()
+  {
+    if(!collision_models_interface_->isPlanningSceneSet()) {
+      return;
+    }
+    collision_models_interface_->bodiesLock();
+    collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
+    visualization_msgs::MarkerArray arr;
+    std_msgs::ColorRGBA col;
+    col.a = .9;
+    col.r = 0.0;
+    col.b = 1.0;
+    col.g = 0.0;
+    collision_models_interface_->getCollisionMapAsMarkers(arr,
+							  col,
+							  ros::Duration(0.2));
+    col.g = 1.0;
+    col.b = 1.0;
+    collision_models_interface_->getStaticCollisionObjectMarkers(arr,
+								 "",
+								 col,
+								 ros::Duration(0.2));
+
+    col.r = 0.6;
+    col.g = 0.4;
+    col.b = 0.3;
+
+    collision_models_interface_->getAttachedCollisionObjectMarkers(*collision_models_interface_->getPlanningSceneState(),
+								   arr,
+								   "",
+								   col,
+								   ros::Duration(0.2));
+    vis_marker_array_publisher_.publish(arr);
+    collision_models_interface_->bodiesUnlock();
+  }
+
 	
 private:
 		
@@ -105,7 +159,9 @@ private:
 
   ros::ServiceServer get_trajectory_validity_service_;
   ros::ServiceServer get_state_validity_service_;
-  
+
+  ros::Publisher vis_marker_publisher_;
+  ros::Publisher vis_marker_array_publisher_;
 };    
 }
 
@@ -116,7 +172,13 @@ int main(int argc, char** argv)
 
   ros::AsyncSpinner spinner(1); 
   spinner.start();
+  ros::NodeHandle nh;
   planning_environment::PlanningSceneValidityServer validity_server;
+  ros::Rate r(10.0);
+  while(nh.ok()) {
+    validity_server.broadcastPlanningSceneMarkers();
+    r.sleep();
+  }
   ros::waitForShutdown();
   return 0;
 }

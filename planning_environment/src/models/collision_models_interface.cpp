@@ -119,7 +119,6 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   feedback.ready = true;
   action_server_->publishFeedback(feedback);
   action_server_->setSucceeded(res);
-  ROS_INFO_STREAM("Sending succeeded");
 }
 
 void planning_environment::CollisionModelsInterface::resetToStartState(planning_models::KinematicState& state) const {
