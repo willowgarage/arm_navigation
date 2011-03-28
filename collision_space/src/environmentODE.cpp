@@ -350,6 +350,14 @@ void collision_space::EnvironmentModelODE::updateAttachedBodies(const std::map<s
   for (unsigned int i = 0 ; i < model_geom_.link_geom.size() ; ++i) {
     LinkGeom *lg = model_geom_.link_geom[i];
 
+    for(unsigned int j = 0; j < lg->att_bodies.size(); j++) {
+      for(unsigned int k = 0; k < lg->att_bodies[j]->geom.size(); k++) {
+        geom_lookup_map_.erase(lg->att_bodies[j]->geom[k]);
+      }
+      for(unsigned int k = 0; k < lg->att_bodies[j]->padded_geom.size(); k++) {
+        geom_lookup_map_.erase(lg->att_bodies[j]->padded_geom[k]);
+      }
+    }
     lg->deleteAttachedBodies();
 
     /* create new set of attached bodies */
