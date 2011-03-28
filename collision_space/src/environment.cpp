@@ -274,6 +274,7 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(cons
     if(allowed_entries_bimap_.left.find(change_names[i]) == allowed_entries_bimap_.left.end()) {
       ROS_INFO_STREAM("No entry for " << change_names[i]);
       ok = false;
+      continue;
     }
     unsigned int ind_2 = allowed_entries_bimap_.left.find(change_names[i])->second;
     if(ind_1 >= allowed_entries_.size()) {
