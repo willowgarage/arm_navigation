@@ -72,7 +72,8 @@
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/model_utils.h>
 #include <planning_environment_msgs/GetPlanningScene.h>
-#include <planning_environment_msgs/SetPlanningSceneAction.h>
+#include <planning_environment_msgs/LogPlanningScene.h>
+
 #include <planning_environment_msgs/GetRobotState.h>
 
 //#include <move_arm_head_monitor/HeadMonitorAction.h>
@@ -123,7 +124,7 @@ typedef struct{
   double allowed_planning_time;
   std::string planner_service_name;
 } MoveArmParameters;
-
+  
 static const std::string ARM_IK_NAME = "arm_ik";
 static const std::string ARM_FK_NAME = "arm_fk";
 static const std::string TRAJECTORY_FILTER = "filter_trajectory";
@@ -131,10 +132,12 @@ static const std::string DISPLAY_PATH_PUB_TOPIC  = "display_path";
 static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
 
 //bunch of statics for remapping purposes
+
 static const std::string GET_PLANNING_SCENE_NAME = "get_planning_scene";
+static const std::string LOG_PLANNING_SCENE_NAME = "/environment_server/log_planning_scene";
 static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
 static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
-
+  
 class MoveArm
 {
 public:	
@@ -185,6 +188,7 @@ public:
     get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");      
 
     get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
+    log_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::LogPlanningScene>(LOG_PLANNING_SCENE_NAME);
     
     // if(using_head_monitor_) {
     //   head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
@@ -651,6 +655,14 @@ private:
     else
       return false;
   }       
+  bool hasPoseGoal(motion_planning_msgs::GetMotionPlan::Request &req)
+  {
+    if (req.motion_plan_request.goal_constraints.position_constraints.size() >= 1 &&      // we have a single position constraint on the goal
+        req.motion_plan_request.goal_constraints.orientation_constraints.size() >=  1)  // that is active on all 6 DOFs
+      return true;
+    else
+      return false;
+  }       
   bool isJointGoal(motion_planning_msgs::GetMotionPlan::Request &req)
   {
     if (req.motion_plan_request.goal_constraints.position_constraints.empty() && 
@@ -726,6 +738,7 @@ private:
                                                  error_code,
                                                  empty_goal_constraints,
                                                  original_request_.motion_plan_request.path_constraints)) {
+      logPlanningScene("bad_start_state");
       if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_IN_COLLISION;
         ROS_ERROR("Starting state is in collision, can't plan");
@@ -745,11 +758,12 @@ private:
         col.r = 1.0;
         col.b = 1.0;
         col.g = 0.0;
-        collision_models_->getRobotTrimeshMarkersGivenState(*planning_scene_state_,
-                                                            arr,
-                                                            true,
-                                                            ros::Duration(0.0));
-
+	/*
+	  collision_models_->getRobotTrimeshMarkersGivenState(*planning_scene_state_,
+	  arr,
+	  true,
+	  ros::Duration(0.0));
+	*/
         vis_marker_array_publisher_.publish(arr);
       } else if (error_code.val == error_code.PATH_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_VIOLATES_PATH_CONSTRAINTS;
@@ -773,28 +787,37 @@ private:
         return false;
       }
     }
-    motion_planning_msgs::RobotState empty_state;
-    empty_state.joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
-    planning_environment::setRobotStateAndComputeTransforms(empty_state, *planning_scene_state_);
-    if(!collision_models_->isKinematicStateValid(*planning_scene_state_,
-                                                 group_joint_names_,
-                                                 error_code,
-                                                 original_request_.motion_plan_request.goal_constraints,
-                                                 original_request_.motion_plan_request.path_constraints))
-    {
-      if(error_code.val == error_code.JOINT_LIMITS_VIOLATED) {
-        ROS_ERROR("Will not plan to requested joint goal since it violates joint limits constraints");
-        move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.JOINT_LIMITS_VIOLATED;
-      } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
-        ROS_ERROR("Will not plan to requested joint goal since it is in collision");
-        move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_IN_COLLISION;
-      } else if(error_code.val == error_code.PATH_CONSTRAINTS_VIOLATED) {
-        ROS_ERROR("Will not plan to requested joint goal since it violates path constraints");
-        move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
-      }
-      ROS_INFO_STREAM("Setting aborted becuase joint goal is problematic");
-      action_server_->setAborted(move_arm_action_result_);
-      return false;
+    //if we still have pose constraints at this point it's probably a constrained combo goal
+    if(!hasPoseGoal(req)) {
+      motion_planning_msgs::RobotState empty_state;
+      empty_state.joint_state = motion_planning_msgs::jointConstraintsToJointState(req.motion_plan_request.goal_constraints.joint_constraints);
+      planning_environment::setRobotStateAndComputeTransforms(empty_state, *planning_scene_state_);
+      motion_planning_msgs::Constraints empty_constraints;
+      if(!collision_models_->isKinematicStateValid(*planning_scene_state_,
+						   group_joint_names_,
+						   error_code,
+						   original_request_.motion_plan_request.goal_constraints,
+						   original_request_.motion_plan_request.path_constraints))
+	{
+	  if(error_code.val == error_code.JOINT_LIMITS_VIOLATED) {
+	    ROS_ERROR("Will not plan to requested joint goal since it violates joint limits constraints");
+	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.JOINT_LIMITS_VIOLATED;
+	  } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
+	    ROS_ERROR("Will not plan to requested joint goal since it is in collision");
+	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_IN_COLLISION;
+	  } else if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
+	    ROS_ERROR("Will not plan to requested joint goal since it violates goal constraints");
+	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
+	  } else if(error_code.val == error_code.PATH_CONSTRAINTS_VIOLATED) {
+	    ROS_ERROR("Will not plan to requested joint goal since it violates path constraints");
+	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
+	  } else {
+	    ROS_INFO_STREAM("Will not plan to request joint goal due to error code " << error_code.val);
+	  }
+	  ROS_INFO_STREAM("Setting aborted becuase joint goal is problematic");
+	  action_server_->setAborted(move_arm_action_result_);
+	  return false;
+	}
     }
     return true;
   }
@@ -1450,6 +1473,18 @@ private:
     action_server_->setAborted(move_arm_action_result_);
   }
 
+  bool logPlanningScene(std::string fn_suffix) {
+    planning_environment_msgs::LogPlanningScene::Request log_req;
+    planning_environment_msgs::LogPlanningScene::Response log_res;
+    log_req.package_name = "move_arm";
+    log_req.filename = "planning_scene_"+fn_suffix+".bag";
+    if(!log_planning_scene_client_.call(log_req,log_res)) {
+      ROS_WARN("Problem logging planning scene");
+      return false;
+    }
+    return true;
+  }
+
   bool getAndSetPlanningScene(const planning_environment_msgs::PlanningScene& planning_diff) {
     planning_environment_msgs::GetPlanningScene::Request planning_scene_req;
     planning_environment_msgs::GetPlanningScene::Response planning_scene_res;
@@ -1691,6 +1726,7 @@ private:
   ros::ServiceClient fk_client_;
   ros::ServiceClient get_state_client_;
   ros::ServiceClient get_planning_scene_client_;
+  ros::ServiceClient log_planning_scene_client_;
   MoveArmParameters move_arm_parameters_;
   ControllerStatus controller_status_;
 
