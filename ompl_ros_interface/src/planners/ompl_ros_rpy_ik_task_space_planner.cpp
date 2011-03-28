@@ -162,7 +162,7 @@ bool OmplRosRPYIKTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan:
       response.error_code.val = response.error_code.START_STATE_VIOLATES_PATH_CONSTRAINTS;
     else if(response.error_code.val == response.error_code.COLLISION_CONSTRAINTS_VIOLATED)
       response.error_code.val = response.error_code.START_STATE_IN_COLLISION;
-    ROS_ERROR("Start state is invalid");
+    ROS_ERROR_STREAM("Start state is invalid with code " << response.error_code.val);
     return false;
   }
   planner_->getProblemDefinition()->clearStartStates(); 
