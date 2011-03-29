@@ -342,14 +342,14 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
     case urdf::Joint::REVOLUTE:
       {
         RevoluteJointModel *j = new RevoluteJointModel(urdf_joint->name, joint_config);
-        if(urdf_joint->safety)
-        {
-          j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
-        }
-        else
-        {
-          j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
-        }
+        // if(urdf_joint->safety)
+        // {
+        //   j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
+        // }
+        // else
+        // {
+	j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
+	//}
         j->continuous_ = false;
         j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
         result = j;
@@ -367,16 +367,16 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
     case urdf::Joint::PRISMATIC:
       {
         PrismaticJointModel *j = new PrismaticJointModel(urdf_joint->name, joint_config);
-        if(urdf_joint->safety)
-        {
-          j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
-        }
-        else
-        {
-          j->setVariableBounds(j->name_, urdf_joint->limits->upper, urdf_joint->limits->lower);
-        }
-        j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
-        result = j;
+        // if(urdf_joint->safety)
+        // {
+        //   j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
+        // }
+        // else
+        // {
+	j->setVariableBounds(j->name_, urdf_joint->limits->upper, urdf_joint->limits->lower);
+	// }
+	j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
+	result = j;
       }
       break;
     case urdf::Joint::FLOATING:
