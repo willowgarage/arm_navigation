@@ -58,12 +58,12 @@ bool OmplRosTaskSpaceValidityChecker::isValid(const ompl::base::State *ompl_stat
       return false;
     }
   }
-  if(!path_constraint_evaluator_set_.decide(kinematic_state_, true))
+  joint_state_group_->updateKinematicLinks();
+  if(!path_constraint_evaluator_set_.decide(kinematic_state_, false))
   {
     ROS_DEBUG("Path constraints violated in task space");
     return false;
   }
-  joint_state_group_->updateKinematicLinks();
   if(collision_models_interface_->isKinematicStateInCollision(*kinematic_state_))
   {
     ROS_DEBUG("State is in collision");
@@ -78,7 +78,7 @@ bool OmplRosTaskSpaceValidityChecker::isStateValid(const ompl::base::State *ompl
   if(!state_transformer_->inverseTransform(*ompl_state,
                                            robot_state_msg))
   {
-    ROS_DEBUG("State transformation failed");
+    ROS_INFO("State transformation failed");
     error_code_.val = error_code_.NO_IK_SOLUTION;
     return false;
   }
@@ -90,7 +90,7 @@ bool OmplRosTaskSpaceValidityChecker::isStateValid(const ompl::base::State *ompl
   {
     if(!joint_states[i]->areJointStateValuesWithinBounds())
     {
-      ROS_DEBUG("State violates joint limits for Joint %s",joint_states[i]->getName().c_str());
+      ROS_INFO("State violates joint limits for Joint %s",joint_states[i]->getName().c_str());
       error_code_.val = error_code_.JOINT_LIMITS_VIOLATED;
       return false;
     }
@@ -98,7 +98,7 @@ bool OmplRosTaskSpaceValidityChecker::isStateValid(const ompl::base::State *ompl
 
   if(!path_constraint_evaluator_set_.decide(kinematic_state_, false))
   {
-    ROS_DEBUG("Path constraints violated");
+    ROS_INFO("Path constraints violated");
     error_code_.val = error_code_.PATH_CONSTRAINTS_VIOLATED;
     return false;
   }
@@ -106,7 +106,7 @@ bool OmplRosTaskSpaceValidityChecker::isStateValid(const ompl::base::State *ompl
   joint_state_group_->updateKinematicLinks();
   if(collision_models_interface_->isKinematicStateInCollision(*kinematic_state_))
   {
-    ROS_DEBUG("State is in collision");
+    ROS_INFO("State is in collision");
     error_code_.val = error_code_.COLLISION_CONSTRAINTS_VIOLATED;        
     return false;
   }

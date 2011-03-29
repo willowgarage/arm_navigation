@@ -91,6 +91,16 @@ bool OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State &omp
   (*scoped_state_) = ompl_state;
   ompl_ros_interface::omplStateToRobotState(*scoped_state_,ompl_state_to_robot_state_mapping_,seed_state_);
   int error_code;
+
+  ROS_DEBUG_STREAM("Inner pose is " <<
+                   pose.position.x << " " <<
+                   pose.position.y << " " <<
+                   pose.position.z << " " <<
+                   pose.orientation.x << " " << 
+                   pose.orientation.y << " " << 
+                   pose.orientation.z << " " << 
+                   pose.orientation.w);
+
   if(kinematics_solver_->getPositionIK(pose,
                                        seed_state_.joint_state.position,
                                        solution_state_.joint_state.position,
