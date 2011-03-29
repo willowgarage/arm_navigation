@@ -40,8 +40,8 @@
 
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment_msgs/PlanningScene.h>
+#include <planning_environment_msgs/GetPlanningScene.h>
 #include <planning_environment/models/model_utils.h>
-#include <planning_environment_msgs/SetPlanningSceneAction.h>
 #include <rosgraph_msgs/Clock.h>
 #include <tf/transform_broadcaster.h>
 #include <kinematics_msgs/GetConstraintAwarePositionIK.h>
@@ -49,6 +49,7 @@
 #include <motion_planning_msgs/GetMotionPlan.h>
 #include <trajectory_msgs/JointTrajectory.h>
 #include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
+#include <motion_planning_msgs/convert_messages.h>
 
 int kfd = 0;
 struct termios cooked, raw;
@@ -64,11 +65,6 @@ static const double BASE_ROT_SPEED = .15;
 static const double HAND_TRANS_SPEED=.05;
 static const double HAND_ROT_SPEED = .15;
 
-static const std::string SET_PLANNING_SCENE_NAME_1="/pr2_right_arm_kinematics/set_planning_scene";
-static const std::string SET_PLANNING_SCENE_NAME_2="/pr2_left_arm_kinematics/set_planning_scene";
-static const std::string SET_PLANNING_SCENE_NAME_3="/ompl_planning/set_planning_scene";
-static const std::string SET_PLANNING_SCENE_NAME_4="/trajectory_filter/set_planning_scene";
-
 static const std::string LEFT_IK_NAME="/pr2_left_arm_kinematics/get_constraint_aware_ik";
 static const std::string RIGHT_IK_NAME="/pr2_right_arm_kinematics/get_constraint_aware_ik";
 
@@ -82,9 +78,13 @@ static const std::string LEFT_IK_LINK = "l_wrist_roll_link";
 static const std::string RIGHT_IK_LINK = "r_wrist_roll_link";
 
 static const std::string PLANNER_SERVICE_NAME="/ompl_planning/plan_kinematic_path";
+static const std::string LEFT_INTERPOLATE_SERVICE_NAME="/l_interpolated_ik_motion_plan";
+static const std::string RIGHT_INTERPOLATE_SERVICE_NAME="/r_interpolated_ik_motion_plan";
 static const std::string TRAJECTORY_FILTER_SERVICE_NAME="/trajectory_filter/filter_trajectory_with_constraints";
 
 static const ros::Duration PLANNING_DURATION = ros::Duration(5.0);
+
+static const std::string GET_PLANNING_SCENE_NAME = "environment_server/get_planning_scene";
 
 class PlanningSceneVisualizer {
 public:  
@@ -111,19 +111,11 @@ public:
     left_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(LEFT_IK_NAME, true);
     right_ik_service_client_ = nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(RIGHT_IK_NAME, true);
     planning_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME, true);
+    right_interpolate_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(RIGHT_INTERPOLATE_SERVICE_NAME, true);
+    left_interpolate_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(LEFT_INTERPOLATE_SERVICE_NAME, true);
     trajectory_filter_service_client_ = nh_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER_SERVICE_NAME);
 
-    set_planning_scene_action_1_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_1);
-    while(!set_planning_scene_action_1_->waitForServer(ros::Duration(.1)));
-
-    set_planning_scene_action_2_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_2);
-    while(!set_planning_scene_action_2_->waitForServer(ros::Duration(.1)));
-
-    set_planning_scene_action_3_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_3);
-    while(!set_planning_scene_action_3_->waitForServer(ros::Duration(.1)));
-
-    set_planning_scene_action_4_ = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME_4);
-    while(!set_planning_scene_action_4_->waitForServer(ros::Duration(.1)));
+    get_planning_scene_client_ = nh_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
 
     pole_obj_.object.header.stamp = ros::Time::now();
     pole_obj_.object.header.frame_id = "r_gripper_r_finger_tip_link";
@@ -193,10 +185,6 @@ public:
   }
   
   ~PlanningSceneVisualizer() {
-    delete set_planning_scene_action_1_;
-    delete set_planning_scene_action_2_;
-    delete set_planning_scene_action_3_;
-    delete set_planning_scene_action_4_;
     deleteKinematicStates();
     delete cm_;
   }
@@ -228,6 +216,7 @@ public:
       lock_scene_.unlock();
       return false;
     }
+    
     bool ok = sendPlanningScene();
     lock_scene_.unlock();
     return ok;
@@ -241,6 +230,19 @@ public:
     }
     deleteKinematicStates();
     setEndEffectorGoal(false);
+    
+    planning_environment_msgs::GetPlanningScene::Request planning_scene_req;
+    planning_environment_msgs::GetPlanningScene::Response planning_scene_res;
+
+    planning_scene_req.planning_scene_diff = planning_scene_;
+
+    if(!get_planning_scene_client_.call(planning_scene_req, planning_scene_res)) {
+      ROS_WARN("Can't get planning scene");
+      return false;
+    }
+
+    planning_scene_ = planning_scene_res.planning_scene;
+
     planning_state_ = cm_->setPlanningScene(planning_scene_);
     if(planning_state_ == NULL) {
       ROS_ERROR("Something wrong with planning scene");
@@ -255,18 +257,6 @@ public:
     c.clock.nsec = cur_time.nsec;
     c.clock.sec = cur_time.sec;
     getAllRobotStampedTransforms(*planning_state_, planning_scene_robot_transforms_, c.clock);
-
-    planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
-    planning_scene_goal.planning_scene = planning_scene_;
-    
-    set_planning_scene_action_1_->sendGoal(planning_scene_goal);
-    set_planning_scene_action_2_->sendGoal(planning_scene_goal);
-    set_planning_scene_action_3_->sendGoal(planning_scene_goal);
-    set_planning_scene_action_4_->sendGoal(planning_scene_goal);
-    while(!set_planning_scene_action_1_->waitForResult(ros::Duration(.1)));
-    while(!set_planning_scene_action_2_->waitForResult(ros::Duration(.1)));
-    while(!set_planning_scene_action_3_->waitForResult(ros::Duration(.1)));
-    while(!set_planning_scene_action_4_->waitForResult(ros::Duration(.1)));
 
     send_start_state_ = true;
     lock_scene_.unlock();
@@ -315,6 +305,22 @@ public:
     }
   }
 
+  bool changeObjectPadding(double diff) {
+    lock_scene_.lock();
+    bool ok;
+
+    for(unsigned int i = 0; i < planning_scene_.collision_objects.size(); i++) {
+      planning_scene_.collision_objects[i].padding += diff;
+      if(planning_scene_.collision_objects[i].padding < -.01) {
+        planning_scene_.collision_objects[i].padding = -.01;
+      }
+      ROS_INFO_STREAM("Changing object " << planning_scene_.collision_objects[i].id << " padd to " <<  planning_scene_.collision_objects[i].padding);
+    }     
+    ok = sendPlanningScene();
+    lock_scene_.unlock();
+    return ok;
+  }
+
   bool togglePole() {
     lock_scene_.lock();
     bool ok;
@@ -349,7 +355,8 @@ public:
   }
 
   void moveEndEffectorMarkers(double vx, double vy, double vz,
-                              double vr, double vp, double vw)
+                              double vr, double vp, double vw,
+                              bool constrain = false)
   {
     lock_scene_.lock();
     btTransform cur = end_effector_state_->getLinkState(end_effector_link_)->getGlobalLinkTransform();
@@ -360,10 +367,41 @@ public:
     roll += vr*mult;
     pitch += vp*mult;
     yaw += vw*mult;
+    if(roll > 2*M_PI) {
+      roll -= 2*M_PI;
+    } else if (roll < -2*M_PI) {
+      roll += 2*M_PI;
+    }
+    if(pitch > 2*M_PI) {
+      pitch -= 2*M_PI;
+    } else if (pitch < -2*M_PI) {
+      pitch += 2*M_PI;
+    }
     cur.getBasis().setRPY(roll,pitch,yaw);
     if(!end_effector_state_->updateKinematicStateWithLinkAt(end_effector_link_, cur)) {
       ROS_INFO("Problem");
     }
+    if(constrain) {
+      motion_planning_msgs::Constraints goal_constraints;
+      goal_constraints.orientation_constraints.resize(1);
+      motion_planning_msgs::Constraints path_constraints;
+      path_constraints.orientation_constraints.resize(1);
+      determinePitchRollConstraintsGivenState(*planning_state_,
+                                              goal_constraints.orientation_constraints[0],
+                                              path_constraints.orientation_constraints[0]);
+      motion_planning_msgs::ArmNavigationErrorCodes err;
+      if(!cm_->isKinematicStateValid(*end_effector_state_,
+                                     std::vector<std::string>(),
+                                     err,
+                                     goal_constraints,
+                                     path_constraints)) {
+        use_good_ik_color_ = false;
+        send_ik_solution_ = false;
+        lock_scene_.unlock();
+        return;
+      }
+    }
+
     if(solveIKForEndEffectorPose(false)) {
       use_good_ik_color_ = true;
     } else {
@@ -373,7 +411,7 @@ public:
     lock_scene_.unlock();
   }
   
-  bool solveIKForEndEffectorPose(bool show, double change_redundancy = 0.0)
+  bool solveIKForEndEffectorPose(bool show, bool constrain_pitch_and_roll = false, double change_redundancy = 0.0)
   {
     bool right = (end_effector_link_ == RIGHT_IK_LINK);
     kinematics_msgs::PositionIKRequest ik_request;
@@ -400,6 +438,14 @@ public:
     }
     kinematics_msgs::GetConstraintAwarePositionIK::Request ik_req;
     kinematics_msgs::GetConstraintAwarePositionIK::Response ik_res;
+    motion_planning_msgs::Constraints goal_constraints;
+    goal_constraints.orientation_constraints.resize(1);
+    motion_planning_msgs::Constraints path_constraints;
+    path_constraints.orientation_constraints.resize(1);
+    determinePitchRollConstraintsGivenState(*planning_state_,
+                                            goal_constraints.orientation_constraints[0],
+                                            path_constraints.orientation_constraints[0]);
+    ik_req.constraints = goal_constraints;
     ik_req.ik_request = ik_request;
     ik_req.timeout = ros::Duration(1.0);
     if(!s->call(ik_req, ik_res)) {
@@ -520,8 +566,6 @@ public:
     lock_scene_.unlock();
   }
 
-  
-
   void setEndEffectorGoal(bool on, bool right = false) {
     lock_scene_.lock();
     send_end_effector_goal_markers_ = on;
@@ -547,7 +591,65 @@ public:
     lock_scene_.unlock();
   }
 
-  bool planToEndEffectorState() {
+  bool interpolateToEndEffectorState() 
+  {
+    bool right = (end_effector_link_ == RIGHT_IK_LINK);
+    motion_planning_msgs::GetMotionPlan::Request plan_req;
+    plan_req.motion_plan_request.group_name = arm_group_name_;
+    plan_req.motion_plan_request.num_planning_attempts = 1;
+    plan_req.motion_plan_request.allowed_planning_time = PLANNING_DURATION;
+
+    //setting wacky stuff that the interpolated ik node wants
+    planning_environment::convertKinematicStateToRobotState(*planning_state_, ros::Time::now(),
+                                                            cm_->getWorldFrameId(), plan_req.motion_plan_request.start_state);
+    plan_req.motion_plan_request.start_state.multi_dof_joint_state.child_frame_ids[0] = end_effector_link_;
+    plan_req.motion_plan_request.start_state.multi_dof_joint_state.frame_ids[0] = cm_->getWorldFrameId();
+    tf::poseTFToMsg(planning_state_->getLinkState(end_effector_link_)->getGlobalLinkTransform(),
+                    plan_req.motion_plan_request.start_state.multi_dof_joint_state.poses[0]);
+
+    geometry_msgs::PoseStamped end_effector_wrist_pose;
+    tf::poseTFToMsg(end_effector_state_->getLinkState(end_effector_link_)->getGlobalLinkTransform(),
+                    end_effector_wrist_pose.pose);
+    end_effector_wrist_pose.header.frame_id = cm_->getWorldFrameId();
+
+    plan_req.motion_plan_request.goal_constraints.position_constraints.resize(1);
+    plan_req.motion_plan_request.goal_constraints.orientation_constraints.resize(1);
+
+    motion_planning_msgs::poseStampedToPositionOrientationConstraints(end_effector_wrist_pose,
+                                                                      end_effector_link_,
+                                                                      plan_req.motion_plan_request.goal_constraints.position_constraints[0],
+                                                                      plan_req.motion_plan_request.goal_constraints.orientation_constraints[0]);
+
+    ros::ServiceClient* s;
+    if(right) {
+      s = &right_interpolate_service_client_;
+    } else {
+      s = &left_interpolate_service_client_;
+    }
+    
+    motion_planning_msgs::GetMotionPlan::Response plan_res;
+    if(!s->call(plan_req, plan_res)) {
+      ROS_INFO("Something wrong with interpolation client");
+      return false;
+    }
+    if(plan_res.error_code.val != plan_res.error_code.SUCCESS) {
+      ROS_INFO_STREAM("Bad interpolation error code " << plan_res.error_code.val);
+      return false;
+    }
+    lock_scene_.lock();
+    send_planner_trajectory_ = true;
+    current_planner_trajectory_point_ = 0;
+    trajectory_state_ = new planning_models::KinematicState(*planning_state_);
+    planner_trajectory_ = plan_res.trajectory.joint_trajectory;
+    ROS_INFO_STREAM("Trajectory has " << plan_res.trajectory.joint_trajectory.points.size());
+    moveThroughPlannerTrajectory(0, false);
+    last_goal_constraints_ = plan_req.motion_plan_request.goal_constraints;
+    last_path_constraints_ = plan_req.motion_plan_request.path_constraints;
+    lock_scene_.unlock();
+    return true;
+  }
+
+  bool planToEndEffectorState(bool constrain) {
     motion_planning_msgs::GetMotionPlan::Request plan_req;
     plan_req.motion_plan_request.group_name = arm_group_name_;
     plan_req.motion_plan_request.num_planning_attempts = 1;
@@ -562,6 +664,23 @@ public:
       plan_req.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.001;
       plan_req.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.001;
     }      
+    if(constrain) {
+      plan_req.motion_plan_request.group_name += "_cartesian";
+      plan_req.motion_plan_request.goal_constraints.position_constraints.resize(1);
+      plan_req.motion_plan_request.goal_constraints.orientation_constraints.resize(1);    
+      geometry_msgs::PoseStamped end_effector_wrist_pose;
+      tf::poseTFToMsg(end_effector_state_->getLinkState(end_effector_link_)->getGlobalLinkTransform(),
+                      end_effector_wrist_pose.pose);
+      end_effector_wrist_pose.header.frame_id = cm_->getWorldFrameId();
+      motion_planning_msgs::poseStampedToPositionOrientationConstraints(end_effector_wrist_pose,
+                                                                        end_effector_link_,
+                                                                        plan_req.motion_plan_request.goal_constraints.position_constraints[0],
+                                                                        plan_req.motion_plan_request.goal_constraints.orientation_constraints[0]);
+      plan_req.motion_plan_request.path_constraints.orientation_constraints.resize(1);
+      determinePitchRollConstraintsGivenState(*planning_state_,
+                                              plan_req.motion_plan_request.goal_constraints.orientation_constraints[0],
+                                              plan_req.motion_plan_request.path_constraints.orientation_constraints[0]);
+    }
     planning_environment::convertKinematicStateToRobotState(*planning_state_, ros::Time::now(),
                                                             cm_->getWorldFrameId(), plan_req.motion_plan_request.start_state);
     motion_planning_msgs::GetMotionPlan::Response plan_res;
@@ -739,6 +858,30 @@ public:
   bool getSendCollisionMarkers() const {
     return send_collision_markers_;
   }
+
+  void determinePitchRollConstraintsGivenState(const planning_models::KinematicState& state,
+                                               motion_planning_msgs::OrientationConstraint& goal_constraint,
+                                               motion_planning_msgs::OrientationConstraint& path_constraint)
+  {
+    btTransform cur = state.getLinkState(end_effector_link_)->getGlobalLinkTransform();
+    //btScalar roll, pitch, yaw;
+    //cur.getBasis().getRPY(roll,pitch,yaw);
+    goal_constraint.header.frame_id = cm_->getWorldFrameId();
+    goal_constraint.header.stamp = ros::Time::now();
+    goal_constraint.link_name = end_effector_link_;
+    tf::quaternionTFToMsg(cur.getRotation(), goal_constraint.orientation);
+    goal_constraint.absolute_roll_tolerance = 0.04;
+    goal_constraint.absolute_pitch_tolerance = 0.04;
+    goal_constraint.absolute_yaw_tolerance = M_PI;
+    path_constraint.header.frame_id = cm_->getWorldFrameId();
+    path_constraint.header.stamp = ros::Time::now();
+    path_constraint.link_name = end_effector_link_;
+    tf::quaternionTFToMsg(cur.getRotation(), path_constraint.orientation);
+    path_constraint.type = path_constraint.HEADER_FRAME;
+    path_constraint.absolute_roll_tolerance = 0.1;
+    path_constraint.absolute_pitch_tolerance = 0.1;
+    path_constraint.absolute_yaw_tolerance = M_PI;
+  }
   
 protected:
   ros::NodeHandle nh_;
@@ -789,11 +932,10 @@ protected:
   ros::ServiceClient right_ik_service_client_;
   ros::ServiceClient planning_service_client_;
   ros::ServiceClient trajectory_filter_service_client_;
+  ros::ServiceClient right_interpolate_service_client_;
+  ros::ServiceClient left_interpolate_service_client_;
 
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_1_;  
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_2_;  
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_3_;  
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* set_planning_scene_action_4_;  
+  ros::ServiceClient get_planning_scene_client_;
 
   tf::TransformBroadcaster transform_broadcaster_;
   std::vector<geometry_msgs::TransformStamped> planning_scene_robot_transforms_;  
@@ -881,6 +1023,7 @@ int main(int argc, char** argv)
       puts("Use 'r' to reset to original planning state");
       puts("Use 'y' to mask collision map");
       puts("Use 'w/e' for left/right end effector pose submenu");
+      puts("Use 'a/z' to raise/lower object padding");
       puts("Use 'p' to toggle pole attached to right end effector");
       puts("Use 'q' to quit");
     }
@@ -893,15 +1036,23 @@ int main(int argc, char** argv)
     }
     switch(c)
     {
+    case 'a':
+      psv->changeObjectPadding(.01);
+      break;
+    case 'z':
+      psv->changeObjectPadding(-.01);
+      break;
     case 'w': case 'e':
       {
         bool right = (c == 'e');
         psv->setEndEffectorGoal(true, right);
         bool end_effector_stop = false;
         bool reprint_end = true;
+        bool do_constrained = false;
         while(!end_effector_stop) {
           if(reprint_end) {
             puts("------------------");
+            puts("Use 'c' to toggle pitch/roll constraints");
             puts("Use 'i/k' for end effector forward/back");
             puts("Use 'j/l' for end effector left/right");
             puts("Use 'h/n' for end effector up/down");
@@ -911,6 +1062,7 @@ int main(int argc, char** argv)
             puts("Use 's' to solve for collision free ik given the current end effector position");
             puts("Use 'a/z' to change redundancy");
             puts("Use 'p' to plan to current end effector pose");
+            puts("Use 'm' to interpolate to current end effector pose");
             puts("Use 'q' to exit submenu");
             reprint_end = false;
           }
@@ -920,65 +1072,77 @@ int main(int argc, char** argv)
             exit(-1);
           }
           switch(c) {
+          case 'c':
+            do_constrained = !do_constrained;
+            break;
           case 'i':
             psv->moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0,
-                                        0.0,0.0,0.0);
+                                        0.0,0.0,0.0, do_constrained);
             break;
           case 'k':
             psv->moveEndEffectorMarkers(-HAND_TRANS_SPEED, 0.0, 0.0,
-                                        0.0,0.0,0.0);
+                                        0.0,0.0,0.0, do_constrained);
             break;
           case 'j':
             psv->moveEndEffectorMarkers(0.0, HAND_TRANS_SPEED, 0.0,
-                                        0.0,0.0,0.0);
+                                        0.0,0.0,0.0, do_constrained);
             break;
           case 'l':
             psv->moveEndEffectorMarkers(0.0, -HAND_TRANS_SPEED, 0.0,
-                                        0.0,0.0,0.0);
+                                        0.0,0.0,0.0, do_constrained);
             break;
           case 'h':
             psv->moveEndEffectorMarkers(0.0, 0.0, HAND_TRANS_SPEED,
-                                        0.0,0.0,0.0);
+                                        0.0,0.0,0.0, do_constrained);
             break;
           case 'n':
             psv->moveEndEffectorMarkers(0.0, 0.0, -HAND_TRANS_SPEED,
-                                        0.0,0.0,0.0);
+                                        0.0,0.0,0.0, do_constrained);
             break;
           case 'r':
             psv->moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                        0.0, HAND_ROT_SPEED, 0.0);
+                                        0.0, HAND_ROT_SPEED, 0.0, do_constrained);
             break;
           case 'f':
             psv->moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                        0.0, -HAND_ROT_SPEED, 0.0);
+                                        0.0, -HAND_ROT_SPEED, 0.0, do_constrained);
             break;
           case 'd':
             psv->moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                        0.0, 0.0, HAND_ROT_SPEED);
+                                        0.0, 0.0, HAND_ROT_SPEED, do_constrained);
             break;
           case 'g':
             psv->moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                        0.0, 0.0, -HAND_ROT_SPEED);
+                                        0.0, 0.0, -HAND_ROT_SPEED, do_constrained);
             break;
           case 'v':
             psv->moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                        HAND_ROT_SPEED, 0.0, 0.0);
+                                        HAND_ROT_SPEED, 0.0, 0.0, do_constrained);
             break;
           case 'b':
             psv->moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                        -HAND_ROT_SPEED, 0.0, 0.0);
+                                        -HAND_ROT_SPEED, 0.0, 0.0, do_constrained);
             break;
           case 's':
-            psv->solveIKForEndEffectorPose(true);
+            psv->solveIKForEndEffectorPose(true, do_constrained);
             break;
           case 'a':
-            psv->solveIKForEndEffectorPose(true, HAND_ROT_SPEED);
+            psv->solveIKForEndEffectorPose(true, do_constrained, HAND_ROT_SPEED);
             break;
           case 'z':
-            psv->solveIKForEndEffectorPose(true, -HAND_ROT_SPEED);
+            psv->solveIKForEndEffectorPose(true, do_constrained, -HAND_ROT_SPEED);
             break;
-          case 'p':
-            if(psv->solveIKForEndEffectorPose(true) && psv->planToEndEffectorState()) {
+          case 'p': case 'm':
+            if(psv->solveIKForEndEffectorPose(true, do_constrained)) {
+              if(c == 'm') { 
+                if(!psv->interpolateToEndEffectorState()) {
+                  break;
+                }
+              } else {
+                if(!psv->planToEndEffectorState(do_constrained)) {
+                  break;
+                }
+              }
               puts("------------------");
               puts("Use 'i/k' to advance/rewind planner trajectory points");
               puts("Use 'o/l' to advance/rewind filter trajectory points");
