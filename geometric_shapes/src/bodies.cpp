@@ -1188,5 +1188,8 @@ double bodies::BodyVector::getPaddedBoundingSphereRadiusSquared(unsigned int i) 
   if(i >= rsqrs_.size()) {
     return -1.0;
   }
-  return padded_rsqrs_[i];
+  if(padding_ > 0.0) {
+    return padded_rsqrs_[i];
+  } 
+  return rsqrs_[i];
 }
