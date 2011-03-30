@@ -46,6 +46,7 @@
 #include <trajectory_msgs/JointTrajectory.h>
 #include <motion_planning_msgs/Constraints.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <motion_planning_msgs/MotionPlanRequest.h>
 #include <planning_environment_msgs/ContactInformation.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -312,6 +313,37 @@ public:
                                              const ros::Duration& lifetime,
                                              const std::vector<std::string>* names = NULL) const;
   
+  ///
+  /// Functions for bag manipulation
+  ///
+
+  void writePlanningSceneBag(const std::string& filename,
+                             const planning_environment_msgs::PlanningScene& planning_scene) const;
+  
+  bool readPlanningSceneBag(const std::string& filename,
+                            planning_environment_msgs::PlanningScene& planning_scene) const;
+
+  bool appendMotionPlanRequestToPlanningSceneBag(const std::string& filename,
+                                                 const std::string& topic_name,
+                                                 const motion_planning_msgs::MotionPlanRequest& req);
+
+  bool loadMotionPlanRequestsInPlanningSceneBag(const std::string& filename,
+                                                const std::string& topic_name,
+                                                std::vector<motion_planning_msgs::MotionPlanRequest>& motion_plan_reqs);
+
+  bool loadJointTrajectoriesInPlanningSceneBag(const std::string& filename,
+                                               const std::string& topic_name,
+                                               std::vector<trajectory_msgs::JointTrajectory>& traj_vec);
+
+  
+  bool appendJointTrajectoryToPlanningSceneBag(const std::string& filename,
+                                               const std::string& topic_name,
+                                               const trajectory_msgs::JointTrajectory& traj);
+
+  ///
+  /// Accessors
+  ///
+
   /** \brief Return the instance of the constructed ODE collision model */  
   const collision_space::EnvironmentModel* getCollisionSpace() const {
     return ode_collision_model_;
@@ -342,13 +374,6 @@ public:
   const std::map<std::string,double>& getDefaultLinkPaddingMap() const {
     return default_link_padding_map_;
   }
-
-  void writePlanningSceneBag(const std::string& filename,
-                             const planning_environment_msgs::PlanningScene& planning_scene) const;
-  
-  bool readPlanningSceneBag(const std::string& filename,
-                            planning_environment_msgs::PlanningScene& planning_scene) const;
-
   
   bool isPlanningSceneSet() const {
     return planning_scene_set_;

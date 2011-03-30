@@ -1997,3 +1997,97 @@ bool planning_environment::CollisionModels::readPlanningSceneBag(const std::stri
   }
   return true;
 }
+
+bool planning_environment::CollisionModels::appendMotionPlanRequestToPlanningSceneBag(const std::string& filename,
+                                                                                      const std::string& topic_name,
+                                                                                      const motion_planning_msgs::MotionPlanRequest& req)
+{
+  rosbag::Bag bag;
+  try {
+    bag.open(filename, rosbag::bagmode::Append);
+  } catch(rosbag::BagException) {
+    ROS_WARN_STREAM("Could not append to bag file " << filename);
+    return false;
+  }
+  ros::Time t = req.start_state.joint_state.header.stamp;
+  bag.write(topic_name, ros::Time::now(), req);
+  bag.close();
+  return true;
+}
+
+bool planning_environment::CollisionModels::loadMotionPlanRequestsInPlanningSceneBag(const std::string& filename,
+                                                                                     const std::string& topic_name,
+                                                                                     std::vector<motion_planning_msgs::MotionPlanRequest>& motion_plan_reqs){
+  rosbag::Bag bag;
+  try {
+    bag.open(filename, rosbag::bagmode::Read);
+  } catch(rosbag::BagException) {
+    ROS_WARN_STREAM("Could not open bag file " << filename);
+    return false;
+  }
+
+  std::vector<std::string> topics;
+  topics.push_back(topic_name);
+
+  rosbag::View view(bag, rosbag::TopicQuery(topics));
+
+  BOOST_FOREACH(rosbag::MessageInstance const m, view)
+  {
+    motion_planning_msgs::MotionPlanRequest::ConstPtr mpr = m.instantiate<motion_planning_msgs::MotionPlanRequest>();
+    if(mpr != NULL) {
+      motion_plan_reqs.push_back(*mpr);
+    }
+  }    
+  if(motion_plan_reqs.size() == 0) {
+    ROS_WARN_STREAM("No MotionPlanRequest messages with topic name " << topic_name << " in " << filename);
+    return false;
+  }
+  return true;  
+}
+
+bool planning_environment::CollisionModels::loadJointTrajectoriesInPlanningSceneBag(const std::string& filename,
+                                                                                    const std::string& topic_name,
+                                                                                    std::vector<trajectory_msgs::JointTrajectory>& traj_vec){
+  rosbag::Bag bag;
+  try {
+    bag.open(filename, rosbag::bagmode::Read);
+  } catch(rosbag::BagException) {
+    ROS_WARN_STREAM("Could not open bag file " << filename);
+    return false;
+  }
+
+  std::vector<std::string> topics;
+  topics.push_back(topic_name);
+
+  rosbag::View view(bag, rosbag::TopicQuery(topics));
+
+  BOOST_FOREACH(rosbag::MessageInstance const m, view)
+  {
+    trajectory_msgs::JointTrajectory::ConstPtr jt = m.instantiate<trajectory_msgs::JointTrajectory>();
+    if(jt != NULL) {
+      traj_vec.push_back(*jt);
+    }
+  }    
+  if(traj_vec.size() == 0) {
+    ROS_WARN_STREAM("No JointTrajectory messages with topic name " << topic_name << " in " << filename);
+    return false;
+  }
+  return true;  
+}
+
+bool planning_environment::CollisionModels::appendJointTrajectoryToPlanningSceneBag(const std::string& filename,
+                                                                                    const std::string& topic_name,
+                                                                                    const trajectory_msgs::JointTrajectory& traj)
+{
+  rosbag::Bag bag;
+  try {
+    bag.open(filename, rosbag::bagmode::Append);
+  } catch(rosbag::BagException) {
+    ROS_WARN_STREAM("Could not append to bag file " << filename);
+    return false;
+  }
+  bag.write(topic_name, ros::Time::now(), traj);
+  bag.close();
+  return true;
+}
+
