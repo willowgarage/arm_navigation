@@ -1123,6 +1123,14 @@ private:
             } else if (error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Planner trajectory doesn't reach goal");
             }
+            std::string filename = "~/bad_planner_trajectory_scene.bag";
+            collision_models_->writePlanningSceneBag(filename, current_planning_scene_);
+            collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
+                                                                         "motion_plan_request",
+                                                                         req.motion_plan_request);
+            collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
+                                                                       "planner_trajectory",
+                                                                       res.trajectory.joint_trajectory);
 	    num_planning_attempts_++;
 	    if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
             {
@@ -1190,6 +1198,14 @@ private:
             }
             ROS_ERROR("Move arm will abort this goal.  Will replan");
             state_ = PLANNING;
+            std::string filename = "~/bad_planner_trajectory_for_filter_scene.bag";
+            collision_models_->writePlanningSceneBag(filename, current_planning_scene_);
+            collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
+                                                                         "motion_plan_request",
+                                                                         original_request_.motion_plan_request);
+            collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
+                                                                       "planner_trajectory",
+                                                                       current_trajectory_);
             //resetStateMachine();
             //action_server_->setAborted(move_arm_action_result_);
 	    break;

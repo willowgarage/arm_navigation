@@ -209,17 +209,63 @@ public:
   }
 
   bool loadPlanningScene(const std::string& filename) {
-    lock_scene_.lock();
     if(!cm_->readPlanningSceneBag(filename,
                                   planning_scene_)) {
       ROS_ERROR("Bag file doesn't exist or doesn't contain a planning scene");
-      lock_scene_.unlock();
       return false;
     }
-    
+    lock_scene_.lock();
     bool ok = sendPlanningScene();
     lock_scene_.unlock();
     return ok;
+  }
+
+  bool loadMotionPlanRequest(const std::string& filename) {
+    std::vector<motion_planning_msgs::MotionPlanRequest> req;
+    if(!cm_->loadMotionPlanRequestsInPlanningSceneBag(filename,
+                                                      "motion_plan_request",
+                                                      req)) {
+      return false;
+    }
+    last_motion_plan_request_ = req[0];
+    arm_group_name_ = last_motion_plan_request_.group_name;
+    lock_scene_.lock();
+    planning_environment::setRobotStateAndComputeTransforms(last_motion_plan_request_.start_state,
+                                                            *planning_state_);
+    if(send_collision_markers_) {
+      updateCurrentCollisionSet(collision_marker_state_);
+    }
+    lock_scene_.unlock();
+    return true;
+  }
+
+  bool loadPlannerTrajectory(const std::string& filename) {
+    std::vector<trajectory_msgs::JointTrajectory> traj_vec;
+    if(!cm_->loadJointTrajectoriesInPlanningSceneBag(filename,
+                                                     "planner_trajectory",
+                                                     traj_vec)) {
+      return false;
+    }
+    lock_scene_.lock();  
+    send_planner_trajectory_ = true;
+    current_planner_trajectory_point_ = 0;
+    trajectory_state_ = new planning_models::KinematicState(*planning_state_);
+    planner_trajectory_ = traj_vec[0];
+    ROS_INFO_STREAM("Trajectory has " << planner_trajectory_.points.size());
+    moveThroughPlannerTrajectory(0, false);
+    lock_scene_.unlock();  
+    return true;
+  }
+
+  void logPlannerSceneAndPlannerTrajectory(const std::string& filename) {
+    cm_->writePlanningSceneBag(filename,
+                               planning_scene_);
+    cm_->appendMotionPlanRequestToPlanningSceneBag(filename,
+                                                   "motion_plan_request",
+                                                   last_motion_plan_request_);
+    cm_->appendJointTrajectoryToPlanningSceneBag(filename,
+                                                 "planner_trajectory",
+                                                 planner_trajectory_);
   }
 
   bool sendPlanningScene() {
@@ -641,10 +687,17 @@ public:
     current_planner_trajectory_point_ = 0;
     trajectory_state_ = new planning_models::KinematicState(*planning_state_);
     planner_trajectory_ = plan_res.trajectory.joint_trajectory;
-    ROS_INFO_STREAM("Trajectory has " << plan_res.trajectory.joint_trajectory.points.size());
+    for(unsigned int i = 0; i < planner_trajectory_.points.size(); i++) {
+      if(plan_res.trajectory_error_codes[i].val != plan_res.trajectory_error_codes[i].SUCCESS) {
+        ROS_INFO_STREAM("Bad error code " << plan_res.trajectory_error_codes[i] << " as of point " << i << " of " << planner_trajectory_.points.size());
+        planner_trajectory_.points.erase(planner_trajectory_.points.begin()+i, planner_trajectory_.points.end());
+        break;
+      }
+    }
+
+    ROS_INFO_STREAM("Trajectory has " << planner_trajectory_.points.size());
     moveThroughPlannerTrajectory(0, false);
-    last_goal_constraints_ = plan_req.motion_plan_request.goal_constraints;
-    last_path_constraints_ = plan_req.motion_plan_request.path_constraints;
+    last_motion_plan_request_ = plan_req.motion_plan_request;
     lock_scene_.unlock();
     return true;
   }
@@ -699,8 +752,7 @@ public:
     planner_trajectory_ = plan_res.trajectory.joint_trajectory;
     ROS_INFO_STREAM("Trajectory has " << plan_res.trajectory.joint_trajectory.points.size());
     moveThroughPlannerTrajectory(0, false);
-    last_goal_constraints_ = plan_req.motion_plan_request.goal_constraints;
-    last_path_constraints_ = plan_req.motion_plan_request.path_constraints;
+    last_motion_plan_request_ = plan_req.motion_plan_request;
     lock_scene_.unlock();
     return true;
   }
@@ -714,8 +766,8 @@ public:
     filter_req.trajectory = planner_trajectory_;
     filter_req.group_name = arm_group_name_;
 
-    filter_req.goal_constraints = last_goal_constraints_;
-    filter_req.path_constraints = last_path_constraints_;
+    filter_req.goal_constraints = last_motion_plan_request_.goal_constraints;
+    filter_req.path_constraints = last_motion_plan_request_.path_constraints;
     filter_req.allowed_time = ros::Duration(2.0);
 
     if(!trajectory_filter_service_client_.call(filter_req, filter_res)) {
@@ -897,8 +949,7 @@ protected:
   trajectory_msgs::JointTrajectory filter_trajectory_;
   mapping_msgs::AttachedCollisionObject pole_obj_;
 
-  motion_planning_msgs::Constraints last_goal_constraints_;
-  motion_planning_msgs::Constraints last_path_constraints_;
+  motion_planning_msgs::MotionPlanRequest last_motion_plan_request_;
 
   std::string end_effector_link_;
   std::string arm_group_name_;
@@ -976,6 +1027,70 @@ void quit(int sig)
   exit(0);
 }
 
+void trajectorySubmenu(const std::string& filename) {
+  char c;
+  puts("------------------");
+  puts("Use 'i/k' to advance/rewind planner trajectory points");
+  puts("Use 'o/l' to advance/rewind filter trajectory points");
+  puts("Use 'f' to call trajectory filter on planner trajectory");
+  puts("Use 'y' to toggle planner trajectory collisions");
+  puts("Use 'h' to toggle filter trajectory collisions");
+  puts("Use 'z' to toggle printing planning trajectory values");
+  puts("use 'x' to toggle printing filter trajectory values");
+  puts("Use 'b' to log planning scene and planner trajectory to bag");
+  puts("Use 'q' to return to end effector menu");
+  bool trajectory_stop = false;
+  bool planner_trajectory_printing = false;
+  bool filter_trajectory_printing = false;
+  while(!trajectory_stop) {
+    if(read(kfd, &c, 1) < 0)
+    {
+      perror("read():");
+      exit(-1);
+    }
+    switch(c) {
+    case 'i': 
+      psv->moveThroughPlannerTrajectory(1, planner_trajectory_printing);
+      break;
+    case 'k':
+      psv->moveThroughPlannerTrajectory(-1, planner_trajectory_printing);
+      break;
+    case 'o': 
+      psv->moveThroughFilterTrajectory(1, filter_trajectory_printing);
+      break;
+    case 'l':
+      psv->moveThroughFilterTrajectory(-1,filter_trajectory_printing);
+      break;
+    case 'f':
+      psv->filterPlannerTrajectory();
+      break;
+    case 'y':
+      psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::PLANNER_TRAJECTORY);
+      break;
+    case 'h':
+      psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::FILTER_TRAJECTORY);
+      break;
+    case 'z':
+      planner_trajectory_printing = !planner_trajectory_printing;
+      break;
+    case 'x':
+      filter_trajectory_printing = !filter_trajectory_printing;
+      break;
+    case 'b':
+      psv->logPlannerSceneAndPlannerTrajectory(filename+".new");
+      break;
+    case 'q':
+      trajectory_stop = true;
+      break;
+    default: 
+      ROS_INFO_STREAM("Invalid key " << c);
+      break;
+    }
+  }
+  psv->stopShowingPlannerTrajectory();
+  psv->stopShowingFilterTrajectory();
+  psv->setShowCollisions(false);
+}
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "planning_scene_keyboard", ros::init_options::NoSigintHandler);
@@ -1001,7 +1116,9 @@ int main(int argc, char** argv)
 
   psv = new PlanningSceneVisualizer();
 
-  if(!psv->loadPlanningScene(argv[1])) {
+  std::string filename = argv[1];
+
+  if(!psv->loadPlanningScene(filename)) {
     exit(0);
   }
 
@@ -1025,6 +1142,7 @@ int main(int argc, char** argv)
       puts("Use 'w/e' for left/right end effector pose submenu");
       puts("Use 'a/z' to raise/lower object padding");
       puts("Use 'p' to toggle pole attached to right end effector");
+      puts("Use 'b' to load motion plan request and planner trajectory");
       puts("Use 'q' to quit");
     }
     
@@ -1036,6 +1154,13 @@ int main(int argc, char** argv)
     }
     switch(c)
     {
+    case 'b':
+      if(psv->loadMotionPlanRequest(filename) &&
+         psv->loadPlannerTrajectory(filename)) {
+        trajectorySubmenu(filename);
+      }
+      reprint = true;
+      break;
     case 'a':
       psv->changeObjectPadding(.01);
       break;
@@ -1143,65 +1268,9 @@ int main(int argc, char** argv)
                   break;
                 }
               }
-              puts("------------------");
-              puts("Use 'i/k' to advance/rewind planner trajectory points");
-              puts("Use 'o/l' to advance/rewind filter trajectory points");
-              puts("Use 'f' to call trajectory filter on planner trajectory");
-              puts("Use 'y' to toggle planner trajectory collisions");
-              puts("Use 'h' to toggle filter trajectory collisions");
-              puts("Use 'z' to toggle printing planning trajectory values");
-              puts("use 'x' to toggle printing filter trajectory values");
-              puts("Use 'q' to return to end effector menu");
-              bool trajectory_stop = false;
-              bool planner_trajectory_printing = false;
-              bool filter_trajectory_printing = false;
-              while(!trajectory_stop) {
-                if(read(kfd, &c, 1) < 0)
-                {
-                  perror("read():");
-                  exit(-1);
-                }
-                switch(c) {
-                case 'i': 
-                  psv->moveThroughPlannerTrajectory(1, planner_trajectory_printing);
-                  break;
-                case 'k':
-                  psv->moveThroughPlannerTrajectory(-1, planner_trajectory_printing);
-                  break;
-                case 'o': 
-                  psv->moveThroughFilterTrajectory(1, filter_trajectory_printing);
-                  break;
-                case 'l':
-                  psv->moveThroughFilterTrajectory(-1,filter_trajectory_printing);
-                  break;
-                case 'f':
-                  psv->filterPlannerTrajectory();
-                  break;
-                case 'y':
-                  psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::PLANNER_TRAJECTORY);
-                  break;
-                case 'h':
-                  psv->setShowCollisions(!psv->getSendCollisionMarkers(), PlanningSceneVisualizer::FILTER_TRAJECTORY);
-                  break;
-                case 'z':
-                  planner_trajectory_printing = !planner_trajectory_printing;
-                  break;
-                case 'x':
-                  filter_trajectory_printing = !filter_trajectory_printing;
-                  break;
-                case 'q':
-                  trajectory_stop = true;
-                  break;
-                default: 
-                  ROS_INFO_STREAM("Invalid key " << c);
-                  break;
-                }
-              }
-              psv->stopShowingPlannerTrajectory();
-              psv->stopShowingFilterTrajectory();
-              psv->setShowCollisions(false);
-              reprint_end = true;
             }
+            trajectorySubmenu(filename);
+            reprint_end = true;
             break;
           case 'q':
             psv->setEndEffectorGoal(false);
