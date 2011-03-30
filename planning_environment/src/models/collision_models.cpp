@@ -481,13 +481,7 @@ bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTrans
       return false;
     }
     constraints.orientation_constraints[i].header = qs.header;
-    constraints.orientation_constraints[i].orientation = qs.quaternion;
-    ROS_INFO_STREAM("Converted quaternion " << i << " in frame " << trans_frame << " is "
-		    << constraints.orientation_constraints[i].orientation.x
-		    << constraints.orientation_constraints[i].orientation.y
-		    << constraints.orientation_constraints[i].orientation.z
-		    << constraints.orientation_constraints[i].orientation.w);
-		    
+    constraints.orientation_constraints[i].orientation = qs.quaternion;		    
   }
   
   for(unsigned int i = 0; i < constraints.visibility_constraints.size(); i++) {
@@ -721,7 +715,6 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
 	it2 != it->second.end();
 	it2++) {
       object_vector.push_back(it2->second);
-      ROS_INFO_STREAM("Pushing back " << it2->first << " padding " << it2->second->getPadding());
     }    
   }
   bodies::maskPosesInsideBodyVectors(poses, object_vector, mask, true);
@@ -1372,7 +1365,7 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
     error_code.val = error_code.JOINT_LIMITS_VIOLATED;
     return false;
   }
-  if(!doesKinematicStateObeyConstraints(state, path_constraints, true)) {
+  if(!doesKinematicStateObeyConstraints(state, path_constraints, false)) {
     error_code.val = error_code.PATH_CONSTRAINTS_VIOLATED;
     return false;
   }
