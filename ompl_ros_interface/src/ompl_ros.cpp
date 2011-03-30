@@ -74,8 +74,6 @@ bool OmplRos::initialize(const std::string &param_server_prefix)
     ROS_ERROR("Could not find groups for planning under %s",param_server_prefix.c_str());
     return false;
   }
-  ROS_INFO_STREAM("Namespace prefix is " << param_server_prefix);
-  
   if(!initializePlanningMap(param_server_prefix,group_names))
   {
     ROS_ERROR("Could not initialize planning groups from the param server");
@@ -108,7 +106,7 @@ bool OmplRos::getGroupNamesFromParamServer(const std::string &param_server_prefi
       return false;
     }
     group_names.push_back(static_cast<std::string>(group_list[i]));
-    ROS_INFO("Adding group: %s",group_names.back().c_str());
+    ROS_DEBUG("Adding group: %s",group_names.back().c_str());
   }
   return true;
 };
@@ -140,7 +138,7 @@ bool OmplRos::initializePlanningMap(const std::string &param_server_prefix,
       }
       else
       {
-        ROS_INFO("Adding planning group config: %s",(planner_config+"["+group_names[i]+"]").c_str());
+        ROS_DEBUG("Adding planning group config: %s",(planner_config+"["+group_names[i]+"]").c_str());
       }
     }    
   } 
@@ -220,7 +218,7 @@ bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
   }
   else
   {
-    ROS_INFO("Using planner config %s",location.c_str());
+    ROS_DEBUG("Using planner config %s",location.c_str());
   }
   planner_map_[location]->computePlan(request,response);
   if(publish_diagnostics_)
@@ -257,7 +255,7 @@ boost::shared_ptr<ompl_ros_interface::OmplRosPlanningGroup>& OmplRos::getPlanner
   }
   else
   {
-    ROS_INFO("Using planner config %s",location.c_str());
+    ROS_DEBUG("Using planner config %s",location.c_str());
     return planner_map_[location];
   }
 };

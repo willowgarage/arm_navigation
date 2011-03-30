@@ -61,7 +61,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateMa
     for(unsigned int i=0; i < dimension_; i++)
       cellDimensions_[i] = (b.high[i] - b.low[i]) / 10.0;
     mapping_type_ = ompl_ros_interface::REAL_VECTOR;
-    ROS_INFO("Choosing projection evaluator for real vector joints with dimension %d",dimension_);
+    ROS_DEBUG("Choosing projection evaluator for real vector joints with dimension %d",dimension_);
     return;
   }
 
@@ -73,7 +73,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateMa
     dimension_ = 1;
     cellDimensions_.resize(1);
     cellDimensions_[0] = boost::math::constants::pi<double>() / 10.0;
-    ROS_INFO("Choosing projection evaluator for SO2 manifold %s",evaluator_name.c_str());
+    ROS_DEBUG("Choosing projection evaluator for SO2 manifold %s",evaluator_name.c_str());
   }
   else if(mapping_type_ == ompl_ros_interface::SE2)
   {
@@ -82,7 +82,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateMa
     const ompl::base::RealVectorBounds &b = manifold->as<ompl::base::CompoundStateManifold>()->as<ompl::base::SE2StateManifold>(mapping_index_)->as<ompl::base::RealVectorStateManifold>(0)->getBounds();
     cellDimensions_[0] = (b.high[0] - b.low[0]) / 10.0;
     cellDimensions_[1] = (b.high[1] - b.low[1]) / 10.0;      
-    ROS_INFO("Choosing projection evaluator for SE2 manifold %s",evaluator_name.c_str());
+    ROS_DEBUG("Choosing projection evaluator for SE2 manifold %s",evaluator_name.c_str());
   }
   else if(mapping_type_ == ompl_ros_interface::SO3)
   {
@@ -91,7 +91,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateMa
     cellDimensions_[0] = boost::math::constants::pi<double>() / 10.0;
     cellDimensions_[1] = boost::math::constants::pi<double>() / 10.0;
     cellDimensions_[2] = boost::math::constants::pi<double>() / 10.0;
-    ROS_INFO("Choosing projection evaluator for SO3 manifold %s",evaluator_name.c_str());
+    ROS_DEBUG("Choosing projection evaluator for SO3 manifold %s",evaluator_name.c_str());
   }
   else if(mapping_type_ == ompl_ros_interface::SE3)
   {
@@ -101,7 +101,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateMa
     cellDimensions_[0] = (b.high[0] - b.low[0]) / 10.0;
     cellDimensions_[1] = (b.high[1] - b.low[1]) / 10.0;
     cellDimensions_[2] = (b.high[2] - b.low[2]) / 10.0;
-    ROS_INFO("Choosing projection evaluator for SE3 manifold %s",evaluator_name.c_str());
+    ROS_DEBUG("Choosing projection evaluator for SE3 manifold %s",evaluator_name.c_str());
   }
 };
 	

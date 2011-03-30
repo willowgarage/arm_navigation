@@ -184,7 +184,7 @@ bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const motion_planning_
   motion_planning_msgs::PositionConstraint position_constraint;
   motion_planning_msgs::OrientationConstraint orientation_constraint;
   if(!getEndEffectorConstraints(tmp_constraints,position_constraint,orientation_constraint,true)) {
-    ROS_INFO("Goal constraints probably don't have a position and orientation constraint");
+    ROS_WARN("Goal constraints probably don't have a position and orientation constraint");
     return false;
   }
   geometry_msgs::PoseStamped desired_pose = motion_planning_msgs::poseConstraintsToPoseStamped(position_constraint,
@@ -430,9 +430,8 @@ geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(cons
                                                                       desired_pose.header,
                                                                       desired_pose.pose,
                                                                       desired_pose)) {
-        ROS_INFO_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
+        ROS_WARN_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
       }
-      ROS_INFO("Found start state in the request");
       return desired_pose;
     }
   }
@@ -449,7 +448,7 @@ geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(cons
                                                                   desired_pose.header,
                                                                   desired_pose.pose,
                                                                   desired_pose)) {
-    ROS_INFO_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
+    ROS_WARN_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
   }
 
   btQuaternion orientation;

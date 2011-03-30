@@ -101,7 +101,7 @@ bool OmplRosIKSampleableRegion::configureOnRequest(const motion_planning_msgs::G
   }       
   if(ik_poses_.empty())
   {
-    ROS_INFO("Could not setup goals for inverse kinematics sampling");
+    ROS_WARN("Could not setup goals for inverse kinematics sampling");
     return false;
   }
   for(unsigned int i=0; i < ik_poses_.size(); i++)

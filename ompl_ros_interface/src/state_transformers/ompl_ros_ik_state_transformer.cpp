@@ -52,13 +52,13 @@ OmplRosIKStateTransformer::OmplRosIKStateTransformer(const ompl::base::StateMani
     throw new OMPLROSException();
   }
   node_handle.getParam(group_name_+"/kinematics_solver",kinematics_solver_name);
-  ROS_INFO("Trying to initialize solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Trying to initialize solver %s",kinematics_solver_name.c_str());
   if(!kinematics_loader_.isClassAvailable(kinematics_solver_name))
   {
     ROS_ERROR("pluginlib does not have the class %s",kinematics_solver_name.c_str());
     throw new OMPLROSException();
   }
-  ROS_INFO("Found solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Found solver %s",kinematics_solver_name.c_str());
   
   try
   {
@@ -69,12 +69,12 @@ OmplRosIKStateTransformer::OmplRosIKStateTransformer(const ompl::base::StateMani
     ROS_ERROR("The plugin failed to load. Error: %s", ex.what());
     throw new OMPLROSException();
   }
-  ROS_INFO("Loaded solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Loaded solver %s",kinematics_solver_name.c_str());
   if(!kinematics_solver_->initialize(physical_group_name_))
   {
     ROS_ERROR("Could not initialize kinematics solver for group %s",group_name_.c_str());
     throw new OMPLROSException();
   }
-  ROS_INFO("Initialized ompl ros state transformer %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Initialized ompl ros state transformer %s",kinematics_solver_name.c_str());
 }  
 }

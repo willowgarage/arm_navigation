@@ -54,7 +54,6 @@ ompl::base::StateManifoldPtr jointGroupToOmplStateManifoldPtr(const planning_mod
 
   for (unsigned int i = 0 ; i < joint_models.size() ; ++i)
   {
-    ROS_INFO_STREAM("Got joint named " << joint_models[i]->getName());
     const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = 
       dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint_models[i]);
     if (revolute_joint && revolute_joint->continuous_)

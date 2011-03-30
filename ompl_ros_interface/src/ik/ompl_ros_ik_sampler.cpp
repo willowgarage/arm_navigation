@@ -48,13 +48,13 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateManifoldPtr &state_mani
   state_manifold_ = state_manifold;
   group_name_ = group_name;
   end_effector_name_ = end_effector_name;
-  ROS_INFO("Trying to initialize solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Trying to initialize solver %s",kinematics_solver_name.c_str());
   if(!kinematics_loader_.isClassAvailable(kinematics_solver_name))
   {
     ROS_ERROR("pluginlib does not have the class %s",kinematics_solver_name.c_str());
     return false;
   }
-  ROS_INFO("Found solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Found solver %s",kinematics_solver_name.c_str());
   
   try
   {
@@ -65,13 +65,13 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateManifoldPtr &state_mani
     ROS_ERROR("The plugin failed to load. Error: %s", ex.what());
     return false;
   }
-  ROS_INFO("Loaded solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Loaded solver %s",kinematics_solver_name.c_str());
   if(!kinematics_solver_->initialize(group_name))
   {
     ROS_ERROR("Could not initialize kinematics solver for group %s",group_name.c_str());
     return false;
   }
-  ROS_INFO("Initialized solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Initialized solver %s",kinematics_solver_name.c_str());
   scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateManifold>(state_manifold_));
   seed_state_.joint_state.name = kinematics_solver_->getJointNames();
   seed_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
@@ -90,11 +90,11 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateManifoldPtr &state_mani
   }
   else
   {
-    ROS_INFO("Real vector index: %d",ompl_state_to_robot_state_mapping_.real_vector_index);
+    ROS_DEBUG("Real vector index: %d",ompl_state_to_robot_state_mapping_.real_vector_index);
     for(unsigned int i=0; i < ompl_state_to_robot_state_mapping_.real_vector_mapping.size(); i++)
-      ROS_INFO("mapping: %d %d",i,ompl_state_to_robot_state_mapping_.real_vector_mapping[i]);
+      ROS_DEBUG("mapping: %d %d",i,ompl_state_to_robot_state_mapping_.real_vector_mapping[i]);
   }
-  ROS_INFO("Initialized Ompl Ros IK Sampler");
+  ROS_DEBUG("Initialized Ompl Ros IK Sampler");
   return true;
 }  
 
@@ -122,7 +122,7 @@ bool OmplRosIKSampler::configureOnRequest(const motion_planning_msgs::GetMotionP
   }       
   if(ik_poses_.empty())
   {
-    ROS_INFO("Could not setup goals for inverse kinematics sampling");
+    ROS_WARN("Could not setup goals for inverse kinematics sampling");
     return false;
   }
   else
