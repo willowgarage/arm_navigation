@@ -74,9 +74,14 @@ public:
   bool getStateValidity(planning_environment_msgs::GetStateValidity::Request &req, 
                         planning_environment_msgs::GetStateValidity::Response &res) 
   {
+    collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
+
     if(collision_models_interface_->getPlanningSceneState() == NULL) {
       res.error_code.val = res.error_code.COLLISION_CHECKING_UNAVAILABLE;
       return true;
+    }
+    if(!req.group_name.empty()) {
+      collision_models_interface_->disableCollisionsForNonUpdatedLinks(req.group_name);
     }
     planning_environment::setRobotStateAndComputeTransforms(req.robot_state,
                                                             *collision_models_interface_->getPlanningSceneState());
@@ -92,25 +97,11 @@ public:
     if(req.check_joint_limits) {
       joint_names = req.robot_state.joint_state.name;
     }
-    bool valid = collision_models_interface_->isKinematicStateValid(*collision_models_interface_->getPlanningSceneState(),
-								    joint_names,
-								    res.error_code,
-								    goal_constraints,
-								    path_constraints);
-    if(!valid) {
-      std_msgs::ColorRGBA col;
-      col.a = .9;
-      col.r = 1.0;
-      col.b = 1.0;
-      col.g = 0.0;
-      visualization_msgs::MarkerArray arr;
-      collision_models_interface_->getRobotMeshResourceMarkersGivenState(*collision_models_interface_->getPlanningSceneState(),
-                                                                         arr,
-                                                                         col,
-                                                                         "start_pose",
-                                                                         ros::Duration(0.0));
-      vis_marker_array_publisher_.publish(arr);
-    }
+    collision_models_interface_->isKinematicStateValid(*collision_models_interface_->getPlanningSceneState(),
+                                                       joint_names,
+                                                       res.error_code,
+                                                       goal_constraints,
+                                                       path_constraints);
     return true;
   }
 
