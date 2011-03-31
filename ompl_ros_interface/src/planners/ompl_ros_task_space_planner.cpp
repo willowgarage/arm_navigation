@@ -35,6 +35,7 @@
 /** \author Sachin Chitta, Ioan Sucan */
 
 #include <ompl_ros_interface/planners/ompl_ros_task_space_planner.h>
+#include <planning_environment/models/model_utils.h>
 
 namespace ompl_ros_interface
 {
@@ -249,7 +250,14 @@ bool OmplRosTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan::Requ
                                        motion_planning_msgs::GetMotionPlan::Response &response)
 {
   ompl::base::ScopedState<ompl::base::CompoundStateManifold> start(state_manifold_);
-  ompl_ros_interface::robotStateToOmplState(request.motion_plan_request.start_state,start,false);
+  motion_planning_msgs::RobotState cur_state;
+  planning_environment::convertKinematicStateToRobotState(*collision_models_interface_->getPlanningSceneState(),
+                                                          ros::Time::now(),
+                                                          collision_models_interface_->getWorldFrameId(),
+                                                          cur_state);
+  
+  ompl_ros_interface::robotStateToOmplState(cur_state,start,false);
+
   ompl_ros_interface::OmplRosTaskSpaceValidityChecker *my_checker = dynamic_cast<ompl_ros_interface::OmplRosTaskSpaceValidityChecker*>(state_validity_checker_.get());  
   if(!my_checker->isStateValid(start.get()))
   {

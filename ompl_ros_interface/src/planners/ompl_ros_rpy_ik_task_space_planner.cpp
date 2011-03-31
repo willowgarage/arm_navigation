@@ -143,7 +143,15 @@ bool OmplRosRPYIKTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan:
 
   // Now, set the start state - first from the current state but then overwrite with what's in the request
   ompl::base::ScopedState<ompl::base::CompoundStateManifold> start(state_manifold_);
-  ompl_ros_interface::robotStateToOmplState(request.motion_plan_request.start_state,start,false);
+  
+  //everything should be in the current planning state
+  motion_planning_msgs::RobotState cur_state;
+  planning_environment::convertKinematicStateToRobotState(*collision_models_interface_->getPlanningSceneState(),
+                                                          ros::Time::now(),
+                                                          collision_models_interface_->getWorldFrameId(),
+                                                          cur_state);
+  
+  ompl_ros_interface::robotStateToOmplState(cur_state,start,false);
   geometry_msgs::PoseStamped end_effector_pose = getEndEffectorPose(request.motion_plan_request.start_state);
   ROS_DEBUG("Setting start");
   poseStampedToOmplState(end_effector_pose,start,false);

@@ -145,12 +145,6 @@ bool OmplRosJointPlanner::setStart(motion_planning_msgs::GetMotionPlan::Request 
     return false;
   }
 
-  if(!ompl_ros_interface::robotStateToOmplState(request.motion_plan_request.start_state,start,false))
-  {
-    ROS_ERROR("Could not set start state");
-    return false;
-  }
-
   ompl_ros_interface::OmplRosJointStateValidityChecker *my_checker = dynamic_cast<ompl_ros_interface::OmplRosJointStateValidityChecker*>(state_validity_checker_.get());  
   if(!my_checker->isStateValid(start.get()))
   {
