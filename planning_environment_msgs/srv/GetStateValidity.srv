@@ -14,10 +14,8 @@ bool check_goal_constraints
 # Joint limits will be checked if this flag is true
 bool check_joint_limits
 
-# OPTIONAL specification of a set of collision operations 
-# Each operation (body1, body2, operation) defines whether
-# it is ok for two bodies to collide with each other
-motion_planning_msgs/OrderedCollisionOperations ordered_collision_operations
+# OPTIONAL group name used to disable collisions for other links
+string group_name
 
 # OPTIONAL specification of regions in space where contact between links on the robot
 # and the world is allowed.
@@ -32,10 +30,6 @@ motion_planning_msgs/Constraints path_constraints
 # e.g. joint or pose constraints. These constraints will be tested only if 
 # check_goal_constraints = true
 motion_planning_msgs/Constraints goal_constraints
-
-# OPTIONAL specifies a set of links and paddings to change from the default
-# specified in the yaml file
-motion_planning_msgs/LinkPadding[] link_padding
 
 ---
 
