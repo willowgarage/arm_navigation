@@ -1045,6 +1045,21 @@ private:
     if (include_first)
     {
       ROS_INFO("Adding current state to front of trajectory");
+      // ROS_INFO_STREAM("Old state " << trajectory_out.points[0].positions[0]
+      // 		      << trajectory_out.points[0].positions[1]
+      // 		      << trajectory_out.points[0].positions[2]
+      // 		      << trajectory_out.points[0].positions[3]
+      // 		      << trajectory_out.points[0].positions[4]
+      // 		      << trajectory_out.points[0].positions[5]
+      // 		      << trajectory_out.points[0].positions[6]);
+
+      // ROS_INFO_STREAM("Current state " << current.position[0]
+      // 		      << current.position[1]
+      // 		      << current.position[2]
+      // 		      << current.position[3]
+      // 		      << current.position[4]
+      // 		      << current.position[5]
+      // 		      << current.position[6]);
       trajectory_out.points[0].positions = motion_planning_msgs::jointStateToJointTrajectoryPoint(current).positions;
       trajectory_out.points[0].time_from_start = ros::Duration(0.0);
       offset = 0.3 + d;
@@ -1198,14 +1213,23 @@ private:
             }
             ROS_ERROR("Move arm will abort this goal.  Will replan");
             state_ = PLANNING;
-            std::string filename = "~/bad_planner_trajectory_for_filter_scene.bag";
-            collision_models_->writePlanningSceneBag(filename, current_planning_scene_);
-            collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
-                                                                         "motion_plan_request",
-                                                                         original_request_.motion_plan_request);
-            collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
-                                                                       "planner_trajectory",
-                                                                       current_trajectory_);
+	    num_planning_attempts_++;
+	    std::string filename = "bad_planner_trajectory_for_filter_scene.bag";
+	    collision_models_->writePlanningSceneBag(filename, current_planning_scene_);
+	    collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
+									 "motion_plan_request",
+									 req.motion_plan_request);
+	    collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
+								       "planner_trajectory",
+								       current_trajectory_);
+	    
+	    if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
+	      {
+              resetStateMachine();
+              ROS_INFO_STREAM("Setting aborted because we're out of planning attempts");
+              action_server_->setAborted(move_arm_action_result_);
+              return true;
+            }
             //resetStateMachine();
             //action_server_->setAborted(move_arm_action_result_);
 	    break;
@@ -1216,6 +1240,13 @@ private:
           }
           current_trajectory_ = filtered_trajectory;
         } else {
+	  std::string filename = "bad_planner_trajectory_for_filter_scene.bag";
+	  collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
+								       "motion_plan_request",
+								       original_request_.motion_plan_request);
+	  collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
+								     "planner_trajectory",
+								     current_trajectory_);
           resetStateMachine();
           ROS_INFO_STREAM("Setting aborted because trajectory filter call failed");
           action_server_->setAborted(move_arm_action_result_);
@@ -1404,13 +1435,13 @@ private:
     collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
                                                                 req.motion_plan_request.path_constraints);
 
-    original_request_ = req;
+    //overwriting start state - move arm only deals with current state state
     planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
                                                             ros::Time::now(),
                                                             collision_models_->getWorldFrameId(),
-                                                            original_request_.motion_plan_request.start_state);
+                                                            req.motion_plan_request.start_state);
+    original_request_ = req;
     
-
     ros::Rate move_arm_rate(move_arm_frequency_);
     move_arm_action_result_.contacts.clear();
     move_arm_action_result_.error_code.val = 0;
@@ -1445,11 +1476,11 @@ private:
           
           collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
                                                                       req.motion_plan_request.path_constraints);
-          original_request_ = req;
           planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
                                                                   ros::Time::now(),
                                                                   collision_models_->getWorldFrameId(),
-                                                                  original_request_.motion_plan_request.start_state);
+                                                                  req.motion_plan_request.start_state);
+          original_request_ = req;
 
           state_ = PLANNING;
         }
@@ -1517,6 +1548,8 @@ private:
     current_planning_scene_ = planning_scene_res.planning_scene;
 
     planning_scene_state_ = collision_models_->setPlanningScene(current_planning_scene_);
+
+    collision_models_->disableCollisionsForNonUpdatedLinks(group_);
 
     if(planning_scene_state_ == NULL) {
       ROS_WARN("Problems setting local state");
