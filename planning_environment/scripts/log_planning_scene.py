@@ -50,8 +50,8 @@ if __name__ == '__main__':
     table.poses[0].orientation.w = 1
 
     lpsr = LogPlanningSceneRequest()
-    lpsr.package_name = 'move_arm'
-    lpsr.filename = 'pole_scene.bag'
+    lpsr.package_name = 'planning_environment'
+    lpsr.filename = 'tabletop_scene.bag'
     #lpsr.planning_scene_diff.collision_objects.append(table)
 
     log_planning_scene_server.call(lpsr)

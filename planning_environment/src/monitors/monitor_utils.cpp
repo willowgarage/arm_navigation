@@ -187,13 +187,11 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
       cm->convertAttachedObjectToStaticObject(obj.id,
                                               attached_object->link_name,
                                               link_pose);
-      ROS_INFO_STREAM("Adding in attached object as regular object " << obj.id);
     } else {
       cm->convertStaticObjectToAttachedObject(obj.id,
                                               attached_object->link_name,
                                               link_pose,
                                               attached_object->touch_links);
-      ROS_INFO_STREAM("Adding in static object as attached object " << obj.id);
     }
   } else if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
     cm->deleteAttachedObject(obj.id,
@@ -212,7 +210,7 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
       for(unsigned int i = 0; i < shapes.size(); i++) {
         delete shapes[i];
       }
-      ROS_INFO_STREAM("Not adding attached object " << obj.id
+      ROS_WARN_STREAM("Not adding attached object " << obj.id
                       << " to collision space because something's wrong with the shapes");
       return true;
     }
