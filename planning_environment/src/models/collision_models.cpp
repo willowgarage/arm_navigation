@@ -884,11 +884,12 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
     ROS_WARN_STREAM("No link " << link_name << " for attaching " << object_name);
     return false;
   }
+  bodiesLock();
   if(static_object_map_.find(object_name) == static_object_map_.end()) {
     ROS_WARN_STREAM("No static object named " << object_name << " to convert");
+    bodiesUnlock();
     return false;
   }
-  bodiesLock();
   link_attached_objects_[link_name][object_name] = static_object_map_[object_name];
   static_object_map_.erase(object_name);
 
@@ -897,6 +898,7 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
     modded_touch_links.push_back(link_name);
   }
 
+  ode_collision_model_->lock();
   std::vector<btTransform> poses;
   std::vector<shapes::Shape*> shapes;
   const collision_space::EnvironmentObjects *eo = ode_collision_model_->getObjects();
@@ -924,7 +926,6 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
                                                            shapes);
   kmodel_->addAttachedBodyModel(link->getName(),ab);
 
-  ode_collision_model_->lock();
   //doing these in this order because clearObjects will take the entry
   //out of the allowed collision matrix and the update puts it back in
   ode_collision_model_->clearObjects(object_name);
@@ -1203,6 +1204,7 @@ void planning_environment::CollisionModels::getCollisionSpaceAllowedCollisions(p
 
 void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject> &omap) const
 {
+  bodiesLock();
   ode_collision_model_->lock();
   omap.clear();
   const collision_space::EnvironmentObjects *eo = ode_collision_model_->getObjects();
@@ -1236,6 +1238,7 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(st
     omap.push_back(o);
   }
   ode_collision_model_->unlock();
+  bodiesUnlock();
 }
 
 void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject> &avec) const

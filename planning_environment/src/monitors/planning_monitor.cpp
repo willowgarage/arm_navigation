@@ -47,25 +47,25 @@ void planning_environment::PlanningMonitor::loadParams(void)
 bool planning_environment::PlanningMonitor::getCompletePlanningScene(const planning_environment_msgs::PlanningScene& planning_diff,
                                                                      const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
                                                                      planning_environment_msgs::PlanningScene& planning_scene) const{
-  //creating state    
-  planning_models::KinematicState set_state(getKinematicModel());    
-  //setting state to current values
-  setStateValuesFromCurrentValues(set_state);
-  //supplementing with state_diff
-  setRobotStateAndComputeTransforms(planning_diff.robot_state, set_state);
+  {
+    //indenting because we only need the state in here
+    //creating state    
+    planning_models::KinematicState set_state(getKinematicModel());    
+    //setting state to current values
+    setStateValuesFromCurrentValues(set_state);
+    //supplementing with state_diff
+    setRobotStateAndComputeTransforms(planning_diff.robot_state, set_state);
+    
+    //now complete robot state is populated
+    convertKinematicStateToRobotState(set_state,
+                                      last_joint_state_update_,
+                                      cm_->getWorldFrameId(),
+                                      planning_scene.robot_state);
+  }
 
-  //now complete robot state is populated
-  convertKinematicStateToRobotState(set_state,
-                                    last_joint_state_update_,
-                                    cm_->getWorldFrameId(),
-                                    planning_scene.robot_state);
   //getting full list of tf transforms not associated with the robot's body
   getAllFixedFrameTransforms(planning_scene.fixed_frame_transforms);
   
-
-  //this transform 
-  btTransform set_world_transform = set_state.getRootTransform();
-
   //getting all the stuff from the current collision space
   cm_->getCollisionSpace()->lock();
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm_->getCollisionSpace()->getDefaultAllowedCollisionMatrix();
