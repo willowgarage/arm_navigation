@@ -668,6 +668,7 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
                                                             const std::vector<btTransform>& poses,
                                                             bool mask_before_insertion)
 {
+  bodiesLock();
   shapes::deleteShapeVector(collision_map_shapes_);
   collision_map_shapes_ = shapes::cloneShapeVector(shapes);
   collision_map_poses_ = poses;
@@ -683,6 +684,7 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
     ROS_INFO_STREAM("Not setting an collision map objects");
   }
   ode_collision_model_->unlock();
+  bodiesUnlock();
 }
 
 void planning_environment::CollisionModels::remaskCollisionMap() {
@@ -1152,6 +1154,35 @@ bool planning_environment::CollisionModels::computeAllowedContact(const motion_p
     return false;
 }
 
+void planning_environment::CollisionModels::getLastCollisionMap(mapping_msgs::CollisionMap& cmap) const
+{
+  bodiesLock();
+  cmap.header.frame_id = getWorldFrameId();
+  cmap.header.stamp = ros::Time::now();
+  cmap.boxes.clear();
+  for(unsigned int i = 0; i < collision_map_shapes_.size(); i++) {
+  if (collision_map_shapes_[i]->type == shapes::BOX) {
+    const shapes::Box* box = static_cast<const shapes::Box*>(collision_map_shapes_[i]);
+    mapping_msgs::OrientedBoundingBox obb;
+    obb.extents.x = box->size[0];
+    obb.extents.y = box->size[1];
+    obb.extents.z = box->size[2];
+    const btVector3 &c = collision_map_poses_[i].getOrigin();
+    obb.center.x = c.x();
+    obb.center.y = c.y();
+    obb.center.z = c.z();
+    const btQuaternion q = collision_map_poses_[i].getRotation();
+    obb.angle = q.getAngle();
+      const btVector3 axis = q.getAxis();
+      obb.axis.x = axis.x();
+      obb.axis.y = axis.y();
+      obb.axis.z = axis.z();
+      cmap.boxes.push_back(obb);
+    }
+  }
+  bodiesUnlock();
+}
+
 void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const
 {
   ode_collision_model_->lock();
@@ -1353,31 +1384,48 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
                                                                   const std::vector<std::string>& joint_names,
                                                                   motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                                                                   const motion_planning_msgs::Constraints goal_constraints,
-                                                                  const motion_planning_msgs::Constraints path_constraints)
+                                                                  const motion_planning_msgs::Constraints path_constraints,
+								  bool verbose)
 {
   if(!state.areJointsWithinBounds(joint_names)) {
-    for(unsigned int j = 0; j < joint_names.size(); j++) {
-      if(!state.isJointWithinBounds(joint_names[j])) {
-        std::pair<double, double> bounds; 
-        state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j], bounds);
-        ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
-                        " value: " << state.getJointState(joint_names[j])->getJointStateValues()[0] << 
-                        " low: " << bounds.first << " high: " << bounds.second);
+    if(verbose) {
+      for(unsigned int j = 0; j < joint_names.size(); j++) {
+	if(!state.isJointWithinBounds(joint_names[j])) {
+	  std::pair<double, double> bounds; 
+	  state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j], bounds);
+	  ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
+			  " value: " << state.getJointState(joint_names[j])->getJointStateValues()[0] << 
+			  " low: " << bounds.first << " high: " << bounds.second);
+	}
       }
     }
     error_code.val = error_code.JOINT_LIMITS_VIOLATED;
     return false;
   }
   if(!doesKinematicStateObeyConstraints(state, path_constraints, false)) {
+    if(verbose) {
+      doesKinematicStateObeyConstraints(state, path_constraints, true);
+    }
     error_code.val = error_code.PATH_CONSTRAINTS_VIOLATED;
     return false;
   }
-  if(!doesKinematicStateObeyConstraints(state, goal_constraints)) {
+  if(!doesKinematicStateObeyConstraints(state, goal_constraints, false)) {
+    if(verbose) {
+      doesKinematicStateObeyConstraints(state, goal_constraints, true);
+    }
     error_code.val = error_code.GOAL_CONSTRAINTS_VIOLATED;
     return false;
   }
   if(isKinematicStateInCollision(state)) {
     error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;    
+    if(verbose) {
+      std::vector<planning_environment_msgs::ContactInformation> contacts;
+      getAllCollisionsForState(state, contacts,1);
+      for(unsigned int i = 0; i < contacts.size(); i++) {
+	ROS_INFO_STREAM("Collision between " << contacts[i].contact_body_1 
+			<< " and " << contacts[i].contact_body_2);
+      }
+    }
     return false;
   }
   error_code.val = error_code.SUCCESS;

@@ -204,6 +204,7 @@ public:
 
   void getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const;
 
+  void getLastCollisionMap(mapping_msgs::CollisionMap& cmap) const;
   
   void getCollisionSpaceAllowedCollisions(planning_environment_msgs::AllowedCollisionMatrix& matrix) const;
 
@@ -232,7 +233,8 @@ public:
                              const std::vector<std::string>& names,
                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
                              const motion_planning_msgs::Constraints goal_constraints,
-                             const motion_planning_msgs::Constraints path_constraints);
+                             const motion_planning_msgs::Constraints path_constraints,
+			     bool verbose = false);
 
   bool isJointTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
                               const trajectory_msgs::JointTrajectory &trajectory,

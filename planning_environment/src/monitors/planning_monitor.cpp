@@ -78,8 +78,13 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
     } 
   }
   
-  //NOTE - this should be unmasked in collision_space_monitor;
-  cm_->getCollisionSpaceCollisionMap(planning_scene.collision_map);
+  cm_->getLastCollisionMap(planning_scene.collision_map);
+
+  //probably haven't gotten another collision map yet after a clear
+  if(planning_scene.collision_map.boxes.size() > 0 && !acm.hasEntry(COLLISION_MAP_NAME)) {
+    ROS_INFO_STREAM("Adding entry for collision map");
+    acm.addEntry(COLLISION_MAP_NAME, false);
+  }
 
   //now attached objects
   cm_->getCollisionSpaceAttachedCollisionObjects(planning_scene.attached_collision_objects);

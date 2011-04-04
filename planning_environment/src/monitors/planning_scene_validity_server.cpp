@@ -74,12 +74,12 @@ public:
   bool getStateValidity(planning_environment_msgs::GetStateValidity::Request &req, 
                         planning_environment_msgs::GetStateValidity::Response &res) 
   {
-    collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
-
     if(collision_models_interface_->getPlanningSceneState() == NULL) {
       res.error_code.val = res.error_code.COLLISION_CHECKING_UNAVAILABLE;
+      ROS_WARN_STREAM("Calling getStateValidity with no planning scene set");
       return true;
     }
+    collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
     if(!req.group_name.empty()) {
       collision_models_interface_->disableCollisionsForNonUpdatedLinks(req.group_name);
     }
@@ -110,6 +110,7 @@ public:
     if(!collision_models_interface_->isPlanningSceneSet()) {
       return;
     }
+    collision_models_interface_->bodiesLock();
     collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
     visualization_msgs::MarkerArray arr;
     std_msgs::ColorRGBA col;
@@ -137,6 +138,7 @@ public:
 								   col,
 								   ros::Duration(0.2));
     vis_marker_array_publisher_.publish(arr);
+    collision_models_interface_->bodiesUnlock();
   }
 
 	
