@@ -87,7 +87,7 @@ void planning_environment::CollisionSpaceMonitor::startEnvironmentMonitor(void)
   collisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
   collisionObjectFilter_ = new tf::MessageFilter<mapping_msgs::CollisionObject>(*collisionObjectSubscriber_, *tf_, cm_->getWorldFrameId(), 1024);
   collisionObjectFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionObjectCallback, this, _1));
-  ROS_DEBUG("Listening to object_in_map using message notifier with target frame %s", collisionObjectFilter_->getTargetFramesString().c_str());
+  ROS_INFO("Listening to object_in_map using message notifier with target frame %s", collisionObjectFilter_->getTargetFramesString().c_str());
   
   //using regular message filter as there's no header
   attachedCollisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	

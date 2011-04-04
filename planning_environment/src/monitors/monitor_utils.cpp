@@ -151,7 +151,7 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
                                                              tf::TransformListener& tf,
                                                              planning_environment::CollisionModels* cm)
 {
-  
+  ROS_INFO("Processing");
   if(attached_object->link_name == "all") { //attached_object->REMOVE_ALL_ATTACHED_OBJECTS) {
     if(attached_object->object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE) {
       ROS_WARN("Can't perform any action for all attached bodies except remove");

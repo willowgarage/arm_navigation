@@ -67,7 +67,6 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
   getAllFixedFrameTransforms(planning_scene.fixed_frame_transforms);
   
   //getting all the stuff from the current collision space
-  cm_->getCollisionSpace()->lock();
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm_->getCollisionSpace()->getDefaultAllowedCollisionMatrix();
 
   //first we deal with collision object diffs
@@ -92,8 +91,6 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
   }
 
   std::map<std::string, double> cur_link_padding = cm_->getCollisionSpace()->getCurrentLinkPaddingMap();
-
-  cm_->getCollisionSpace()->unlock(); 
 
   for(unsigned int i = 0; i < planning_diff.collision_objects.size(); i++) {
     std::string object_name = planning_diff.collision_objects[i].id;
