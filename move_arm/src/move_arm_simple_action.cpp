@@ -299,7 +299,7 @@ private:
                                                                                           req.motion_plan_request.goal_constraints.orientation_constraints[0]);
     std::string link_name = req.motion_plan_request.goal_constraints.position_constraints[0].link_name;
     sensor_msgs::JointState solution;		
-
+    
     ROS_INFO("IK request");
     ROS_INFO("link_name   : %s",link_name.c_str());
     ROS_INFO("frame_id    : %s",tpose.header.frame_id.c_str());
@@ -331,7 +331,8 @@ private:
                                                   group_joint_names_,
                                                   error_code,
                                                   original_request_.motion_plan_request.goal_constraints,
-                                                  original_request_.motion_plan_request.path_constraints))
+						   original_request_.motion_plan_request.path_constraints,
+						   true))
       {
         ROS_INFO("IK returned joint state for goal that doesn't seem to be valid");
         if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
@@ -737,7 +738,8 @@ private:
                                                  group_joint_names_,
                                                  error_code,
                                                  empty_goal_constraints,
-                                                 original_request_.motion_plan_request.path_constraints)) {
+                                                 original_request_.motion_plan_request.path_constraints,
+						 true)) {
       logPlanningScene("bad_start_state");
       if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_IN_COLLISION;
@@ -777,14 +779,12 @@ private:
       return false;
     }
     // processing and checking goal
-    if (!move_arm_parameters_.disable_ik && isPoseGoal(req))
-    {
+    if (!move_arm_parameters_.disable_ik && isPoseGoal(req)) {
       ROS_INFO("Planning to a pose goal");
-      if(!convertPoseGoalToJointGoal(req))
-      {
-        ROS_INFO("Setting aborted because ik failed");
-        action_server_->setAborted(move_arm_action_result_);
-        return false;
+      if(!convertPoseGoalToJointGoal(req)) {
+	ROS_INFO("Setting aborted because ik failed");
+	action_server_->setAborted(move_arm_action_result_);
+	return false;
       }
     }
     //if we still have pose constraints at this point it's probably a constrained combo goal
@@ -797,30 +797,31 @@ private:
 						   group_joint_names_,
 						   error_code,
 						   original_request_.motion_plan_request.goal_constraints,
-						   original_request_.motion_plan_request.path_constraints))
-	{
-	  if(error_code.val == error_code.JOINT_LIMITS_VIOLATED) {
-	    ROS_ERROR("Will not plan to requested joint goal since it violates joint limits constraints");
-	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.JOINT_LIMITS_VIOLATED;
-	  } else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
-	    ROS_ERROR("Will not plan to requested joint goal since it is in collision");
-	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_IN_COLLISION;
-	  } else if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
-	    ROS_ERROR("Will not plan to requested joint goal since it violates goal constraints");
-	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
-	  } else if(error_code.val == error_code.PATH_CONSTRAINTS_VIOLATED) {
-	    ROS_ERROR("Will not plan to requested joint goal since it violates path constraints");
-	    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
-	  } else {
-	    ROS_INFO_STREAM("Will not plan to request joint goal due to error code " << error_code.val);
-	  }
-	  ROS_INFO_STREAM("Setting aborted becuase joint goal is problematic");
-	  action_server_->setAborted(move_arm_action_result_);
-	  return false;
+						   original_request_.motion_plan_request.path_constraints,
+						   true)) {
+	if(error_code.val == error_code.JOINT_LIMITS_VIOLATED) {
+	  ROS_ERROR("Will not plan to requested joint goal since it violates joint limits constraints");
+	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.JOINT_LIMITS_VIOLATED;
+	} else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
+	  ROS_ERROR("Will not plan to requested joint goal since it is in collision");
+	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_IN_COLLISION;
+	} else if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
+	  ROS_ERROR("Will not plan to requested joint goal since it violates goal constraints");
+	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
+	} else if(error_code.val == error_code.PATH_CONSTRAINTS_VIOLATED) {
+	  ROS_ERROR("Will not plan to requested joint goal since it violates path constraints");
+	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
+	} else {
+	  ROS_INFO_STREAM("Will not plan to request joint goal due to error code " << error_code.val);
 	}
+	ROS_INFO_STREAM("Setting aborted becuase joint goal is problematic");
+	action_server_->setAborted(move_arm_action_result_);
+	return false;
+      }
     }
     return true;
   }
+
   bool createPlan(motion_planning_msgs::GetMotionPlan::Request &req,  
                   motion_planning_msgs::GetMotionPlan::Response &res)
   {
@@ -1107,7 +1108,8 @@ private:
                                                     group_joint_names_,
                                                     error_code,
                                                     original_request_.motion_plan_request.goal_constraints,
-                                                    original_request_.motion_plan_request.path_constraints)) {
+                                                    original_request_.motion_plan_request.path_constraints,
+						    false)) {
           resetStateMachine();
 	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
 	  action_server_->setSucceeded(move_arm_action_result_);
@@ -1127,7 +1129,7 @@ private:
                                                         original_request_.motion_plan_request.path_constraints,
                                                         error_code,
                                                         traj_error_codes,
-                                                        false))
+                                                        true))
           {
             if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Planner trajectory collides");
@@ -1319,9 +1321,10 @@ private:
           getRobotState(planning_scene_state_);
           if(collision_models_->isKinematicStateValid(*planning_scene_state_,
                                                       group_joint_names_,
-                                                      error_code,
+                                                      state_error_code,
                                                       original_request_.motion_plan_request.goal_constraints,
-                                                      original_request_.motion_plan_request.path_constraints))
+                                                      original_request_.motion_plan_request.path_constraints,
+						      true))
           {
             move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
             resetStateMachine();
@@ -1348,8 +1351,7 @@ private:
             resetStateMachine();
             action_server_->setAborted(move_arm_action_result_);
             ROS_INFO("Trajectory controller done but not in good state");
-            state_ = PLANNING;
-            break;
+	    return true;              
           }
         }
         if(!move_arm_parameters_.disable_collision_monitoring && action_server_->isActive())
