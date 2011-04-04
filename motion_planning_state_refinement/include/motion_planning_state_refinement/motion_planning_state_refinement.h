@@ -37,14 +37,19 @@
 #ifndef MOTION_PLANNING_STATE_REFINEMENT_
 #define MOTION_PLANNING_STATE_REFINEMENT_
 
+#include <planning_models/kinematic_model.h>
+#include <planning_models/kinematic_state.h>
+
 #include <motion_planning_msgs/RobotState.h>
 #include <motion_planning_msgs/Constraints.h>
+#include <motion_planning_msgs/RobotTrajectory.h>
 
 namespace motion_planning_state_refinement {
   /**
    * @class MotionPlanningStateRefinement
    * @brief Provides an interface for state refinement, e.g. projection onto constraints, 
-   * motion away from contact, etc.
+   * motion away from contact, etc. 
+   * 
    */
   class MotionPlanningStateRefinement
   {
@@ -53,21 +58,69 @@ namespace motion_planning_state_refinement {
 
     bool setGroupName(const std::string &group_name);
 
-      /**
-       * @brief Given a robot state, refine the state. Examples of refinement could include projection 
-       * onto a constraint manifold, motion away from contact.
-       * @param robot_state The full robot state.
-       * @param constraints A set of constraints that may need to be applied
-       * @param group_state The group state that needs to be refined
-       * @return True if a valid refinement was found, false otherwise
-       */
-      virtual bool refineState(const motion_planning_msgs::RobotState &robot_state,
-                               const motion_planning_msgs::Constraints &constraints,
-                               motion_planning_msgs::RobotState &group_state) = 0;
-      /**
-       * @brief  Virtual destructor for the interface
-       */
-      virtual ~MotionPlanningStateRefinement(){}
+    /**
+     * @brief Given a robot state, refine the state. Examples of refinement could include projection 
+     * onto a constraint manifold, motion away from contact.
+     * @param robot_state The full robot state.
+     * @param constraints A set of constraints that may need to be applied
+     * @param group_state The group state that needs to be refined
+     * @return True if a valid refinement was found, false otherwise
+     */
+    virtual bool refineState(const motion_planning_msgs::RobotState &robot_state,
+                             const motion_planning_msgs::Constraints &constraints,
+                             motion_planning_msgs::RobotState &group_state) = 0;
+        
+    /**
+     * @brief Set the robot state that you want to check. Note that this locks the collision space 
+     * and you will have to call clear() to unlock the space.
+     * @param robot_state The full robot state.
+     * @return True if setting robot state was successful.
+     */
+    virtual bool setRobotState(const motion_planning_msgs::RobotState &robot_state) = 0;
+
+    /**
+     * @brief Set a group state. This must be called before you can make multiple queries to refineState below.
+     * This function can be used to define a mapping between the group state specified in the argument and 
+     * the internal group state for more efficiency.
+     * @param group_state 
+     */
+    virtual bool setGroupState(const motion_planning_msgs::RobotState &group_state) = 0;
+
+    /**
+     * @brief Given a robot state, refine the state. Examples of refinement could include projection 
+     * onto a constraint manifold, motion away from contact, etc.
+     * @param constraints A set of constraints that may need to be applied
+     * @return True if setting constraints was successful
+     */
+    virtual bool setConstraints(const motion_planning_msgs::Constraints &constraints) = 0;
+
+    /**
+     * @brief Given a robot state, refine the state. Examples of refinement could include projection 
+     * onto a constraint manifold, motion away from contact.
+     * @param group_state The group state that needs to be refined.
+     * @return True if a valid refinement was found, false otherwise.
+     */
+    virtual bool refineState(motion_planning_msgs::RobotState &group_state,
+                             motion_planning_msgs::RobotTrajectory &robot_trajectory) = 0;
+
+    /**
+     * @brief Given a robot state, get the gradient direction to be moved in.
+     * @param group_state The group state for which the gradient is expected.
+     */
+    virtual void getStateGradient(const motion_planning_msgs::RobotState &group_state,
+                                  motion_planning_msgs::RobotState &gradient) = 0;
+
+    /**
+     * @brief  Clear everything internally and get ready for a whole new request. 
+     * This must be called after setRobotState() has been called if a completely new request 
+     * needs to be serviced. 
+     */
+    virtual void clear() = 0;
+    
+    /**
+     * @brief  Virtual destructor for the interface
+     */
+    virtual ~MotionPlanningStateRefinement(){}
 
   };
 };
