@@ -45,6 +45,8 @@
 #include <assimp/aiScene.h>      
 #include <assimp/aiPostProcess.h>
 
+static const double JOINT_LIMIT_EPSILON = .01;
+
 
 /* ------------------------ KinematicModel ------------------------ */
 planning_models::KinematicModel::KinematicModel(const urdf::Model &model, 
@@ -342,14 +344,14 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
     case urdf::Joint::REVOLUTE:
       {
         RevoluteJointModel *j = new RevoluteJointModel(urdf_joint->name, joint_config);
-        // if(urdf_joint->safety)
-        // {
-        //   j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
-        // }
-        // else
-        // {
-	j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
-	//}
+        if(urdf_joint->safety)
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
+	  }
+        else
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
+	  }
         j->continuous_ = false;
         j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
         result = j;
@@ -367,14 +369,14 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
     case urdf::Joint::PRISMATIC:
       {
         PrismaticJointModel *j = new PrismaticJointModel(urdf_joint->name, joint_config);
-        // if(urdf_joint->safety)
-        // {
-        //   j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
-        // }
-        // else
-        // {
-	j->setVariableBounds(j->name_, urdf_joint->limits->upper, urdf_joint->limits->lower);
-	// }
+        if(urdf_joint->safety)
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
+	  }
+	else
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->limits->upper, urdf_joint->limits->lower);
+	  }
 	j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
 	result = j;
       }
@@ -906,6 +908,34 @@ bool planning_models::KinematicModel::JointModel::getVariableBounds(const std::s
     return false;
   }
   bounds = joint_state_bounds_.find(config_name)->second;
+  return true;
+}
+
+void planning_models::KinematicModel::JointModel::getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const
+{
+  for(std::map<std::string, std::pair<double, double> >::const_iterator it = joint_state_bounds_.begin();
+      it != joint_state_bounds_.end();
+      it++) {
+    //zero is a valid value
+    if(it->second.first <= 0.0 && it->second.second >= 0.0) {
+      ret_map[it->first] = 0.0;
+    } else {
+      ret_map[it->first] = (it->second.first + it->second.second)/2.0;
+    }
+  }
+}
+
+bool planning_models::KinematicModel::JointModel::isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const 
+{
+  std::pair<double, double> bounds;
+  if(!getVariableBounds(variable, bounds)) {
+    return false;
+  }
+  if(value+JOINT_LIMIT_EPSILON < bounds.first || value-JOINT_LIMIT_EPSILON > bounds.second) {
+    within_bounds = false;
+  } else {
+    within_bounds = true;
+  }
   return true;
 }
 

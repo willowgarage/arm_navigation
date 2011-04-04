@@ -178,33 +178,9 @@ public:
     /** \brief Provides a default value for the joint given the joint bounds.
         Most joints will use the default, but the quaternion for floating
         point values needs something else */
-    virtual void getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const
-    {
-      for(std::map<std::string, std::pair<double, double> >::const_iterator it = joint_state_bounds_.begin();
-          it != joint_state_bounds_.end();
-          it++) {
-        //zero is a valid value
-        if(it->second.first <= 0.0 && it->second.second >= 0.0) {
-          ret_map[it->first] = 0.0;
-        } else {
-          ret_map[it->first] = (it->second.first + it->second.second)/2.0;
-        }
-      }
-    }
+    virtual void getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const;
     
-    virtual bool isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const 
-    {
-      std::pair<double, double> bounds;
-      if(!getVariableBounds(variable, bounds)) {
-        return false;
-      }
-      if(value < bounds.first || value > bounds.second) {
-        within_bounds = false;
-      } else {
-        within_bounds = true;
-      }
-      return true;
-    }
+    virtual bool isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const; 
 
     const std::map<std::string, std::pair<double, double> >& getAllVariableBounds() const {
       return joint_state_bounds_;
