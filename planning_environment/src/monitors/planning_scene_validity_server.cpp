@@ -75,7 +75,7 @@ public:
                         planning_environment_msgs::GetStateValidity::Response &res) 
   {
     collision_models_interface_->bodiesLock();
-    if(collision_models_interface_->getPlanningSceneState() == NULL) {
+    if(!collision_models_interface_->isPlanningSceneSet()) {
       res.error_code.val = res.error_code.COLLISION_CHECKING_UNAVAILABLE;
       ROS_WARN_STREAM("Calling getStateValidity with no planning scene set");
       collision_models_interface_->bodiesUnlock();
@@ -112,7 +112,7 @@ public:
   void broadcastPlanningSceneMarkers()
   {
     collision_models_interface_->bodiesLock();
-    if(collision_models_interface_->getPlanningSceneState() == NULL) {
+    if(!collision_models_interface_->isPlanningSceneSet()) {
       collision_models_interface_->bodiesUnlock();
       return;
     }
