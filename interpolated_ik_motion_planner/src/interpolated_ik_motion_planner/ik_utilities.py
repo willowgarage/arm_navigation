@@ -493,7 +493,7 @@ class IKUtilities:
         min_segment_time = .01
         
         if not joint_path:
-            rospy.logerr("joint path was empty!")
+            rospy.logdebug("joint path was empty!")
             return([], [])
         traj_length = len(joint_path)
         num_joints = len(joint_path[0])
