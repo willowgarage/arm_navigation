@@ -76,6 +76,10 @@ public:
 
   void resetToStartState(planning_models::KinematicState& state) const;
 
+  const planning_environment_msgs::PlanningScene& getLastPlanningScene() const {
+    return last_planning_scene_;
+  }
+
   collision_space::EnvironmentModel* getOde() {
     return ode_collision_model_;
   }
