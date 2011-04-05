@@ -299,8 +299,8 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
 
 void planning_environment::CollisionModels::revertPlanningScene(planning_models::KinematicState* ks) {
   bodiesLock();
-  delete ks;
   planning_scene_set_ = false;
+  delete ks;
   deleteAllStaticObjects();
   deleteAllAttachedObjects();
   revertAllowedCollisionToDefault();
@@ -1276,7 +1276,7 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
 {
   avec.clear();
 
-  kmodel_->sharedLock();
+  bodiesLock();
   ode_collision_model_->lock();
 
   std::vector<const planning_models::KinematicModel::AttachedBodyModel*> att_vec = kmodel_->getAttachedBodyModels();
@@ -1308,7 +1308,7 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
     avec.push_back(ao);
   }
   ode_collision_model_->unlock();
-  kmodel_->sharedUnlock();
+  bodiesUnlock();
 }
 
 bool planning_environment::CollisionModels::isKinematicStateInCollision(const planning_models::KinematicState& state)                                                                     
