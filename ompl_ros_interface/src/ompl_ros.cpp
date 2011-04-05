@@ -224,8 +224,17 @@ bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
   if(publish_diagnostics_)
   {
     ompl_ros_interface::OmplPlannerDiagnostics msg;
-    if(response.error_code.val != motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS)
+    if(response.error_code.val != motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS) {
       msg.summary = "Planning Failed";
+      std::string filename = "planning_failure_";
+      std::string str = boost::lexical_cast<std::string>(ros::Time::now().toSec());
+      filename += str;
+      collision_models_interface_->writePlanningSceneBag(filename,
+                                                         collision_models_interface_->getLastPlanningScene());
+      collision_models_interface_->appendMotionPlanRequestToPlanningSceneBag(filename,
+                                                                             "motion_plan_request",
+                                                                             request.motion_plan_request);
+    }
     else
       msg.summary = "Planning Succeeded";
 
