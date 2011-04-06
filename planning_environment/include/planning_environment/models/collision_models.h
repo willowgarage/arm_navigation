@@ -385,6 +385,14 @@ public:
     return scene_transform_map_;
   }
 
+  const std::vector<shapes::Shape*>& getCollisionMapShapes() const {
+    return collision_map_shapes_;
+  }
+
+  const std::vector<btTransform>& getCollisionMapPoses() const {
+    return collision_map_poses_;
+  }
+
   void bodiesLock() const {
     bodies_lock_.lock();
   }
