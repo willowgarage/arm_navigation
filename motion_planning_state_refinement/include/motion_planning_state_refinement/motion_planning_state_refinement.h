@@ -108,6 +108,7 @@ namespace motion_planning_state_refinement {
      * @param group_state The group state for which the gradient is expected.
      */
     virtual void getStateGradient(const motion_planning_msgs::RobotState &group_state,
+                                  double &distance,
                                   motion_planning_msgs::RobotState &gradient) = 0;
 
     /**
