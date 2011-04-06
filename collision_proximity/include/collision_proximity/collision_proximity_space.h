@@ -46,7 +46,7 @@
 
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
-#include <planning_environment/models/collision_models.h>
+#include <planning_environment/models/collision_models_interface.h>
 
 #include <collision_proximity/collision_proximity_types.h>
 
@@ -65,15 +65,8 @@ public:
 
   //this function sets up the collision proximity space for making a series of 
   //proximity collision or gradient queries for the indicated group
-  planning_models::KinematicState* 
-  setupForGroupQueries(const std::string& group_name,
-                       const motion_planning_msgs::RobotState& rob_state,
-                       const planning_environment_msgs::AllowedCollisionMatrix& allowed_collision_matrix,
-                       const std::vector<motion_planning_msgs::AllowedContactSpecification>& transformed_allowed_contacts,
-                       const std::vector<motion_planning_msgs::LinkPadding>& all_link_paddings,
-                       const std::vector<mapping_msgs::CollisionObject>& all_collision_objects,
-                       const std::vector<mapping_msgs::AttachedCollisionObject>& all_attached_collision_objects,
-                       const mapping_msgs::CollisionMap& unmasked_collision_map);
+  void setupForGroupQueries(const std::string& group_name,
+                            const motion_planning_msgs::RobotState& rob_state);
 
   //returns the updating objects lock and destroys the current kinematic state
   void revertAfterGroupQueries();
@@ -94,10 +87,17 @@ public:
   // returns the full gradient information for each group_link
   bool getStateGradients(std::vector<std::string>& link_names,
                          std::vector<std::string>& attached_body_names,
-                         std::vector<double>& link_closest_distances, 
-                         std::vector<std::vector<double> >& closest_distances, 
-                         std::vector<std::vector<btVector3> >& closest_gradients,
+                         std::vector<GradientInfo>& gradients, 
                          bool subtract_radii = false) const;
+
+  // returns true if current setup is in environment collision
+  bool isEnvironmentCollision() const;
+
+  // returns true if current setup is in intra-group collision
+  bool isIntraGroupCollision() const;
+
+  // returns true if current setup is in self collision
+  bool isSelfCollision() const;
 
   // returns the single closest proximity for the group previously configured
   //bool getEnvironmentProximity(ProximityInfo& prox) const;
@@ -111,12 +111,9 @@ public:
 
   void visualizeProximityGradients(const std::vector<std::string>& link_names, 
                                    const std::vector<std::string>& attached_body_names,
-                                   const std::vector<double>& link_closest_distances, 
-                                   const std::vector<std::vector<double> >& closest_distances, 
-                                   const std::vector<std::vector<btVector3> >& closest_gradients) const;
-  
+                                   const std::vector<GradientInfo>& gradients) const;
 
-  void visualizeDistanceField() const;
+  void visualizeDistanceField(distance_field::PropagationDistanceField* distance_field) const;
 
   //void visualizeClosestCollisionSpheres(const std::vector<std::string>& link_names) const;
 
@@ -128,23 +125,19 @@ public:
 
   void visualizeObjectSpheres(const std::vector<std::string>& object_names) const;
 
-  void visualizePaddedTrimeshes(const planning_models::KinematicState& state, const std::vector<std::string>& link_names) const;
-
-  void visualizeConvexMeshes(const std::vector<std::string>& link_names) const;
-
   void visualizeBoundingCylinders(const std::vector<std::string>& object_names) const;
 
-  planning_environment::CollisionModels* getCollisionModels() const {
-    return cmodel_;
+  const planning_environment::CollisionModelsInterface* getCollisionModels() const {
+    return collision_models_interface_;
   }
 
 private:
 
-  // returns true if current setup is in environment collision
-  bool isEnvironmentCollision() const;
+  void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene); 
+  void revertPlanningSceneCallback();
 
-  // returns true if current setup is in intra-group collision
-  bool isIntraGroupCollision() const;
+  void deleteAllStaticObjectDecompositions();
+  void deleteAllAttachedObjectDecompositions();
 
   // sets the poses of the body to those held in the kinematic state
   void setBodyPosesToCurrent();
@@ -157,18 +150,20 @@ private:
 
   bool getIntraGroupCollisions(std::vector<bool>& collisions,
                                bool stop_at_first = false) const;
-    
-  bool getIntraGroupProximityGradients(std::vector<double>& link_closest_distances,  
-                                       std::vector<std::vector<double> >& closest_distances, 
-                                       std::vector<std::vector<btVector3> >& closest_gradients,
+  
+  bool getIntraGroupProximityGradients(std::vector<GradientInfo>& gradients,
+                                       bool subtract_radii = false) const;
+
+  bool getSelfCollisions(std::vector<bool>& collisions,
+                               bool stop_at_first = false) const;
+  
+  bool getSelfProximityGradients(std::vector<GradientInfo>& gradients,
                                        bool subtract_radii = false) const;
 
   bool getEnvironmentCollisions(std::vector<bool>& collisions,
                                 bool stop_at_first = false) const;
   
-  bool getEnvironmentProximityGradients(std::vector<double>& link_closest_distances, 
-                                        std::vector<std::vector<double> >& closest_distances, 
-                                        std::vector<std::vector<btVector3> >& closest_gradients,
+  bool getEnvironmentProximityGradients(std::vector<GradientInfo>& gradients,
                                         bool subtract_radii = false) const;
 
   bool getGroupLinkAndAttachedBodyNames(const std::string& group_name,
@@ -180,12 +175,13 @@ private:
   
   bool setupGradientStructures(const std::vector<std::string>& link_names,
                                const std::vector<std::string>& attached_body_names, 
-                               std::vector<double>& link_closest_distance, 
-                               std::vector<std::vector<double> >& closest_distances, 
-                               std::vector<std::vector<btVector3> >& closest_gradients) const;
+                               std::vector<GradientInfo>& gradients) const;
 
-  void prepareDistanceField(const std::vector<std::string>& link_names, 
-                            const planning_models::KinematicState& state);
+  void prepareEnvironmentDistanceField(const planning_models::KinematicState& state);
+
+  void prepareSelfDistanceField(const std::vector<std::string>& link_names, 
+                                const planning_models::KinematicState& state);
+
 
   //double getCollisionSphereProximity(const std::vector<CollisionSphere>& sphere_list, 
   //                                  unsigned int& closest, btVector3& grad) const;
@@ -200,9 +196,10 @@ private:
 
   mutable std::vector<std::vector<double> > colors_;
 
-  distance_field::PropagationDistanceField* distance_field_;
+  distance_field::PropagationDistanceField* environment_distance_field_;
+  distance_field::PropagationDistanceField* self_distance_field_;
 
-  planning_environment::CollisionModels* cmodel_;
+  planning_environment::CollisionModelsInterface* collision_models_interface_;
 
   ros::NodeHandle root_handle_, priv_handle_;
 
@@ -232,12 +229,8 @@ private:
   std::vector<bool> current_environment_excludes_;
 
   //just for initializing input
-  std::vector<double> current_link_distances_;
-  std::vector<std::vector<double> > current_closest_distances_;
-  std::vector<std::vector<btVector3> > current_closest_gradients_;
+  std::vector<GradientInfo> current_gradients_;
   
-  std::map<std::string, std::map<std::string, bool> > link_attached_objects_;
-
   //distance field configuration
   double size_x_, size_y_, size_z_;
   double origin_x_, origin_y_, origin_z_;

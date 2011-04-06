@@ -75,16 +75,12 @@ std::vector<btVector3> collision_proximity::determineCollisionPoints(const bodie
 }
 
 bool collision_proximity::getCollisionSphereGradients(const distance_field::PropagationDistanceField* distance_field, 
-                                                      const std::vector<CollisionSphere>& sphere_list, 
-                                                      double& closest_distance, 
-                                                      std::vector<double>& distances, 
-                                                      std::vector<btVector3>& gradients, 
+                                                      const std::vector<CollisionSphere>& sphere_list,
+                                                      GradientInfo& gradient, 
                                                       double tolerance, 
                                                       bool subtract_radii, 
                                                       bool stop_at_first_collision) {
-  gradients.clear();
-  distances.clear();
-  closest_distance = DBL_MAX;
+  //assumes gradient is properly initialized
   bool in_collision = false;
   for(unsigned int i = 0; i < sphere_list.size(); i++) {
     btVector3 p = sphere_list[i].center_;
@@ -99,14 +95,13 @@ bool collision_proximity::getCollisionSphereGradients(const distance_field::Prop
         in_collision = true;
       } 
     }
-    if(dist < closest_distance) {
-      closest_distance = dist;
+    if(dist < gradient.closest_distance) {
+      gradient.closest_distance = dist;
     }
-    distances.push_back(dist);
-    gradients.push_back(btVector3(gx,gy,gz));
+    gradient.distances[i] = dist;
+    gradient.gradients[i] = btVector3(gx,gy,gz);
   }
   return in_collision;
-
 }
 
 bool collision_proximity::getCollisionSphereCollision(const distance_field::PropagationDistanceField* distance_field, 

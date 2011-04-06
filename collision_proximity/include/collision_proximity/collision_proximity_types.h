@@ -53,12 +53,19 @@
 namespace collision_proximity
 {
 
-enum CollisionType {
-  UNKNOWN = 0, 
-  NONE, 
-  INTRA_GROUP,
-  ENVIRONMENT,
-  INTRA_GROUP_AND_ENVIRONMENT
+struct CollisionType {
+
+  CollisionType() : 
+    none(true),
+    self(false),
+    intra(false),
+    environment(false)
+  {}
+  
+  bool none;
+  bool self;
+  bool intra;
+  bool environment;
 };
 
 struct CollisionSphere {
@@ -74,6 +81,26 @@ struct CollisionSphere {
   double radius_;
 };
 
+struct GradientInfo
+{
+  GradientInfo()
+  {
+    closest_distance = DBL_MAX;
+  }
+
+  double closest_distance;
+  bool collision;
+  std::vector<btVector3> sphere_locations;
+  std::vector<double> distances;
+  std::vector<btVector3> gradients;
+
+  void clear() {
+    sphere_locations.clear();
+    distances.clear();
+    gradients.clear();
+  }
+};
+
 //determines set of collision spheres given a posed body
 std::vector<CollisionSphere> determineCollisionSpheres(const bodies::Body* body);
 
@@ -83,9 +110,7 @@ std::vector<btVector3> determineCollisionPoints(const bodies::Body* body, double
 //determines a set of gradients of the given collision spheres in the distance field
 bool getCollisionSphereGradients(const distance_field::PropagationDistanceField* distance_field, 
                                  const std::vector<CollisionSphere>& sphere_list, 
-                                 double& closest_distance, 
-                                 std::vector<double>& distances, 
-                                 std::vector<btVector3>& gradients, 
+                                 GradientInfo& gradient, 
                                  double tolerance, 
                                  bool subtract_radii, 
                                  bool stop_at_first_collision);
