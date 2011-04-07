@@ -499,7 +499,6 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
   // remove outdated occupied nodes -----
   ros::WallTime begin_degrade = ros::WallTime::now();
   degradeOutdatedRaw(cloud->header, sensor_origin_tf, settings.sensor_stereo_other_frame_, pcl_cloud_raw);
-
   double elapsed_degrade = (ros::WallTime::now() - begin_degrade).toSec();
 
 
@@ -634,14 +633,16 @@ void Collider::cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud, co
 */
   // integrate pointcloud into map
   ros::WallTime begin_insert = ros::WallTime::now();
-  collision_octree_->insertScanNaive(octo_pointcloud, sensor_origin, max_range_, false);
+  collision_octree_->insertScan(octo_pointcloud, sensor_origin, max_range_, false);
 
   double elapsed_insert = (ros::WallTime::now() - begin_insert).toSec();
 
 
-  // remove outdated occupied nodes
   ros::WallTime begin_degrade = ros::WallTime::now();
+  // remove outdated occupied nodes
   //degradeOutdatedRaycasting(cloud->header, sensor_origin, *collision_octree_);
+
+  // remove single voxels with no neighbors (probably noise)
   degradeSingleSpeckles();
   double elapsed_degrade = (ros::WallTime::now() - begin_degrade).toSec();
 
