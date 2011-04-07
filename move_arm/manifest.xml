@@ -28,9 +28,6 @@ The move_arm package provides an implementation of a action (see the <a href="ht
   <depend package="kinematics_msgs"/>
   <depend package="move_arm_msgs"/>
   <depend package="geometric_shapes_msgs"/>
-  <depend package="ompl_ros_interface"/>
-  <depend package="constraint_aware_spline_smoother"/>
-  <depend package="pr2_arm_kinematics_constraint_aware"/>
 
   <export>
     <cpp cflags="-I${prefix}/msg/cpp" />
