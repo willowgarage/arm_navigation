@@ -1,15 +1,16 @@
 <package>
   <description brief="collider">
 
-    collider - collision avoidance module based on octomap's 5D octree
+    collider
 
   </description>
   <author>Kai Wurm</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   
-  <depend package="octomap_ros" />
   <depend package="roscpp"/>
+  <depend package="octomap" />
+  <depend package="octomap_ros" />  
   <depend package="tf"/>
   <depend package="visualization_msgs"/>
   <depend package="mapping_msgs"/>

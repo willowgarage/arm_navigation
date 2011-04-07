@@ -144,13 +144,14 @@ class Collider {
 
   // obstacle cleaning
   void degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, const octomap::point3d& sensor_origin, octomap::OcTreeStamped& tree);
+  void degradeOutdatedRaw(const std_msgs::Header& sensor_header, const tf::Point& sensor_origin,
+                          const std::string& other_stereo_frame,
+                          const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw);
+  void degradeSingleSpeckles();
   void computeBBX(const std_msgs::Header& sensor_header, octomap::point3d& bbx_min, octomap::point3d& bbx_max);
   bool inSensorCone(const cv::Point2d& uv) const;
   bool isOccludedMap(const octomap::point3d& sensor_origin, const octomap::point3d& p) const;
   octomap::point3d getSensorOrigin(const std_msgs::Header& sensor_header);
-  void degradeOutdatedRaw(const std_msgs::Header& sensor_header, const tf::Point& sensor_origin,
-                          const std::string& other_stereo_frame,
-                          const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw);
   bool isOccludedRaw (const cv::Point2d& uv, double range, const pcl::PointCloud<pcl::PointXYZ>& pcl_cloud_raw);
 
   //const tf::Transform& transform, 

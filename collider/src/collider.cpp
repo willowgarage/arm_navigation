@@ -488,8 +488,11 @@ void Collider::cloudCombinedCallback(const sensor_msgs::PointCloud2::ConstPtr &c
 
   // integrate pointcloud into map
   ros::WallTime begin_insert = ros::WallTime::now();
-  // TODO prune map or not?
-  collision_octree_->insertScan(octo_pointcloud, sensor_origin, max_range_, false);
+
+  // make use of lazy update
+  collision_octree_->insertScan(octo_pointcloud, sensor_origin, max_range_, false, true);
+  collision_octree_->updateInnerOccupancy();
+
   double elapsed_insert = (ros::WallTime::now() - begin_insert).toSec();
 
 
@@ -639,6 +642,7 @@ void Collider::cloudCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud, co
   // remove outdated occupied nodes
   ros::WallTime begin_degrade = ros::WallTime::now();
   //degradeOutdatedRaycasting(cloud->header, sensor_origin, *collision_octree_);
+  degradeSingleSpeckles();
   double elapsed_degrade = (ros::WallTime::now() - begin_degrade).toSec();
 
 
@@ -811,6 +815,37 @@ void Collider::degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, 
 
     }
   }
+}
+
+void Collider::degradeSingleSpeckles(){
+  for(OcTreeType::leaf_iterator it = collision_octree_->begin_leafs(),
+        end=collision_octree_->end_leafs(); it!= end; ++it)
+    {
+      if (collision_octree_->isNodeOccupied(*it)){
+        octomap::OcTreeKey nKey = it.getKey();
+        octomap::OcTreeKey key;
+        bool neighborFound = false;
+        for (key[2] = nKey[2] - 1; !neighborFound && key[2] <= nKey[2] + 1; ++key[2]){
+          for (key[1] = nKey[1] - 1; !neighborFound && key[1] <= nKey[1] + 1; ++key[1]){
+            for (key[0] = nKey[0] - 1; !neighborFound && key[0] <= nKey[0] + 1; ++key[0]){
+              if (key != nKey){
+                OcTreeType::NodeType* node = collision_octree_->search(key);
+                if (node && collision_octree_->isNodeOccupied(node)){
+                  // we have a neighbor => break!
+                  neighborFound = true;
+                }
+              }
+            }
+          }
+        }
+        // done with search, see if found and degrade otherwise:
+        if (!neighborFound){
+          ROS_DEBUG("Degrading single speckle at (%f,%f,%f)", it.getX(), it.getY(), it.getZ());
+          collision_octree_->integrateMissNoTime(&*it);
+        }
+
+      }
+    }
 }
 
 
