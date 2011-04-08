@@ -257,7 +257,9 @@ TEST_F(TestCollisionModels,TestCollisionObjects)
   ASSERT_EQ(space_atts.size(),0);
 
   std::vector<std::string> touch_links;
-  cm.convertStaticObjectToAttachedObject("object_3", "base_link", touch_links);
+  btTransform ident;
+  ident.setIdentity();
+  cm.convertStaticObjectToAttachedObject("object_3", "base_link", ident, touch_links);
 
   cm.getCollisionSpaceCollisionObjects(space_objs);
   cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
@@ -286,7 +288,7 @@ TEST_F(TestCollisionModels,TestCollisionObjects)
   ASSERT_EQ(space_atts[0].object.id, "object_4");
 
   //non-existent second link has no effect
-  cm.convertAttachedObjectToStaticObject("object_4","r_gripper_finger_tip_link");
+  cm.convertAttachedObjectToStaticObject("object_4","r_gripper_finger_tip_link", ident);
 
   cm.getCollisionSpaceCollisionObjects(space_objs);
   cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
@@ -295,7 +297,7 @@ TEST_F(TestCollisionModels,TestCollisionObjects)
   ASSERT_EQ(space_atts.size(),1);
 
   //now we do it right
-  cm.convertAttachedObjectToStaticObject("object_4","r_gripper_r_finger_tip_link");
+  cm.convertAttachedObjectToStaticObject("object_4","r_gripper_r_finger_tip_link", ident);
 
   cm.getCollisionSpaceCollisionObjects(space_objs);
   cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
@@ -422,9 +424,11 @@ TEST_F(TestCollisionModels,TestAllowedCollisions)
 
   //now with attached objects
   att_object_1_.touch_links.push_back("r_gripper_palm_link");
-  cm.addAttachedObject(att_object_1_);  
+  cm.addAttachedObject(att_object_1_);
 
   //this should also revert the allowed collision matrix
+  cm.revertAllowedCollisionToDefault();
+
   check_acm = cm.getCurrentAllowedCollisionMatrix();  
   
   ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","object_1", allowed));
