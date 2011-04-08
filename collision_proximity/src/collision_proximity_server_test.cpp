@@ -36,8 +36,70 @@
 
 #include <ros/ros.h>
 #include <collision_proximity/collision_proximity_space.h>
-#include <kinematics_msgs/GetKinematicSolverInfo.h>
 #include <planning_environment/models/model_utils.h>
+#include <motion_planning_msgs/GetMotionPlan.h>
+
+struct CollisionProximitySpacePlannerInterface
+{
+  CollisionProximitySpacePlannerInterface(const std::string& robot_description_name)
+  {
+    cps_ = new collision_proximity::CollisionProximitySpace(robot_description_name);
+    
+    ros::NodeHandle priv("~");
+
+    motion_planning_service_ = priv.advertiseService("get_distance_aware_plan", &CollisionProximitySpacePlannerInterface::motionPlanCallback, this);
+
+    vis_marker_publisher_ = root_handle_.advertise<visualization_msgs::Marker>("collision_proximity_markers", 128);
+    vis_marker_array_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("collision_proximity_markers_array", 128);
+
+  }
+
+  ~CollisionProximitySpacePlannerInterface()
+  {
+    delete cps_;
+  }
+  
+  bool motionPlanCallback(motion_planning_msgs::GetMotionPlan::Request &req,
+                          motion_planning_msgs::GetMotionPlan::Response &res)
+  {
+    if(!req.motion_plan_request.group_name.empty()) {
+      cps_->setupForGroupQueries(req.motion_plan_request.group_name,
+                                 req.motion_plan_request.start_state);
+    } else {
+      return false;
+    }
+    return true;
+  }
+  
+  void broadcastCollisionMarkers() {
+    cps_->getCollisionModelsInterface()->bodiesLock();
+    if(!cps_->getCollisionModelsInterface()->isPlanningSceneSet()) {
+      cps_->getCollisionModelsInterface()->bodiesUnlock();
+      return;
+    }
+    cps_->getCollisionModelsInterface()->resetToStartState(*cps_->getCollisionModelsInterface()->getPlanningSceneState());
+    std::vector<std::string> link_names;
+    std::vector<std::string> attached_body_names;
+    std::vector<collision_proximity::GradientInfo> gradients;
+    cps_->getStateGradients(link_names, attached_body_names, gradients);
+
+    visualization_msgs::MarkerArray arr;
+    cps_->getProximityGradientMarkers(link_names,
+                                      attached_body_names,
+                                      gradients,
+                                      "",
+                                      arr);
+    vis_marker_array_publisher_.publish(arr);
+    cps_->getCollisionModelsInterface()->bodiesUnlock();
+  }
+
+  ros::NodeHandle root_handle_;
+  ros::ServiceServer motion_planning_service_;
+  collision_proximity::CollisionProximitySpace* cps_;
+  ros::Publisher vis_marker_publisher_;
+  ros::Publisher vis_marker_array_publisher_;
+};
+
 
 int main(int argc, char** argv)
 {
@@ -49,14 +111,14 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
   std::string robot_description_name = nh.resolveName("robot_description", true);
 
-  collision_proximity::CollisionProximitySpace* cps = new collision_proximity::CollisionProximitySpace(robot_description_name);
+  CollisionProximitySpacePlannerInterface cps(robot_description_name);
 
   ros::Rate r(10.0);
   while(nh.ok()) {
+    cps.broadcastCollisionMarkers();
     r.sleep();
   }
   ros::waitForShutdown();
-  delete cps;
   return 0;
 
 

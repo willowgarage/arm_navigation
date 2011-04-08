@@ -162,19 +162,19 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
   }
 
   XmlRpc::XmlRpcValue coll_ops;
-  if(!root_handle_.hasParam("/robot_description_planning/default_collision_operations")) {
-    ROS_WARN("No default collision operations specified");
+  if(!root_handle_.hasParam("/robot_description_planning/distance_collision_operations")) {
+    ROS_WARN("No distance collision operations specified");
     return;
   }
-  root_handle_.getParam("/robot_description_planning/default_collision_operations", coll_ops);
+  root_handle_.getParam("/robot_description_planning/distance_collision_operations", coll_ops);
   
   if(coll_ops.getType() != XmlRpc::XmlRpcValue::TypeArray) {
-    ROS_WARN("proximity_collision_operations is not an array");
+    ROS_WARN("distance_collision_operations is not an array");
     return;
   } 
   
   if(coll_ops.size() == 0) {
-    ROS_WARN("No collision operations in proximity collision operations");
+    ROS_WARN("No collision operations in distance collision operations");
     return;
   }
   
@@ -190,7 +190,7 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
     if(jmgm.find(object1) == jmgm.end()) {
       if(object1 == object2) {
         //using for disabling environment checks
-        environment_excludes_[object1] = true;
+        self_excludes_[object1] = true;
       } else {
         //must be intra_collision
         if(jmgm.find(object2) == jmgm.end()) {
@@ -253,6 +253,7 @@ void CollisionProximitySpace::setPlanningSceneCallback(const planning_environmen
 void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name,
                                                    const motion_planning_msgs::RobotState& rob_state)  
 {
+  ros::WallTime n1 = ros::WallTime::now();
   //setting up current info
   current_group_name_ = group_name;
   getGroupLinkAndAttachedBodyNames(current_group_name_, 
@@ -267,13 +268,13 @@ void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name
 
   current_link_body_decompositions_.clear();
   current_attached_body_decompositions_.clear();
-  current_environment_excludes_.clear();
+  current_self_excludes_.clear();
   for(unsigned int i = 0; i < current_link_names_.size(); i++) {
     current_link_body_decompositions_.push_back(body_decomposition_map_[current_link_names_[i]]);
-    if(environment_excludes_.find(current_link_names_[i]) != environment_excludes_.end()) {
-      current_environment_excludes_.push_back(false);
+    if(self_excludes_.find(current_link_names_[i]) != self_excludes_.end()) {
+      current_self_excludes_.push_back(false);
     } else {
-      current_environment_excludes_.push_back(true);
+      current_self_excludes_.push_back(true);
     }
   }
   for(unsigned int i = 0; i < current_attached_body_names_.size(); i++) {
@@ -323,14 +324,19 @@ void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name
   }
   setBodyPosesGivenKinematicState(*collision_models_interface_->getPlanningSceneState());
   setDistanceFieldForGroupQueries(current_group_name_, *collision_models_interface_->getPlanningSceneState());
+  ros::WallTime n2 = ros::WallTime::now();
+  ROS_INFO_STREAM("Setting self took " << (n2-n1).toSec());
+  //visualizeDistanceField(self_distance_field_);
 }
 
 void CollisionProximitySpace::revertPlanningSceneCallback() {
 
+  collision_models_interface_->bodiesLock();
   current_group_name_ = "";
 
   deleteAllStaticObjectDecompositions();
   deleteAllAttachedObjectDecompositions();
+  collision_models_interface_->bodiesUnlock();
 }
 
 void CollisionProximitySpace::setCurrentGroupState(const planning_models::KinematicState& state)
@@ -650,7 +656,8 @@ bool CollisionProximitySpace::getGroupLinkAndAttachedBodyNames(const std::string
       for(std::map<std::string, bodies::BodyVector*>::const_iterator it = collision_models_interface_->getLinkAttachedObjects().find(link_names[i])->second.begin();
           it != collision_models_interface_->getLinkAttachedObjects().find(link_names[i])->second.end();
           it++, j++) {
-        attached_body_names.push_back(it->first);
+        std::string id = makeAttachedObjectId(link_names[i],it->first);
+        attached_body_names.push_back(id);
         attached_body_link_indices.push_back(link_indices[i]);
       }
     }
@@ -673,6 +680,7 @@ bool CollisionProximitySpace::setupGradientStructures(const std::vector<std::str
 
   for(unsigned int i = 0; i < link_names.size(); i++) {
     const std::vector<CollisionSphere>& lcs1 = body_decomposition_map_.find(link_names[i])->second->getCollisionSpheres();
+    gradients[i].sphere_locations.resize(lcs1.size());
     for(unsigned int j = 0; j < lcs1.size(); j++) {
       gradients[i].sphere_locations[j] = lcs1[j].center_;
     }
@@ -686,6 +694,7 @@ bool CollisionProximitySpace::setupGradientStructures(const std::vector<std::str
       return false;
     }
     const std::vector<CollisionSphere>& att_vec = attached_object_map_.find(attached_body_names[i])->second->getCollisionSpheres();
+    gradients[att_index].sphere_locations.resize(att_vec.size());
     for(unsigned int j = 0; j < att_vec.size(); j++) {
       gradients[att_index].sphere_locations[j] = att_vec[j].center_;
     }
@@ -756,16 +765,20 @@ bool CollisionProximitySpace::getStateGradients(std::vector<std::string>& link_n
     } else {
       gradients[i].closest_distance = env_gradients[i].closest_distance;
     }
+
     for(unsigned int j = 0; j < gradients[i].distances.size(); j++) {
       if((env_gradients[i].distances[j] >= max_environment_distance_ &&
           self_gradients[i].distances[j] >= max_environment_distance_) ||
          (env_gradients[i].distances[j] > intra_gradients[i].distances[j] &&
           self_gradients[i].distances[j] > intra_gradients[i].distances[j])) {
         gradients[i].distances[j] = intra_gradients[i].distances[j];
+        gradients[i].gradients[j] = intra_gradients[i].gradients[j];
       } else if(self_gradients[i].distances[j] < env_gradients[i].distances[i]) {
         gradients[i].distances[j] = self_gradients[i].distances[j];
+        gradients[i].gradients[j] = self_gradients[i].gradients[j];
       } else {
         gradients[i].distances[j] = env_gradients[i].distances[j];
+        gradients[i].gradients[j] = env_gradients[i].gradients[j];
       }
     }
   }
@@ -918,7 +931,7 @@ bool CollisionProximitySpace::getSelfProximityGradients(std::vector<GradientInfo
   }
   bool in_collision = false;
   for(unsigned int i = 0; i < current_link_names_.size(); i++) {
-    if(!current_environment_excludes_[i]) continue;
+    if(!current_self_excludes_[i]) continue;
     const std::vector<CollisionSphere>& body_spheres = current_link_body_decompositions_[i]->getCollisionSpheres();
     if(gradients[i].distances.size() != body_spheres.size()) {
       ROS_INFO_STREAM("Wrong size for closest distances for link " << current_link_names_[i]);
@@ -950,7 +963,6 @@ bool CollisionProximitySpace::getEnvironmentCollisions(std::vector<bool>& collis
 {
   bool in_collision = false;
   for(unsigned int i = 0; i < current_link_names_.size(); i++) {
-    if(!current_environment_excludes_[i]) continue;
     const std::vector<CollisionSphere>& body_spheres = current_link_body_decompositions_[i]->getCollisionSpheres();
     bool coll = getCollisionSphereCollision(environment_distance_field_, body_spheres, tolerance_);
     if(coll) {
@@ -984,7 +996,6 @@ bool CollisionProximitySpace::getEnvironmentProximityGradients(std::vector<Gradi
   }
   bool in_collision = false;
   for(unsigned int i = 0; i < current_link_names_.size(); i++) {
-    if(!current_environment_excludes_[i]) continue;
     const std::vector<CollisionSphere>& body_spheres = current_link_body_decompositions_[i]->getCollisionSpheres();
     if(gradients[i].distances.size() != body_spheres.size()) {
       ROS_INFO_STREAM("Wrong size for closest distances for link " << current_link_names_[i]);
@@ -1004,12 +1015,12 @@ bool CollisionProximitySpace::getEnvironmentProximityGradients(std::vector<Gradi
   return in_collision;
 }
 
-void CollisionProximitySpace::visualizeProximityGradients(const std::vector<std::string>& link_names, 
+void CollisionProximitySpace::getProximityGradientMarkers(const std::vector<std::string>& link_names, 
                                                           const std::vector<std::string>& attached_body_names, 
-                                                          const std::vector<GradientInfo>& gradients) const 
+                                                          const std::vector<GradientInfo>& gradients,
+                                                          const std::string& ns, 
+                                                          visualization_msgs::MarkerArray& arr) const 
 {
-  
-  visualization_msgs::MarkerArray arr;
   for(unsigned int i = 0; i < gradients.size(); i++) {
     
     const std::vector<CollisionSphere>* lcs;
@@ -1025,7 +1036,11 @@ void CollisionProximitySpace::visualizeProximityGradients(const std::vector<std:
       visualization_msgs::Marker arrow_mark;
       arrow_mark.header.frame_id = collision_models_interface_->getRobotFrameId();
       arrow_mark.header.stamp = ros::Time::now();
-      arrow_mark.ns = "self_coll_gradients";
+      if(ns.empty()) {
+        arrow_mark.ns = "self_coll_gradients";
+      } else {
+        arrow_mark.ns = ns;
+      }
       arrow_mark.id = i*1000+j;
       double xscale = 0.0;
       double yscale = 0.0;
@@ -1058,7 +1073,6 @@ void CollisionProximitySpace::visualizeProximityGradients(const std::vector<std:
       arr.markers.push_back(arrow_mark);
     }
   }
-  vis_marker_array_publisher_.publish(arr);
 }
 
 ////////////

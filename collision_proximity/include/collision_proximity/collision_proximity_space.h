@@ -109,9 +109,11 @@ public:
   //visualization functions
   //
 
-  void visualizeProximityGradients(const std::vector<std::string>& link_names, 
+  void getProximityGradientMarkers(const std::vector<std::string>& link_names, 
                                    const std::vector<std::string>& attached_body_names,
-                                   const std::vector<GradientInfo>& gradients) const;
+                                   const std::vector<GradientInfo>& gradients,
+                                   const std::string& ns, 
+                                   visualization_msgs::MarkerArray& arr) const;
 
   void visualizeDistanceField(distance_field::PropagationDistanceField* distance_field) const;
 
@@ -127,7 +129,7 @@ public:
 
   void visualizeBoundingCylinders(const std::vector<std::string>& object_names) const;
 
-  const planning_environment::CollisionModelsInterface* getCollisionModels() const {
+  const planning_environment::CollisionModelsInterface* getCollisionModelsInterface() const {
     return collision_models_interface_;
   }
 
@@ -215,7 +217,7 @@ private:
   std::map<std::string, std::map<std::string, bool> > enabled_self_collision_links_;
   std::map<std::string, std::map<std::string, bool> > intra_group_collision_links_;
   std::map<std::string, std::map<std::string, bool> > attached_object_collision_links_;
-  std::map<std::string, bool> environment_excludes_;
+  std::map<std::string, bool> self_excludes_;
 
   //current entries to avoid map lookups during collision checks
   std::string current_group_name_;
@@ -226,7 +228,7 @@ private:
   std::vector<BodyDecomposition*> current_link_body_decompositions_;
   std::vector<BodyDecompositionVector*> current_attached_body_decompositions_;
   std::vector<std::vector<bool> > current_intra_group_collision_links_;
-  std::vector<bool> current_environment_excludes_;
+  std::vector<bool> current_self_excludes_;
 
   //just for initializing input
   std::vector<GradientInfo> current_gradients_;
