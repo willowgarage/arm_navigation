@@ -9,12 +9,16 @@
   <depend stack="common" /> <!-- actionlib, filters -->
   <depend stack="common_msgs" /> <!-- geometry_msgs, actionlib_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
   <depend stack="geometry" /> <!-- tf, bullet, angles -->
-  <depend stack="perception_pcl" /> <!-- pcl -->
+  <depend stack="image_common" /> <!-- image_transport -->
+  <depend stack="kinematics" /> <!-- kinematics_msgs -->
+  <depend stack="octomap_mapping" /> <!-- octomap, octomap_ros -->
+  <depend stack="perception_pcl" /> <!-- pcl, pcl_ros -->
   <depend stack="physics_ode" /> <!-- opende -->
   <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- std_msgs, rosconsole, std_srvs, roscpp, message_filters -->
+  <depend stack="ros_comm" /> <!-- rosconsole, std_srvs, roscpp, message_filters, std_msgs, rosbag -->
+  <depend stack="trajectory_filters" /> <!-- spline_smoother -->
+  <depend stack="vision_opencv" /> <!-- image_geometry -->
   <depend stack="visualization" /> <!-- rviz -->
-  <depend stack="octomap_mapping" /> <!--octomap-->
 
 </stack>
