@@ -58,12 +58,10 @@
 #include <motion_planning_msgs/RobotTrajectory.h>
 #include <motion_planning_msgs/RobotState.h>
 #include <visualization_msgs/MarkerArray.h>
-#include <collision_proximity_planner/GetFreePath.h>
+#include <motion_planning_msgs/GetMotionPlan.h>
 #include <motion_planning_msgs/DisplayTrajectory.h>
 
 // Arm Navigation
-#include <planning_environment/monitors/collision_space_monitor.h>
-#include <planning_environment/monitors/planning_monitor.h>
 #include <spline_smoother/cubic_trajectory.h>
 
 // MISC
@@ -75,13 +73,9 @@ namespace collision_proximity_planner
   {
   public:
 
-    CollisionProximityPlanner();
+    CollisionProximityPlanner(const std::string& robot_description_name);
 
     virtual ~CollisionProximityPlanner();    
-
-    bool initialize();
-
-    bool initialize(const std::string &group_name);
 
     void fillInGroupState(motion_planning_msgs::RobotState &robot_state,
                           const motion_planning_msgs::RobotState &group_state);
@@ -122,6 +116,8 @@ namespace collision_proximity_planner
   private:
     ros::Publisher display_trajectory_publisher_;
 
+    bool initializeForGroup(const std::string& group_name);
+
     bool mapGroupState(const motion_planning_msgs::RobotState &group_state,const std::vector<int>& mapping);
     bool calculateCollisionIncrements(Eigen::MatrixXd &collision_increments, double &distance);
     void isParentJoint(const int& link_index, const int& joint_index);
@@ -138,15 +134,11 @@ namespace collision_proximity_planner
     void updateCollisionProximitySpace(const motion_planning_msgs::RobotState &group_state);
     void kdlJointTrajectoryToRobotTrajectory(std::vector<KDL::JntArray> &jnt_trajectory,
                                              motion_planning_msgs::RobotTrajectory &robot_trajectory);
-    void visualizeRobotTrajectory(const motion_planning_msgs::RobotTrajectory &robot_trajectory);
 
     motion_planning_msgs::RobotState robot_state_group_;
 
     ros::NodeHandle private_handle_, root_handle_;
-    planning_environment::CollisionModels* collision_models_;
-    planning_environment::CollisionSpaceMonitor* monitor_;
-    planning_environment::PlanningMonitor* planning_monitor_;
-    collision_proximity::CollisionProximitySpace* collision_proximity_space_;
+    collision_proximity::CollisionProximitySpace* cps_;
     std::string reference_frame_, group_name_cps_;
     int num_joints_;
     chomp::ChompRobotModel chomp_robot_model_;
@@ -174,8 +166,6 @@ namespace collision_proximity_planner
 
     std::vector<int> group_joint_to_kdl_joint_index_;
     
-    tf::TransformListener tf_;
-
     std::vector<std::vector<int> > active_joints_;
     
     ros::Publisher vis_marker_array_publisher_, vis_marker_publisher_;
@@ -188,8 +178,8 @@ namespace collision_proximity_planner
                      const std::vector<int>& group_joint_to_kdl_joint_index) const;
     inline bool isParentJoint(const int& link_index, const int& joint_index) const;
 
-    bool getFreePath(collision_proximity_planner::GetFreePath::Request &req,
-                     collision_proximity_planner::GetFreePath::Response &res);
+    bool getFreePath(motion_planning_msgs::GetMotionPlan::Request &req,
+                     motion_planning_msgs::GetMotionPlan::Response &res);
 
     ros::ServiceServer planning_service_;
 

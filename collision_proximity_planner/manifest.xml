@@ -12,7 +12,6 @@
   <depend package="planning_environment"/>
   <depend package="spline_smoother"/>
   <depend package="collision_proximity"/>
-  <depend package="motion_planning_state_refinement"/>
 
   <depend package="visualization_msgs"/>
   <depend package="motion_planning_msgs"/>

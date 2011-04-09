@@ -34,9 +34,7 @@ add_definitions(-DEIGEN_NO_DEBUG)
 add_definitions(-DNDEBUG)
 
 rosbuild_add_library(collision_proximity_planner_lib
-	src/collision_proximity_planner_plugin.cpp
 	src/collision_proximity_planner.cpp
-	src/chomp_collision_point.cpp
 	src/chomp_robot_model.cpp
 	src/treefksolverjointposaxis.cpp
 	src/treefksolverjointposaxis_partial.cpp
@@ -45,5 +43,5 @@ rosbuild_add_library(collision_proximity_planner_lib
 rosbuild_add_executable(collision_proximity_planner src/main.cpp)
 target_link_libraries(collision_proximity_planner collision_proximity_planner_lib)
 
-rosbuild_add_executable(cp_client src/collision_proximity_planner_test.cpp)
-target_link_libraries(cp_client collision_proximity_planner_lib)
+#rosbuild_add_executable(cp_client src/collision_proximity_planner_test.cpp)
+#target_link_libraries(cp_client collision_proximity_planner_lib)

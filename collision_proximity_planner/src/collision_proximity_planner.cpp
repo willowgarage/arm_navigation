@@ -36,69 +36,61 @@
 
 #include <collision_proximity_planner/collision_proximity_planner.h>
 #include <collision_proximity_planner/collision_proximity_planner_utils.h>
+#include <planning_environment/models/model_utils.h>
 
 using namespace std;
 
 namespace collision_proximity_planner
 {
 
-CollisionProximityPlanner::CollisionProximityPlanner():private_handle_("~")
-{}
-
-
-bool CollisionProximityPlanner::initialize()
-{
-  std::string group_name;
-  private_handle_.param("group", group_name, std::string(" "));
-  return initialize(group_name);
-}
-
-bool CollisionProximityPlanner::initialize(const std::string &group_name)
+CollisionProximityPlanner::CollisionProximityPlanner(const std::string& robot_description_name):private_handle_("~")
 {
   private_handle_.param("use_pseudo_inverse", use_pseudo_inverse_, false);
   private_handle_.param("group_cps", group_name_cps_, std::string(" "));
   private_handle_.param("max_iterations", max_iterations_, 100);
   private_handle_.param("max_joint_update", max_joint_update_, 0.02);
 
-  ROS_INFO("Planning for group %s",group_name.c_str());
-  ROS_INFO("Collision proximity group name: %s",group_name_cps_.c_str());
-  collision_models_ = new planning_environment::CollisionModels("robot_description");
-  if(!collision_models_->loadedModels()) 
-  {
-    ROS_ERROR("Collision models could not load models");
-    return false;
-  }
-  // monitor robot
-  planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
-
-  planning_monitor_->waitForState();
-  planning_monitor_->setUseCollisionMap(true);
-  planning_monitor_->startEnvironmentMonitor();  
-  reference_frame_ = planning_monitor_->getRobotFrameId();
-  
+  cps_ = new collision_proximity::CollisionProximitySpace(robot_description_name);
+ 
   // build the robot model
-  if (!chomp_robot_model_.init((planning_environment::CollisionSpaceMonitor*) (planning_monitor_), reference_frame_))
-    return false;
-  
+  chomp_robot_model_.init(cps_->getCollisionModelsInterface());
+
+  // initialize the visualization publisher:
+  vis_marker_array_publisher_ = private_handle_.advertise<visualization_msgs::MarkerArray>( "visualization_marker_array", 0 );
+  vis_marker_publisher_ = private_handle_.advertise<visualization_msgs::Marker>( "visualization_marker", 0 );
+
+  planning_service_ = private_handle_.advertiseService("plan",&CollisionProximityPlanner::getFreePath,this);
+
+  //  joint_axis_.resize(chomp_robot_model_.getKDLTree()->getNrOfJoints());
+  //  joint_pos_.resize(chomp_robot_model_.getKDLTree()->getNrOfJoints());
+  //  segment_frames_.resize(chomp_robot_model_.getKDLTree()->getNrOfSegments());
+  ROS_INFO("Initalized collision proximity planner");
+}
+
+CollisionProximityPlanner::~CollisionProximityPlanner()
+{
+}
+
+bool CollisionProximityPlanner::initializeForGroup(const std::string& group_name) 
+{
   // get the planning group:
   planning_group_ = chomp_robot_model_.getPlanningGroup(group_name);
-  if (planning_group_==NULL)
-  {
-    ROS_ERROR("Could not load planning group %s", group_name.c_str());
+  if(planning_group_ == NULL) {
+    ROS_ERROR_STREAM("No planning group for " << group_name);
     return false;
   }
   num_joints_ = planning_group_->chomp_joints_.size();
   ROS_INFO("Planning for %d joints", num_joints_);
   //  num_collision_points_ = planning_group_->collision_points_.size();
-
-  ros::WallTime n1 = ros::WallTime::now();
-  collision_proximity_space_ = new collision_proximity::CollisionProximitySpace(planning_monitor_);
-
-   // set up joint index:
+  
+  // set up joint index:
+  group_joint_to_kdl_joint_index_.clear();
   group_joint_to_kdl_joint_index_.resize(num_joints_);
   for (int i=0; i<num_joints_; ++i)
     group_joint_to_kdl_joint_index_[i] = planning_group_->chomp_joints_[i].kdl_joint_index_;
 
+  robot_state_group_.joint_state.position.clear();
+  robot_state_group_.joint_state.name.clear();
   robot_state_group_.joint_state.position.resize(num_joints_);
   robot_state_group_.joint_state.name.resize(num_joints_);
   for(int i=0; i < num_joints_; i++)
@@ -108,41 +100,21 @@ bool CollisionProximityPlanner::initialize(const std::string &group_name)
   jacobian_ = Eigen::MatrixXd::Zero(3, num_joints_);
   jacobian_pseudo_inverse_ = Eigen::MatrixXd::Zero(num_joints_, 3);
   jacobian_jacobian_tranpose_ = Eigen::MatrixXd::Zero(3, 3);
-
-  // initialize the visualization publisher:
-  vis_marker_array_publisher_ = private_handle_.advertise<visualization_msgs::MarkerArray>( "visualization_marker_array", 0 );
-  vis_marker_publisher_ = private_handle_.advertise<visualization_msgs::Marker>( "visualization_marker", 0 );
-
-  planning_service_ = private_handle_.advertiseService("plan",&CollisionProximityPlanner::getFreePath,this);
-
-  display_trajectory_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>("display_path", 1);  
-
-
-  //  joint_axis_.resize(chomp_robot_model_.getKDLTree()->getNrOfJoints());
-  //  joint_pos_.resize(chomp_robot_model_.getKDLTree()->getNrOfJoints());
-  //  segment_frames_.resize(chomp_robot_model_.getKDLTree()->getNrOfSegments());
-
-  setPlanningMonitorToCurrentState();
-  motion_planning_msgs::RobotTrajectory robot_trajectory;
-  visualizeRobotTrajectory(robot_trajectory);
-  ROS_INFO("Initalized collision proximity planner");
   return true;
 }
 
-CollisionProximityPlanner::~CollisionProximityPlanner()
-{
-  delete collision_models_;
-}
-
-bool CollisionProximityPlanner::getFreePath(collision_proximity_planner::GetFreePath::Request &req,
-                                            collision_proximity_planner::GetFreePath::Response &res)
+bool CollisionProximityPlanner::getFreePath(motion_planning_msgs::GetMotionPlan::Request &req,
+                                            motion_planning_msgs::GetMotionPlan::Response &res)
 {
   ROS_INFO("Computing free path");
-  motion_planning_msgs::RobotState robot_state;
-  planning_monitor_->getCurrentRobotState(robot_state);
-  fillInGroupState(robot_state,req.robot_state);
-  collision_proximity_space_->setupForGroupQueries(group_name_cps_, robot_state);  
-  std::vector<std::string> link_names = collision_proximity_space_->getLinkNames();
+  clear();
+  if(!req.motion_plan_request.group_name.empty() && initializeForGroup(req.motion_plan_request.group_name)) {
+    cps_->setupForGroupQueries(req.motion_plan_request.group_name,
+                               req.motion_plan_request.start_state);
+  } else {
+    return false;
+  }
+  std::vector<std::string> link_names = cps_->getCurrentLinkNames();
   for(unsigned int i=0; i < link_names.size(); i++)
   {
     ROS_DEBUG("Finding active joints for %s",link_names[i].c_str());
@@ -152,56 +124,20 @@ bool CollisionProximityPlanner::getFreePath(collision_proximity_planner::GetFree
     ROS_DEBUG("Found %zu active joints for %s",ac_j.size(),link_names[i].c_str());
     active_joints_.push_back(ac_j);
   }
-  std::vector<std::string> object_names;
-  object_names.push_back("obj1");
-  collision_proximity_space_->visualizeObjectVoxels(object_names);
-
-  bool result = findPathToFreeState(robot_state,res.robot_trajectory);
-  collision_proximity_space_->revertAfterGroupQueries();
-  active_joints_.clear();
+  bool result = findPathToFreeState(req.motion_plan_request.start_state,res.trajectory);
+  if(result) {
+    res.error_code.val = res.error_code.SUCCESS;
+  } else {
+    res.error_code.val = res.error_code.PLANNING_FAILED;
+  }
   return result;
-}
-
-bool CollisionProximityPlanner::setRobotState(const motion_planning_msgs::RobotState &robot_state)
-{
-  motion_planning_msgs::RobotState current_state;
-  planning_monitor_->getCurrentRobotState(current_state);
-  fillInGroupState(current_state,robot_state);
-  collision_proximity_space_->setupForGroupQueries(group_name_cps_, current_state);  
-  std::vector<std::string> link_names = collision_proximity_space_->getLinkNames();
-  for(unsigned int i=0; i < link_names.size(); i++)
-  {
-    ROS_DEBUG("Finding active joints for %s",link_names[i].c_str());
-    std::vector<int> ac_j;
-    int segment_number;
-    chomp_robot_model_.getActiveJointInformation(link_names[i],ac_j,segment_number);
-    ROS_DEBUG("Found %zu active joints for %s",ac_j.size(),link_names[i].c_str());
-    active_joints_.push_back(ac_j);
-  }
-  jnt_array_.resize(robot_state.joint_state.name.size());
-  chomp_robot_model_.jointStateToArray(robot_state.joint_state,jnt_array_);
-  performForwardKinematics(jnt_array_,true);
-
-  jnt_array_group_.resize(num_joints_);
-  getGroupArray(jnt_array_,group_joint_to_kdl_joint_index_,jnt_array_group_);
-  return true;
 }
 
 void CollisionProximityPlanner::clear()
 {
-  collision_proximity_space_->revertAfterGroupQueries();
   active_joints_.clear();
   group_state_joint_array_group_mapping_.clear();
   joint_array_group_group_state_mapping_.clear();
-}
-
-void CollisionProximityPlanner::visualizeRobotTrajectory(const motion_planning_msgs::RobotTrajectory &robot_trajectory)
-{
-  motion_planning_msgs::DisplayTrajectory display_trajectory;
-  display_trajectory.model_id = "pr2";
-  display_trajectory.trajectory = robot_trajectory;
-  planning_monitor_->getCurrentRobotState(display_trajectory.robot_state);
-  display_trajectory_publisher_.publish(display_trajectory);
 }
 
 void CollisionProximityPlanner::fillInGroupState(motion_planning_msgs::RobotState &robot_state,
@@ -213,7 +149,7 @@ void CollisionProximityPlanner::fillInGroupState(motion_planning_msgs::RobotStat
     {
       if(group_state.joint_state.name[i] == robot_state.joint_state.name[j])
       {
-        ROS_DEBUG("Filling in group state for %s",robot_state.joint_state.name[j].c_str());
+        ROS_INFO("Filling in group state for %s",robot_state.joint_state.name[j].c_str());
         robot_state.joint_state.position[j] = group_state.joint_state.position[i];
       }
     }
@@ -274,11 +210,10 @@ bool CollisionProximityPlanner::findPathToFreeState(const motion_planning_msgs::
   }
   
   kdlJointTrajectoryToRobotTrajectory(jnt_trajectory,robot_trajectory);
-  visualizeRobotTrajectory(robot_trajectory);
   if(in_collision)
   {
     ROS_WARN("Final position is also in collision");
-    return false;
+    return true;
   }
   return true;
 }
@@ -365,7 +300,6 @@ bool CollisionProximityPlanner::refineState(const motion_planning_msgs::RobotSta
     }
   }  
   kdlJointTrajectoryToRobotTrajectory(jnt_trajectory,robot_trajectory);
-  visualizeRobotTrajectory(robot_trajectory);
   if(in_collision)
   {
     ROS_WARN("Final position is also in collision");
@@ -395,66 +329,47 @@ void CollisionProximityPlanner::updateGroupRobotState(const KDL::JntArray &jnt_a
   for(int i=0; i < num_joints_; i++)
     robot_state_group_.joint_state.position[i] = jnt_array(i);
 }
-
-
-void CollisionProximityPlanner::setPlanningMonitorToCurrentState()
+void CollisionProximityPlanner::updateCollisionProximitySpace(const motion_planning_msgs::RobotState &group_state)
 {
-  if(!planning_monitor_->getKinematicModel())
-    ROS_ERROR("Could not get kinematic model");
-
-  planning_models::KinematicState current_state(planning_monitor_->getKinematicModel());
-  planning_monitor_->setStateValuesFromCurrentValues(current_state);
+  planning_environment::setRobotStateAndComputeTransforms(group_state, *cps_->getCollisionModelsInterface()->getPlanningSceneState());
+  cps_->setCurrentGroupState(*cps_->getCollisionModelsInterface()->getPlanningSceneState());
 }
 
 bool CollisionProximityPlanner::calculateCollisionIncrements(Eigen::MatrixXd &collision_increments,
-                                                             double &min_environment_distance)
+                                                             double &min_distance)
 {
   collision_increments = Eigen::MatrixXd::Zero(1, num_joints_);
 
   std::vector<std::string> link_names;
-  std::vector<std::vector<btVector3> > intra_group_contact_locations;
-  std::vector<std::vector<double> > intra_group_distances;
-  std::vector<std::vector<btVector3> > intra_group_gradients;
-  std::vector<bool> intra_group_collisions;
-
-  std::vector<std::vector<btVector3> > environment_contact_locations;
-  std::vector<std::vector<double> > environment_distances;
-  std::vector<std::vector<btVector3> > environment_gradients;
-  std::vector<bool> environment_collisions;
+  std::vector<std::string> attached_body_names;
+  std::vector<collision_proximity::GradientInfo> gradients;
 
   Eigen::Vector3d cartesian_gradient;
-  bool in_collision =   collision_proximity_space_->getStateGradients(link_names,
-                                                                      intra_group_contact_locations,
-                                                                      intra_group_distances,
-                                                                      intra_group_gradients,
-                                                                      intra_group_collisions,
-                                                                      environment_contact_locations,
-                                                                      environment_distances,
-                                                                      environment_gradients,
-                                                                      environment_collisions);
-  
-  min_environment_distance = DBL_MAX;
+  bool in_collision =   cps_->getStateGradients(link_names,
+                                                attached_body_names,
+                                                gradients, true);  
+  min_distance = DBL_MAX;
   for(unsigned int i=0; i < link_names.size(); i++)
   {
     ROS_DEBUG("Link: %s",link_names[i].c_str());
-    for(unsigned int j=0; j < environment_contact_locations[i].size(); j++)
+    for(unsigned int j=0; j < gradients[i].sphere_locations.size(); j++)
     {      
       ROS_DEBUG("Contact: %d",j);
       Eigen::Vector3d collision_point_pos_eigen;
-      collision_point_pos_eigen(0) = environment_contact_locations[i][j].x();
-      collision_point_pos_eigen(1) = environment_contact_locations[i][j].y();
-      collision_point_pos_eigen(2) = environment_contact_locations[i][j].z();
+      collision_point_pos_eigen(0) = gradients[i].sphere_locations[j].x();
+      collision_point_pos_eigen(1) = gradients[i].sphere_locations[j].y();
+      collision_point_pos_eigen(2) = gradients[i].sphere_locations[j].z();
 
-      cartesian_gradient(0) = -environment_distances[i][j] * environment_distances[i][j] * environment_gradients[i][j].x();
-      cartesian_gradient(1) = -environment_distances[i][j] * environment_distances[i][j] * environment_gradients[i][j].y();
-      cartesian_gradient(2) = -environment_distances[i][j] * environment_distances[i][j] * environment_gradients[i][j].z();
+      cartesian_gradient(0) = gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].x();
+      cartesian_gradient(1) = gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].y();
+      cartesian_gradient(2) = gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].z();
 
-      if(min_environment_distance > environment_distances[i][j])
-        min_environment_distance = environment_distances[i][j];
+      if(min_distance > gradients[i].distances[j])
+        min_distance = gradients[i].distances[j];
 
-      ROS_DEBUG("Point: %f %f %f",environment_contact_locations[i][j].x(),environment_contact_locations[i][j].y(),environment_contact_locations[i][j].z());
-      ROS_DEBUG("Gradient: %f %f %f",environment_gradients[i][j].x(),environment_gradients[i][j].y(),environment_gradients[i][j].z());
-      ROS_DEBUG("Environment distance: %f",environment_distances[i][j]);
+      ROS_DEBUG("Point: %f %f %f",gradients[i].sphere_locations[j].x(),gradients[i].sphere_locations[j].y(),gradients[i].sphere_locations[j].z());
+      ROS_DEBUG("Gradient: %f %f %f",gradients[i].gradients[j].x(),gradients[i].gradients[j].y(),gradients[i].gradients[j].z());
+      ROS_INFO("Environment distance: %f",gradients[i].distances[j]);
       getJacobian((int)i,joint_pos_eigen_,joint_axis_eigen_,collision_point_pos_eigen,jacobian_,group_joint_to_kdl_joint_index_);
       if (use_pseudo_inverse_)
       {
@@ -489,13 +404,6 @@ void CollisionProximityPlanner::performForwardKinematics(KDL::JntArray &jnt_arra
   kdlVecToEigenVec(joint_axis_, joint_axis_eigen_, 3, 1);
   kdlVecToEigenVec(joint_pos_, joint_pos_eigen_, 3, 1);
   kdlVecToEigenVec(collision_point_pos_, collision_point_pos_eigen_, 3, 1);
-}
-
-void CollisionProximityPlanner::updateCollisionProximitySpace(const motion_planning_msgs::RobotState &group_state)
-{
-  planning_models::KinematicState new_state(planning_monitor_->getKinematicModel());
-  planning_monitor_->setRobotStateAndComputeTransforms(group_state, new_state);
-  collision_proximity_space_->setCurrentGroupState(new_state);
 }
 
 void CollisionProximityPlanner::updateJointState(KDL::JntArray &jnt_array,

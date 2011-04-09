@@ -47,14 +47,19 @@ void spinThread()
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "collision_proximity_planner");
-  collision_proximity_planner::CollisionProximityPlanner planner;
-  if(planner.initialize())
-  {
-    boost::thread spin_thread(&spinThread);
-    while(ros::ok())
-    {
-      ros::Duration(0.01).sleep();
-    }
+
+  ros::AsyncSpinner spinner(1); 
+  spinner.start();
+
+  ros::NodeHandle nh;
+
+  std::string robot_description_name = nh.resolveName("robot_description", true);
+  collision_proximity_planner::CollisionProximityPlanner planner(robot_description_name);
+  ros::Rate r(10.0);
+  while(nh.ok()) {
+    r.sleep();
   }
+  ros::waitForShutdown();
+  return 0;
 }
 

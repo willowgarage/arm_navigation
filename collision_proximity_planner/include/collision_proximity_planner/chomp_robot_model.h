@@ -37,17 +37,13 @@
 #ifndef CHOMP_ROBOT_MODEL_H_
 #define CHOMP_ROBOT_MODEL_H_
 
-
+#include <planning_environment/models/collision_models.h>
 #include <collision_proximity_planner/treefksolverjointposaxis.hpp>
 #include <collision_proximity_planner/treefksolverjointposaxis_partial.hpp>
-#include <collision_proximity_planner/chomp_collision_point.h>
 #include <ros/ros.h>
-#include <planning_environment/monitors/collision_space_monitor.h>
 #include <kdl/tree.hpp>
 #include <kdl/chain.hpp>
 #include <boost/shared_ptr.hpp>
-#include <mapping_msgs/AttachedCollisionObject.h>
-#include <motion_planning_msgs/RobotState.h>
 
 #include <sensor_msgs/JointState.h>
 
@@ -97,8 +93,6 @@ public:
     int num_joints_;                                            /**< Number of joints used in planning */
     std::vector<ChompJoint> chomp_joints_;                      /**< Joints used in planning */
     std::vector<std::string> link_names_;                       /**< Links used in planning */
-    std::vector<std::string> collision_link_names_;             /**< Links used in collision checking */
-    std::vector<ChompCollisionPoint> collision_points_;         /**< Ordered list of collision checking points (from root to tip) */
     boost::shared_ptr<KDL::TreeFkSolverJointPosAxisPartial> fk_solver_;           /**< Forward kinematics solver for the group */
 
     /**
@@ -107,12 +101,6 @@ public:
     template <typename Derived>
     void getRandomState(Eigen::MatrixBase<Derived>& state_vec) const;
 
-    /**
-     * Adds the collision point to this planning group, if any of the joints in this group can
-     * control the collision point in some way. Also converts the ChompCollisionPoint::parent_joints
-     * vector into group joint indexes
-     */
-    bool addCollisionPoint(ChompCollisionPoint& collision_point, ChompRobotModel& robot_model);
   };
 
   ChompRobotModel();
@@ -123,17 +111,12 @@ public:
    *
    * \return true if successful, false if not
    */
-  bool init(planning_environment::CollisionSpaceMonitor* monitor_,  std::string& reference_frame);
+  bool init(const planning_environment::CollisionModels* model);
 
   /**
    * \brief Gets the planning group corresponding to the group name
    */
   const ChompPlanningGroup* getPlanningGroup(const std::string& group_name) const;
-
-  /**
-   * \brief Gets the planning_environment::RobotModels class
-   */
-  const planning_environment::RobotModels* getRobotModels() const;
 
   /**
    * \brief Gets the number of joints in the KDL tree
@@ -189,29 +172,11 @@ public:
 
   void jointStateToArray(const sensor_msgs::JointState &joint_state, Eigen::MatrixXd::RowXpr joint_array);
 
-  void getLinkCollisionPoints(std::string link_name, std::vector<ChompCollisionPoint>& points);
-
-  /**
-   * \brief Gets the max value of radius+clearance for all the collision points
-   */
-  double getMaxRadiusClearance() const;
-
-  /**
-   * \brief Callback for information about objects attached to the robot
-   */
-  void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object);
-
-  void generateAttachedObjectCollisionPoints(const motion_planning_msgs::RobotState* robot_state);
-  void generateLinkCollisionPoints();
-  void populatePlanningGroupCollisionPoints();
-
   void publishCollisionPoints(ros::Publisher& vis_marker);
   void getActiveJointInformation(const std::string &link_name, std::vector<int>& active_joints, int& segment_number);
 
 private:
   ros::NodeHandle node_handle_,root_handle_;                                 /**< ROS Node handle */
-  planning_environment::CollisionSpaceMonitor* monitor_;
-  ros::Subscriber attached_object_subscriber_;                  /**< Attached object subscriber */
 
   KDL::Tree kdl_tree_;                                          /**< The KDL tree of the entire robot */
   int num_kdl_joints_;                                          /**< Total number of joints in the KDL tree */
@@ -221,15 +186,9 @@ private:
   std::map<std::string, int> urdf_name_to_kdl_number_;          /**< Mapping from URDF joint name to KDL joint number */
   std::map<std::string, ChompPlanningGroup> planning_groups_;   /**< Planning group information */
   KDL::TreeFkSolverJointPosAxis *fk_solver_;                    /**< Forward kinematics solver for the tree */
-  double collision_clearance_default_;                          /**< Default clearance for all collision links */
   std::string reference_frame_;                                 /**< Reference frame for all kinematics operations */
-  std::map<std::string, std::vector<ChompCollisionPoint> > link_collision_points_;    /**< Collision points associated with every link */
-  std::map<std::string, std::vector<ChompCollisionPoint> > link_attached_object_collision_points_;    /**< Collision points associated with the objects attached to every link */
   double max_radius_clearance_;                                 /**< Maximum value of radius + clearance for any of the collision points */
-  std::map<std::string, mapping_msgs::AttachedCollisionObject> attached_objects_;        /**< Map of links -> attached objects */
 
-  void addCollisionPointsFromLink(const planning_models::KinematicState& state, std::string link_name, double clearance);
-  //void addCollisionPointsFromAttachedObject(std::string link_name, mapping_msgs::AttachedCollisionObject& attached_object);
   void getLinkInformation(const std::string link_name, std::vector<int>& active_joints, int& segment_number);
 
 
@@ -245,11 +204,6 @@ inline const ChompRobotModel::ChompPlanningGroup* ChompRobotModel::getPlanningGr
     return NULL;
   else
     return &(it->second);
-}
-
-inline const planning_environment::RobotModels* ChompRobotModel::getRobotModels() const
-{
-  return monitor_->getCollisionModels();
 }
 
 inline int ChompRobotModel::getNumKDLJoints() const
@@ -358,13 +312,6 @@ inline void ChompRobotModel::jointStateToArray(const sensor_msgs::JointState &jo
       joint_array(kdl_number) = joint_state.position[i]; 
   }
 }
-
-
-inline double ChompRobotModel::getMaxRadiusClearance() const
-{
-  return max_radius_clearance_;
-}
-
 
 } // namespace chomp
 #endif /* CHOMP_ROBOT_MODEL_H_ */
