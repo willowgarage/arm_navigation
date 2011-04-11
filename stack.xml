@@ -9,8 +9,7 @@
   <depend stack="common" /> <!-- filters -->
   <depend stack="common_msgs" /> <!-- trajectory_msgs -->
   <depend stack="geometry" /> <!-- tf, angles -->
-  <depend stack="motion_planning_common" /> <!-- motion_planning_msgs -->
-  <depend stack="motion_planning_environment" /> <!-- planning_environment -->
+  <depend stack="motion_planning_common" /> <!-- planning_environment, motion_planning_msgs -->
   <depend stack="robot_model" /> <!-- urdf -->
   <depend stack="ros" />
   <depend stack="ros_comm" /> <!-- roscpp -->
