@@ -79,6 +79,7 @@ bool collision_proximity::getCollisionSphereGradients(const distance_field::Prop
                                                       GradientInfo& gradient, 
                                                       double tolerance, 
                                                       bool subtract_radii, 
+                                                      double maximum_value,
                                                       bool stop_at_first_collision) {
   //assumes gradient is properly initialized
   bool in_collision = false;
@@ -86,7 +87,7 @@ bool collision_proximity::getCollisionSphereGradients(const distance_field::Prop
     btVector3 p = sphere_list[i].center_;
     double gx, gy, gz;
     double dist = distance_field->getDistanceGradient(p.x(), p.y(), p.z(), gx, gy, gz);
-    if(subtract_radii) {
+    if(dist < maximum_value && subtract_radii) {
       dist -= sphere_list[i].radius_;
       if(dist <= tolerance) {
         if(stop_at_first_collision) {

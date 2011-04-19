@@ -42,12 +42,12 @@
 
 using collision_proximity::CollisionProximitySpace;
 
-static double gen_rand(double min, double max)
-{
-  int rand_num = rand()%100+1;
-  double result = min + (double)((max-min)*rand_num)/101.0;
-  return result;
-}
+// static double gen_rand(double min, double max)
+// {
+//   int rand_num = rand()%100+1;
+//   double result = min + (double)((max-min)*rand_num)/101.0;
+//   return result;
+// }
 
 static std::string makeStringFromUnsignedInt(unsigned int j)
 {
@@ -75,11 +75,13 @@ CollisionProximitySpace::CollisionProximitySpace(const std::string& robot_descri
   priv_handle_.param("resolution", resolution_, 0.02);
   priv_handle_.param("collision_tolerance", tolerance_, 0.00);
   priv_handle_.param("max_environment_distance", max_environment_distance_, 0.25);
+  priv_handle_.param("max_self_distance", max_self_distance_, 0.10);
+  priv_handle_.param("undefined_distance", undefined_distance_, 1.0);
 
   vis_marker_publisher_ = root_handle_.advertise<visualization_msgs::Marker>("collision_proximity_body_spheres", 128);
   vis_marker_array_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("collision_proximity_body_spheres_array", 128);
 
-  self_distance_field_ = new distance_field::PropagationDistanceField(size_x_, size_y_, size_z_, resolution_, origin_x_, origin_y_, origin_z_, max_environment_distance_);
+  self_distance_field_ = new distance_field::PropagationDistanceField(size_x_, size_y_, size_z_, resolution_, origin_x_, origin_y_, origin_z_, max_self_distance_);
   environment_distance_field_ = new distance_field::PropagationDistanceField(size_x_, size_y_, size_z_, resolution_, origin_x_, origin_y_, origin_z_, max_environment_distance_);
 
   collision_models_interface_->addSetPlanningSceneCallback(boost::bind(&CollisionProximitySpace::setPlanningSceneCallback, this, _1));
@@ -140,12 +142,13 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
 {
   std::map<std::string, bool> all_true_map;
   const planning_models::KinematicModel* kmodel = collision_models_interface_->getKinematicModel();
-  
+
   for(unsigned int i = 0; i < kmodel->getLinkModels().size(); i++) {
     all_true_map[kmodel->getLinkModels()[i]->getName()] = true;
-    for(unsigned int j = 0; j < kmodel->getLinkModels().size(); j++) {
-      intra_group_collision_links_[kmodel->getLinkModels()[i]->getName()][kmodel->getLinkModels()[j]->getName()] = false;
-    }
+  }
+  
+  for(unsigned int i = 0; i < kmodel->getLinkModels().size(); i++) {
+    intra_group_collision_links_[kmodel->getLinkModels()[i]->getName()] = all_true_map;
   }
 
   //creating lists for each group in planning groups
@@ -189,7 +192,7 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
       
     if(jmgm.find(object1) == jmgm.end()) {
       if(object1 == object2) {
-        //using for disabling environment checks
+        //using for disabling self checks
         self_excludes_[object1] = true;
       } else {
         //must be intra_collision
@@ -197,7 +200,7 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
           intra_group_collision_links_[object1][object2] = (operation == "enable");
           intra_group_collision_links_[object2][object1] = (operation == "enable");
         } else {
-          std::vector<std::string> group_links = jmgm.find(object2)->second->getGroupLinkNames();
+          std::vector<std::string> group_links = jmgm.find(object2)->second->getUpdatedLinkModelNames();
           for(unsigned int j = 0; j < group_links.size(); j++) {
             intra_group_collision_links_[object1][group_links[j]] = (operation == "enable");
             intra_group_collision_links_[group_links[j]][object1] = (operation == "enable");
@@ -205,19 +208,19 @@ void CollisionProximitySpace::loadDefaultCollisionOperations()
         }
       }
     } else if(jmgm.find(object2) == jmgm.end()) {
-      if(enabled_self_collision_links_[object1].find(object2) == enabled_self_collision_links_[object1].end()) {
-        ROS_INFO_STREAM("No object found for non-group object " << object2);
-        continue;
-      }
-      enabled_self_collision_links_[object1][object2] = (operation == "enable");
-    } else {
-      std::vector<std::string> group_links = jmgm.find(object2)->second->getGroupLinkNames();
+      std::vector<std::string> group_links = jmgm.find(object1)->second->getUpdatedLinkModelNames();
       for(unsigned int j = 0; j < group_links.size(); j++) {
-        if(enabled_self_collision_links_[object1].find(group_links[j]) == enabled_self_collision_links_[object1].end()) {
-          ROS_INFO_STREAM("No object found for group object " << group_links[j]);
-          continue;
-        } 
-        enabled_self_collision_links_[object1][group_links[j]] = (operation == "enable");
+        intra_group_collision_links_[object2][group_links[j]] = (operation == "enable");
+        intra_group_collision_links_[group_links[j]][object2] = (operation == "enable");
+      }
+    } else {
+      std::vector<std::string> group_links_1 = jmgm.find(object1)->second->getUpdatedLinkModelNames();
+      std::vector<std::string> group_links_2 = jmgm.find(object2)->second->getUpdatedLinkModelNames();
+      for(unsigned int j = 0; j < group_links_1.size(); j++) {
+        for(unsigned int k = 0; k < group_links_2.size(); k++) {
+          intra_group_collision_links_[group_links_1[j]][group_links_2[k]] = (operation == "enable");
+          intra_group_collision_links_[group_links_2[k]][group_links_1[j]] = (operation == "enable");
+        }
       }
     }
   }
@@ -236,6 +239,10 @@ void CollisionProximitySpace::loadRobotBodyDecompositions()
   }
 }
 
+bool CollisionProximitySpace::setPlanningScene(const planning_environment_msgs::PlanningScene& scene) {
+  return(collision_models_interface_->setPlanningSceneWithCallbacks(scene));
+}
+
 void CollisionProximitySpace::setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene) 
 {
   ros::WallTime n1 = ros::WallTime::now();
@@ -246,7 +253,7 @@ void CollisionProximitySpace::setPlanningSceneCallback(const planning_environmen
   
   prepareEnvironmentDistanceField(*collision_models_interface_->getPlanningSceneState());
   ros::WallTime n2 = ros::WallTime::now();
-  ROS_INFO_STREAM("Setting environment took " << (n2-n1).toSec());
+  ROS_DEBUG_STREAM("Setting environment took " << (n2-n1).toSec());
   visualizeDistanceField(environment_distance_field_);
 }
 
@@ -325,8 +332,8 @@ void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name
   setBodyPosesGivenKinematicState(*collision_models_interface_->getPlanningSceneState());
   setDistanceFieldForGroupQueries(current_group_name_, *collision_models_interface_->getPlanningSceneState());
   ros::WallTime n2 = ros::WallTime::now();
-  ROS_INFO_STREAM("Setting self took " << (n2-n1).toSec());
-  //visualizeDistanceField(self_distance_field_);
+  ROS_DEBUG_STREAM("Setting self took " << (n2-n1).toSec());
+  visualizeDistanceField(self_distance_field_);
 }
 
 void CollisionProximitySpace::revertPlanningSceneCallback() {
@@ -382,7 +389,6 @@ void CollisionProximitySpace::setBodyPosesGivenKinematicState(const planning_mod
       }
       for(unsigned int k = 0; k < att_state->getGlobalCollisionBodyTransforms().size(); k++) {
         btTransform test = inv*att_state->getGlobalCollisionBodyTransforms()[k];
-        ROS_INFO_STREAM("Setting x value to " << test.getOrigin().x());
         attached_object_map_[id]->updateBodyPose(k, inv*att_state->getGlobalCollisionBodyTransforms()[k]);
       }
     }
@@ -748,6 +754,7 @@ bool CollisionProximitySpace::getStateGradients(std::vector<std::string>& link_n
   link_names = current_link_names_;
   attached_body_names = current_attached_body_names_;
   gradients = current_gradients_;
+
   std::vector<GradientInfo> intra_gradients = current_gradients_;
   std::vector<GradientInfo> self_gradients = current_gradients_;
   std::vector<GradientInfo> env_gradients = current_gradients_;
@@ -757,25 +764,71 @@ bool CollisionProximitySpace::getStateGradients(std::vector<std::string>& link_n
   bool intra_coll = getIntraGroupProximityGradients(intra_gradients, subtract_radii);
 
   for(unsigned int i = 0; i < gradients.size(); i++) {
-    if(intra_gradients[i].closest_distance < env_gradients[i].closest_distance &&
-       intra_gradients[i].closest_distance < self_gradients[i].closest_distance) {
-      gradients[i].closest_distance = intra_gradients[i].closest_distance;
-    } else if (self_gradients[i].closest_distance < env_gradients[i].closest_distance) {
-      gradients[i].closest_distance = self_gradients[i].closest_distance;
-    } else {
-      gradients[i].closest_distance = env_gradients[i].closest_distance;
+    if(i < current_link_names_.size()) {
+      ROS_DEBUG_STREAM("Link " << link_names[i] 
+                       << " env " << env_gradients[i].closest_distance
+                       << " self " << self_gradients[i].closest_distance
+                       << " intra " << intra_gradients[i].closest_distance);
+    }
+    {
+      bool env_at_max = env_gradients[i].closest_distance >= max_environment_distance_;
+      bool self_at_max = self_gradients[i].closest_distance >= max_self_distance_;
+      if(env_at_max) {
+        if(self_at_max || intra_gradients[i].closest_distance < self_gradients[i].closest_distance) {
+          if(intra_gradients[i].closest_distance == DBL_MAX) {
+            gradients[i].closest_distance = undefined_distance_;
+          } else {
+            gradients[i].closest_distance = intra_gradients[i].closest_distance;          
+          }
+          ROS_DEBUG_STREAM("Intra gradient is closest");
+        } else {
+          ROS_DEBUG_STREAM("Self gradient is closest");
+          gradients[i].closest_distance = self_gradients[i].closest_distance;          
+        }
+      } else if(self_at_max) {
+        //don't need to check env_at_max, as the previous condition should take care of it
+        if(intra_gradients[i].closest_distance < env_gradients[i].closest_distance) {
+          gradients[i].closest_distance = intra_gradients[i].closest_distance;
+          ROS_DEBUG_STREAM("Intra gradient is closest");
+        } else {
+          gradients[i].closest_distance = env_gradients[i].closest_distance;
+          ROS_DEBUG_STREAM("Env gradient is closest");
+        }
+      } else if(self_gradients[i].closest_distance < env_gradients[i].closest_distance) {
+        gradients[i].closest_distance = self_gradients[i].closest_distance;
+          ROS_DEBUG_STREAM("Self gradient is closest");
+      } else {
+        gradients[i].closest_distance = env_gradients[i].closest_distance;
+        ROS_DEBUG_STREAM("Env gradient is closest");
+      }
     }
 
     for(unsigned int j = 0; j < gradients[i].distances.size(); j++) {
-      if((env_gradients[i].distances[j] >= max_environment_distance_ &&
-          self_gradients[i].distances[j] >= max_environment_distance_) ||
-         (env_gradients[i].distances[j] > intra_gradients[i].distances[j] &&
-          self_gradients[i].distances[j] > intra_gradients[i].distances[j])) {
-        gradients[i].distances[j] = intra_gradients[i].distances[j];
-        gradients[i].gradients[j] = intra_gradients[i].gradients[j];
-      } else if(self_gradients[i].distances[j] < env_gradients[i].distances[i]) {
+      bool env_at_max = env_gradients[i].distances[j] >= max_environment_distance_;
+      bool self_at_max = self_gradients[i].distances[j] >= max_self_distance_;
+      if(env_at_max) {
+        if(self_at_max || intra_gradients[i].distances[j] < self_gradients[i].distances[j]) {
+          if(intra_gradients[i].distances[j] == DBL_MAX) {
+            gradients[i].distances[j] = undefined_distance_;
+          } else {
+            gradients[i].distances[j] = intra_gradients[i].distances[j];
+          }
+          gradients[i].gradients[j] = intra_gradients[i].gradients[j]; 
+       } else {
+          gradients[i].distances[j] = self_gradients[i].distances[j];
+          gradients[i].gradients[j] = self_gradients[i].gradients[j];
+        }
+      } else if(self_at_max) {
+        if(intra_gradients[i].distances[j] < env_gradients[i].distances[j]) {
+          gradients[i].distances[j] = intra_gradients[i].distances[j];
+          gradients[i].gradients[j] = intra_gradients[i].gradients[j];
+        } else {
+          gradients[i].distances[j] = env_gradients[i].distances[j];
+          gradients[i].gradients[j] = env_gradients[i].gradients[j];
+        }
+      } else if(self_gradients[i].distances[j] < env_gradients[i].distances[j]) {
         gradients[i].distances[j] = self_gradients[i].distances[j];
-        gradients[i].gradients[j] = self_gradients[i].gradients[j];
+        gradients[i].gradients[j] = self_gradients[i].gradients[j]; 
       } else {
         gradients[i].distances[j] = env_gradients[i].distances[j];
         gradients[i].gradients[j] = env_gradients[i].gradients[j];
@@ -838,8 +891,10 @@ bool CollisionProximitySpace::getIntraGroupProximityGradients(std::vector<Gradie
   unsigned int num_links = current_link_names_.size();
   unsigned int num_attached = current_attached_body_names_.size();
   unsigned int tot = num_links+num_attached;
+  std::vector<std::string> all_names = current_link_names_;
+  all_names.insert(all_names.end(), current_attached_body_names_.begin(), current_attached_body_names_.end());
   for(unsigned int i = 0; i < tot; i++) {
-    for(unsigned int j = i; j < tot; j++) {
+    for(unsigned int j = 0; j < tot; j++) {
       if(i == j) continue;
       if(!current_intra_group_collision_links_[i][j]) {
         continue;
@@ -936,7 +991,7 @@ bool CollisionProximitySpace::getSelfProximityGradients(std::vector<GradientInfo
     if(gradients[i].distances.size() != body_spheres.size()) {
       ROS_INFO_STREAM("Wrong size for closest distances for link " << current_link_names_[i]);
     }
-    bool coll = getCollisionSphereGradients(self_distance_field_, body_spheres, gradients[i], tolerance_, subtract_radii, false);
+    bool coll = getCollisionSphereGradients(self_distance_field_, body_spheres, gradients[i], tolerance_, subtract_radii, max_self_distance_, false);
     if(coll) {
       in_collision = true;
     }
@@ -944,7 +999,7 @@ bool CollisionProximitySpace::getSelfProximityGradients(std::vector<GradientInfo
   for(unsigned int i = 0; i < current_attached_body_names_.size(); i++) {
     const std::vector<CollisionSphere>& body_spheres = current_attached_body_decompositions_[i]->getCollisionSpheres();
     bool coll = getCollisionSphereGradients(self_distance_field_, body_spheres, gradients[i+current_link_names_.size()],
-                                            tolerance_, subtract_radii, false);
+                                            tolerance_, subtract_radii, max_self_distance_, false);
     if(coll) {
       in_collision = true;
     }
@@ -1000,14 +1055,14 @@ bool CollisionProximitySpace::getEnvironmentProximityGradients(std::vector<Gradi
     if(gradients[i].distances.size() != body_spheres.size()) {
       ROS_INFO_STREAM("Wrong size for closest distances for link " << current_link_names_[i]);
     }
-    bool coll = getCollisionSphereGradients(environment_distance_field_, body_spheres, gradients[i], tolerance_, subtract_radii, false);
+    bool coll = getCollisionSphereGradients(environment_distance_field_, body_spheres, gradients[i], tolerance_, subtract_radii, max_environment_distance_, false);
     if(coll) {
       in_collision = true;
     }
   }
   for(unsigned int i = 0; i < current_attached_body_names_.size(); i++) {
     const std::vector<CollisionSphere>& body_spheres = current_attached_body_decompositions_[i]->getCollisionSpheres();
-    bool coll = getCollisionSphereGradients(environment_distance_field_, body_spheres, gradients[i+current_link_names_.size()], tolerance_, subtract_radii, false);
+    bool coll = getCollisionSphereGradients(environment_distance_field_, body_spheres, gradients[i+current_link_names_.size()], tolerance_, subtract_radii, max_environment_distance_, false);
     if(coll) {
       in_collision = true;
     }

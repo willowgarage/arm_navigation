@@ -133,6 +133,18 @@ public:
     return collision_models_interface_;
   }
 
+  bool setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene);
+
+  std::vector<std::string> getCurrentLinkNames() const
+  {
+    return current_link_names_;
+  }
+
+  std::vector<std::string> getCurrentAttachedBodyNames() const
+  {
+    return current_attached_body_names_;
+  }
+
 private:
 
   void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene); 
@@ -239,6 +251,8 @@ private:
   double resolution_, tolerance_;
 
   double max_environment_distance_;
+  double max_self_distance_;
+  double undefined_distance_;
 
 };
 

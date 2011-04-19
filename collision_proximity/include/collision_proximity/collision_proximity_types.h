@@ -83,9 +83,10 @@ struct CollisionSphere {
 
 struct GradientInfo
 {
-  GradientInfo()
+  GradientInfo() :
+    closest_distance(DBL_MAX),
+    collision(false)
   {
-    closest_distance = DBL_MAX;
   }
 
   double closest_distance;
@@ -95,6 +96,8 @@ struct GradientInfo
   std::vector<btVector3> gradients;
 
   void clear() {
+    closest_distance = DBL_MAX;
+    collision = false;
     sphere_locations.clear();
     distances.clear();
     gradients.clear();
@@ -113,6 +116,7 @@ bool getCollisionSphereGradients(const distance_field::PropagationDistanceField*
                                  GradientInfo& gradient, 
                                  double tolerance, 
                                  bool subtract_radii, 
+                                 double maximum_value, 
                                  bool stop_at_first_collision);
 
 bool getCollisionSphereCollision(const distance_field::PropagationDistanceField* distance_field, 

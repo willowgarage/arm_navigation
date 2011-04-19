@@ -38,6 +38,7 @@
 #include <collision_proximity/collision_proximity_space.h>
 #include <planning_environment/models/model_utils.h>
 #include <motion_planning_msgs/GetMotionPlan.h>
+#include <planning_environment_msgs/GetStateValidity.h>
 
 struct CollisionProximitySpacePlannerInterface
 {
@@ -48,6 +49,8 @@ struct CollisionProximitySpacePlannerInterface
     ros::NodeHandle priv("~");
 
     motion_planning_service_ = priv.advertiseService("get_distance_aware_plan", &CollisionProximitySpacePlannerInterface::motionPlanCallback, this);
+
+    get_state_validity_service_ = priv.advertiseService("get_state_validity", &CollisionProximitySpacePlannerInterface::getStateValidity, this);
 
     vis_marker_publisher_ = root_handle_.advertise<visualization_msgs::Marker>("collision_proximity_markers", 128);
     vis_marker_array_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("collision_proximity_markers_array", 128);
@@ -70,6 +73,20 @@ struct CollisionProximitySpacePlannerInterface
     }
     return true;
   }
+
+  bool getStateValidity(planning_environment_msgs::GetStateValidity::Request &req, 
+                        planning_environment_msgs::GetStateValidity::Response &res) 
+  {
+    cps_->getCollisionModelsInterface()->bodiesLock();
+    if(!cps_->getCollisionModelsInterface()->isPlanningSceneSet()) {
+      cps_->getCollisionModelsInterface()->bodiesUnlock();
+      return true;
+    }
+    planning_environment::setRobotStateAndComputeTransforms(req.robot_state,
+                                                            *cps_->getCollisionModelsInterface()->getPlanningSceneState());
+    cps_->getCollisionModelsInterface()->bodiesUnlock();
+    return true;
+  }
   
   void broadcastCollisionMarkers() {
     cps_->getCollisionModelsInterface()->bodiesLock();
@@ -77,7 +94,7 @@ struct CollisionProximitySpacePlannerInterface
       cps_->getCollisionModelsInterface()->bodiesUnlock();
       return;
     }
-    cps_->getCollisionModelsInterface()->resetToStartState(*cps_->getCollisionModelsInterface()->getPlanningSceneState());
+    cps_->setCurrentGroupState(*cps_->getCollisionModelsInterface()->getPlanningSceneState());
     std::vector<std::string> link_names;
     std::vector<std::string> attached_body_names;
     std::vector<collision_proximity::GradientInfo> gradients;
@@ -95,6 +112,7 @@ struct CollisionProximitySpacePlannerInterface
 
   ros::NodeHandle root_handle_;
   ros::ServiceServer motion_planning_service_;
+  ros::ServiceServer get_state_validity_service_;
   collision_proximity::CollisionProximitySpace* cps_;
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
