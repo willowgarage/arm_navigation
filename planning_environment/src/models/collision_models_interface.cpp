@@ -121,6 +121,29 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   action_server_->setSucceeded(res);
 }
 
+bool planning_environment::CollisionModelsInterface::setPlanningSceneWithCallbacks(const planning_environment_msgs::PlanningScene& planning_scene)
+{
+  if(planning_scene_set_) {
+    revertPlanningScene(planning_scene_state_);
+    planning_scene_state_ = NULL;
+    if(revert_planning_scene_callback_ != NULL) {
+      revert_planning_scene_callback_();
+    }
+  }
+  planning_scene_state_ = setPlanningScene(planning_scene);
+  if(planning_scene_state_ == NULL) {
+    ROS_ERROR("Setting planning scene state to NULL");
+    return false;
+  }
+  last_planning_scene_ = planning_scene;
+  //TODO - we can run the callback in a new thread, but it's going to mean communicating
+  //preempts over semaphors and whatnot
+  if(set_planning_scene_callback_ != NULL) {
+    set_planning_scene_callback_(planning_scene);
+  }
+  return true;
+}
+
 void planning_environment::CollisionModelsInterface::resetToStartState(planning_models::KinematicState& state) const {
   setRobotStateAndComputeTransforms(last_planning_scene_.robot_state, state);
 }

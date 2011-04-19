@@ -11,11 +11,24 @@ multi_dof_joints:
 ## the definition of each group
 groups:
 
+  - name: base_and_torso
+    joints: 
+      base_joint
+      torso_lift_joint
+
   - name: left_arm
     base_link: torso_lift_link
     tip_link: l_wrist_roll_link
 
   - name: right_arm
+    base_link: torso_lift_link
+    tip_link: r_wrist_roll_link
+
+  - name: left_arm_cartesian
+    base_link: torso_lift_link
+    tip_link: l_wrist_roll_link
+
+  - name: right_arm_cartesian
     base_link: torso_lift_link
     tip_link: r_wrist_roll_link
 
@@ -50,6 +63,62 @@ default_robot_padding: .02
 # collision objects for the purposes of filtering them from the
 # collision map
 default_object_padding: .03
+
+distance_collision_operations:
+
+  - object1: r_shoulder_pan_link
+    object2: r_shoulder_pan_link
+    operation: disable
+
+  - object1: r_shoulder_lift_link
+    object2: r_shoulder_lift_link
+    operation: disable
+
+  - object1: r_upper_arm_roll_link
+    object2: r_upper_arm_roll_link
+    operation: disable
+
+  - object1: r_upper_arm_link
+    object2: r_upper_arm_link
+    operation: disable
+
+  - object1: r_shoulder_pan_link
+    object2: r_shoulder_lift_link
+    operation: disable
+
+  - object1: r_shoulder_pan_link
+    object2: r_upper_arm_link
+    operation: disable
+
+  - object1: r_shoulder_pan_link
+    object2: r_upper_arm_roll_link
+    operation: disable
+
+  - object1: r_shoulder_lift_link
+    object2: r_upper_arm_roll_link
+    operation: disable
+
+  - object1: r_upper_arm_link
+    object2: r_upper_arm_roll_link
+    operation: disable
+
+  - object1: r_upper_arm_link
+    object2: r_elbow_flex_link
+    operation: disable
+
+  - object1: r_elbow_flex_link
+    object2: r_forearm_roll_link
+    operation: disable
+
+  - object1: r_forearm_roll_link
+    object2: r_forearm_link
+    operation: disable
+
+  - object1: r_wrist_flex_link
+    object2: r_wrist_roll_link
+    operation: disable
+
+
 
 #This must contain all pairs of links that have intersecting meshes to
 #get an accurate collision checking result.  It can optionally contain

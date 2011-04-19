@@ -55,8 +55,8 @@ void planning_environment::RobotModels::loadRobot(void)
     if (urdf_->initString(content))
     {
       loaded_models_ = true;
-      readGroupConfigs();
       bool hasMulti = readMultiDofConfigs();
+      readGroupConfigs();
       if(hasMulti) {
         kmodel_ = new planning_models::KinematicModel(*urdf_, group_configs_, multi_dof_configs_);
       } else {
@@ -205,7 +205,17 @@ void planning_environment::RobotModels::readGroupConfigs() {
         if (urdf_->getJoint(jname)) {
           joints.push_back(jname);
         } else {
-          ROS_DEBUG_STREAM("Urdf doesn't have joint " << jname);
+          bool have_multi = false;
+          for(unsigned int i = 0; i < multi_dof_configs_.size(); i++) {
+            if(jname == multi_dof_configs_[i].name) {
+              joints.push_back(jname);
+              have_multi = true;
+              break;
+            }
+          }
+          if(!have_multi) {
+            ROS_WARN_STREAM("Urdf doesn't have joint " << jname << " and no multi-dof joint of that name");
+          }
         }
       }                                                
       group_configs_.push_back(planning_models::KinematicModel::GroupConfig(gname,

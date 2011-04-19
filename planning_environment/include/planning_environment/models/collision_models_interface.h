@@ -59,6 +59,8 @@ public:
   virtual ~CollisionModelsInterface(void);
  
   void setPlanningSceneCallback(const planning_environment_msgs::SetPlanningSceneGoalConstPtr& scene);
+
+  bool setPlanningSceneWithCallbacks(const planning_environment_msgs::PlanningScene& scene);
   
   void addSetPlanningSceneCallback(const boost::function<void(const planning_environment_msgs::PlanningScene &scene)> &callback)
   {
