@@ -164,7 +164,7 @@ public:
     private_handle_.param<double>("head_monitor_time_offset",head_monitor_time_offset_, 1.0);
 
     private_handle_.param<bool>("publish_stats",publish_stats_, true);
-    private_handle_.param<bool>("log_to_warehouse", log_to_warehouse_, true);
+    private_handle_.param<bool>("log_to_warehouse", log_to_warehouse_, false);
 
     planning_scene_state_ = NULL;
 
