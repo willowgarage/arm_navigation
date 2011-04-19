@@ -81,6 +81,8 @@
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/simple_client_goal_state.h>
 
+#include <move_arm/move_arm_warehouse_logger.h>
+
 #include <std_msgs/Bool.h>
 
 #include <valarray>
@@ -162,6 +164,7 @@ public:
     private_handle_.param<double>("head_monitor_time_offset",head_monitor_time_offset_, 1.0);
 
     private_handle_.param<bool>("publish_stats",publish_stats_, true);
+    private_handle_.param<bool>("log_to_warehouse", log_to_warehouse_, true);
 
     planning_scene_state_ = NULL;
 
@@ -179,6 +182,12 @@ public:
       ROS_WARN("No 'head_monitor_link' parameter specified, head monitoring will not be used.");
       using_head_monitor_ = false;
     } 
+
+    if(log_to_warehouse_) {
+      warehouse_logger_ = new MoveArmWarehouseLogger();
+    } else {
+      warehouse_logger_ = NULL;
+    }
 
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
@@ -239,6 +248,9 @@ public:
     revertPlanningScene();
     delete collision_models_;
     delete controller_action_client_;
+    if(warehouse_logger_ != NULL) {
+      delete warehouse_logger_;
+    }
   }
 
   bool configure()
@@ -345,6 +357,11 @@ private:
       }
       req.motion_plan_request.goal_constraints.position_constraints.clear();
       req.motion_plan_request.goal_constraints.orientation_constraints.clear();	    
+      if(log_to_warehouse_) {
+        warehouse_logger_->pushMotionPlanRequestToWarehouse(current_planning_scene_,
+                                                            "after_ik",
+                                                            req.motion_plan_request);
+      }
       return true;
     }
     else
@@ -740,7 +757,6 @@ private:
                                                  empty_goal_constraints,
                                                  original_request_.motion_plan_request.path_constraints,
 						 true)) {
-      logPlanningScene("bad_start_state");
       if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_IN_COLLISION;
         ROS_ERROR("Starting state is in collision, can't plan");
@@ -774,6 +790,11 @@ private:
         move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.JOINT_LIMITS_VIOLATED;;
         ROS_ERROR("Start state violates joint limits, can't plan.");
       }
+      if(log_to_warehouse_) {
+        warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                  "start_state", 
+                                                  move_arm_action_result_.error_code);
+      }
       ROS_INFO("Setting aborted because start state invalid");
       action_server_->setAborted(move_arm_action_result_);
       return false;
@@ -783,6 +804,11 @@ private:
       ROS_INFO("Planning to a pose goal");
       if(!convertPoseGoalToJointGoal(req)) {
 	ROS_INFO("Setting aborted because ik failed");
+        if(log_to_warehouse_) {
+          warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                    "ik", 
+                                                    move_arm_action_result_.error_code);
+        }
 	action_server_->setAborted(move_arm_action_result_);
 	return false;
       }
@@ -815,6 +841,11 @@ private:
 	  ROS_INFO_STREAM("Will not plan to request joint goal due to error code " << error_code.val);
 	}
 	ROS_INFO_STREAM("Setting aborted becuase joint goal is problematic");
+        if(log_to_warehouse_) {
+          warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                    "goal_state", 
+                                                    move_arm_action_result_.error_code);
+        }        
 	action_server_->setAborted(move_arm_action_result_);
 	return false;
       }
@@ -1112,6 +1143,11 @@ private:
 						    false)) {
           resetStateMachine();
 	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
+          if(log_to_warehouse_) {
+            warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                      "start_state_at_goal",
+                                                      move_arm_action_result_.error_code);
+          }
 	  action_server_->setSucceeded(move_arm_action_result_);
           ROS_INFO("Apparently start state satisfies goal");
           return true;
@@ -1123,6 +1159,12 @@ private:
           move_arm_stats_.planning_time = (ros::Time::now()-planning_time).toSec();
           ROS_DEBUG("createPlan succeeded");
           resetToStartState(planning_scene_state_);
+          if(log_to_warehouse_) {
+            warehouse_logger_->pushJointTrajectoryToWarehouse(current_planning_scene_,
+                                                              "planner", 
+                                                              ros::Duration(move_arm_stats_.planning_time),
+                                                              res.trajectory.joint_trajectory);
+          }
           if(!collision_models_->isJointTrajectoryValid(*planning_scene_state_,
                                                         res.trajectory.joint_trajectory, 
                                                         original_request_.motion_plan_request.goal_constraints,
@@ -1140,14 +1182,11 @@ private:
             } else if (error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Planner trajectory doesn't reach goal");
             }
-            std::string filename = "~/bad_planner_trajectory_scene.bag";
-            collision_models_->writePlanningSceneBag(filename, current_planning_scene_);
-            collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
-                                                                         "motion_plan_request",
-                                                                         req.motion_plan_request);
-            collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
-                                                                       "planner_trajectory",
-                                                                       res.trajectory.joint_trajectory);
+            if(log_to_warehouse_) {
+              warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                        "planner",
+                                                        error_code);
+            }
 	    num_planning_attempts_++;
 	    if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
             {
@@ -1170,6 +1209,11 @@ private:
         else if(action_server_->isActive())
         {
           num_planning_attempts_++;
+          motion_planning_msgs::ArmNavigationErrorCodes error_code;
+          error_code.val = error_code.PLANNING_FAILED;
+          warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                    "planner",
+                                                    error_code);
           if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
           {
             resetStateMachine();
@@ -1196,6 +1240,12 @@ private:
           motion_planning_msgs::ArmNavigationErrorCodes error_code;
           std::vector<motion_planning_msgs::ArmNavigationErrorCodes> traj_error_codes;
           resetToStartState(planning_scene_state_);
+          if(log_to_warehouse_) {
+            warehouse_logger_->pushJointTrajectoryToWarehouse(current_planning_scene_,
+                                                              "filter", 
+                                                              ros::Duration(move_arm_stats_.smoothing_time),
+                                                              filtered_trajectory);
+          }
           if(!collision_models_->isJointTrajectoryValid(*planning_scene_state_,
                                                         filtered_trajectory,
                                                         original_request_.motion_plan_request.goal_constraints,
@@ -1215,18 +1265,14 @@ private:
             }
             ROS_ERROR("Move arm will abort this goal.  Will replan");
             state_ = PLANNING;
-	    num_planning_attempts_++;
-	    std::string filename = "bad_planner_trajectory_for_filter_scene.bag";
-	    collision_models_->writePlanningSceneBag(filename, current_planning_scene_);
-	    collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
-									 "motion_plan_request",
-									 req.motion_plan_request);
-	    collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
-								       "planner_trajectory",
-								       current_trajectory_);
-	    
+	    num_planning_attempts_++;	    
+            if(log_to_warehouse_) {
+              warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                        "filter",
+                                                        error_code);
+            }
 	    if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
-	      {
+            {
               resetStateMachine();
               ROS_INFO_STREAM("Setting aborted because we're out of planning attempts");
               action_server_->setAborted(move_arm_action_result_);
@@ -1242,13 +1288,13 @@ private:
           }
           current_trajectory_ = filtered_trajectory;
         } else {
-	  std::string filename = "bad_planner_trajectory_for_filter_scene.bag";
-	  collision_models_->appendMotionPlanRequestToPlanningSceneBag(filename,
-								       "motion_plan_request",
-								       original_request_.motion_plan_request);
-	  collision_models_->appendJointTrajectoryToPlanningSceneBag(filename,
-								     "planner_trajectory",
-								     current_trajectory_);
+          if(log_to_warehouse_) {
+            motion_planning_msgs::ArmNavigationErrorCodes error_code;
+            error_code.val = error_code.PLANNING_FAILED;
+            warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                      "filter_rejects_planner",
+                                                      error_code);
+          }
           resetStateMachine();
           ROS_INFO_STREAM("Setting aborted because trajectory filter call failed");
           action_server_->setAborted(move_arm_action_result_);
@@ -1331,7 +1377,17 @@ private:
             action_server_->setSucceeded(move_arm_action_result_);
             if(controller_error_code.val == controller_error_code.TRAJECTORY_CONTROLLER_FAILED) {
               ROS_INFO("Trajectory controller failed but we seem to be at goal");
+              if(log_to_warehouse_) {
+                warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                          "trajectory_failed_at_goal",
+                                                          move_arm_action_result_.error_code);
+              }
             } else {
+              if(log_to_warehouse_) {
+                warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                          "ok",
+                                                          move_arm_action_result_.error_code);
+              }
               ROS_INFO("Reached goal");
             }
             return true;
@@ -1347,6 +1403,11 @@ private:
               ROS_WARN("Though trajectory is done current state violates joint limits");
             } else if(state_error_code.val == state_error_code.GOAL_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Though trajectory is done current state does not seem to be at goal");
+            }
+            if(log_to_warehouse_) {
+              warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+                                                        "trajectory_failed_not_at_goal",
+                                                        state_error_code);
             }
             resetStateMachine();
             action_server_->setAborted(move_arm_action_result_);
@@ -1428,6 +1489,8 @@ private:
 
     if(!getAndSetPlanningScene(goal->planning_scene_diff)) {
       ROS_INFO("Problem setting planning scene");
+      move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
+      action_server_->setAborted(move_arm_action_result_);
       return;
     }
 
@@ -1443,6 +1506,12 @@ private:
                                                             collision_models_->getWorldFrameId(),
                                                             req.motion_plan_request.start_state);
     original_request_ = req;
+
+    if(log_to_warehouse_) {
+      warehouse_logger_->pushMotionPlanRequestToWarehouse(current_planning_scene_,
+                                                          "original",
+                                                          req.motion_plan_request);
+    }
     
     ros::Rate move_arm_rate(move_arm_frequency_);
     move_arm_action_result_.contacts.clear();
@@ -1470,6 +1539,8 @@ private:
           ROS_INFO("Received new goal, will preempt previous goal");
           if(!getAndSetPlanningScene(new_goal->planning_scene_diff)) {
             ROS_INFO("Problem setting planning scene");
+            move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
+            action_server_->setAborted(move_arm_action_result_);
             return;
           }
           
@@ -1484,6 +1555,11 @@ private:
                                                                   req.motion_plan_request.start_state);
           original_request_ = req;
 
+          if(log_to_warehouse_) {
+            warehouse_logger_->pushMotionPlanRequestToWarehouse(current_planning_scene_,
+                                                                "original", 
+                                                                req.motion_plan_request);
+          }
           state_ = PLANNING;
         }
         else               //if we've been preempted explicitly we need to shut things down
@@ -1549,6 +1625,10 @@ private:
 
     current_planning_scene_ = planning_scene_res.planning_scene;
 
+    if(log_to_warehouse_) {
+      warehouse_logger_->pushPlanningSceneToWarehouse(current_planning_scene_);
+    }
+
     planning_scene_state_ = collision_models_->setPlanningScene(current_planning_scene_);
 
     collision_models_->disableCollisionsForNonUpdatedLinks(group_);
@@ -1559,8 +1639,6 @@ private:
     }    
     return true;
   }
-
-
 
   void resetToStartState(planning_models::KinematicState* state) {
     planning_environment::setRobotStateAndComputeTransforms(current_planning_scene_.robot_state, *state);
@@ -1797,6 +1875,10 @@ private:
   bool publish_stats_;
   move_arm_msgs::MoveArmStatistics move_arm_stats_;
   ros::Publisher stats_publisher_;
+  
+  bool log_to_warehouse_;
+  MoveArmWarehouseLogger* warehouse_logger_;
+
 };
 }
 

@@ -28,9 +28,10 @@ The move_arm package provides an implementation of a action (see the <a href="ht
   <depend package="kinematics_msgs"/>
   <depend package="move_arm_msgs"/>
   <depend package="geometric_shapes_msgs"/>
+  <depend package="warehouse"/>
 
   <export>
-    <cpp cflags="-I${prefix}/msg/cpp" />
+    <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lmove_arm_logging"/>
   </export>  
   
   <platform os="ubuntu" version="9.04"/>

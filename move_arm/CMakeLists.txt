@@ -13,5 +13,9 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(move_arm_monitor src/move_arm_setup.cpp src/move_arm_monitor.cpp)
 #rosbuild_link_boost(move_arm_monitor thread)
 
+rosbuild_add_library(move_arm_logging src/move_arm_warehouse_logger.cpp
+                                      src/move_arm_warehouse_reader.cpp)
+
 rosbuild_add_executable(move_arm_simple_action src/move_arm_simple_action.cpp)
 rosbuild_link_boost(move_arm_simple_action thread)
+target_link_libraries(move_arm_simple_action move_arm_logging)
