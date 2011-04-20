@@ -82,10 +82,23 @@ void MoveArmWarehouseReader::getAvailablePlanningSceneList(const std::string& ho
   // YAML::Node doc;
   // while(parser.GetNextDocument(doc)) {    }
 
-  std::vector<PlanningSceneWithMetadata> planning_scenes = planning_scene_collection_.pullAllResults(cond, false, order);
+  std::vector<PlanningSceneWithMetadata> planning_scenes = planning_scene_collection_.pullAllResults(cond, true, order);
+
+  creation_times.resize(planning_scenes.size());
 
   for(unsigned int i = 0; i < planning_scenes.size(); i++) {
-    creation_times.push_back((*planning_scenes[i]).robot_state.joint_state.header.stamp);
+    ROS_INFO_STREAM(planning_scenes[i]->metadata+"\n");
+    std::stringstream fin(planning_scenes[i]->metadata);
+    YAML::Parser parser(fin);
+    YAML::Node doc;
+    while(parser.GetNextDocument(doc)) { 
+      std::string s;
+      doc["robot_state___joint_state___header___stamp"] >> s;
+      std::stringstream ss(s);
+      double t;
+      ss >> t;
+      creation_times[i] = ros::Time(t);
+    }
   }
 }
 
@@ -123,30 +136,31 @@ bool MoveArmWarehouseReader::getPlanningScene(const std::string& hostname, const
   return true;
 }
 
-bool MoveArmWarehouseReader::getAssociatedOutcome(const std::string& hostname,
-                                                  const ros::Time& time,
-                                                  std::string& pipeline_name,
-                                                  motion_planning_msgs::ArmNavigationErrorCodes& error_code)
+bool MoveArmWarehouseReader::getAssociatedOutcomes(const std::string& hostname,
+                                                   const ros::Time& time,
+                                                   std::vector<std::string>& pipeline_names,
+                                                   std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& error_codes)
 {
 
   std::vector<warehouse::Condition> cond = makeConditionForPlanningSceneTime(time);
-  std::vector<ErrorCodesWithMetadata> error_codes = outcome_collection_.pullAllResults(cond, false);
+  std::vector<ErrorCodesWithMetadata> meta_error_codes = outcome_collection_.pullAllResults(cond, false);
 
-  if(error_codes.size() == 0) {
+  if(meta_error_codes.size() == 0) {
     ROS_WARN_STREAM("No outcomes associated with time " << time);
     return false;
-  } else if(error_codes.size() > 1) {
-    ROS_WARN_STREAM("Planning scene time " << time << " has " << error_codes.size() << " associated outcomes");
-    return false;
-  }
+  } 
+  error_codes.resize(meta_error_codes.size());
+  pipeline_names.resize(meta_error_codes.size());
 
-  std::stringstream fin(error_codes[0]->metadata);
-  YAML::Parser parser(fin);
-  YAML::Node doc;
-  while(parser.GetNextDocument(doc)) { 
-    doc["pipeline_stage"] >> pipeline_name;
+  for(unsigned int i = 0; i < meta_error_codes.size(); i++) {
+    std::stringstream fin(meta_error_codes[i]->metadata);
+    YAML::Parser parser(fin);
+    YAML::Node doc;
+    while(parser.GetNextDocument(doc)) { 
+      doc["pipeline_stage"] >> pipeline_names[i];
+    }
+    error_codes[i] = *meta_error_codes[i];
   }
-  error_code = *error_codes[0];
   return true;
 }
 

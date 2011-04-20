@@ -60,10 +60,10 @@ public:
   bool getPlanningScene(const std::string& hostname, const ros::Time& time, 
                         planning_environment_msgs::PlanningScene& planning_scene);
 
-  bool getAssociatedOutcome(const std::string& hostname,
-                            const ros::Time& time,
-                            std::string& pipeline_name,
-                            motion_planning_msgs::ArmNavigationErrorCodes& error_code);
+  bool getAssociatedOutcomes(const std::string& hostname,
+                             const ros::Time& time,
+                             std::vector<std::string>& pipeline_names,
+                             std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& error_codes);
 
   bool getAssociatedMotionPlanRequestsStageNames(const std::string& hostname, 
                                                  const ros::Time& time,
