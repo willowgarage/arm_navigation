@@ -408,7 +408,6 @@ btTransform CollisionProximitySpace::getInverseWorldTransform(const planning_mod
 void CollisionProximitySpace::syncObjectsWithCollisionSpace(const planning_models::KinematicState& state)
 {
   btTransform inv = getInverseWorldTransform(state);
-  ROS_INFO_STREAM("Inv x is " << inv.getOrigin().x());
   const collision_space::EnvironmentObjects *eo = collision_models_interface_->getCollisionSpace()->getObjects();
   std::vector<std::string> ns = eo->getNamespaces();
   for(unsigned int i = 0; i < ns.size(); i++) {
@@ -418,7 +417,6 @@ void CollisionProximitySpace::syncObjectsWithCollisionSpace(const planning_model
     for(unsigned int j = 0; j < no.shape.size(); j++) {
       BodyDecomposition* bd = new BodyDecomposition(ns[i]+"_"+makeStringFromUnsignedInt(j), no.shape[j], resolution_);
       bd->updatePose(inv*no.shape_pose[j]);
-      ROS_INFO_STREAM("Updated pose is " << bd->getBody()->getPose().getOrigin().x());
       bdv->addToVector(bd); 
     }
     static_object_map_[ns[i]] = bdv;
