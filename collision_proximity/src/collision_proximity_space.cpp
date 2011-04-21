@@ -333,7 +333,7 @@ void CollisionProximitySpace::setupForGroupQueries(const std::string& group_name
   setDistanceFieldForGroupQueries(current_group_name_, *collision_models_interface_->getPlanningSceneState());
   ros::WallTime n2 = ros::WallTime::now();
   ROS_DEBUG_STREAM("Setting self took " << (n2-n1).toSec());
-  visualizeDistanceField(self_distance_field_);
+  //visualizeDistanceField(self_distance_field_);
 }
 
 void CollisionProximitySpace::revertPlanningSceneCallback() {
@@ -408,14 +408,17 @@ btTransform CollisionProximitySpace::getInverseWorldTransform(const planning_mod
 void CollisionProximitySpace::syncObjectsWithCollisionSpace(const planning_models::KinematicState& state)
 {
   btTransform inv = getInverseWorldTransform(state);
+  ROS_INFO_STREAM("Inv x is " << inv.getOrigin().x());
   const collision_space::EnvironmentObjects *eo = collision_models_interface_->getCollisionSpace()->getObjects();
   std::vector<std::string> ns = eo->getNamespaces();
   for(unsigned int i = 0; i < ns.size(); i++) {
+    if(ns[i] == COLLISION_MAP_NAME) continue;
     const collision_space::EnvironmentObjects::NamespaceObjects &no = eo->getObjects(ns[i]);
     BodyDecompositionVector* bdv = new BodyDecompositionVector();
     for(unsigned int j = 0; j < no.shape.size(); j++) {
       BodyDecomposition* bd = new BodyDecomposition(ns[i]+"_"+makeStringFromUnsignedInt(j), no.shape[j], resolution_);
       bd->updatePose(inv*no.shape_pose[j]);
+      ROS_INFO_STREAM("Updated pose is " << bd->getBody()->getPose().getOrigin().x());
       bdv->addToVector(bd); 
     }
     static_object_map_[ns[i]] = bdv;
@@ -470,8 +473,8 @@ void CollisionProximitySpace::prepareEnvironmentDistanceField(const planning_mod
     for(unsigned int i = 0; i < it->second->getSize(); i++) {
       std::vector<btVector3> obj_points = it->second->getBodyDecomposition(i)->getCollisionPoints();
       for(unsigned int j = 0; j < obj_points.size(); j++) {
-        btVector3 temp = it->second->getBodyDecomposition(i)->getBody()->getPose()*obj_points[j];
-        obj_points[j] = inv*obj_points[j];
+        //body pose already accounts for inverse transform
+        obj_points[j] = it->second->getBodyDecomposition(i)->getBody()->getPose()*obj_points[j];
       }
       all_points.insert(all_points.end(),obj_points.begin(), obj_points.end());
     }
