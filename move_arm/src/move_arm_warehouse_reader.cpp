@@ -87,7 +87,6 @@ void MoveArmWarehouseReader::getAvailablePlanningSceneList(const std::string& ho
   creation_times.resize(planning_scenes.size());
 
   for(unsigned int i = 0; i < planning_scenes.size(); i++) {
-    ROS_INFO_STREAM(planning_scenes[i]->metadata+"\n");
     std::stringstream fin(planning_scenes[i]->metadata);
     YAML::Parser parser(fin);
     YAML::Node doc;
@@ -247,6 +246,7 @@ bool MoveArmWarehouseReader::getAssociatedJointTrajectorySources(const std::stri
 bool MoveArmWarehouseReader::getAssociatedJointTrajectory(const std::string& hostname, 
                                                           const ros::Time& time,
                                                           const std::string& trajectory_source,
+                                                          const unsigned int& trajectory_index,
                                                           ros::Duration& duration, 
                                                           trajectory_msgs::JointTrajectory& joint_trajectory)
 {
@@ -264,10 +264,12 @@ bool MoveArmWarehouseReader::getAssociatedJointTrajectory(const std::string& hos
   if(joint_trajectories.size() == 0) {
     ROS_WARN_STREAM("No joint trajectories with that time and source name " << trajectory_source);
     return false;
-  } else if(joint_trajectories.size() > 1) {
-    ROS_WARN_STREAM("More than one joint trajectory with that time and source name " << trajectory_source);
+  } else if(joint_trajectories.size() <= trajectory_index) {
+    ROS_WARN_STREAM("Not enough trajectories for that index: " << trajectory_index);
+    return false;
   }
-  std::stringstream fin(joint_trajectories[0]->metadata);
+
+  std::stringstream fin(joint_trajectories[trajectory_index]->metadata);
   YAML::Parser parser(fin);
   YAML::Node doc;
   while(parser.GetNextDocument(doc)) {
@@ -276,7 +278,7 @@ bool MoveArmWarehouseReader::getAssociatedJointTrajectory(const std::string& hos
     ros::Duration d(t);
     duration = d;
   }
-  joint_trajectory = *joint_trajectories[0];
+  joint_trajectory = *joint_trajectories[trajectory_index];
   return true;
 }
 

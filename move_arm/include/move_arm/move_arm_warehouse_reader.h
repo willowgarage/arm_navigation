@@ -81,6 +81,7 @@ public:
   bool getAssociatedJointTrajectory(const std::string& hostname, 
                                     const ros::Time& time,
                                     const std::string& trajectory_source,
+                                    const unsigned int& trajectory_index,
                                     ros::Duration& processing_time, 
                                     trajectory_msgs::JointTrajectory& joint_trajectory);
 
