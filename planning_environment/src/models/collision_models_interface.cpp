@@ -85,6 +85,7 @@ planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
 
 void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(const planning_environment_msgs::SetPlanningSceneGoalConstPtr& scene)
 {
+  bodiesLock();
   planning_environment_msgs::SetPlanningSceneResult res;
   res.ok = true;
 
@@ -103,6 +104,7 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
     ROS_ERROR("Setting planning scene state to NULL");
     res.ok = false;
     action_server_->setAborted(res);
+    bodiesUnlock();
     return;
   }
   last_planning_scene_ = scene->planning_scene;
@@ -119,6 +121,7 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   feedback.ready = true;
   action_server_->publishFeedback(feedback);
   action_server_->setSucceeded(res);
+  bodiesUnlock();
 }
 
 bool planning_environment::CollisionModelsInterface::setPlanningSceneWithCallbacks(const planning_environment_msgs::PlanningScene& planning_scene)
