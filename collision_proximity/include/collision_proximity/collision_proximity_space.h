@@ -66,7 +66,9 @@ public:
   //this function sets up the collision proximity space for making a series of 
   //proximity collision or gradient queries for the indicated group
   void setupForGroupQueries(const std::string& group_name,
-                            const motion_planning_msgs::RobotState& rob_state);
+                            const motion_planning_msgs::RobotState& rob_state,
+                            std::vector<std::string>& link_names,
+                            std::vector<std::string>& attached_body_names);
 
   //returns the updating objects lock and destroys the current kinematic state
   void revertAfterGroupQueries();
@@ -79,16 +81,30 @@ public:
   bool isStateInCollision() const;
 
   // returns the full set of collision information for each group link
-  bool getStateCollisions(std::vector<std::string>& link_names, 
-                          std::vector<std::string>& attached_body_names,
-                          bool& in_collision, 
+  bool getStateCollisions(bool& in_collision, 
                           std::vector<CollisionType>& collisions) const;
   
   // returns the full gradient information for each group_link
-  bool getStateGradients(std::vector<std::string>& link_names,
-                         std::vector<std::string>& attached_body_names,
-                         std::vector<GradientInfo>& gradients, 
+  bool getStateGradients(std::vector<GradientInfo>& gradients, 
                          bool subtract_radii = false) const;
+  
+  bool getIntraGroupCollisions(std::vector<bool>& collisions,
+                               bool stop_at_first = false) const;
+  
+  bool getIntraGroupProximityGradients(std::vector<GradientInfo>& gradients,
+                                       bool subtract_radii = false) const;
+
+  bool getSelfCollisions(std::vector<bool>& collisions,
+                               bool stop_at_first = false) const;
+  
+  bool getSelfProximityGradients(std::vector<GradientInfo>& gradients,
+                                       bool subtract_radii = false) const;
+
+  bool getEnvironmentCollisions(std::vector<bool>& collisions,
+                                bool stop_at_first = false) const;
+  
+  bool getEnvironmentProximityGradients(std::vector<GradientInfo>& gradients,
+                                        bool subtract_radii = false) const;
 
   // returns true if current setup is in environment collision
   bool isEnvironmentCollision() const;
@@ -135,6 +151,10 @@ public:
 
   bool setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene);
 
+  const std::string& getCurrentGroupName() const {
+    return current_group_name_;
+  }
+
   std::vector<std::string> getCurrentLinkNames() const
   {
     return current_link_names_;
@@ -161,24 +181,6 @@ private:
 
   void setDistanceFieldForGroupQueries(const std::string& group_name,
                                        const planning_models::KinematicState& state);
-
-  bool getIntraGroupCollisions(std::vector<bool>& collisions,
-                               bool stop_at_first = false) const;
-  
-  bool getIntraGroupProximityGradients(std::vector<GradientInfo>& gradients,
-                                       bool subtract_radii = false) const;
-
-  bool getSelfCollisions(std::vector<bool>& collisions,
-                               bool stop_at_first = false) const;
-  
-  bool getSelfProximityGradients(std::vector<GradientInfo>& gradients,
-                                       bool subtract_radii = false) const;
-
-  bool getEnvironmentCollisions(std::vector<bool>& collisions,
-                                bool stop_at_first = false) const;
-  
-  bool getEnvironmentProximityGradients(std::vector<GradientInfo>& gradients,
-                                        bool subtract_radii = false) const;
 
   bool getGroupLinkAndAttachedBodyNames(const std::string& group_name,
                                         const planning_models::KinematicState& state,

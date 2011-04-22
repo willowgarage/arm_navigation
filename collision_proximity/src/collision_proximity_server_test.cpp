@@ -67,7 +67,9 @@ struct CollisionProximitySpacePlannerInterface
   {
     if(!req.motion_plan_request.group_name.empty()) {
       cps_->setupForGroupQueries(req.motion_plan_request.group_name,
-                                 req.motion_plan_request.start_state);
+                                 req.motion_plan_request.start_state,
+                                 current_link_names_,
+                                 current_attached_body_names_);
     } else {
       return false;
     }
@@ -90,7 +92,7 @@ struct CollisionProximitySpacePlannerInterface
   
   void broadcastCollisionMarkers() {
     cps_->getCollisionModelsInterface()->bodiesLock();
-    if(!cps_->getCollisionModelsInterface()->isPlanningSceneSet()) {
+    if(!cps_->getCollisionModelsInterface()->isPlanningSceneSet() || cps_->getCurrentGroupName().empty()) {
       cps_->getCollisionModelsInterface()->bodiesUnlock();
       return;
     }
@@ -98,17 +100,21 @@ struct CollisionProximitySpacePlannerInterface
     std::vector<std::string> link_names;
     std::vector<std::string> attached_body_names;
     std::vector<collision_proximity::GradientInfo> gradients;
-    cps_->getStateGradients(link_names, attached_body_names, gradients);
+    cps_->getStateGradients(gradients);
 
     visualization_msgs::MarkerArray arr;
-    cps_->getProximityGradientMarkers(link_names,
-                                      attached_body_names,
+    cps_->getProximityGradientMarkers(current_link_names_,
+                                      current_attached_body_names_,
                                       gradients,
                                       "",
                                       arr);
+    cps_->visualizeObjectSpheres(link_names);
     vis_marker_array_publisher_.publish(arr);
     cps_->getCollisionModelsInterface()->bodiesUnlock();
   }
+
+  std::vector<std::string> current_link_names_;
+  std::vector<std::string> current_attached_body_names_;
 
   ros::NodeHandle root_handle_;
   ros::ServiceServer motion_planning_service_;
