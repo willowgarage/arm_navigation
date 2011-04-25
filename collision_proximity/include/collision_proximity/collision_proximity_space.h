@@ -145,7 +145,7 @@ public:
 
   void visualizeBoundingCylinders(const std::vector<std::string>& object_names) const;
 
-  const planning_environment::CollisionModelsInterface* getCollisionModelsInterface() const {
+  planning_environment::CollisionModelsInterface* getCollisionModelsInterface() const {
     return collision_models_interface_;
   }
 
@@ -163,6 +163,10 @@ public:
   std::vector<std::string> getCurrentAttachedBodyNames() const
   {
     return current_attached_body_names_;
+  }
+
+  void setCollisionTolerance(double tol) {
+    tolerance_ = tol;
   }
 
 private:
