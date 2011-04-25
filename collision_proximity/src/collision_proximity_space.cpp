@@ -897,6 +897,9 @@ bool CollisionProximitySpace::getIntraGroupCollisions(std::vector<bool>& collisi
 
 bool CollisionProximitySpace::getIntraGroupProximityGradients(std::vector<GradientInfo>& gradients,
                                                               bool subtract_radii) const {
+  if(gradients.size() != current_gradients_.size()) {
+    gradients = current_gradients_;
+  }
   bool in_collision = false;
   unsigned int count = 0;
   unsigned int num_links = current_link_names_.size();
@@ -990,6 +993,9 @@ bool CollisionProximitySpace::getSelfCollisions(std::vector<bool>& collisions,
 
 bool CollisionProximitySpace::getSelfProximityGradients(std::vector<GradientInfo>& gradients,
                                                         bool subtract_radii) const {
+  if(gradients.size() != current_gradients_.size()) {
+    gradients = current_gradients_;
+  }
   unsigned int tot = current_link_names_.size()+current_attached_body_names_.size();
   if(gradients.size() != tot) {
     ROS_WARN_STREAM("Wrong sized link closest " << tot << " " << gradients.size());
@@ -1055,6 +1061,9 @@ bool CollisionProximitySpace::getEnvironmentCollisions(std::vector<bool>& collis
 
 bool CollisionProximitySpace::getEnvironmentProximityGradients(std::vector<GradientInfo>& gradients,
                                                                bool subtract_radii) const {
+  if(gradients.size() != current_gradients_.size()) {
+    gradients = current_gradients_;
+  }
   unsigned int tot = current_link_names_.size()+current_attached_body_names_.size();
   if(gradients.size() != tot) {
     ROS_WARN_STREAM("Wrong sized link closest " << tot << " " << gradients.size());
