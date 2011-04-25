@@ -51,6 +51,8 @@ CollisionProximityPlanner::CollisionProximityPlanner(const std::string& robot_de
   private_handle_.param("max_joint_update", max_joint_update_, 0.02);
 
   cps_ = new collision_proximity::CollisionProximitySpace(robot_description_name);
+
+  cps_->setCollisionTolerance(cps_->getCollisionModelsInterface()->getDefaultPadding());
  
   // build the robot model
   chomp_robot_model_.init(cps_->getCollisionModelsInterface());
@@ -110,18 +112,19 @@ bool CollisionProximityPlanner::getFreePath(motion_planning_msgs::GetMotionPlan:
   clear();
   if(!req.motion_plan_request.group_name.empty() && initializeForGroup(req.motion_plan_request.group_name)) {
     cps_->setupForGroupQueries(req.motion_plan_request.group_name,
-                               req.motion_plan_request.start_state);
+                               req.motion_plan_request.start_state,
+                               current_link_names_,
+                               current_attached_body_names_);
   } else {
     return false;
   }
-  std::vector<std::string> link_names = cps_->getCurrentLinkNames();
-  for(unsigned int i=0; i < link_names.size(); i++)
+  for(unsigned int i=0; i < current_link_names_.size(); i++)
   {
-    ROS_DEBUG("Finding active joints for %s",link_names[i].c_str());
+    ROS_DEBUG("Finding active joints for %s",current_link_names_[i].c_str());
     std::vector<int> ac_j;
     int segment_number;
-    chomp_robot_model_.getActiveJointInformation(link_names[i],ac_j,segment_number);
-    ROS_DEBUG("Found %zu active joints for %s",ac_j.size(),link_names[i].c_str());
+    chomp_robot_model_.getActiveJointInformation(current_link_names_[i],ac_j,segment_number);
+    ROS_DEBUG("Found %zu active joints for %s",ac_j.size(),current_link_names_[i].c_str());
     active_joints_.push_back(ac_j);
   }
   bool result = findPathToFreeState(req.motion_plan_request.start_state,res.trajectory);
@@ -340,18 +343,16 @@ bool CollisionProximityPlanner::calculateCollisionIncrements(Eigen::MatrixXd &co
 {
   collision_increments = Eigen::MatrixXd::Zero(1, num_joints_);
 
-  std::vector<std::string> link_names;
-  std::vector<std::string> attached_body_names;
   std::vector<collision_proximity::GradientInfo> gradients;
 
   Eigen::Vector3d cartesian_gradient;
-  bool in_collision =   cps_->getStateGradients(link_names,
-                                                attached_body_names,
-                                                gradients, true);  
+  bool in_collision =   cps_->getStateGradients(gradients, true);  
+  bool state_in_collision = cps_->getCollisionModelsInterface()->isKinematicStateInCollision(*cps_->getCollisionModelsInterface()->getPlanningSceneState());
+
   min_distance = DBL_MAX;
-  for(unsigned int i=0; i < link_names.size(); i++)
+  for(unsigned int i=0; i < current_link_names_.size(); i++)
   {
-    ROS_DEBUG("Link: %s",link_names[i].c_str());
+    ROS_DEBUG("Link: %s",current_link_names_[i].c_str());
     for(unsigned int j=0; j < gradients[i].sphere_locations.size(); j++)
     {      
       ROS_DEBUG("Contact: %d",j);
@@ -369,7 +370,7 @@ bool CollisionProximityPlanner::calculateCollisionIncrements(Eigen::MatrixXd &co
 
       ROS_DEBUG("Point: %f %f %f",gradients[i].sphere_locations[j].x(),gradients[i].sphere_locations[j].y(),gradients[i].sphere_locations[j].z());
       ROS_DEBUG("Gradient: %f %f %f",gradients[i].gradients[j].x(),gradients[i].gradients[j].y(),gradients[i].gradients[j].z());
-      ROS_INFO("Environment distance: %f",gradients[i].distances[j]);
+      ROS_DEBUG("Environment distance: %f",gradients[i].distances[j]);
       getJacobian((int)i,joint_pos_eigen_,joint_axis_eigen_,collision_point_pos_eigen,jacobian_,group_joint_to_kdl_joint_index_);
       if (use_pseudo_inverse_)
       {
@@ -391,7 +392,7 @@ bool CollisionProximityPlanner::calculateCollisionIncrements(Eigen::MatrixXd &co
       //        break;
     }
   }
-  return in_collision;
+  return in_collision || state_in_collision;
 }
 
 void CollisionProximityPlanner::performForwardKinematics(KDL::JntArray &jnt_array, const bool& full)

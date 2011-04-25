@@ -146,6 +146,9 @@ namespace collision_proximity_planner
     int max_iterations_;
     double max_joint_update_;
 
+    std::vector<std::string> current_link_names_;
+    std::vector<std::string> current_attached_body_names_;
+
     bool use_pseudo_inverse_;
     Eigen::MatrixXd jacobian_;
     Eigen::MatrixXd jacobian_pseudo_inverse_;
