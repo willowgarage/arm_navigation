@@ -361,7 +361,7 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
    else if (error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED)
      result = "Collision constraints violated";
    else if (error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED)
-     result = "Collision constraints violated";
+     result = "Goal constraints violated";
    else if (error_code.val == error_code.JOINTS_NOT_MOVING)
      result = "Joints not moving - robot may be stuck";
    else if (error_code.val == error_code.TRAJECTORY_CONTROLLER_FAILED)
