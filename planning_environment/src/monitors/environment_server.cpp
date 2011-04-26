@@ -90,8 +90,10 @@ public:
 	
   virtual ~EnvironmentServer()
   {
-    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      delete set_planning_scene_clients_[i];
+    for(std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
+        it != set_planning_scene_clients_.end();
+        it++) {
+      delete it->second;
     }
     delete collision_models_;
     if(planning_monitor_) {
@@ -109,10 +111,12 @@ private:
       return false;
     }
     std::string callerid = req.__connection_header->find("callerid")->second;
-    planning_scene_client_names_.push_back(callerid);
-    set_planning_scene_clients_.push_back(new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(callerid+"/"+SET_PLANNING_SCENE_NAME, true));
+    if(set_planning_scene_clients_.find(callerid) != set_planning_scene_clients_.end()) {
+      delete set_planning_scene_clients_[callerid];
+    }
+    set_planning_scene_clients_[callerid] = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(callerid+"/"+SET_PLANNING_SCENE_NAME, true);
     while(ros::ok()) {
-      if(!set_planning_scene_clients_.back()->waitForServer(ros::Duration(1.0))) {
+      if(!set_planning_scene_clients_[callerid]->waitForServer(ros::Duration(1.0))) {
         ROS_INFO_STREAM("Couldn't connect back to action server for " << callerid);
       } else {
         break;
@@ -142,14 +146,19 @@ private:
     }
     planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
     planning_scene_goal.planning_scene = res.planning_scene;
-    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      set_planning_scene_clients_[i]->sendGoal(planning_scene_goal);
+    for(std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
+        it != set_planning_scene_clients_.end();
+        it++) {
+      it->second->sendGoal(planning_scene_goal);
     }
-    for(unsigned int i = 0; i < set_planning_scene_clients_.size(); i++) {
-      while(ros::ok() && !set_planning_scene_clients_[i]->waitForResult(ros::Duration(1.0))) {
-        ROS_INFO_STREAM("Waiting for response from planning scene client " << planning_scene_client_names_[i] << ".  State is " << set_planning_scene_clients_[i]->getState().state_);
-      }
+    for(std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
+        it != set_planning_scene_clients_.end();
+        it++) {
+      while(ros::ok() && !it->second->waitForResult(ros::Duration(1.0))) {
+        ROS_INFO_STREAM("Waiting for response from planning scene client " << it->first << ".  State is " << it->second->getState().state_);
+      } 
     }
+ 
     return true;
   }
 
@@ -186,9 +195,8 @@ private:
   ros::ServiceServer get_planning_scene_service_;
   ros::ServiceServer log_planning_scene_service_;
 
-  std::vector<std::string> planning_scene_client_names_;
   ros::ServiceServer register_planning_scene_service_;
-  std::vector<actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;
+  std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;
 };    
 }
 
