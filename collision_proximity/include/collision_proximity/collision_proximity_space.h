@@ -171,6 +171,11 @@ public:
 
 private:
 
+  // updates the current state of the spheres in the gradient
+  bool updateSphereLocations(const std::vector<std::string>& link_names,
+                             const std::vector<std::string>& attached_body_names, 
+                             std::vector<GradientInfo>& gradients);
+
   void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene); 
   void revertPlanningSceneCallback();
 
