@@ -422,6 +422,7 @@ protected:
   double default_scale_;
   double default_padd_;
   double object_padd_;
+  double attached_padd_;
   std::vector<double> bounding_planes_;
 
   std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;

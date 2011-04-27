@@ -104,7 +104,8 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
 
   nh_.param(description_ + "_planning/default_robot_padding", default_padd_, 0.01);
   nh_.param(description_ + "_planning/default_robot_scale", default_scale_, 1.0);
-  nh_.param(description_ + "_planning/default_object_padding", object_padd_, 0.03);
+  nh_.param(description_ + "_planning/default_object_padding", object_padd_, 0.02);
+  nh_.param(description_ + "_planning/default_attached_padding", attached_padd_, 0.05);
 
   const std::vector<planning_models::KinematicModel::LinkModel*>& coll_links = kmodel_->getLinkModelsWithCollisionGeometry();
   
@@ -753,7 +754,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const mapping_msgs
     tf::poseMsgToTF(obj.poses[i], pose);
     poses.push_back(pose);
   }
-  double padding = object_padd_;
+  double padding = attached_padd_;
   if(obj.padding < 0.0) {
     padding = 0.0;
   } else if(obj.padding > 0.0){
@@ -1421,6 +1422,9 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
     if(verbose) {
       std::vector<planning_environment_msgs::ContactInformation> contacts;
       getAllCollisionsForState(state, contacts,1);
+      if(contacts.size() == 0) {
+        ROS_WARN_STREAM("Collision reported but no contacts");
+      }
       for(unsigned int i = 0; i < contacts.size(); i++) {
 	ROS_INFO_STREAM("Collision between " << contacts[i].contact_body_1 
 			<< " and " << contacts[i].contact_body_2);
