@@ -163,7 +163,6 @@ namespace collision_proximity_planner
     std::vector<Eigen::Map<Eigen::Vector3d> > joint_axis_eigen_;
     std::vector<Eigen::Map<Eigen::Vector3d> > joint_pos_eigen_;
     std::vector<Eigen::Map<Eigen::Vector3d> > collision_point_pos_eigen_;
-    std::vector<double> collision_point_potential_;
     std::vector<double> collision_point_vel_mag_;
     std::vector<Eigen::Vector3d> collision_point_potential_gradient_;
 

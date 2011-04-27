@@ -361,9 +361,9 @@ bool CollisionProximityPlanner::calculateCollisionIncrements(Eigen::MatrixXd &co
       collision_point_pos_eigen(1) = gradients[i].sphere_locations[j].y();
       collision_point_pos_eigen(2) = gradients[i].sphere_locations[j].z();
 
-      cartesian_gradient(0) = gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].x();
-      cartesian_gradient(1) = gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].y();
-      cartesian_gradient(2) = gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].z();
+      cartesian_gradient(0) = -gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].x();
+      cartesian_gradient(1) = -gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].y();
+      cartesian_gradient(2) = -gradients[i].distances[j] * gradients[i].distances[j] * gradients[i].gradients[j].z();
 
       if(min_distance > gradients[i].distances[j])
         min_distance = gradients[i].distances[j];
