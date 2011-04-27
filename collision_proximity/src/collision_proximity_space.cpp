@@ -61,10 +61,12 @@ static std::string makeAttachedObjectId(std::string link, std::string object)
   return link+"_"+object;
 }
 
-CollisionProximitySpace::CollisionProximitySpace(const std::string& robot_description_name) :
+CollisionProximitySpace::CollisionProximitySpace(const std::string& robot_description_name,
+                                                 bool register_with_environment_server) :
   priv_handle_("~")
 {
-  collision_models_interface_ = new planning_environment::CollisionModelsInterface(robot_description_name);
+  collision_models_interface_ = new planning_environment::CollisionModelsInterface(robot_description_name,
+                                                                                   register_with_environment_server);
 
   priv_handle_.param("size_x", size_x_, 3.0);
   priv_handle_.param("size_y", size_y_, 3.0);
@@ -839,10 +841,10 @@ bool CollisionProximitySpace::getStateGradients(std::vector<GradientInfo>& gradi
     }
 
     if(i < current_link_names_.size() && gradients[i].closest_distance < 0.0) {      
-      ROS_INFO_STREAM("Link " << current_link_names_[i] 
-                      << " env " << env_gradients[i].closest_distance
-                      << " self " << self_gradients[i].closest_distance
-                      << " intra " << intra_gradients[i].closest_distance);
+      ROS_DEBUG_STREAM("Link " << current_link_names_[i] 
+                       << " env " << env_gradients[i].closest_distance
+                       << " self " << self_gradients[i].closest_distance
+                       << " intra " << intra_gradients[i].closest_distance);
     }
 
 

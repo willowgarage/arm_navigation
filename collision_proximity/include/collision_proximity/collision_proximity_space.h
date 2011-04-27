@@ -60,7 +60,7 @@ class CollisionProximitySpace
 
 public:
 
-  CollisionProximitySpace(const std::string& robot_description_name);
+  CollisionProximitySpace(const std::string& robot_description_name, bool register_with_environment_server = true);
   ~CollisionProximitySpace();
 
   //this function sets up the collision proximity space for making a series of 
