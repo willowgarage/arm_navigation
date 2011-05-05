@@ -76,8 +76,8 @@
 
 #include <planning_environment_msgs/GetRobotState.h>
 
-//#include <move_arm_head_monitor/HeadMonitorAction.h>
-//#include <move_arm_head_monitor/HeadLookAction.h>
+#include <move_arm_head_monitor/HeadMonitorAction.h>
+#include <move_arm_head_monitor/PreplanHeadScanAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/simple_client_goal_state.h>
 
@@ -98,15 +98,7 @@ enum MoveArmState {
   PLANNING,
   START_CONTROL,
   VISUALIZE_PLAN,
-  MONITOR,
-  PAUSE
-};
-
-enum ControllerStatus {
-  QUEUED,
-  ACTIVE,
-  SUCCESS,
-  FAILED
+  MONITOR
 };
 
 enum EnvironmentServerChecks{
@@ -148,19 +140,11 @@ public:
     group_(group_name), 
     private_handle_("~")
   {
-    double trajectory_monitoring_frequency;
     private_handle_.param<double>("move_arm_frequency",move_arm_frequency_, 50.0);
-    private_handle_.param<double>("trajectory_discretization",trajectory_discretization_, 0.03);
-    private_handle_.param<double>("trajectory_monitoring_frequency",trajectory_monitoring_frequency, 20.0);
     private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
     private_handle_.param<double>("ik_allowed_time",ik_allowed_time_, 2.0);
 
-    private_handle_.param<double>("pause_allowed_time",pause_allowed_time_, 30.0);
     private_handle_.param<std::string>("head_monitor_link",head_monitor_link_, std::string());
-    private_handle_.param<double>("head_monitor_link_x",head_monitor_link_x_, 0.0);
-    private_handle_.param<double>("head_monitor_link_y",head_monitor_link_y_, 0.0);
-    private_handle_.param<double>("head_monitor_link_z",head_monitor_link_z_, 0.0);
-    private_handle_.param<double>("head_monitor_max_frequency",head_monitor_max_frequency_, 2.0);
     private_handle_.param<double>("head_monitor_time_offset",head_monitor_time_offset_, 1.0);
 
     private_handle_.param<bool>("publish_stats",publish_stats_, true);
@@ -170,17 +154,12 @@ public:
 
     collision_models_ = new planning_environment::CollisionModels("robot_description");
 
-    using_head_monitor_ = false;
     num_planning_attempts_ = 0;
     state_ = PLANNING;
-    last_monitor_time_ = ros::Time::now();
-    trajectory_monitoring_frequency = std::min<double>(std::max<double>(trajectory_monitoring_frequency,MIN_TRAJECTORY_MONITORING_FREQUENCY),MAX_TRAJECTORY_MONITORING_FREQUENCY);
-    trajectory_monitoring_duration_ = ros::Duration(1.0/trajectory_monitoring_frequency);
 
     if(head_monitor_link_.empty())
     {
       ROS_WARN("No 'head_monitor_link' parameter specified, head monitoring will not be used.");
-      using_head_monitor_ = false;
     } 
 
     if(log_to_warehouse_) {
@@ -199,37 +178,17 @@ public:
     get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
     log_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::LogPlanningScene>(LOG_PLANNING_SCENE_NAME);
     
-    // if(using_head_monitor_) {
-    //   head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
-    //   head_look_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> ("head_look_action", true));
-      
-    //   const unsigned int MAX_TRIES = 5;
-    //   unsigned int tries = 0;
-      
-    //   while(!head_monitor_client_->waitForServer(ros::Duration(10))) {
-    //     ROS_INFO("Waiting for head monitor server");
-    //     tries++;
-    //     if(tries >= MAX_TRIES) {
-    //       ROS_INFO("Can't talk to head monitor, not using");
-    //       using_head_monitor_ = false;
-    //       break;
-    //     }
-    //   }
-    //   //still need to check for this
-    //   if(using_head_monitor_) {
-    //     tries = 0;
-    //     while(!head_look_client_->waitForServer(ros::Duration(10))) {
-    //       ROS_INFO("Waiting for head look server");
-    //       tries++;
-    //       if(tries >= MAX_TRIES) {
-    //         ROS_INFO("Can't talk to head look client, not using");
-    //         using_head_monitor_ = false;
-    //         break;
-    //       }
-    //     }
-    //   }
-    // }
-    
+    preplan_scan_action_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::PreplanHeadScanAction> ("preplan_head_scan", true));
+
+    while(ros::ok() && !preplan_scan_action_client_->waitForServer(ros::Duration(10))) {
+      ROS_WARN("No preplan scan service");
+    }
+
+    head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
+    while(ros::ok() && !head_monitor_client_->waitForServer(ros::Duration(10))) {
+      ROS_INFO("Waiting for head monitor server");
+    }
+
     //    ros::service::waitForService(ARM_IK_NAME);
     arm_ik_initialized_ = false;
     ros::service::waitForService(GET_PLANNING_SCENE_NAME);
@@ -247,7 +206,6 @@ public:
   {
     revertPlanningScene();
     delete collision_models_;
-    delete controller_action_client_;
     if(warehouse_logger_ != NULL) {
       delete warehouse_logger_;
     }
@@ -255,11 +213,6 @@ public:
 
   bool configure()
   {
-    if(!initializeControllerInterface())
-    {
-      ROS_ERROR("Could not initialize controller interface");
-      return false;
-    }
     if (group_.empty())
     {
       ROS_ERROR("No 'group' parameter specified. Without the name of the group of joints to plan for, action cannot start");
@@ -484,142 +437,6 @@ private:
       return false;
     }
   }
-
-  int closestStateOnTrajectory(const trajectory_msgs::JointTrajectory &trajectory, const sensor_msgs::JointState &joint_state, unsigned int start, unsigned int end)
-  {
-    double dist = 0.0;
-    int    pos  = -1;
-
-    std::map<std::string, double> current_state_map;
-    std::map<std::string, bool> continuous;
-    for(unsigned int i = 0; i < joint_state.name.size(); i++) {
-      current_state_map[joint_state.name[i]] = joint_state.position[i];
-    }
-
-    for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
-      std::string name = trajectory.joint_names[j];
-      boost::shared_ptr<const urdf::Joint> joint = collision_models_->getParsedDescription()->getJoint(name);
-      if (joint.get() == NULL)
-      {
-        ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
-        return false;
-      }
-      if (joint->type == urdf::Joint::CONTINUOUS) {
-        continuous[name] = true;
-      } else {
-        continuous[name] = false;
-      }
-
-    }
-
-    for (unsigned int i = start ; i <= end ; ++i)
-    {
-      double d = 0.0;
-      for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
-        double diff; 
-        if(!continuous[trajectory.joint_names[j]]) {
-          diff = fabs(trajectory.points[i].positions[j] - current_state_map[trajectory.joint_names[j]]);
-        } else {
-          diff = angles::shortest_angular_distance(trajectory.points[i].positions[j],current_state_map[trajectory.joint_names[j]]);
-        }
-        d += diff * diff;
-      }
-	
-      if (pos < 0 || d < dist)
-      {
-        pos = i;
-        dist = d;
-      }
-    }    
-
-    // if(pos == 0) {
-    //   for(unsigned int i = 0; i < joint_state.name.size(); i++) {
-    //     ROS_INFO_STREAM("Current state for joint " << joint_state.name[i] << " is " << joint_state.position[i]);
-    //   }
-    //   for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
-    //     ROS_INFO_STREAM("Trajectory zero has " << trajectory.points[0].positions[j] << " for joint " << trajectory.joint_names[j]);
-    //   }
-    // }
-
-    return pos;
-  }
-
-  bool removeCompletedTrajectory(const trajectory_msgs::JointTrajectory &trajectory_in, 
-                                 trajectory_msgs::JointTrajectory &trajectory_out, bool zero_vel_acc)
-  {
-
-    // trajectory_out.header = trajectory_in.header;
-    // trajectory_out.header.stamp = ros::Time::now();
-    // trajectory_out.joint_names = trajectory_in.joint_names;
-    // trajectory_out.points.clear();
-
-    // if(trajectory_in.points.empty())
-    // {
-    //   ROS_WARN("No points in input trajectory");
-    //   return true;
-    // }
-    
-    // motion_planning_msgs::RobotState state;
-    // if(!getRobotState(state)) {
-    //   return false;
-    // }
-    
-    // sensor_msgs::JointState current_state = state.joint_state;
-
-    // int current_position_index = 0;        
-    // //Get closest state in given trajectory
-    // current_position_index = closestStateOnTrajectory(trajectory_in, current_state, current_position_index, trajectory_in.points.size() - 1);
-    // if (current_position_index < 0)
-    // {
-    //   ROS_ERROR("Unable to identify current state in trajectory");
-    //   return false;
-    // } else {
-    //   ROS_INFO_STREAM("Closest state is " << current_position_index << " of " << trajectory_in.points.size());
-    // }
-    
-    // // Start one ahead of returned closest state index to make sure first trajectory point is not behind current state
-    // for(unsigned int i = current_position_index+1; i < trajectory_in.points.size(); ++i)
-    // {
-    //   trajectory_out.points.push_back(trajectory_in.points[i]);
-    // }
-
-    // if(trajectory_out.points.empty())
-    // {
-    //   ROS_WARN("No points in output trajectory");
-    //   return false;
-    // }	
-
-    // ros::Duration first_time = trajectory_out.points[0].time_from_start;
-
-    // if(first_time < ros::Duration(.1)) {
-    //   ROS_INFO("First time less than one-tenth of a second");
-    //   first_time = ros::Duration(0.0);
-    // } else {
-    //   first_time -= ros::Duration(.1);
-    // }
-
-    // for(unsigned int i=0; i < trajectory_out.points.size(); ++i)
-    // {
-    //   if(trajectory_out.points[i].time_from_start > first_time) {
-    //     trajectory_out.points[i].time_from_start -= first_time;
-    //   } else {
-    //     ROS_INFO_STREAM("Not enough time in time from start for trajectory point " << i);
-    //   }
-    // }
-
-    // //if(zero_vel_acc)
-    // //{
-    // for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i) {
-    //   for(unsigned int j=0; j < trajectory_out.points.size(); ++j) {
-    //     trajectory_out.points[j].velocities[i] = 0;
-    //     trajectory_out.points[j].accelerations[i] = 0;
-    //   }
-    // }
-
-    return true;
-
-  }
-		    
 
   ///
   /// End Trajectory Filtering
@@ -880,61 +697,21 @@ private:
   /// End Motion planning
   ///
 
-  /// 
-  /// Control
-  ///
-  bool initializeControllerInterface()
-  {
-    std::string controller_action_name;
-    private_handle_.param<std::string>("controller_action_name", controller_action_name, "action");
-    ROS_INFO("Connecting to controller using action: %s",controller_action_name.c_str());
-    controller_action_client_ = new JointExecutorActionClient(controller_action_name);
-    if(!controller_action_client_) {
-      ROS_ERROR("Controller action client hasn't been initialized yet");
-      return false;
-    }
-    while(!controller_action_client_->waitForActionServerToStart(ros::Duration(1.0))){
-      ROS_INFO("Waiting for the joint_trajectory_action server to come up.");
-      if(!root_handle_.ok()) {
-        return false;
-      }
-    }
-    ROS_INFO("Connected to the controller");
-    return true;
-  }
-
-  void stopMonitoring()
-  {
-    // if(using_head_monitor_ && head_monitor_client_->getState().state_ == actionlib::SimpleClientGoalState::ACTIVE)
-    // {
-    //   head_monitor_client_->cancelGoal();
-    //   head_monitor_client_->waitForResult(ros::Duration(0.1));
-    // }
-  }
-
-  bool stopTrajectory()
-  {
-    stopMonitoring();
-    
-    if (controller_goal_handle_.isExpired())
-      ROS_ERROR("Expired goal handle.  controller_status = %d", controller_status_);
-    else
-      controller_goal_handle_.cancel();
-    return true;
-  }
   bool sendTrajectory(trajectory_msgs::JointTrajectory &current_trajectory)
   {
+    head_monitor_done_ = false;
+    head_monitor_error_code_.val = 0;
     current_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
 
-    if(using_head_monitor_ && head_monitor_time_offset_ > 0.5)
-      current_trajectory.header.stamp += ros::Duration(head_monitor_time_offset_ - 0.5);
+    move_arm_head_monitor::HeadMonitorGoal goal;
+    goal.group_name = group_;
+    goal.joint_trajectory = current_trajectory;
+    goal.target_link = head_monitor_link_;
+    goal.time_offset = ros::Duration(head_monitor_time_offset_);
 
-    pr2_controllers_msgs::JointTrajectoryGoal goal;  
-    goal.trajectory = current_trajectory;
-
-    ROS_INFO("Sending trajectory with %d points and timestamp: %f",(int)goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
-    for(unsigned int i=0; i < goal.trajectory.joint_names.size(); i++)
-      ROS_INFO("Joint: %d name: %s",i,goal.trajectory.joint_names[i].c_str());
+    ROS_INFO("Sending trajectory for monitoring with %d points and timestamp: %f",(int)goal.joint_trajectory.points.size(),goal.joint_trajectory.header.stamp.toSec());
+    for(unsigned int i=0; i < goal.joint_trajectory.joint_names.size(); i++)
+      ROS_INFO("Joint: %d name: %s",i,goal.joint_trajectory.joint_names[i].c_str());
 
     /*    for(unsigned int i = 0; i < goal.trajectory.points.size(); i++)
           {
@@ -955,72 +732,10 @@ private:
           goal.trajectory.points[i].velocities[5],
           goal.trajectory.points[i].velocities[6]);
           }*/
-    controller_goal_handle_ = controller_action_client_->sendGoal(goal,boost::bind(&MoveArm::controllerTransitionCallback, this, _1));
-
-    controller_status_ = QUEUED;
-    //    printTrajectory(goal.trajectory);
+    head_monitor_client_->sendGoal(goal, boost::bind(&MoveArm::monitorDoneCallback, this, _1, _2));
     return true;
   }
 
-  void controllerTransitionCallback(JointExecutorActionClient::GoalHandle gh) 
-  {   
-    if(gh != controller_goal_handle_)
-      return;
-    actionlib::CommState comm_state = gh.getCommState();    
-    switch( comm_state.state_)
-    {
-    case actionlib::CommState::WAITING_FOR_GOAL_ACK:
-    case actionlib::CommState::PENDING:
-    case actionlib::CommState::RECALLING:
-      controller_status_ = QUEUED;
-      return;
-    case actionlib:: CommState::ACTIVE:
-    case actionlib::CommState::PREEMPTING:
-      controller_status_ = ACTIVE;
-      return;
-    case actionlib::CommState::DONE:
-      {
-        switch(gh.getTerminalState().state_)
-        {
-        case actionlib::TerminalState::RECALLED:
-        case actionlib::TerminalState::REJECTED:
-        case actionlib::TerminalState::PREEMPTED:
-        case actionlib::TerminalState::ABORTED:
-        case actionlib::TerminalState::LOST:
-	  {
-	    ROS_INFO("Trajectory controller status came back as failed");
-	    controller_status_ = FAILED;
-	    controller_goal_handle_.reset();
-	    return;
-	  }
-        case actionlib::TerminalState::SUCCEEDED:
-	  {
-	    controller_goal_handle_.reset();
-	    controller_status_ = SUCCESS;	  
-	    return;
-	  }
-        default:
-          ROS_ERROR("Unknown terminal state [%u]. This is a bug in ActionClient", gh.getTerminalState().state_);
-        }
-      }
-    default:
-      break;
-    }
-  } 
-  bool isControllerDone(motion_planning_msgs::ArmNavigationErrorCodes& error_code)
-  {      
-    if (controller_status_ == SUCCESS)
-    {
-      error_code.val = error_code.SUCCESS;
-      return true;
-    } else if(controller_status_ == FAILED)
-    {
-      error_code.val = error_code.TRAJECTORY_CONTROLLER_FAILED;
-      return true;
-    } else {
-      return false;
-    }
-  }
   void fillTrajectoryMsg(const trajectory_msgs::JointTrajectory &trajectory_in, 
                          trajectory_msgs::JointTrajectory &trajectory_out)
   {
@@ -1300,46 +1015,11 @@ private:
           action_server_->setAborted(move_arm_action_result_);
           return true;              
         }
-
-	// if(using_head_monitor_)
-	// {
-        //   move_arm_head_monitor::HeadLookGoal look_goal;
-
-        //   look_goal.target_time = ros::Time::now() + ros::Duration(0.01);
-        //   look_goal.target_link = head_monitor_link_;
-        //   look_goal.target_x = head_monitor_link_x_;
-        //   look_goal.target_y = head_monitor_link_y_;
-        //   look_goal.target_z = head_monitor_link_z_;
-
-        //   ROS_DEBUG("Looking at target link before starting trajectory");
-
-        //   if(head_look_client_->sendGoalAndWait(look_goal, ros::Duration(4.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED)
-        //     ROS_WARN("Head look didn't succeed before timeout, starting anyway");
-	// }
-
-
         ROS_DEBUG("Sending trajectory");
         move_arm_stats_.time_to_execution = (ros::Time::now() - ros::Time(move_arm_stats_.time_to_execution)).toSec();
         if(sendTrajectory(current_trajectory_))
         {
           state_ = MONITOR;
-	  
-	  // if(using_head_monitor_)
-	  // {
-          //   move_arm_head_monitor::HeadMonitorGoal monitor_goal;
-
-          //   monitor_goal.stop_time = current_trajectory_.header.stamp + (current_trajectory_.points.end()-1)->time_from_start;
-          //   monitor_goal.max_frequency = head_monitor_max_frequency_;
-          //   monitor_goal.time_offset = ros::Duration(head_monitor_time_offset_);
-          //   monitor_goal.target_link = head_monitor_link_;
-          //   monitor_goal.target_x = head_monitor_link_x_;
-          //   monitor_goal.target_y = head_monitor_link_y_;
-          //   monitor_goal.target_z = head_monitor_link_z_;
-
-          //   ROS_DEBUG("Starting head monitoring");
-          //   head_monitor_client_->sendGoal(monitor_goal);
-	  // }
-
         }
         else
         {
@@ -1356,10 +1036,8 @@ private:
         move_arm_action_feedback_.time_to_completion = current_trajectory_.points.back().time_from_start;
         action_server_->publishFeedback(move_arm_action_feedback_);
         ROS_DEBUG("Start to monitor");
-        motion_planning_msgs::ArmNavigationErrorCodes controller_error_code;
-        if(isControllerDone(controller_error_code))
+        if(head_monitor_done_)
         {
-          stopMonitoring();
           move_arm_stats_.time_to_result = (ros::Time::now()-ros::Time(move_arm_stats_.time_to_result)).toSec();
 
           motion_planning_msgs::RobotState empty_state;
@@ -1375,8 +1053,8 @@ private:
             move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
             resetStateMachine();
             action_server_->setSucceeded(move_arm_action_result_);
-            if(controller_error_code.val == controller_error_code.TRAJECTORY_CONTROLLER_FAILED) {
-              ROS_INFO("Trajectory controller failed but we seem to be at goal");
+            if(head_monitor_error_code_.val == head_monitor_error_code_.TRAJECTORY_CONTROLLER_FAILED) {
+              ROS_INFO("Monitor failed but we seem to be at goal");
               if(log_to_warehouse_) {
                 warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
                                                           "trajectory_failed_at_goal",
@@ -1411,62 +1089,10 @@ private:
             }
             resetStateMachine();
             action_server_->setAborted(move_arm_action_result_);
-            ROS_INFO("Trajectory controller done but not in good state");
+            ROS_INFO("Monitor done but not in good state");
 	    return true;              
           }
         }
-        if(!move_arm_parameters_.disable_collision_monitoring && action_server_->isActive())
-        {          
-          ROS_DEBUG("Monitoring trajectory");
-          if(ros::Time::now() - last_monitor_time_ <= trajectory_monitoring_duration_)
-          {
-            break;
-          }
-          last_monitor_time_ = ros::Time::now();
-          if(!isExecutionSafe())
-          {
-            ROS_INFO("Stopping trajectory since it is unsafe");
-            
-            if(using_head_monitor_)
-            {
-              pause_start_time_ = ros::Time::now();
-              state_ = PAUSE;
-            }
-            else
-            {
-              state_ = PLANNING;
-            }
-
-            stopTrajectory();
-
-          }
-        }
-        break;
-      }
-    case PAUSE:
-      {
-        if(isExecutionSafe())
-        {
-          ROS_INFO("Safe to resume, trying to remove completed trajectory section");
-          trajectory_msgs::JointTrajectory shortened_trajectory;
-          if(removeCompletedTrajectory(current_trajectory_, shortened_trajectory, true))
-          {
-            current_trajectory_ = shortened_trajectory;
-            ROS_INFO("Shortening trajectory succeeded, starting control");	
-            state_ = START_CONTROL;
-          }
-          else
-          {
-            ROS_INFO("Shortening trajectory failed, going back to planning");	
-            state_ = PLANNING;
-          }
-        }
-        else if(ros::Time::now() - pause_start_time_ > ros::Duration(pause_allowed_time_))
-        {
-          ROS_INFO("Pausing has timed out, trying to replan trajectory");
-          state_ = PLANNING;
-        }
-
         break;
       }
     default:
@@ -1486,6 +1112,13 @@ private:
   {
     motion_planning_msgs::GetMotionPlan::Request req;	    
     moveArmGoalToPlannerRequest(goal,req);	    
+
+    move_arm_head_monitor::PreplanHeadScanGoal preplan_scan_goal;
+    preplan_scan_goal.motion_plan_request = goal->motion_plan_request;
+    preplan_scan_goal.head_monitor_link = head_monitor_link_;
+    if(preplan_scan_action_client_->sendGoalAndWait(preplan_scan_goal, ros::Duration(6.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED) {
+      ROS_WARN_STREAM("Preplan scan failed");
+    }
 
     if(!getAndSetPlanningScene(goal->planning_scene_diff)) {
       ROS_INFO("Problem setting planning scene");
@@ -1532,8 +1165,9 @@ private:
         {
           move_arm_action_result_.contacts.clear();
           move_arm_action_result_.error_code.val = 0;
-          if (controller_status_ == QUEUED || controller_status_ == ACTIVE)
-            stopTrajectory();
+          if(state_ == MONITOR) {
+            head_monitor_client_->cancelGoal();
+          }
           const move_arm_msgs::MoveArmGoalConstPtr& new_goal = action_server_->acceptNewGoal();
           moveArmGoalToPlannerRequest(new_goal,req);
           ROS_INFO("Received new goal, will preempt previous goal");
@@ -1565,8 +1199,9 @@ private:
         else               //if we've been preempted explicitly we need to shut things down
         {
           ROS_INFO("The move arm action was preempted by the action client. Preempting this goal.");
-          if (controller_status_ == QUEUED || controller_status_ == ACTIVE)
-            stopTrajectory();
+          if(state_ == MONITOR) {
+            head_monitor_client_->cancelGoal();
+          }
           revertPlanningScene();
           resetStateMachine();
           action_server_->setPreempted();
@@ -1596,6 +1231,20 @@ private:
     //if the node is killed then we'll abort and return
     ROS_INFO("Node was killed, aborting");
     action_server_->setAborted(move_arm_action_result_);
+  }
+
+  void monitorDoneCallback(const actionlib::SimpleClientGoalState& state, 
+                           move_arm_head_monitor::HeadMonitorResultConstPtr result) {
+    //TODO - parse goal state for success or failure
+    head_monitor_done_ = true;
+    head_monitor_error_code_ = result->error_code;
+    ROS_INFO_STREAM("Actual trajectory with " << result->actual_trajectory.points.size());
+    if(log_to_warehouse_) {
+      warehouse_logger_->pushJointTrajectoryToWarehouse(current_planning_scene_,
+                                                        "monitor",
+                                                        result->actual_trajectory.points.back().time_from_start,
+                                                        result->actual_trajectory);
+    }
   }
 
   bool logPlanningScene(std::string fn_suffix) {
@@ -1814,8 +1463,8 @@ private:
 
   std::string group_;
 
-  //boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
-  //boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadLookAction> >  head_look_client_;
+  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
+  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::PreplanHeadScanAction> >  preplan_scan_action_client_;
 
   ros::ServiceClient ik_client_;
   ros::ServiceClient trajectory_start_client_,trajectory_cancel_client_,trajectory_query_client_;	
@@ -1832,8 +1481,6 @@ private:
   tf::TransformListener *tf_;
   MoveArmState state_;
   double move_arm_frequency_;      	
-  ros::Duration trajectory_monitoring_duration_;
-  ros::Time last_monitor_time_;
   trajectory_msgs::JointTrajectory current_trajectory_;
 
   int num_planning_attempts_;
@@ -1857,20 +1504,15 @@ private:
   ros::ServiceClient get_planning_scene_client_;
   ros::ServiceClient log_planning_scene_client_;
   MoveArmParameters move_arm_parameters_;
-  ControllerStatus controller_status_;
-
-  JointExecutorActionClient* controller_action_client_;
-  JointExecutorActionClient::GoalHandle controller_goal_handle_;
 
   double trajectory_filter_allowed_time_, ik_allowed_time_;
   double trajectory_discretization_;
   bool arm_ik_initialized_;
   
   std::string head_monitor_link_;
-  double head_monitor_link_x_, head_monitor_link_y_, head_monitor_link_z_, head_monitor_max_frequency_, head_monitor_time_offset_;
-  double pause_allowed_time_;
-  ros::Time pause_start_time_;
-  bool using_head_monitor_;
+  double head_monitor_time_offset_;
+  motion_planning_msgs::ArmNavigationErrorCodes head_monitor_error_code_;
+  bool head_monitor_done_;
 
   bool publish_stats_;
   move_arm_msgs::MoveArmStatistics move_arm_stats_;
