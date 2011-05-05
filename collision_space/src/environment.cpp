@@ -265,14 +265,14 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(cons
 {
   bool ok = true;
   if(allowed_entries_bimap_.left.find(name) == allowed_entries_bimap_.left.end()) {
-    ROS_INFO_STREAM("No entry for " << name);
+    ROS_DEBUG_STREAM("No entry for " << name);
     ok = false;
     return ok;
   }
   unsigned int ind_1 = allowed_entries_bimap_.left.find(name)->second;
   for(unsigned int i = 0; i < change_names.size(); i++) {
     if(allowed_entries_bimap_.left.find(change_names[i]) == allowed_entries_bimap_.left.end()) {
-      ROS_INFO_STREAM("No entry for " << change_names[i]);
+      ROS_DEBUG_STREAM("No entry for " << change_names[i]);
       ok = false;
       continue;
     }
