@@ -84,6 +84,10 @@ public:
     return state_monitor_started_;
   }	
   
+  void addOnStateUpdateCallback(const boost::function<void(const sensor_msgs::JointStateConstPtr &joint_state)> &callback) {
+    on_state_update_callback_ = callback;
+  }
+
   /** \brief Get the kinematic model that is being used to check for validity */
   const planning_models::KinematicModel* getKinematicModel(void) const
   {
@@ -181,11 +185,10 @@ protected:
   ros::Subscriber joint_state_subscriber_;
   tf::TransformListener *tf_;
 
-  double robotVelocity_;
   tf::Pose pose_;
   std::string robot_frame_;
 
-  boost::function<void(void)> onStateUpdate_;
+  boost::function<void(const sensor_msgs::JointStateConstPtr &joint_state)> on_state_update_callback_;
 
   bool have_pose_;
   bool have_joint_state_;

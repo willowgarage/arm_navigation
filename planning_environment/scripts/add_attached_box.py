@@ -49,11 +49,20 @@ def test_add_convert_objects():
     obj2.poses[0].orientation.z = 0
     obj2.poses[0].orientation.w = 1
     att_obj.object = obj2
-    r = rospy.Rate(5.0)
+    r = rospy.Rate(6)
+
+    sent_twice = 0
 
     while(True):
+        sent_twice += 1
+        if sent_twice >= 4 and sent_twice%2 == 0:
+            att_obj.object.operation.operation = mapping_msgs.msg.CollisionObjectOperation.DETACH_AND_ADD_AS_OBJECT
+        elif sent_twice > 4 and sent_twice%2 == 1:
+            att_obj.object.operation.operation = mapping_msgs.msg.CollisionObjectOperation.ATTACH_AND_REMOVE_AS_OBJECT
+        print 'sending'    
         att_obj.object.header.stamp = rospy.Time.now()
-        att_pub.publish(att_obj)
+        att_pub.publish(att_obj)     
+        
         r.sleep()
 
 if __name__ == '__main__':

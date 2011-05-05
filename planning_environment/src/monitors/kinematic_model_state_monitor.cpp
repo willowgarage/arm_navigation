@@ -43,9 +43,8 @@
 void planning_environment::KinematicModelStateMonitor::setupRSM(void)
 {
   state_monitor_started_ = false;
-  onStateUpdate_ = NULL;
+  on_state_update_callback_ = NULL;
   have_pose_ = have_joint_state_ = false;
-  robotVelocity_ = 0.0;
     
   printed_out_of_date_ = false;
   if (rm_->loadedModels())
@@ -91,7 +90,7 @@ void planning_environment::KinematicModelStateMonitor::stopStateMonitor(void)
   state_monitor_started_ = false;
 }
 
-void planning_environment::KinematicModelStateMonitor::jointStateCallback(const sensor_msgs::JointStateConstPtr &jointState)
+void planning_environment::KinematicModelStateMonitor::jointStateCallback(const sensor_msgs::JointStateConstPtr &joint_state)
 {
   //bool change = !have_joint_state_;
 
@@ -103,20 +102,18 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
 
   static bool first_time = true;
 
-  unsigned int n = jointState->name.size();
-  if (jointState->name.size() != jointState->position.size() || jointState->name.size() !=jointState->velocity.size())
+  unsigned int n = joint_state->name.size();
+  if (joint_state->name.size() != joint_state->position.size() || joint_state->name.size() !=joint_state->velocity.size())
   {
     ROS_ERROR("Planning environment received invalid joint state");
     current_joint_values_lock_.unlock();
     return;
   }
   
-  robotVelocity_ = 0.0;
   std::map<std::string, double> joint_state_map;
   for (unsigned int i = 0 ; i < n ; ++i)
   {
-    joint_state_map[jointState->name[i]] = jointState->position[i];
-    robotVelocity_ += jointState->velocity[i];
+    joint_state_map[joint_state->name[i]] = joint_state->position[i];
   }
 
   std::vector<planning_models::KinematicState::JointState*>& joint_state_vector = state.getJointStateVector();
@@ -125,7 +122,7 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
       it != joint_state_vector.end();
       it++) {
     bool tfSets = false;
-    bool jointStateSets = false;
+    bool joint_state_sets = false;
     //see if we need to update any transforms
     std::string parent_frame_id = (*it)->getParentFrameId();
     std::string child_frame_id = (*it)->getChildFrameId();
@@ -168,13 +165,13 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
       }
     }
     //now we update from joint state
-    jointStateSets = (*it)->setJointStateValues(joint_state_map);
-    if(jointStateSets) {
+    joint_state_sets = (*it)->setJointStateValues(joint_state_map);
+    if(joint_state_sets) {
       const std::vector<std::string>& joint_state_names = (*it)->getJointStateNameOrder();
       for(std::vector<std::string>::const_iterator it = joint_state_names.begin();
           it != joint_state_names.end();
           it++) {
-        last_joint_update_[*it] = jointState->header.stamp;
+        last_joint_update_[*it] = joint_state->header.stamp;
       }
     }
   }
@@ -184,15 +181,15 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
 
   if(allJointsUpdated()) {
     have_joint_state_ = true;
-    last_joint_state_update_ = jointState->header.stamp;
+    last_joint_state_update_ = joint_state->header.stamp;
     
     if(!joint_state_map_cache_.empty()) {
-      if(jointState->header.stamp-joint_state_map_cache_.back().first > ros::Duration(joint_state_cache_allowed_difference_)) {
-        ROS_DEBUG_STREAM("Introducing joint state cache sparsity time of " << (jointState->header.stamp-joint_state_map_cache_.back().first).toSec());
+      if(joint_state->header.stamp-joint_state_map_cache_.back().first > ros::Duration(joint_state_cache_allowed_difference_)) {
+        ROS_DEBUG_STREAM("Introducing joint state cache sparsity time of " << (joint_state->header.stamp-joint_state_map_cache_.back().first).toSec());
       }
     }
 
-    joint_state_map_cache_.push_back(std::pair<ros::Time, std::map<std::string, double> >(jointState->header.stamp,
+    joint_state_map_cache_.push_back(std::pair<ros::Time, std::map<std::string, double> >(joint_state->header.stamp,
                                                                                           current_joint_state_map_));
   } 
 
@@ -209,7 +206,6 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
       }
     }
   }
-  robotVelocity_ = sqrt(robotVelocity_);
     
   first_time = false;
 
@@ -221,8 +217,8 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
   } else {
     printed_out_of_date_ = false;
   }
-  if(onStateUpdate_ != NULL) {
-    onStateUpdate_();
+  if(on_state_update_callback_ != NULL) {
+    on_state_update_callback_(joint_state);
   }
   current_joint_values_lock_.unlock();
 }
