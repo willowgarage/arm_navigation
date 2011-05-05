@@ -12,9 +12,9 @@
   <depend package="actionlib"/>
   <depend package="actionlib_msgs"/>
   <depend package="pr2_controllers_msgs" />
-  <depend package="kinematics_msgs" />
   <depend package="visualization_msgs" /> 
   <depend package="tf" />
+  <depend package="planning_environment" />
 
 </package>
 

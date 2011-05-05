@@ -32,340 +32,705 @@
  *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *
- *  \author Adam Harmat
+ *  \author Adam Harmat, E. Gil Jones
  *********************************************************************/
 
 #include <ros/ros.h>
+
+#include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/monitors/kinematic_model_state_monitor.h>
+#include <planning_environment/models/model_utils.h>
+#include <planning_environment/monitors/monitor_utils.h>
+#include <motion_planning_msgs/convert_messages.h>
+#include <angles/angles.h>
+
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+#include <pcl/ros/conversions.h>
+#include <pcl_ros/transforms.h>
 
 #include <actionlib/server/simple_action_server.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/simple_client_goal_state.h>
 
-#include <move_arm_head_monitor/HeadMonitorAction.h>
-#include <move_arm_head_monitor/HeadLookAction.h>
-
-#include <kinematics_msgs/GetKinematicSolverInfo.h>
-#include <kinematics_msgs/GetPositionFK.h>
-
 #include <pr2_controllers_msgs/PointHeadAction.h>
-#include <pr2_controllers_msgs/QueryTrajectoryState.h>
-#include <pr2_controllers_msgs/JointTrajectoryControllerState.h>
+#include <pr2_controllers_msgs/JointTrajectoryAction.h>
+
+#include <move_arm_head_monitor/HeadMonitorStatus.h>
+#include <move_arm_head_monitor/HeadMonitorAction.h>
+#include <move_arm_head_monitor/PreplanHeadScanAction.h>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 
-#include <tf/transform_datatypes.h>
+#include <tf/transform_listener.h>
 
+static const std::string RIGHT_ARM_GROUP = "right_arm";
+static const std::string LEFT_ARM_GROUP = "left_arm";
 
-// The head point action doesn't look exactly at target point, so add correction first
-static const double HEAD_CORRECTION_DISTANCE = 0.08;
+std::string convertFromGroupNameToArmName(const std::string& arm_name) {
+  if(arm_name.find(RIGHT_ARM_GROUP) != std::string::npos) {
+    return(RIGHT_ARM_GROUP);
+  } else if(arm_name.find(LEFT_ARM_GROUP) != std::string::npos) {
+    return(LEFT_ARM_GROUP);
+  } else {
+    ROS_WARN_STREAM("Neither left arm group or right arm group in group: " << arm_name);
+  }
+  return std::string("");
+}
 
 class HeadMonitor
 {
 protected:
 
-  ros::NodeHandle nh_;
+  ros::NodeHandle private_handle_;
   ros::NodeHandle root_handle_;
-  actionlib::SimpleActionServer<move_arm_head_monitor::HeadMonitorAction> head_monitor_actionserver_;
-  actionlib::SimpleActionServer<move_arm_head_monitor::HeadLookAction> head_look_actionserver_;
+  actionlib::SimpleActionServer<move_arm_head_monitor::HeadMonitorAction> head_monitor_action_server_;
+  actionlib::SimpleActionServer<move_arm_head_monitor::PreplanHeadScanAction> head_preplan_scan_action_server_;
 
   ros::Publisher marker_pub_;
 
-  actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> point_head_actionclient_;
+  actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction> head_controller_action_client_;
+  actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction>* right_arm_controller_action_client_;
+  actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction>* left_arm_controller_action_client_;
+  actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> point_head_action_client_;
 
-  ros::ServiceClient trajectory_state_serviceclient_;
-  ros::ServiceClient forward_kinematics_serviceclient_;
+  std::string current_group_name_;
+  actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction>* current_arm_controller_action_client_;
+
+  planning_environment::CollisionModelsInterface* collision_models_interface_;
+  planning_environment::KinematicModelStateMonitor* kmsm_;
 
   move_arm_head_monitor::HeadMonitorGoal monitor_goal_;
   move_arm_head_monitor::HeadMonitorFeedback monitor_feedback_;
   move_arm_head_monitor::HeadMonitorResult monitor_result_;
 
-  ros::Timer monitor_timer_;
+  sensor_msgs::JointState last_joint_state_;
+
+  trajectory_msgs::JointTrajectory logged_trajectory_;
+  ros::Time logged_trajectory_start_time_;
+
+  tf::TransformListener tf_;
+
+  ros::Timer paused_callback_timer_;
+  ros::Timer start_trajectory_timer_;
 
   visualization_msgs::Marker marker_;
 
+  tf::MessageFilter<sensor_msgs::PointCloud2> *mn_;
+  message_filters::Subscriber<sensor_msgs::PointCloud2> *sub_;
+
+  //TODO - get rid of once we have Adam's stuff
+  double start_head_pan_, start_head_tilt_, goal_head_pan_, goal_head_tilt_;
+
+  double point_sphere_size_;
+  double pause_time_;
+
+  move_arm_head_monitor::HeadMonitorStatus current_execution_status_;
 
 public:
 
-  HeadMonitor(const ros::NodeHandle &n) :
-    nh_("~"),
-    root_handle_(n),
-    head_monitor_actionserver_(nh_, "monitor_action"),
-    head_look_actionserver_(nh_, "look_action", boost::bind(&HeadMonitor::lookExecuteCallback, this, _1)),
-    point_head_actionclient_("head_controller_actionserver", true)  // ie "/head_traj_controller/point_head_action"
+  HeadMonitor() :
+    private_handle_("~"),
+    head_monitor_action_server_(root_handle_, "head_monitor_action", false),
+    head_preplan_scan_action_server_(root_handle_, "preplan_head_scan", boost::bind(&HeadMonitor::preplanHeadScanCallback, this, _1), false), 
+    head_controller_action_client_("/head_traj_controller/joint_trajectory_action", true),
+    point_head_action_client_("/head_traj_controller/point_head_action", true)
   {
+    ROS_INFO_STREAM("In constructor");
+    
+    current_execution_status_.status = current_execution_status_.IDLE;
 
-    head_monitor_actionserver_.registerGoalCallback(boost::bind(&HeadMonitor::monitorGoalCallback, this));
-  	head_monitor_actionserver_.registerPreemptCallback(boost::bind(&HeadMonitor::monitorPreemptCallback, this));
-  
-  	monitor_timer_ = nh_.createTimer(ros::Duration(1), boost::bind(&HeadMonitor::monitorTimerCallback, this, _1));
-    monitor_timer_.stop();
-  
-  	marker_pub_ = nh_.advertise<visualization_msgs::Marker>("point_head_target_marker", 1,true);
-  
-  	trajectory_state_serviceclient_ = root_handle_.serviceClient<pr2_controllers_msgs::QueryTrajectoryState>("trajectory_query_service");
-  	forward_kinematics_serviceclient_ = root_handle_.serviceClient<kinematics_msgs::GetPositionFK>("forward_kinematics_service");
-  
-  	while(ros::ok() && !point_head_actionclient_.waitForServer(ros::Duration(5.0)))
-  	{
-  	  ROS_INFO("Waiting for point head action server");
-  	}
-  
-  	while(ros::ok() && !ros::service::waitForService("trajectory_query_service", ros::Duration(5.0))) // ie "/r_arm_controller/query_state"
-  	{	
-  	  ROS_INFO_STREAM("Waiting for trajectory query service: "<<trajectory_state_serviceclient_.getService());
-  	}
-  	
-  	while(ros::ok() && !ros::service::waitForService("forward_kinematics_service", ros::Duration(5.0)))  // ie "/pr2_right_arm_kinematics/get_fk"
-  	{
-  	  ROS_INFO_STREAM("Waiting for forward kinematics service: "<<forward_kinematics_serviceclient_.getService());
-  	}
-  	
-  	ROS_INFO_STREAM("Starting head monitor action server for "<<ros::this_node::getName());
+    private_handle_.param<double>("point_sphere_size", point_sphere_size_, .01);
+    private_handle_.param<double>("pause_time", pause_time_, 5.0);
+
+    std::string robot_description_name = root_handle_.resolveName("robot_description", true);
+    
+    collision_models_interface_ = new planning_environment::CollisionModelsInterface(robot_description_name);
+    kmsm_ = new planning_environment::KinematicModelStateMonitor(collision_models_interface_, &tf_);
+
+    kmsm_->addOnStateUpdateCallback(boost::bind(&HeadMonitor::jointStateCallback, this, _1));
+
+    sub_ = new message_filters::Subscriber<sensor_msgs::PointCloud2> (root_handle_, "cloud_in", 1);	
+    mn_ = new tf::MessageFilter<sensor_msgs::PointCloud2> (*sub_, tf_, "", 1);
+    mn_->setTargetFrame(collision_models_interface_->getWorldFrameId());
+    mn_->registerCallback(boost::bind(&HeadMonitor::cloudCallback, this, _1));
+
+    head_monitor_action_server_.registerGoalCallback(boost::bind(&HeadMonitor::monitorGoalCallback, this));
+    head_monitor_action_server_.registerPreemptCallback(boost::bind(&HeadMonitor::monitorPreemptCallback, this));
+
+    right_arm_controller_action_client_ = new actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction>("/r_arm_controller/joint_trajectory_action", true);
+    left_arm_controller_action_client_ = new actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction>("/l_arm_controller/joint_trajectory_action", true);
+    while(ros::ok() && !right_arm_controller_action_client_->waitForServer(ros::Duration(1.0))){
+      ROS_INFO("Waiting for the right_joint_trajectory_action server to come up.");
+    }
+    while(ros::ok() && !left_arm_controller_action_client_->waitForServer(ros::Duration(1.0))){
+      ROS_INFO("Waiting for the right_joint_trajectory_action server to come up.");
+    }
+
+    ROS_INFO("Connected to the controllers");
+    
+    head_monitor_action_server_.start();
+    head_preplan_scan_action_server_.start();
+    	
+    ROS_INFO_STREAM("Starting head monitor action server for "<<ros::this_node::getName());
   }
 
   ~HeadMonitor(void)
   {
+    delete kmsm_;
+    delete collision_models_interface_;
+    delete right_arm_controller_action_client_;
+    delete left_arm_controller_action_client_;
   }
 
-
-  // Points the head at a point in a given frame  
-  void lookAt(std::string frame_id, double x, double y, double z, bool wait)
+  ///
+  ///  Message and action callbacks
+  ///
+  
+  void cloudCallback (const sensor_msgs::PointCloud2ConstPtr &cloud2)
   {
-    
-   	pr2_controllers_msgs::PointHeadGoal goal;
-
-  	//the target point, expressed in the requested frame
-  	geometry_msgs::PointStamped point;
-  	point.header.frame_id = frame_id;
-  	point.point.x = x; 
-  	point.point.y = y; 
-  	point.point.z = z;
-  
-  	goal.target = point;
-  
-  	//take at least 0.4 seconds to get there, lower value makes head jerky
-  	goal.min_duration = ros::Duration(0.4);
-
-  	if(wait)
-  	{
-  	  if(point_head_actionclient_.sendGoalAndWait(goal, ros::Duration(3.0), ros::Duration(0.5)) != actionlib::SimpleClientGoalState::SUCCEEDED)
-  	    ROS_WARN("Point head timed out, continuing");
-  	}
-  	else
-  	{
-      point_head_actionclient_.sendGoal(goal);
-  	}
-  }
-
-  // Looks at where a target link will be at a given time by looking up future trajectory and calling forward kinematics service
-  bool lookAtTarget(std::string target_link, double target_x, double target_y, double target_z, ros::Time check_time, bool wait_for_head, visualization_msgs::Marker* marker = NULL)
-  {
-  	pr2_controllers_msgs::QueryTrajectoryState::Request  traj_request;
-  	pr2_controllers_msgs::QueryTrajectoryState::Response traj_response;
-  
-  	kinematics_msgs::GetPositionFK::Request  fk_request;
-  	kinematics_msgs::GetPositionFK::Response fk_response;
-  
-  	fk_request.header.frame_id = "base_link";
-  	fk_request.fk_link_names.push_back(target_link);
-  
-  	traj_request.time = check_time;
-  
-  	if(trajectory_state_serviceclient_.call(traj_request, traj_response))
-  	{
-  	  fk_request.robot_state.joint_state.name = traj_response.name;
-  	  fk_request.robot_state.joint_state.position = traj_response.position;
-  	  fk_request.robot_state.joint_state.velocity = traj_response.velocity;
-  
-      if(forward_kinematics_serviceclient_.call(fk_request, fk_response))
-      {
-        if(fk_response.error_code.val == fk_response.error_code.SUCCESS)
-        {
-          tf::Vector3 link_position(fk_response.pose_stamped[0].pose.position.x, fk_response.pose_stamped[0].pose.position.y, fk_response.pose_stamped[0].pose.position.z);
-          tf::Quaternion link_pose(fk_response.pose_stamped[0].pose.orientation.x, fk_response.pose_stamped[0].pose.orientation.y,
-          		fk_response.pose_stamped[0].pose.orientation.z, fk_response.pose_stamped[0].pose.orientation.w);
-          
-          tf::Transform link_transform(link_pose, link_position);
-          tf::Vector3 relative_target_position(target_x, target_y, target_z);
-          tf::Vector3 absolute_target_position = link_transform * relative_target_position;
-    
-          double approx_angle = atan2(absolute_target_position.y(), absolute_target_position.x());
-          double x_corr = -HEAD_CORRECTION_DISTANCE*sin(approx_angle);
-          double y_corr = HEAD_CORRECTION_DISTANCE*cos(approx_angle);
-          
-          ROS_DEBUG_STREAM("Approx angle of target point: " << approx_angle << "  x correction: " <<x_corr<< "  y correction: " <<y_corr);
-          
-          lookAt("base_link", absolute_target_position.x() + x_corr, absolute_target_position.y() + y_corr, absolute_target_position.z(), wait_for_head);
-    
-          if(marker)
-          {
-            geometry_msgs::Point tempPoint;
-            tempPoint.x = absolute_target_position.x() + x_corr;
-            tempPoint.y = absolute_target_position.y() + y_corr;
-            tempPoint.z = absolute_target_position.z();
-            marker->points.push_back(tempPoint);
-            
-            marker->header.stamp = ros::Time::now();
-          }
-        }
-        else
-        {
-          ROS_ERROR("Forward kinematics failed");
-          return false;
-        }
-      }
-  		else
-  		{
-  			ROS_ERROR("Forward kinematics service call failed");
-  			return false;
-  		}	
-  	}
-  	else
-  	{
-  		ROS_ERROR("Trajectory service call failed");
-  		return false;
-  	}
-  
-  	return true;
-  }
-
-  // Looks at a given target at the current time and returns	
-  void lookExecuteCallback(const move_arm_head_monitor::HeadLookGoalConstPtr &goalPtr)
-  {
-	  move_arm_head_monitor::HeadLookGoal goal(*goalPtr);
-    move_arm_head_monitor::HeadLookResult result;
-	
-    bool success = lookAtTarget(goal.target_link, goal.target_x, goal.target_y, goal.target_z, goal.target_time, true);
-
-  	if(success)
-    {
-      result.resultStatus.status = result.resultStatus.SUCCEEDED;
-      ROS_DEBUG_STREAM(ros::this_node::getName()<<": Succeeded at looking");
-      head_look_actionserver_.setSucceeded(result);
+    if(current_execution_status_.status == current_execution_status_.IDLE ||
+       current_execution_status_.status == current_execution_status_.PREPLAN_SCAN) {
+      return;
     }
-    else
-    {
-      stopHead();
-    
-      if(head_look_actionserver_.isPreemptRequested())
-      {
-        result.resultStatus.status = result.resultStatus.PREEMPTED;
-        ROS_DEBUG_STREAM(ros::this_node::getName()<<": Preempted while looking");
-        head_look_actionserver_.setPreempted();
+
+    pcl::PointCloud<pcl::PointXYZ> pcl_cloud, trans_cloud;
+    pcl::fromROSMsg(*cloud2, pcl_cloud);
+
+    if(pcl_cloud.points.size() == 0) {
+      ROS_WARN_STREAM("No points in cloud");
+    } 
+
+    collision_models_interface_->bodiesLock();
+
+    sensor_msgs::JointState js = last_joint_state_;
+    trajectory_msgs::JointTrajectory joint_trajectory_subset;
+    if(current_execution_status_.status == current_execution_status_.EXECUTING) {
+      removeCompletedTrajectory(monitor_goal_.joint_trajectory,
+                                js,
+                                joint_trajectory_subset,
+                                false);
+    } else {
+      joint_trajectory_subset = monitor_goal_.joint_trajectory;
+    }
+
+    if(joint_trajectory_subset.points.size() == 0) {
+      //no points left to check 
+      if(current_execution_status_.status == current_execution_status_.PAUSED) {
+        ROS_ERROR_STREAM("Paused, but closest trajectory point is goal");
       }
-      else
-      {
-        result.resultStatus.status = result.resultStatus.ABORTED;
-        ROS_ERROR_STREAM(ros::this_node::getName()<<": Aborted while looking");
-        head_look_actionserver_.setAborted(result);
-      }
+      collision_models_interface_->bodiesUnlock();
+      return;
+    }
+    ros::WallTime n1 = ros::WallTime::now();
+
+    planning_models::KinematicState state(collision_models_interface_->getKinematicModel());
+    kmsm_->setStateValuesFromCurrentValues(state);
+
+    planning_environment::updateAttachedObjectBodyPoses(collision_models_interface_,
+                                                        state,
+                                                        tf_);
+
+    trans_cloud = pcl_cloud;
+
+    //now in the right frame
+    if (collision_models_interface_->getWorldFrameId() != pcl_cloud.header.frame_id) {
+      pcl_ros::transformPointCloud(collision_models_interface_->getWorldFrameId(), pcl_cloud, trans_cloud, tf_);
+    }
+
+    std::vector<shapes::Shape*> spheres(trans_cloud.points.size());;
+    std::vector<btTransform> positions(trans_cloud.points.size());
+
+    btQuaternion ident(0.0, 0.0, 0.0, 1.0);
+    //making spheres from the points
+    for (unsigned int i = 0 ; i < trans_cloud.points.size(); ++i) {
+      positions[i] = btTransform(ident, 
+                                 btVector3(trans_cloud.points[i].x, trans_cloud.points[i].y, trans_cloud.points[i].z));
+      spheres[i] = new shapes::Sphere(point_sphere_size_);
     }
     
+    //collisions should have been turned off with everything but this
+    collision_models_interface_->addStaticObject("point_spheres",
+                                                 spheres,
+                                                 positions,
+                                                 0.0);
+
+    //turning off collisions except between point spheres and downstream links
+    collision_space::EnvironmentModel::AllowedCollisionMatrix acm = collision_models_interface_->getCollisionSpace()->getCurrentAllowedCollisionMatrix();
+    const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(current_group_name_);
+    acm.addEntry("point_spheres", true);
+    acm.changeEntry(true);
+    acm.changeEntry("point_spheres", joint_model_group->getUpdatedLinkModelNames(), false);
+
+    collision_models_interface_->setAlteredAllowedCollisionMatrix(acm);
+    
+    motion_planning_msgs::Constraints empty_constraints;
+    motion_planning_msgs::ArmNavigationErrorCodes error_code;
+    std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+
+    if(!collision_models_interface_->isJointTrajectoryValid(state, 
+                                                            joint_trajectory_subset,
+                                                            empty_constraints,
+                                                            empty_constraints, 
+                                                            error_code,
+                                                            trajectory_error_codes, 
+                                                            false)) {
+      if(current_execution_status_.status == current_execution_status_.MONITOR_BEFORE_EXECUTION ||
+         current_execution_status_.status == current_execution_status_.EXECUTING) {
+        ROS_WARN_STREAM("Trajectory judged invalid " << error_code.val << ". Pausing");
+        //TODO - stop more gracefully, do something else?
+        if(current_execution_status_.status == current_execution_status_.MONITOR_BEFORE_EXECUTION) {
+          start_trajectory_timer_.stop();
+        } else {
+          current_arm_controller_action_client_->cancelGoal();
+        }
+        stopHead();
+        current_execution_status_.status = current_execution_status_.PAUSED;
+        paused_callback_timer_ = root_handle_.createTimer(ros::Duration(pause_time_), boost::bind(&HeadMonitor::pauseTimeoutCallback, this), true);
+      } 
+      //if paused no need to do anything else, except maybe provide additional feedback?
+    } else {
+      if(current_execution_status_.status == current_execution_status_.PAUSED) {
+        paused_callback_timer_.stop();
+       
+        ROS_WARN_STREAM("Unpausing");
+
+        current_execution_status_.status = current_execution_status_.MONITOR_BEFORE_EXECUTION;
+        
+        sensor_msgs::JointState js = last_joint_state_;
+        trajectory_msgs::JointTrajectory joint_trajectory_subset;
+        
+        removeCompletedTrajectory(monitor_goal_.joint_trajectory,
+                                  js,
+                                  joint_trajectory_subset,
+                                  false);
+
+        pr2_controllers_msgs::JointTrajectoryGoal goal;
+        goal.trajectory = generateHeadTrajectory(monitor_goal_.target_link, joint_trajectory_subset);
+        head_controller_action_client_.sendGoal(goal);
+
+        //Setting timer for actually sending trajectory
+        start_trajectory_timer_ = root_handle_.createTimer(ros::Duration(monitor_goal_.time_offset), boost::bind(&HeadMonitor::trajectoryTimerCallback, this), true);
+      }
+    }
+    ROS_INFO_STREAM("Trajectory check took " << (ros::WallTime::now() - n1).toSec());
+    collision_models_interface_->bodiesUnlock();
   }
 
-  void stopHead()
+  void preplanHeadScanCallback(const move_arm_head_monitor::PreplanHeadScanGoalConstPtr &goal)
   {
-  	if(point_head_actionclient_.getState().state_ == actionlib::SimpleClientGoalState::ACTIVE)
-  	{
-  		point_head_actionclient_.cancelGoal();
-  		point_head_actionclient_.waitForResult(ros::Duration(0.2));
-  	}
-  }
+    move_arm_head_monitor::PreplanHeadScanResult res;
 
-  void monitorPreemptCallback()
-  {
-  	stopHead();
-  	monitor_timer_.stop();
-  
-  	monitor_result_.resultStatus.status = monitor_result_.resultStatus.PREEMPTED;
-  	ROS_DEBUG_STREAM(ros::this_node::getName()<<": Preempted");
-  	head_monitor_actionserver_.setPreempted(monitor_result_);
-  }
+    collision_models_interface_->bodiesLock();
 
-  // Periodic timer callback computes next head position and sends it to head controller
-  void monitorTimerCallback(const ros::TimerEvent& event)
-  {
-  	if(!head_monitor_actionserver_.isActive())
-  		return;
-  
-  	monitor_feedback_.feedbackStatus.status = monitor_feedback_.feedbackStatus.ACTIVE;
-  	head_monitor_actionserver_.publishFeedback(monitor_feedback_);
-  
-  	ros::Time now = ros::Time::now();
-  	ros::Time check_time = now + monitor_goal_.time_offset;
-  
-    // Stop if past goal stop time
-  	if(monitor_goal_.stop_time > ros::Time(0) && now > monitor_goal_.stop_time)
-  	{
-  		monitor_result_.resultStatus.status = monitor_result_.resultStatus.SUCCEEDED;
-   		ROS_DEBUG_STREAM(ros::this_node::getName()<<": Succeeded");
-  		head_monitor_actionserver_.setSucceeded(monitor_result_);
-  		monitor_timer_.stop();
-  		return;
-  	}
-  
-  	bool success = lookAtTarget(monitor_goal_.target_link, monitor_goal_.target_x, monitor_goal_.target_y, monitor_goal_.target_z, check_time, false, &marker_);
-  
-  	if(!success)
-  	{
-  		monitor_result_.resultStatus.status = monitor_result_.resultStatus.ABORTED;
-  		ROS_ERROR_STREAM(ros::this_node::getName()<<": Aborted");
-  		head_monitor_actionserver_.setAborted(monitor_result_);
-  		monitor_timer_.stop();
-  	}
-  	else
-  	{
-  		marker_pub_.publish(marker_);
-  	}	
+    if(current_execution_status_.status != current_execution_status_.IDLE) {
+      ROS_WARN_STREAM("Got preplan in something other than IDLE mode");
+    }
 
+    current_execution_status_.status = current_execution_status_.PREPLAN_SCAN;
+
+    //need a kinematic state
+    planning_models::KinematicState state(collision_models_interface_->getKinematicModel());
+    
+    kmsm_->setStateValuesFromCurrentValues(state);
+
+    //supplementing with start state changes
+    planning_environment::setRobotStateAndComputeTransforms(goal->motion_plan_request.start_state,
+                                                            state);
+    double x_start, y_start, z_start;
+
+    if(!state.hasLinkState(goal->head_monitor_link)) {
+      ROS_WARN_STREAM("No monitor link " << goal->head_monitor_link);
+      head_preplan_scan_action_server_.setAborted(res);
+      collision_models_interface_->bodiesUnlock();
+      return;
+    }
+
+    btTransform link_state = state.getLinkState(goal->head_monitor_link)->getGlobalCollisionBodyTransform();
+    x_start = link_state.getOrigin().x();
+    y_start = link_state.getOrigin().y();
+    z_start = link_state.getOrigin().z();
+
+    double x_goal, y_goal, z_goal;
+    if(goal->motion_plan_request.goal_constraints.position_constraints.size() >= 1
+       && goal->motion_plan_request.goal_constraints.orientation_constraints.size() >= 1) {
+      geometry_msgs::PoseStamped goal_pose 
+        = motion_planning_msgs::poseConstraintsToPoseStamped(goal->motion_plan_request.goal_constraints.position_constraints[0],
+                                                             goal->motion_plan_request.goal_constraints.orientation_constraints[0]);
+      x_goal = goal_pose.pose.position.x;
+      y_goal = goal_pose.pose.position.y;
+      z_goal = goal_pose.pose.position.z;
+    } else {
+      if(goal->motion_plan_request.goal_constraints.joint_constraints.size() <= 1) {
+        ROS_WARN("Not a pose goal and not enough joint constraints");
+        head_preplan_scan_action_server_.setAborted(res);
+        collision_models_interface_->bodiesUnlock();
+        return;
+      }
+      std::map<std::string, double> joint_values;
+      for(unsigned int i = 0; i < goal->motion_plan_request.goal_constraints.joint_constraints.size(); i++) {
+        joint_values[goal->motion_plan_request.goal_constraints.joint_constraints[i].joint_name] = goal->motion_plan_request.goal_constraints.joint_constraints[i].position;
+      }
+      state.setKinematicState(joint_values);
+      btTransform link_state = state.getLinkState(goal->head_monitor_link)->getGlobalCollisionBodyTransform();
+      x_goal = link_state.getOrigin().x();
+      y_goal = link_state.getOrigin().y();
+      z_goal = link_state.getOrigin().z();
+    }
+    std::map<std::string, double> state_values;
+    ROS_INFO_STREAM("Looking at goal " << x_goal << " " << y_goal << " " << z_goal);
+    lookAt(collision_models_interface_->getWorldFrameId(), x_goal, y_goal, z_goal, true);
+    kmsm_->setStateValuesFromCurrentValues(state);
+    state.getKinematicStateValues(state_values);
+    goal_head_pan_ = state_values["head_pan_joint"];
+    goal_head_tilt_ = state_values["head_tilt_joint"];
+    ROS_INFO_STREAM("Looking at start " << x_start << " " << y_start << " " << z_start);
+    lookAt(collision_models_interface_->getWorldFrameId(), x_start, y_start, z_start, true);
+    kmsm_->setStateValuesFromCurrentValues(state);
+    state.getKinematicStateValues(state_values);
+    start_head_pan_ = state_values["head_pan_joint"];
+    start_head_tilt_ = state_values["head_tilt_joint"];
+    head_preplan_scan_action_server_.setSucceeded(res);
+    collision_models_interface_->bodiesUnlock();
   }
 
   // Called when a new monitoring goal is received
   void monitorGoalCallback()
   {
-  	if(head_monitor_actionserver_.isActive())
-  	{
-  		stopHead();
-  		monitor_timer_.stop();
-  	}
-  
-  	monitor_goal_ = move_arm_head_monitor::HeadMonitorGoal(*head_monitor_actionserver_.acceptNewGoal());
-  
-  	if(head_monitor_actionserver_.isPreemptRequested())
-  	{
-  		monitor_result_.resultStatus.status = monitor_result_.resultStatus.PREEMPTED;
-  		ROS_DEBUG_STREAM(ros::this_node::getName() << ": Preempted");
-  		head_monitor_actionserver_.setPreempted(monitor_result_);
-  		return;
-  	}
-  
-    ROS_DEBUG_STREAM("Received goal");
-   	ROS_DEBUG_STREAM("  Stop time: " << monitor_goal_.stop_time);
-  	ROS_DEBUG_STREAM("  Max Frequency: " << monitor_goal_.max_frequency);
-  	ROS_DEBUG_STREAM("  Time offset: " << monitor_goal_.time_offset);
-  
-  	// ---------- markers for visualization --- 
-  	marker_ = visualization_msgs::Marker();
-  	marker_.header.frame_id = "/base_link";
-  	marker_.header.stamp = ros::Time::now();
-  	marker_.ns = "basic_shapes";
-  	marker_.id = 0;
-  	marker_.type = visualization_msgs::Marker::POINTS;
-  	marker_.action = visualization_msgs::Marker::ADD;
-  	marker_.scale.x = 0.02;
-  	marker_.scale.y = 0.02;
-  	marker_.scale.z = 0.02;
-  	marker_.color.r = 1;
-  	marker_.color.g = 1;
-  	marker_.color.b = 0;
-  	marker_.color.a = 1;
-  	marker_.lifetime = ros::Duration();
-    // -------------------------------------------
-  
-    monitor_timer_.setPeriod(ros::Duration(1/monitor_goal_.max_frequency));
-  	monitor_timer_.start();
+    if(head_monitor_action_server_.isActive())
+    {
+      stopHead();
+    }
 
+    if(head_monitor_action_server_.isPreemptRequested())
+    {
+      ROS_DEBUG_STREAM(ros::this_node::getName() << ": Preempted");
+      head_monitor_action_server_.setPreempted(monitor_result_);
+      return;
+    }
+
+    if(head_monitor_action_server_.isNewGoalAvailable())
+    {
+      monitor_goal_ = move_arm_head_monitor::HeadMonitorGoal(*head_monitor_action_server_.acceptNewGoal());
+    } else {
+      ROS_WARN_STREAM("Not preempted but no new goal available");
+    }
+
+    current_group_name_ = convertFromGroupNameToArmName(monitor_goal_.group_name);
+
+    if(current_group_name_.empty()) {
+      ROS_WARN_STREAM("Group name doesn't have left or right arm in it, gonna be bad");
+    }
+
+    current_arm_controller_action_client_ = ((current_group_name_ == RIGHT_ARM_GROUP) ? right_arm_controller_action_client_ : left_arm_controller_action_client_);
+    current_execution_status_.status = current_execution_status_.MONITOR_BEFORE_EXECUTION;
+
+    //Generating head trajectory and deploying it
+    pr2_controllers_msgs::JointTrajectoryGoal goal;
+    goal.trajectory = generateHeadTrajectory(monitor_goal_.target_link, monitor_goal_.joint_trajectory);
+    head_controller_action_client_.sendGoal(goal);
+    
+    logged_trajectory_ = monitor_goal_.joint_trajectory;
+    logged_trajectory_.points.clear();
+
+    logged_trajectory_start_time_ = ros::Time::now();
+
+    //Setting timer for actually sending trajectory
+    start_trajectory_timer_ = root_handle_.createTimer(ros::Duration(monitor_goal_.time_offset), boost::bind(&HeadMonitor::trajectoryTimerCallback, this), true);
+  }
+
+  void stopHead()
+  {
+    head_controller_action_client_.cancelAllGoals();
+  }
+  
+  void stopArm() 
+  {
+    if(current_execution_status_.status == current_execution_status_.EXECUTING) {
+      current_arm_controller_action_client_->cancelGoal();
+    }
+  }
+
+  void stopEverything() {
+    start_trajectory_timer_.stop();
+    paused_callback_timer_.stop();
+    stopHead();
+    stopArm();
+  }
+
+  void monitorPreemptCallback()
+  {
+    if(current_execution_status_.status != current_execution_status_.MONITOR_BEFORE_EXECUTION &&
+       current_execution_status_.status != current_execution_status_.EXECUTING &&
+       current_execution_status_.status != current_execution_status_.PAUSED) {
+      ROS_WARN_STREAM("Got preempt not in a relevant mode");
+      return;
+    }
+    //no reason not to cancel
+    stopEverything();
+
+    current_execution_status_.status = current_execution_status_.IDLE;
+
+    ROS_DEBUG_STREAM(ros::this_node::getName() << ": Preempted");
+    head_monitor_action_server_.setPreempted(monitor_result_);
+  }
+
+  void jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state) {
+    if(current_execution_status_.status == current_execution_status_.IDLE
+       || current_execution_status_.status == current_execution_status_.PREPLAN_SCAN) {
+      return;
+    }
+    std::map<std::string, double> joint_state_map;
+    std::map<std::string, double> joint_velocity_map;
+    //message already been validated in kmsm
+    for (unsigned int i = 0 ; i < joint_state->position.size(); ++i)
+    {
+      joint_state_map[joint_state->name[i]] = joint_state->position[i];
+      joint_velocity_map[joint_state->name[i]] = joint_state->velocity[i];
+    }
+    trajectory_msgs::JointTrajectoryPoint point;
+    point.positions.resize(logged_trajectory_.joint_names.size());
+    point.velocities.resize(logged_trajectory_.joint_names.size());
+    for(unsigned int i = 0; i < logged_trajectory_.joint_names.size(); i++) {
+      point.positions[i] = joint_state_map[logged_trajectory_.joint_names[i]];
+      point.velocities[i] = joint_velocity_map[logged_trajectory_.joint_names[i]];
+    }
+    point.time_from_start = ros::Time::now()-logged_trajectory_start_time_;
+    logged_trajectory_.points.push_back(point);
+
+    last_joint_state_ = *joint_state;
+  }
+
+  void controllerDoneCallback(const actionlib::SimpleClientGoalState& state,
+                              const pr2_controllers_msgs::JointTrajectoryResultConstPtr& result)
+  {
+    if(current_execution_status_.status != current_execution_status_.EXECUTING) {
+      //because we cancelled
+      return;
+    }
+    ROS_INFO_STREAM("Trajectory reported done with state " << state.toString());
+    current_execution_status_.status = current_execution_status_.IDLE;
+    monitor_result_.actual_trajectory = logged_trajectory_;
+    monitor_result_.error_code.val = monitor_result_.error_code.SUCCESS;
+    head_monitor_action_server_.setSucceeded(monitor_result_);
+  }
+
+  void pauseTimeoutCallback() {
+    ROS_INFO_STREAM("Paused trajectory timed out");
+    stopEverything();
+    current_execution_status_.status = current_execution_status_.IDLE;
+    monitor_result_.actual_trajectory = logged_trajectory_;
+    monitor_result_.error_code.val = monitor_result_.error_code.TIMED_OUT;
+    head_monitor_action_server_.setAborted(monitor_result_);
+  }
+
+  ///
+  ///  Timer callbacks
+  ///
+
+
+  void trajectoryTimerCallback() {
+    current_execution_status_.status = current_execution_status_.EXECUTING;
+
+    pr2_controllers_msgs::JointTrajectoryGoal goal;  
+
+    sensor_msgs::JointState js = last_joint_state_;
+    removeCompletedTrajectory(monitor_goal_.joint_trajectory,
+                              js,
+                              goal.trajectory,
+                              false);
+
+    goal.trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
+
+    ROS_INFO("Sending trajectory with %d points and timestamp: %f",(int)goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
+    current_arm_controller_action_client_->sendGoal(goal,boost::bind(&HeadMonitor::controllerDoneCallback, this, _1, _2));
+  }
+
+  ///
+  /// Convenience functions
+  /// 
+
+  trajectory_msgs::JointTrajectory generateHeadTrajectory(const std::string& link, const trajectory_msgs::JointTrajectory& joint_trajectory) {
+    trajectory_msgs::JointTrajectory ret_traj;
+    ret_traj.header = joint_trajectory.header;
+    ret_traj.header.stamp = ros::Time::now();
+    ret_traj.joint_names.resize(2); 
+    ret_traj.joint_names[0] = "head_pan_joint";
+    ret_traj.joint_names[1] = "head_tilt_joint";
+
+    //TODO - incorporate Adam's stuff
+    
+    ret_traj.points.resize(2);
+
+    ret_traj.points[0].positions.resize(2);
+    ret_traj.points[1].positions.resize(2);
+    
+    ret_traj.points[0].positions[0] = start_head_pan_;
+    ret_traj.points[0].positions[1] = start_head_tilt_;
+    ret_traj.points[0].time_from_start = ros::Duration(.2);
+
+    ret_traj.points[1].positions[0] = goal_head_pan_;
+    ret_traj.points[1].positions[1] = goal_head_tilt_;
+    ret_traj.points[1].time_from_start = joint_trajectory.points.back().time_from_start;
+
+    return ret_traj;
+  }
+
+ // Points the head at a point in a given frame  
+  void lookAt(std::string frame_id, double x, double y, double z, bool wait)
+  {
+    
+    pr2_controllers_msgs::PointHeadGoal goal;
+
+    //the target point, expressed in the requested frame
+    geometry_msgs::PointStamped point;
+    point.header.frame_id = frame_id;
+    point.point.x = x; 
+    point.point.y = y; 
+    point.point.z = z;
+  
+    goal.target = point;
+  
+    //take at least 0.4 seconds to get there, lower value makes head jerky
+    goal.min_duration = ros::Duration(.4);
+    goal.max_velocity = 1.0;
+
+    if(wait)
+    {
+      if(point_head_action_client_.sendGoalAndWait(goal, ros::Duration(3.0), ros::Duration(0.5)) != actionlib::SimpleClientGoalState::SUCCEEDED)
+        ROS_WARN("Point head timed out, continuing");
+    }
+    else
+    {
+      point_head_action_client_.sendGoal(goal);
+    }
+  }
+
+  int closestStateOnTrajectory(const trajectory_msgs::JointTrajectory &trajectory, const sensor_msgs::JointState &joint_state, unsigned int start, unsigned int end)
+  {
+    double dist = 0.0;
+    int    pos  = -1;
+
+    std::map<std::string, double> current_state_map;
+    std::map<std::string, bool> continuous;
+    for(unsigned int i = 0; i < joint_state.name.size(); i++) {
+      current_state_map[joint_state.name[i]] = joint_state.position[i];
+    }
+
+    for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+      std::string name = trajectory.joint_names[j];
+      boost::shared_ptr<const urdf::Joint> joint = collision_models_interface_->getParsedDescription()->getJoint(name);
+      if (joint.get() == NULL)
+      {
+        ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
+        return false;
+      }
+      if (joint->type == urdf::Joint::CONTINUOUS) {
+        continuous[name] = true;
+      } else {
+        continuous[name] = false;
+      }
+
+    }
+
+    for (unsigned int i = start ; i <= end ; ++i)
+    {
+      double d = 0.0;
+      for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+        double diff; 
+        if(!continuous[trajectory.joint_names[j]]) {
+          diff = fabs(trajectory.points[i].positions[j] - current_state_map[trajectory.joint_names[j]]);
+        } else {
+          diff = angles::shortest_angular_distance(trajectory.points[i].positions[j],current_state_map[trajectory.joint_names[j]]);
+        }
+        d += diff * diff;
+      }
+	
+      if (pos < 0 || d < dist)
+      {
+        pos = i;
+        dist = d;
+      }
+    }    
+
+    // if(pos == 0) {
+    //   for(unsigned int i = 0; i < joint_state.name.size(); i++) {
+    //     ROS_INFO_STREAM("Current state for joint " << joint_state.name[i] << " is " << joint_state.position[i]);
+    //   }
+    //   for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+    //     ROS_INFO_STREAM("Trajectory zero has " << trajectory.points[0].positions[j] << " for joint " << trajectory.joint_names[j]);
+    //   }
+    // }
+
+    return pos;
+  }
+
+  bool removeCompletedTrajectory(const trajectory_msgs::JointTrajectory &trajectory_in, 
+                                 const sensor_msgs::JointState& current_state, 
+                                 trajectory_msgs::JointTrajectory &trajectory_out, 
+                                 bool zero_vel_acc)
+  {
+
+    trajectory_out = trajectory_in;
+    trajectory_out.points.clear();
+
+    if(trajectory_in.points.empty())
+    {
+      ROS_WARN("No points in input trajectory");
+      return true;
+    }
+        
+    int current_position_index = 0;        
+    //Get closest state in given trajectory
+    current_position_index = closestStateOnTrajectory(trajectory_in, current_state, current_position_index, trajectory_in.points.size() - 1);
+    if (current_position_index < 0)
+    {
+      ROS_ERROR("Unable to identify current state in trajectory");
+      return false;
+    } else {
+      ROS_DEBUG_STREAM("Closest state is " << current_position_index << " of " << trajectory_in.points.size());
+    }
+    
+    // Start one ahead of returned closest state index to make sure first trajectory point is not behind current state
+    for(unsigned int i = current_position_index+1; i < trajectory_in.points.size(); ++i)
+    {
+      trajectory_out.points.push_back(trajectory_in.points[i]);
+    }
+
+    if(trajectory_out.points.empty())
+    {
+      ROS_DEBUG("No points in output trajectory");
+      return false;
+    }	
+
+    ros::Duration first_time = trajectory_out.points[0].time_from_start;
+
+    if(first_time < ros::Duration(.1)) {
+      first_time = ros::Duration(0.0);
+    } else {
+      first_time -= ros::Duration(.1);
+    }
+
+    for(unsigned int i=0; i < trajectory_out.points.size(); ++i)
+    {
+      if(trajectory_out.points[i].time_from_start > first_time) {
+        trajectory_out.points[i].time_from_start -= first_time;
+      } else {
+        ROS_INFO_STREAM("Not enough time in time from start for trajectory point " << i);
+      }
+    }
+
+    if(zero_vel_acc) {
+      for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i) {
+        for(unsigned int j=0; j < trajectory_out.points.size(); ++j) {
+          trajectory_out.points[j].velocities[i] = 0;
+          trajectory_out.points[j].accelerations[i] = 0;
+        }
+      }
+    }
+    return true;
   }
 
 };
@@ -375,11 +740,12 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "move_arm_head_monitor");
 
-  ros::NodeHandle node;
-  HeadMonitor head_monitor(node);
-  
-  ros::spin();
+  ros::AsyncSpinner spinner(4); 
+  spinner.start();
 
+  HeadMonitor head_monitor;
+
+  ros::waitForShutdown();
   return 0;
 }
 

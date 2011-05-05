@@ -1,14 +1,14 @@
+string group_name
+trajectory_msgs/JointTrajectory joint_trajectory
+
 #goal definition
-time stop_time
-float32 max_frequency
 duration time_offset
 string target_link
-float32 target_x
-float32 target_y
-float32 target_z
 ---
-#result definition
-actionlib_msgs/GoalStatus resultStatus
+trajectory_msgs/JointTrajectory actual_trajectory
+motion_planning_msgs/ArmNavigationErrorCodes error_code
 ---
-#feedback
-actionlib_msgs/GoalStatus feedbackStatus
+#HeadMonitorStatus status
+#motion_planning_msgs/RobotState paused_state
+#mapping_msgs/CollisionMap paused_collision_map
+

@@ -1,0 +1,5 @@
+# The motion plan request
+string head_monitor_link
+motion_planning_msgs/MotionPlanRequest motion_plan_request
+---
+---
