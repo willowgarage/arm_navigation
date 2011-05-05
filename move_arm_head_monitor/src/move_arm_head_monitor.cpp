@@ -315,7 +315,7 @@ public:
         start_trajectory_timer_ = root_handle_.createTimer(ros::Duration(monitor_goal_.time_offset), boost::bind(&HeadMonitor::trajectoryTimerCallback, this), true);
       }
     }
-    ROS_INFO_STREAM("Trajectory check took " << (ros::WallTime::now() - n1).toSec());
+    ROS_DEBUG_STREAM("Trajectory check took " << (ros::WallTime::now() - n1).toSec());
     collision_models_interface_->bodiesUnlock();
   }
 
@@ -359,9 +359,16 @@ public:
       geometry_msgs::PoseStamped goal_pose 
         = motion_planning_msgs::poseConstraintsToPoseStamped(goal->motion_plan_request.goal_constraints.position_constraints[0],
                                                              goal->motion_plan_request.goal_constraints.orientation_constraints[0]);
-      x_goal = goal_pose.pose.position.x;
-      y_goal = goal_pose.pose.position.y;
-      z_goal = goal_pose.pose.position.z;
+
+      std::string es;
+      if (tf_.getLatestCommonTime(collision_models_interface_->getWorldFrameId(), goal_pose.header.frame_id, goal_pose.header.stamp, &es) != tf::NO_ERROR) {
+      }
+      geometry_msgs::PoseStamped psout;
+      tf_.transformPose(collision_models_interface_->getWorldFrameId(), goal_pose, psout);
+
+      x_goal = psout.pose.position.x;
+      y_goal = psout.pose.position.y;
+      z_goal = psout.pose.position.z;
     } else {
       if(goal->motion_plan_request.goal_constraints.joint_constraints.size() <= 1) {
         ROS_WARN("Not a pose goal and not enough joint constraints");
