@@ -926,9 +926,11 @@ private:
           num_planning_attempts_++;
           motion_planning_msgs::ArmNavigationErrorCodes error_code;
           error_code.val = error_code.PLANNING_FAILED;
-          warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
-                                                    "planner",
-                                                    error_code);
+          if(log_to_warehouse_) {
+	    warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+						      "planner",
+						      error_code);
+	  }
           if(num_planning_attempts_ > req.motion_plan_request.num_planning_attempts)
           {
             resetStateMachine();
