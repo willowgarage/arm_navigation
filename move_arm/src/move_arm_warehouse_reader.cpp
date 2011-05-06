@@ -116,7 +116,12 @@ std::vector<warehouse::Condition> MoveArmWarehouseReader::makeConditionForPlanni
 bool MoveArmWarehouseReader::getPlanningScene(const std::string& hostname, const ros::Time& time, 
                                               planning_environment_msgs::PlanningScene& planning_scene)
 {
-  std::vector<warehouse::Condition> cond = makeConditionForPlanningSceneTime(time);
+  std::vector<warehouse::Condition> cond(1);
+  cond[0].field_name = "robot_state.joint_state.header.stamp";
+  cond[0].predicate = warehouse::Condition::EQUALS;
+  std::stringstream ss;
+  ss << time;
+  cond[0].args.push_back(ss.str());  
 
   std::vector<PlanningSceneWithMetadata> planning_scenes = planning_scene_collection_.pullAllResults(cond, false);
 
