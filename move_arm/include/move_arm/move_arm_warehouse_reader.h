@@ -45,6 +45,7 @@
 #include <motion_planning_msgs/MotionPlanRequest.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectory.h>
+#include <move_arm_msgs/HeadMonitorFeedback.h>
 
 namespace move_arm
 {
@@ -85,6 +86,16 @@ public:
                                     ros::Duration& processing_time, 
                                     trajectory_msgs::JointTrajectory& joint_trajectory);
 
+  bool getAssociatedPausedStates(const std::string& hostname, 
+                                 const ros::Time& time,
+                                 std::vector<ros::Time>& paused_times);
+
+  bool getAssociatedPausedState(const std::string& hostname, 
+                                const ros::Time& planning_time, 
+                                const ros::Time& paused_time,
+                                move_arm_msgs::HeadMonitorFeedback& paused_state);
+    
+
 protected:
 
   std::vector<warehouse::Condition> makeConditionForPlanningSceneTime(const ros::Time& time);
@@ -94,6 +105,7 @@ protected:
   warehouse::Collection<motion_planning_msgs::MotionPlanRequest> motion_plan_request_collection_;
   warehouse::Collection<trajectory_msgs::JointTrajectory> trajectory_collection_;
   warehouse::Collection<motion_planning_msgs::ArmNavigationErrorCodes> outcome_collection_;
+  warehouse::Collection<move_arm_msgs::HeadMonitorFeedback> paused_state_collection_;
   
 };
 

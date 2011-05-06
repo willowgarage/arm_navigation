@@ -46,6 +46,7 @@
 #include <motion_planning_msgs/MotionPlanRequest.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectory.h>
+#include <move_arm_msgs/HeadMonitorFeedback.h>
 
 namespace move_arm
 {
@@ -82,6 +83,10 @@ public:
   void pushOutcomeToWarehouse(const planning_environment_msgs::PlanningScene& planning_scene,
                               const std::string& pipeline_stage,
                               const motion_planning_msgs::ArmNavigationErrorCodes& error_codes);
+  
+  void pushPausedStateToWarehouse(const planning_environment_msgs::PlanningScene& planning_scene,
+                                  const move_arm_msgs::HeadMonitorFeedback& feedback);
+
 protected:
 
   std::string makeMetaStringFromHostname();
@@ -93,6 +98,7 @@ protected:
   warehouse::Collection<motion_planning_msgs::MotionPlanRequest> motion_plan_request_collection_;
   warehouse::Collection<trajectory_msgs::JointTrajectory> trajectory_collection_;
   warehouse::Collection<motion_planning_msgs::ArmNavigationErrorCodes> outcome_collection_;
+  warehouse::Collection<move_arm_msgs::HeadMonitorFeedback> paused_state_collection_;
   
   std::string hostname_;
   

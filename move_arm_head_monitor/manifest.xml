@@ -15,6 +15,7 @@
   <depend package="visualization_msgs" /> 
   <depend package="tf" />
   <depend package="planning_environment" />
+  <depend package="move_arm_msgs" />
 
 </package>
 

@@ -47,6 +47,7 @@ typedef warehouse::MessageWithMetadata<planning_environment_msgs::PlanningScene>
 typedef warehouse::MessageWithMetadata<motion_planning_msgs::MotionPlanRequest>::ConstPtr MotionPlanRequestWithMetadata;
 typedef warehouse::MessageWithMetadata<trajectory_msgs::JointTrajectory>::ConstPtr JointTrajectoryWithMetadata;
 typedef warehouse::MessageWithMetadata<motion_planning_msgs::ArmNavigationErrorCodes>::ConstPtr ErrorCodesWithMetadata;
+typedef warehouse::MessageWithMetadata<move_arm_msgs::HeadMonitorFeedback>::ConstPtr HeadMonitorFeedbackWithMetadata;
   
 MoveArmWarehouseReader::MoveArmWarehouseReader() :
   warehouse_client_("move_arm_warehouse_logger")
@@ -115,13 +116,7 @@ std::vector<warehouse::Condition> MoveArmWarehouseReader::makeConditionForPlanni
 bool MoveArmWarehouseReader::getPlanningScene(const std::string& hostname, const ros::Time& time, 
                                               planning_environment_msgs::PlanningScene& planning_scene)
 {
-  std::vector<warehouse::Condition> cond(1);
-  cond[0].field_name = "robot_state.joint_state.header.stamp";
-  cond[0].predicate = warehouse::Condition::EQUALS;
-  std::stringstream ss;
-  ss << time;
-
-  cond[0].args.push_back(ss.str());  
+  std::vector<warehouse::Condition> cond = makeConditionForPlanningSceneTime(time);
 
   std::vector<PlanningSceneWithMetadata> planning_scenes = planning_scene_collection_.pullAllResults(cond, false);
 
@@ -282,3 +277,59 @@ bool MoveArmWarehouseReader::getAssociatedJointTrajectory(const std::string& hos
   return true;
 }
 
+bool MoveArmWarehouseReader::getAssociatedPausedStates(const std::string& hostname, 
+                                                       const ros::Time& time,
+                                                       std::vector<ros::Time>& paused_times)
+{
+  paused_times.clear();
+  std::vector<warehouse::Condition> cond = makeConditionForPlanningSceneTime(time);
+  
+  std::vector<HeadMonitorFeedbackWithMetadata> paused_states = paused_state_collection_.pullAllResults(cond, true);
+
+  if(paused_states.size() == 0) {
+    return false;
+  } 
+  for(unsigned int i = 0; i < paused_states.size(); i++) {
+    std::stringstream fin(paused_states[i]->metadata);
+    YAML::Parser parser(fin);
+    YAML::Node doc;
+    while(parser.GetNextDocument(doc)) { 
+      std::string s;
+      doc["paused_collision_map___header___stamp"] >> s;
+      std::stringstream ss(s);
+      double t;
+      ss >> t;
+      paused_times[i] = ros::Time(t);
+    }
+  }
+  return true;   
+}
+
+bool MoveArmWarehouseReader::getAssociatedPausedState(const std::string& hostname, 
+                                                      const ros::Time& planning_time, 
+                                                      const ros::Time& paused_time,
+                                                      move_arm_msgs::HeadMonitorFeedback& paused_state)
+{
+  std::vector<warehouse::Condition> cond = makeConditionForPlanningSceneTime(planning_time);
+
+  warehouse::Condition time_cond;
+  time_cond.field_name = "paused_collision_map.header.stamp";
+  time_cond.predicate = warehouse::Condition::EQUALS;
+  std::stringstream ss;
+  ss << paused_time;  
+  time_cond.args.push_back(ss.str());  
+
+  cond.push_back(time_cond);
+
+  std::vector<HeadMonitorFeedbackWithMetadata> paused_states = paused_state_collection_.pullAllResults(cond, true);
+
+  if(paused_states.size() == 0) {
+    ROS_WARN_STREAM("No paused states with that time");
+    return false;
+  } else if(paused_states.size() > 1) {
+    ROS_WARN_STREAM("Multiple paused states with time");
+    return false;
+  }
+  paused_state = *paused_states[0];
+  return true;
+}

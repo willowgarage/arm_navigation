@@ -8,7 +8,7 @@ string target_link
 trajectory_msgs/JointTrajectory actual_trajectory
 motion_planning_msgs/ArmNavigationErrorCodes error_code
 ---
-#HeadMonitorStatus status
-#motion_planning_msgs/RobotState paused_state
-#mapping_msgs/CollisionMap paused_collision_map
+motion_planning_msgs/RobotState current_state
+motion_planning_msgs/RobotState paused_trajectory_state
+mapping_msgs/CollisionObject paused_collision_map
 

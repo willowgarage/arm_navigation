@@ -76,8 +76,8 @@
 
 #include <planning_environment_msgs/GetRobotState.h>
 
-#include <move_arm_head_monitor/HeadMonitorAction.h>
-#include <move_arm_head_monitor/PreplanHeadScanAction.h>
+#include <move_arm_msgs/HeadMonitorAction.h>
+#include <move_arm_msgs/PreplanHeadScanAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/simple_client_goal_state.h>
 
@@ -88,8 +88,6 @@
 #include <valarray>
 #include <algorithm>
 #include <cstdlib>
-
-typedef actionlib::ActionClient<pr2_controllers_msgs::JointTrajectoryAction> JointExecutorActionClient;
 
 namespace move_arm
 {
@@ -178,13 +176,13 @@ public:
     get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
     log_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::LogPlanningScene>(LOG_PLANNING_SCENE_NAME);
     
-    preplan_scan_action_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::PreplanHeadScanAction> ("preplan_head_scan", true));
+    preplan_scan_action_client_.reset(new actionlib::SimpleActionClient<move_arm_msgs::PreplanHeadScanAction> ("preplan_head_scan", true));
 
     while(ros::ok() && !preplan_scan_action_client_->waitForServer(ros::Duration(10))) {
       ROS_WARN("No preplan scan service");
     }
 
-    head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> ("head_monitor_action", true));
+    head_monitor_client_.reset(new actionlib::SimpleActionClient<move_arm_msgs::HeadMonitorAction> ("head_monitor_action", true));
     while(ros::ok() && !head_monitor_client_->waitForServer(ros::Duration(10))) {
       ROS_INFO("Waiting for head monitor server");
     }
@@ -703,7 +701,7 @@ private:
     head_monitor_error_code_.val = 0;
     current_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
 
-    move_arm_head_monitor::HeadMonitorGoal goal;
+    move_arm_msgs::HeadMonitorGoal goal;
     goal.group_name = group_;
     goal.joint_trajectory = current_trajectory;
     goal.target_link = head_monitor_link_;
@@ -732,7 +730,11 @@ private:
           goal.trajectory.points[i].velocities[5],
           goal.trajectory.points[i].velocities[6]);
           }*/
-    head_monitor_client_->sendGoal(goal, boost::bind(&MoveArm::monitorDoneCallback, this, _1, _2));
+    head_monitor_client_->sendGoal(goal, 
+                                   boost::bind(&MoveArm::monitorDoneCallback, this, _1, _2), 
+                                   actionlib::SimpleActionClient<move_arm_msgs::HeadMonitorAction>::SimpleActiveCallback(),
+                                   boost::bind(&MoveArm::monitorFeedbackCallback, this, _1));
+
     return true;
   }
 
@@ -1115,7 +1117,7 @@ private:
     motion_planning_msgs::GetMotionPlan::Request req;	    
     moveArmGoalToPlannerRequest(goal,req);	    
 
-    move_arm_head_monitor::PreplanHeadScanGoal preplan_scan_goal;
+    move_arm_msgs::PreplanHeadScanGoal preplan_scan_goal;
     preplan_scan_goal.motion_plan_request = goal->motion_plan_request;
     preplan_scan_goal.head_monitor_link = head_monitor_link_;
     if(preplan_scan_action_client_->sendGoalAndWait(preplan_scan_goal, ros::Duration(6.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED) {
@@ -1236,7 +1238,7 @@ private:
   }
 
   void monitorDoneCallback(const actionlib::SimpleClientGoalState& state, 
-                           move_arm_head_monitor::HeadMonitorResultConstPtr result) {
+                           const move_arm_msgs::HeadMonitorResultConstPtr& result) {
     //TODO - parse goal state for success or failure
     head_monitor_done_ = true;
     head_monitor_error_code_ = result->error_code;
@@ -1248,6 +1250,15 @@ private:
                                                         result->actual_trajectory);
     }
   }
+
+  void monitorFeedbackCallback(const move_arm_msgs::HeadMonitorFeedbackConstPtr& feedback) {
+    ROS_INFO_STREAM("Got feedback from monitor");
+    if(log_to_warehouse_) {
+      warehouse_logger_->pushPausedStateToWarehouse(current_planning_scene_,
+                                                    *feedback);
+    }
+  }
+
 
   bool logPlanningScene(std::string fn_suffix) {
     planning_environment_msgs::LogPlanningScene::Request log_req;
@@ -1465,8 +1476,8 @@ private:
 
   std::string group_;
 
-  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::HeadMonitorAction> >  head_monitor_client_;
-  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_head_monitor::PreplanHeadScanAction> >  preplan_scan_action_client_;
+  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_msgs::HeadMonitorAction> >  head_monitor_client_;
+  boost::shared_ptr<actionlib::SimpleActionClient<move_arm_msgs::PreplanHeadScanAction> >  preplan_scan_action_client_;
 
   ros::ServiceClient ik_client_;
   ros::ServiceClient trajectory_start_client_,trajectory_cancel_client_,trajectory_query_client_;	

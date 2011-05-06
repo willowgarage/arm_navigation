@@ -68,6 +68,10 @@ MoveArmWarehouseLogger::MoveArmWarehouseLogger() :
   indexed_fields.clear();
   indexed_fields.push_back("val");
   outcome_collection_ = warehouse_client_.setupCollection<motion_planning_msgs::ArmNavigationErrorCodes>("outcome", indexed_fields);
+
+  indexed_fields.clear();
+  indexed_fields.push_back("paused_collision_map.header.stamp");
+  paused_state_collection_ = warehouse_client_.setupCollection<move_arm_msgs::HeadMonitorFeedback>("paused_state", indexed_fields);
 }
 
 std::string MoveArmWarehouseLogger::makeMetaStringFromHostname()
@@ -145,3 +149,14 @@ void MoveArmWarehouseLogger::pushOutcomeToWarehouse(const planning_environment_m
 
   outcome_collection_.publish(error_codes, metadata_string);
 }
+
+void MoveArmWarehouseLogger::pushPausedStateToWarehouse(const planning_environment_msgs::PlanningScene& planning_scene,
+                                                        const move_arm_msgs::HeadMonitorFeedback& feedback)
+{
+  std::string metadata_string = makeMetaStringFromHostname();
+  addPlanningSceneTimeToMetadata(planning_scene, metadata_string);
+  
+  paused_state_collection_.publish(feedback, metadata_string);
+
+}
+                                                       
