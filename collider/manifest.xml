@@ -1,10 +1,10 @@
 <package>
-  <description brief="collider">
+  <description brief="collider - collision avoidance for tabletop manipulation using octomap">
 
-    collider
+    collider - collision avoidance for tabletop manipulation using octomap
 
   </description>
-  <author>Kai Wurm</author>
+  <author>Adam Harmat, Gil E. Jones, Kai M. Wurm, Armin Hornung. Maintained by Gil E. Jones</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   

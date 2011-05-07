@@ -32,7 +32,7 @@
  *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *
- *  \author Adam Harmat, Kai M. Wurm
+ *  \author Adam Harmat, Gil E. Jones, Kai M. Wurm, Armin Hornung
  *********************************************************************/
 
 #include "collider/collider.h"
@@ -820,33 +820,33 @@ void Collider::degradeOutdatedRaycasting(const std_msgs::Header& sensor_header, 
 
 void Collider::degradeSingleSpeckles(){
   for(OcTreeType::leaf_iterator it = collision_octree_->begin_leafs(),
-        end=collision_octree_->end_leafs(); it!= end; ++it)
-    {
-      if (collision_octree_->isNodeOccupied(*it)){
-        octomap::OcTreeKey nKey = it.getKey();
-        octomap::OcTreeKey key;
-        bool neighborFound = false;
-        for (key[2] = nKey[2] - 1; !neighborFound && key[2] <= nKey[2] + 1; ++key[2]){
-          for (key[1] = nKey[1] - 1; !neighborFound && key[1] <= nKey[1] + 1; ++key[1]){
-            for (key[0] = nKey[0] - 1; !neighborFound && key[0] <= nKey[0] + 1; ++key[0]){
-              if (key != nKey){
-                OcTreeType::NodeType* node = collision_octree_->search(key);
-                if (node && collision_octree_->isNodeOccupied(node)){
-                  // we have a neighbor => break!
-                  neighborFound = true;
-                }
+      end=collision_octree_->end_leafs(); it!= end; ++it)
+  {
+    if (collision_octree_->isNodeOccupied(*it)){
+      octomap::OcTreeKey nKey = it.getKey();
+      octomap::OcTreeKey key;
+      bool neighborFound = false;
+      for (key[2] = nKey[2] - 1; !neighborFound && key[2] <= nKey[2] + 1; ++key[2]){
+        for (key[1] = nKey[1] - 1; !neighborFound && key[1] <= nKey[1] + 1; ++key[1]){
+          for (key[0] = nKey[0] - 1; !neighborFound && key[0] <= nKey[0] + 1; ++key[0]){
+            if (key != nKey){
+              OcTreeType::NodeType* node = collision_octree_->search(key);
+              if (node && collision_octree_->isNodeOccupied(node)){
+                // we have a neighbor => break!
+                neighborFound = true;
               }
             }
           }
         }
-        // done with search, see if found and degrade otherwise:
-        if (!neighborFound){
-          ROS_DEBUG("Degrading single speckle at (%f,%f,%f)", it.getX(), it.getY(), it.getZ());
-          collision_octree_->integrateMissNoTime(&*it);
-        }
-
       }
+      // done with search, see if found and degrade otherwise:
+      if (!neighborFound){
+        ROS_DEBUG("Degrading single speckle at (%f,%f,%f)", it.getX(), it.getY(), it.getZ());
+        collision_octree_->integrateMissNoTime(&*it);
+      }
+
     }
+  }
 }
 
 

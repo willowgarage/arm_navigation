@@ -32,7 +32,7 @@
  *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *
- *  \author Adam Harmat, Kai M. Wurm
+ *  \author AAdam Harmat, Gil E. Jones, Kai M. Wurm, Armin Hornung
  *********************************************************************/
 
 #include "collider/collider.h"
