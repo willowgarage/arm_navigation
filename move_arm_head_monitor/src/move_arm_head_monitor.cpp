@@ -199,6 +199,8 @@ public:
       return;
     }
 
+    ros::Time callback_delay = ros::Time::now();
+
     pcl::PointCloud<pcl::PointXYZ> pcl_cloud, trans_cloud, near_cloud;
     pcl::fromROSMsg(*cloud2, pcl_cloud);
 
@@ -254,47 +256,42 @@ public:
         near_cloud.push_back(trans_cloud.points[i]);
       }
     }
-
-    if(near_cloud.points.size() == 0) {
-      if(current_execution_status_.status == current_execution_status_.PAUSED) {
-        ROS_WARN_STREAM("In the paused state but no points left");
-      }
-      collision_models_interface_->bodiesUnlock();
-      return;
-    }
-
+    
     std::vector<shapes::Shape*> spheres(near_cloud.points.size());;
     std::vector<btTransform> positions(near_cloud.points.size());
-
-    btQuaternion ident(0.0, 0.0, 0.0, 1.0);
-    //making spheres from the points
-    for (unsigned int i = 0 ; i < near_cloud.points.size(); ++i) {
-      positions[i] = btTransform(ident, 
-                                 btVector3(near_cloud.points[i].x, near_cloud.points[i].y, near_cloud.points[i].z));
-      spheres[i] = new shapes::Sphere(point_sphere_size_);
-    }
     
-    //collisions should have been turned off with everything but this
-    collision_models_interface_->addStaticObject("point_spheres",
-                                                 spheres,
-                                                 positions,
-                                                 0.0);
-
     ros::WallTime n3 = ros::WallTime::now();
+      
+    if(near_cloud.points.size() != 0) {
 
-    //turning off collisions except between point spheres and downstream links
-    collision_space::EnvironmentModel::AllowedCollisionMatrix acm = collision_models_interface_->getCollisionSpace()->getCurrentAllowedCollisionMatrix();
-    const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(current_group_name_);
-    acm.addEntry("point_spheres", true);
-    acm.changeEntry(true);
-    acm.changeEntry("point_spheres", joint_model_group->getUpdatedLinkModelNames(), false);
+      btQuaternion ident(0.0, 0.0, 0.0, 1.0);
+      //making spheres from the points
+      for (unsigned int i = 0 ; i < near_cloud.points.size(); ++i) {
+        positions[i] = btTransform(ident, 
+                                   btVector3(near_cloud.points[i].x, near_cloud.points[i].y, near_cloud.points[i].z));
+        spheres[i] = new shapes::Sphere(point_sphere_size_);
+      }
+      
+      //collisions should have been turned off with everything but this
+      collision_models_interface_->addStaticObject("point_spheres",
+                                                   spheres,
+                                                   positions,
+                                                   0.0);
 
-    collision_models_interface_->setAlteredAllowedCollisionMatrix(acm);
-    
+      //turning off collisions except between point spheres and downstream links
+      collision_space::EnvironmentModel::AllowedCollisionMatrix acm = collision_models_interface_->getCollisionSpace()->getCurrentAllowedCollisionMatrix();
+      const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(current_group_name_);
+      
+      acm.addEntry("point_spheres", true);
+      acm.changeEntry(true);
+      acm.changeEntry("point_spheres", joint_model_group->getUpdatedLinkModelNames(), false);
+
+      collision_models_interface_->setAlteredAllowedCollisionMatrix(acm);
+    }
     motion_planning_msgs::Constraints empty_constraints;
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
     std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-
+    
     ros::WallTime n2 = ros::WallTime::now();
     if(!collision_models_interface_->isJointTrajectoryValid(state, 
                                                             joint_trajectory_subset,
@@ -309,39 +306,59 @@ public:
         //TODO - stop more gracefully, do something else?
         if(current_execution_status_.status == current_execution_status_.MONITOR_BEFORE_EXECUTION) {
           start_trajectory_timer_.stop();
-        } else {
-          kmsm_->setStateValuesFromCurrentValues(state);
-          planning_environment::convertKinematicStateToRobotState(state,
-                                                                  ros::Time::now(),
-                                                                  collision_models_interface_->getWorldFrameId(),
-                                                                  monitor_feedback_.current_state);
-
-          std::map<std::string, double> vals;
-          for(unsigned int i = 0; i < joint_trajectory_subset.joint_names.size(); i++) {
-            vals[joint_trajectory_subset.joint_names[i]] = joint_trajectory_subset.points[trajectory_error_codes.size()-1].positions[i];
-          }
-          state.setKinematicState(vals);
-          planning_environment::convertKinematicStateToRobotState(state,
-                                                                  ros::Time::now(),
-                                                                  collision_models_interface_->getWorldFrameId(),
-                                                                  monitor_feedback_.paused_trajectory_state);
-          monitor_feedback_.paused_collision_map.header.frame_id = collision_models_interface_->getWorldFrameId();
-          monitor_feedback_.paused_collision_map.header.stamp = cloud2->header.stamp;
-          monitor_feedback_.paused_collision_map.id = "point_spheres";
-          monitor_feedback_.paused_collision_map.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
-          for (unsigned int j = 0 ; j < spheres.size(); ++j) {
-            geometric_shapes_msgs::Shape obj;
-            if (planning_environment::constructObjectMsg(spheres[j], obj)) {
-              geometry_msgs::Pose pose;
-              tf::poseTFToMsg(positions[j], pose);
-              monitor_feedback_.paused_collision_map.shapes.push_back(obj);
-              monitor_feedback_.paused_collision_map.poses.push_back(pose);
-            }
-          }
-          head_monitor_action_server_.publishFeedback(monitor_feedback_);
-          current_arm_controller_action_client_->cancelGoal();
-          ROS_INFO_STREAM("Delay from data timestamp to cancel is " << (ros::Time::now() - cloud2->header.stamp).toSec());
+        } 
+        kmsm_->setStateValuesFromCurrentValues(state);
+        planning_environment::convertKinematicStateToRobotState(state,
+                                                                ros::Time::now(),
+                                                                collision_models_interface_->getWorldFrameId(),
+                                                                monitor_feedback_.current_state);
+        unsigned int trajectory_point = trajectory_error_codes.size();
+        if(trajectory_error_codes.size() > 0) {
+          trajectory_point--;
         }
+        ROS_INFO_STREAM("Setting trajectory state to point " << trajectory_point << " of " << joint_trajectory_subset.points.size());
+        
+        std::map<std::string, double> vals;
+        for(unsigned int i = 0; i < joint_trajectory_subset.joint_names.size(); i++) {
+          vals[joint_trajectory_subset.joint_names[i]] = joint_trajectory_subset.points[trajectory_point].positions[i];
+        }
+        state.setKinematicState(vals);
+        planning_environment::convertKinematicStateToRobotState(state,
+                                                                ros::Time::now(),
+                                                                collision_models_interface_->getWorldFrameId(),
+                                                                monitor_feedback_.paused_trajectory_state);
+        monitor_feedback_.paused_collision_map.header.frame_id = collision_models_interface_->getWorldFrameId();
+        monitor_feedback_.paused_collision_map.header.stamp = cloud2->header.stamp;
+        monitor_feedback_.paused_collision_map.id = "point_spheres";
+        monitor_feedback_.paused_collision_map.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+        for (unsigned int j = 0 ; j < spheres.size(); ++j) {
+          geometric_shapes_msgs::Shape obj;
+          if (planning_environment::constructObjectMsg(spheres[j], obj)) {
+            geometry_msgs::Pose pose;
+            tf::poseTFToMsg(positions[j], pose);
+            monitor_feedback_.paused_collision_map.shapes.push_back(obj);
+            monitor_feedback_.paused_collision_map.poses.push_back(pose);
+          }
+        }
+        std::vector<planning_environment_msgs::ContactInformation> contacts;
+        collision_models_interface_->getAllCollisionsForState(state, contacts, 1);
+        if(contacts.size() == 0) {
+          ROS_INFO_STREAM("No contacts for last trajectory state");
+        } else {
+          for(unsigned int i = 0; i < contacts.size(); i++) {
+            ROS_INFO_STREAM("Contact between " << contacts[i].contact_body_1 << " and " << contacts[i].contact_body_2
+                            << " at point " << contacts[i].position.x << " " << contacts[i].position.y << " " << contacts[i].position.z);
+          }
+          
+        }
+        head_monitor_action_server_.publishFeedback(monitor_feedback_);
+  
+        if(current_execution_status_.status == current_execution_status_.EXECUTING) {
+          current_arm_controller_action_client_->cancelGoal();
+        }
+        ROS_INFO_STREAM("Delay from data timestamp to cancel is " << (ros::Time::now() - cloud2->header.stamp).toSec()
+                        << " delay to receipt is " << (ros::Time::now()-callback_delay).toSec());
+        
         stopHead();
         current_execution_status_.status = current_execution_status_.PAUSED;
         paused_callback_timer_ = root_handle_.createTimer(ros::Duration(pause_time_), boost::bind(&HeadMonitor::pauseTimeoutCallback, this), true);
@@ -370,6 +387,11 @@ public:
         //Setting timer for actually sending trajectory
         start_trajectory_timer_ = root_handle_.createTimer(ros::Duration(monitor_goal_.time_offset), boost::bind(&HeadMonitor::trajectoryTimerCallback, this), true);
       }
+    }
+    if(near_cloud.points.size() != 0) {
+      collision_models_interface_->deleteStaticObject("point_spheres");
+      monitor_feedback_.paused_collision_map.shapes.clear();
+      monitor_feedback_.paused_collision_map.poses.clear();
     }
     ROS_DEBUG_STREAM("Trajectory check took " << (ros::WallTime::now() - n1).toSec() 
                     << " shape " << (n2-n3).toSec()
