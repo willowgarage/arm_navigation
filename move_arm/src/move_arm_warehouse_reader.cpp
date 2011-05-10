@@ -67,6 +67,10 @@ MoveArmWarehouseReader::MoveArmWarehouseReader() :
   indexed_fields.clear();
   indexed_fields.push_back("val");
   outcome_collection_ = warehouse_client_.setupCollection<motion_planning_msgs::ArmNavigationErrorCodes>("outcome", indexed_fields);
+
+  indexed_fields.clear();
+  indexed_fields.push_back("paused_collision_map.header.stamp");
+  paused_state_collection_ = warehouse_client_.setupCollection<move_arm_msgs::HeadMonitorFeedback>("paused_state", indexed_fields);
 }
 
 void MoveArmWarehouseReader::getAvailablePlanningSceneList(const std::string& hostname, std::vector<ros::Time>& creation_times)
@@ -294,6 +298,7 @@ bool MoveArmWarehouseReader::getAssociatedPausedStates(const std::string& hostna
   if(paused_states.size() == 0) {
     return false;
   } 
+  paused_times.resize(paused_states.size());
   for(unsigned int i = 0; i < paused_states.size(); i++) {
     std::stringstream fin(paused_states[i]->metadata);
     YAML::Parser parser(fin);
@@ -326,7 +331,7 @@ bool MoveArmWarehouseReader::getAssociatedPausedState(const std::string& hostnam
 
   cond.push_back(time_cond);
 
-  std::vector<HeadMonitorFeedbackWithMetadata> paused_states = paused_state_collection_.pullAllResults(cond, true);
+  std::vector<HeadMonitorFeedbackWithMetadata> paused_states = paused_state_collection_.pullAllResults(cond, false);
 
   if(paused_states.size() == 0) {
     ROS_WARN_STREAM("No paused states with that time");
