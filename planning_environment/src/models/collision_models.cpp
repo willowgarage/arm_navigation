@@ -630,7 +630,11 @@ void planning_environment::CollisionModels::addStaticObject(const std::string& n
 void planning_environment::CollisionModels::deleteStaticObject(const std::string& name)
 {
   bodiesLock();
+  if(!ode_collision_model_->hasObject(name)) {
+    return;
+  }
   delete static_object_map_.find(name)->second;
+  static_object_map_.erase(name);
   ode_collision_model_->lock();
   ode_collision_model_->clearObjects(name);
   ode_collision_model_->unlock();
