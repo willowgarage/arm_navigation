@@ -70,6 +70,8 @@
 static const std::string RIGHT_ARM_GROUP = "right_arm";
 static const std::string LEFT_ARM_GROUP = "left_arm";
 
+static const double JOINT_BOUNDS_MARGIN = .02;
+
 std::string convertFromGroupNameToArmName(const std::string& arm_name) {
   if(arm_name.find(RIGHT_ARM_GROUP) != std::string::npos) {
     return(RIGHT_ARM_GROUP);
@@ -398,9 +400,55 @@ public:
                     << " traj part " << (ros::WallTime::now() - n2).toSec());
     collision_models_interface_->bodiesUnlock();
   }
+  
+  void moveInsideSafetyLimits(const move_arm_msgs::PreplanHeadScanGoalConstPtr &goal,
+                              const planning_models::KinematicState& state) {
+    const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(goal->group_name);
+    const std::vector<std::string>& joint_names = joint_model_group->getJointModelNames();
+    if(state.areJointsWithinBounds(joint_names)) {
+      return;
+    }
+    trajectory_msgs::JointTrajectory traj;
+    traj.joint_names = joint_names;
+    traj.header.stamp = ros::Time::now();
+    traj.header.frame_id = collision_models_interface_->getWorldFrameId();
+    traj.points.resize(1);
+    traj.points[0].positions.resize(joint_names.size());
+    traj.points[0].velocities.resize(joint_names.size());
+    traj.points[0].time_from_start = ros::Duration(.4);
+
+    std::map<std::string, double> joint_values;
+    state.getKinematicStateValues(joint_values);
+    
+    for(unsigned int j = 0; j < joint_names.size(); j++) {
+      if(!state.isJointWithinBounds(joint_names[j])) {
+        std::pair<double, double> bounds; 
+        state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j], bounds);
+        ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
+                        " value: " << state.getJointState(joint_names[j])->getJointStateValues()[0] << 
+                        " low: " << bounds.first << " high: " << bounds.second);
+        if(joint_values[joint_names[j]] < bounds.first) {
+          traj.points[0].positions[j] = bounds.first+JOINT_BOUNDS_MARGIN;
+          ROS_INFO_STREAM("Setting joint " << joint_names[j] << " inside lower bound " << traj.points[0].positions[j]);
+        } else {
+          traj.points[0].positions[j] = bounds.second-JOINT_BOUNDS_MARGIN;
+          ROS_INFO_STREAM("Setting joint " << joint_names[j] << " inside upper bound " << traj.points[0].positions[j]);
+        }
+      } else {
+        traj.points[0].positions[j] = joint_values[joint_names[j]];
+      }
+    }
+
+    pr2_controllers_msgs::JointTrajectoryGoal traj_goal;  
+    traj_goal.trajectory = traj;
+
+    if(current_arm_controller_action_client_->sendGoalAndWait(traj_goal, ros::Duration(1.0), ros::Duration(.5)) != actionlib::SimpleClientGoalState::SUCCEEDED) {
+      ROS_WARN_STREAM("Joint bounds correction trajectory failed");
+    }
+  }
 
   void preplanHeadScanCallback(const move_arm_msgs::PreplanHeadScanGoalConstPtr &goal)
-  {
+  { 
     move_arm_msgs::PreplanHeadScanResult res;
 
     collision_models_interface_->bodiesLock();
@@ -414,6 +462,10 @@ public:
     //need a kinematic state
     planning_models::KinematicState state(collision_models_interface_->getKinematicModel());
     
+    kmsm_->setStateValuesFromCurrentValues(state);
+
+    moveInsideSafetyLimits(goal, state);
+
     kmsm_->setStateValuesFromCurrentValues(state);
 
     //supplementing with start state changes
