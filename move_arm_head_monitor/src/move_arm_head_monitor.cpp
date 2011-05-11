@@ -232,7 +232,7 @@ public:
       collision_models_interface_->bodiesUnlock();
       return;
     }
-    ros::WallTime n1 = ros::WallTime::now();
+    ros::Time n1 = ros::Time::now();
 
     planning_models::KinematicState state(collision_models_interface_->getKinematicModel());
     kmsm_->setStateValuesFromCurrentValues(state);
@@ -262,7 +262,7 @@ public:
     std::vector<shapes::Shape*> spheres(near_cloud.points.size());;
     std::vector<btTransform> positions(near_cloud.points.size());
     
-    ros::WallTime n3 = ros::WallTime::now();
+    ros::Time n3 = ros::Time::now();
       
     if(near_cloud.points.size() != 0) {
 
@@ -289,12 +289,19 @@ public:
       acm.changeEntry("point_spheres", joint_model_group->getUpdatedLinkModelNames(), false);
 
       collision_models_interface_->setAlteredAllowedCollisionMatrix(acm);
+      
+    } else {
+      //turning off all collisions
+      collision_space::EnvironmentModel::AllowedCollisionMatrix acm = collision_models_interface_->getCollisionSpace()->getCurrentAllowedCollisionMatrix();
+      acm.changeEntry(true);
+
+      collision_models_interface_->setAlteredAllowedCollisionMatrix(acm);
     }
     motion_planning_msgs::Constraints empty_constraints;
     motion_planning_msgs::ArmNavigationErrorCodes error_code;
     std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
     
-    ros::WallTime n2 = ros::WallTime::now();
+    ros::Time n2 = ros::Time::now();
     if(!collision_models_interface_->isJointTrajectoryValid(state, 
                                                             joint_trajectory_subset,
                                                             empty_constraints,
@@ -302,13 +309,24 @@ public:
                                                             error_code,
                                                             trajectory_error_codes, 
                                                             false)) {
+      ROS_INFO_STREAM("Validity check took " << (ros::Time::now()-n2).toSec());
+      ROS_INFO_STREAM("Trajectory check took " << (ros::Time::now() - n1).toSec() 
+		       << " shape " << (n2-n3).toSec()
+		       << " traj part " << (ros::Time::now() - n2).toSec());
       if(current_execution_status_.status == current_execution_status_.MONITOR_BEFORE_EXECUTION ||
          current_execution_status_.status == current_execution_status_.EXECUTING) {
         ROS_WARN_STREAM("Trajectory judged invalid " << error_code.val << ". Pausing");
         //TODO - stop more gracefully, do something else?
         if(current_execution_status_.status == current_execution_status_.MONITOR_BEFORE_EXECUTION) {
           start_trajectory_timer_.stop();
-        } 
+        } else {
+	  current_arm_controller_action_client_->cancelGoal();
+	  ROS_INFO_STREAM("Delay from data timestamp to cancel is " << (ros::Time::now() - cloud2->header.stamp).toSec()
+			  << " delay to receipt is " << (callback_delay - cloud2->header.stamp).toSec());
+	  
+	}
+        stopHead();
+        current_execution_status_.status = current_execution_status_.PAUSED;
         kmsm_->setStateValuesFromCurrentValues(state);
         planning_environment::convertKinematicStateToRobotState(state,
                                                                 ros::Time::now(),
@@ -353,16 +371,7 @@ public:
           }
           
         }
-        head_monitor_action_server_.publishFeedback(monitor_feedback_);
-  
-        if(current_execution_status_.status == current_execution_status_.EXECUTING) {
-          current_arm_controller_action_client_->cancelGoal();
-        }
-        ROS_INFO_STREAM("Delay from data timestamp to cancel is " << (ros::Time::now() - cloud2->header.stamp).toSec()
-                        << " delay to receipt is " << (ros::Time::now()-callback_delay).toSec());
-        
-        stopHead();
-        current_execution_status_.status = current_execution_status_.PAUSED;
+        head_monitor_action_server_.publishFeedback(monitor_feedback_);        
         paused_callback_timer_ = root_handle_.createTimer(ros::Duration(pause_time_), boost::bind(&HeadMonitor::pauseTimeoutCallback, this), true);
       } 
       //if paused no need to do anything else, except maybe provide additional feedback?
@@ -395,9 +404,9 @@ public:
       monitor_feedback_.paused_collision_map.shapes.clear();
       monitor_feedback_.paused_collision_map.poses.clear();
     }
-    ROS_DEBUG_STREAM("Trajectory check took " << (ros::WallTime::now() - n1).toSec() 
+    ROS_DEBUG_STREAM("Trajectory check took " << (ros::Time::now() - n1).toSec() 
                     << " shape " << (n2-n3).toSec()
-                    << " traj part " << (ros::WallTime::now() - n2).toSec());
+                    << " traj part " << (ros::Time::now() - n2).toSec());
     collision_models_interface_->bodiesUnlock();
   }
   
@@ -405,6 +414,7 @@ public:
                               const planning_models::KinematicState& state) {
     const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(goal->group_name);
     const std::vector<std::string>& joint_names = joint_model_group->getJointModelNames();
+    ROS_INFO_STREAM("Group name " << goal->group_name);
     if(state.areJointsWithinBounds(joint_names)) {
       return;
     }
@@ -441,6 +451,8 @@ public:
 
     pr2_controllers_msgs::JointTrajectoryGoal traj_goal;  
     traj_goal.trajectory = traj;
+
+    current_arm_controller_action_client_ = ((goal->group_name == RIGHT_ARM_GROUP) ? right_arm_controller_action_client_ : left_arm_controller_action_client_);
 
     if(current_arm_controller_action_client_->sendGoalAndWait(traj_goal, ros::Duration(1.0), ros::Duration(.5)) != actionlib::SimpleClientGoalState::SUCCEEDED) {
       ROS_WARN_STREAM("Joint bounds correction trajectory failed");
@@ -737,11 +749,11 @@ public:
   
     //take at least 0.4 seconds to get there, lower value makes head jerky
     goal.min_duration = ros::Duration(.4);
-    goal.max_velocity = 1.0;
+    goal.max_velocity = 0.4;
 
     if(wait)
     {
-      if(point_head_action_client_.sendGoalAndWait(goal, ros::Duration(5.0), ros::Duration(0.5)) != actionlib::SimpleClientGoalState::SUCCEEDED)
+      if(point_head_action_client_.sendGoalAndWait(goal, ros::Duration(15.0), ros::Duration(0.5)) != actionlib::SimpleClientGoalState::SUCCEEDED)
         ROS_WARN("Point head timed out, continuing");
     }
     else

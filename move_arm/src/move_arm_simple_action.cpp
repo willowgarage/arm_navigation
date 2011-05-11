@@ -1118,9 +1118,10 @@ private:
     moveArmGoalToPlannerRequest(goal,req);	    
 
     move_arm_msgs::PreplanHeadScanGoal preplan_scan_goal;
+    preplan_scan_goal.group_name = group_;
     preplan_scan_goal.motion_plan_request = goal->motion_plan_request;
     preplan_scan_goal.head_monitor_link = head_monitor_link_;
-    if(preplan_scan_action_client_->sendGoalAndWait(preplan_scan_goal, ros::Duration(6.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED) {
+    if(preplan_scan_action_client_->sendGoalAndWait(preplan_scan_goal, ros::Duration(30.0), ros::Duration(1.0)) != actionlib::SimpleClientGoalState::SUCCEEDED) {
       ROS_WARN_STREAM("Preplan scan failed");
     }
 
