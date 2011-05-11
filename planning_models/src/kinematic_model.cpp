@@ -45,8 +45,6 @@
 #include <assimp/aiScene.h>      
 #include <assimp/aiPostProcess.h>
 
-static const double JOINT_LIMIT_EPSILON = .01;
-
 
 /* ------------------------ KinematicModel ------------------------ */
 planning_models::KinematicModel::KinematicModel(const urdf::Model &model, 
@@ -931,7 +929,7 @@ bool planning_models::KinematicModel::JointModel::isValueWithinVariableBounds(co
   if(!getVariableBounds(variable, bounds)) {
     return false;
   }
-  if(value+JOINT_LIMIT_EPSILON < bounds.first || value-JOINT_LIMIT_EPSILON > bounds.second) {
+  if(value < bounds.first || value > bounds.second) {
     within_bounds = false;
   } else {
     within_bounds = true;
