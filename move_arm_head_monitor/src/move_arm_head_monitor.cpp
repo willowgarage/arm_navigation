@@ -553,25 +553,25 @@ public:
   // Called when a new monitoring goal is received
   void monitorGoalCallback()
   {
-    if(head_monitor_action_server_.isActive())
-    {
-      stopHead();
+    if(current_execution_status_.status == current_execution_status_.MONITOR_BEFORE_EXECUTION &&
+       current_execution_status_.status == current_execution_status_.EXECUTING &&
+       current_execution_status_.status == current_execution_status_.PAUSED) {
+      ROS_WARN_STREAM("Got new goal while executing");
+      stopEverything();
     }
 
     if(head_monitor_action_server_.isPreemptRequested())
     {
-      ROS_DEBUG_STREAM(ros::this_node::getName() << ": Preempted");
+      ROS_INFO_STREAM(ros::this_node::getName() << ": Preempted");
       head_monitor_action_server_.setPreempted(monitor_result_);
+    }
+
+    if(!head_monitor_action_server_.isNewGoalAvailable())
+    {
+      ROS_INFO_STREAM("Preempted, no new goal");
       return;
     }
-
-    if(head_monitor_action_server_.isNewGoalAvailable())
-    {
-      monitor_goal_ = move_arm_msgs::HeadMonitorGoal(*head_monitor_action_server_.acceptNewGoal());
-    } else {
-      ROS_WARN_STREAM("Not preempted but no new goal available");
-    }
-
+    monitor_goal_ = move_arm_msgs::HeadMonitorGoal(*head_monitor_action_server_.acceptNewGoal());
     current_group_name_ = convertFromGroupNameToArmName(monitor_goal_.group_name);
 
     if(current_group_name_.empty()) {
@@ -627,7 +627,7 @@ public:
 
     current_execution_status_.status = current_execution_status_.IDLE;
 
-    ROS_DEBUG_STREAM(ros::this_node::getName() << ": Preempted");
+    ROS_INFO_STREAM(ros::this_node::getName() << ": Preempted");
     head_monitor_action_server_.setPreempted(monitor_result_);
   }
 

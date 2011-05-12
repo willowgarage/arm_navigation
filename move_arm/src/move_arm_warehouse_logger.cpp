@@ -115,7 +115,6 @@ void MoveArmWarehouseLogger::pushMotionPlanRequestToWarehouse(const planning_env
   addToMetadataString("has_path_constraints", ss.str(), metadata_string);
   
   motion_plan_request_collection_.publish(motion_plan_request, metadata_string);
-  ROS_INFO_STREAM("Metadata string is " << metadata_string);
 }
 
 void MoveArmWarehouseLogger::pushJointTrajectoryToWarehouse(const planning_environment_msgs::PlanningScene& planning_scene,

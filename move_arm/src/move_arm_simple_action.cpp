@@ -1160,6 +1160,12 @@ private:
     {	    	    
       if (action_server_->isPreemptRequested())
       {
+	if(log_to_warehouse_) {
+	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.TIMED_OUT;
+	  warehouse_logger_->pushOutcomeToWarehouse(current_planning_scene_,
+						    "preempted", 
+						    move_arm_action_result_.error_code);
+	}
         revertPlanningScene();
         move_arm_stats_.preempted = true;
         if(publish_stats_)
@@ -1170,9 +1176,6 @@ private:
         {
           move_arm_action_result_.contacts.clear();
           move_arm_action_result_.error_code.val = 0;
-          if(state_ == MONITOR) {
-            head_monitor_client_->cancelGoal();
-          }
           const move_arm_msgs::MoveArmGoalConstPtr& new_goal = action_server_->acceptNewGoal();
           moveArmGoalToPlannerRequest(new_goal,req);
           ROS_INFO("Received new goal, will preempt previous goal");
