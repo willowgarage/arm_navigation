@@ -45,6 +45,7 @@
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
 #include <collision_space/environmentODE.h>
+#include <yaml-cpp/yaml.h>
 
 double gen_rand(double min, double max)
 {
@@ -54,6 +55,8 @@ double gen_rand(double min, double max)
 }
 
 static const unsigned int ESTABLISH_ALWAYS_NUM = 100;
+static const unsigned int ESTABLISH_OFTEN_NUM = 500;
+static const double ESTABLISH_OFTEN_PERCENTAGE = .5;
 static const unsigned int PERFORMANCE_TESTING_NUM = 500;
 
 class CollisionOperationsGenerator {
@@ -151,8 +154,20 @@ public:
     ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
 
     saved_always_in_collision_ = always_in_collision_;
+
+    sampleAndCountCollisions(ESTABLISH_OFTEN_NUM);
+    for(unsigned int i = 0; i < often_in_collision_.size(); i++) {
+      altered_acm.changeEntry(often_in_collision_[i].first,
+                              often_in_collision_[i].second,
+                              true);
+    }    
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+    saved_often_in_collision_ = often_in_collision_;
+    often_percentage_map_ = percentage_map_;
+    ROS_INFO_STREAM("Established often in collision pairs");
     
     sampleAndCountCollisions(num);
+    emitYamlOutputStructures(output_file);
     printOutputStructures(output_file);
   }
 
@@ -200,14 +215,21 @@ public:
     altered_acm.changeEntry(false);
     for(unsigned int i = 0; i < always_in_collision_.size(); i++) {
       altered_acm.changeEntry(always_in_collision_[i].first,
-                               always_in_collision_[i].second,
-                               true);
+                              always_in_collision_[i].second,
+                              true);
     }    
-
     ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
-
     saved_always_in_collision_ = always_in_collision_;
 
+    sampleAndCountCollisions(ESTABLISH_OFTEN_NUM);
+    for(unsigned int i = 0; i < often_in_collision_.size(); i++) {
+      altered_acm.changeEntry(often_in_collision_[i].first,
+                              often_in_collision_[i].second,
+                              true);
+    }    
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+    saved_often_in_collision_ = often_in_collision_;
+    ROS_INFO_STREAM("Established often in collision pairs");
 
     std::map<std::string, std::map<std::string, double> > first_percentage_map;
     sampleAndCountCollisions(num);
@@ -244,8 +266,9 @@ public:
 
   void buildOutputStructures(unsigned int num) {
     always_in_collision_.clear();
-    never_in_collision_.clear();
-    sometimes_in_collision_.clear();
+    never_in_collision_.clear();    
+    often_in_collision_.clear();
+    occasionally_in_collision_.clear();
     percentage_map_.clear();
     for(std::map<std::string, std::map<std::string, unsigned int> >::iterator it = collision_count_map_.begin();
         it != collision_count_map_.end();
@@ -283,10 +306,14 @@ public:
           percentage_map_[it->first][it2->first] = 0.0;
           percentage_map_[it2->first][it->first] = 0.0;          
         } else {
-          if(!already_in_lists) {
-            sometimes_in_collision_.push_back(std::pair<std::string, std::string>(it->first, it2->first));
-          }
           double per = (it2->second*1.0)/(num*1.0);
+          if(!already_in_lists) {
+            if(per > ESTABLISH_OFTEN_PERCENTAGE) {
+              often_in_collision_.push_back(std::pair<std::string, std::string>(it->first, it2->first));
+            } else {
+              occasionally_in_collision_.push_back(std::pair<std::string, std::string>(it->first, it2->first));
+            }
+          }
           percentage_map_[it->first][it2->first] = per;
           percentage_map_[it2->first][it->first] = per;                    
         }
@@ -295,27 +322,67 @@ public:
   }
 
   void printOutputStructures(const std::string& filename) {
-    std::ofstream outfile(filename.c_str());
+    std::ofstream outfile((filename+".txt").c_str());
 
     outfile << "Always in collision pairs: " << std::endl;
     for(unsigned int i = 0; i < saved_always_in_collision_.size(); i++) {
       outfile << saved_always_in_collision_[i].first << " " << saved_always_in_collision_[i].second << std::endl;
     }
+    outfile << std::endl;
 
+    outfile << "Often in collision pairs: " << std::endl;
+    for(unsigned int i = 0; i < saved_often_in_collision_.size(); i++) {
+      outfile << saved_often_in_collision_[i].first << " " << saved_often_in_collision_[i].second;
+      outfile << " " << often_percentage_map_[saved_often_in_collision_[i].first][saved_often_in_collision_[i].second] << std::endl;
+    }
     outfile << std::endl;
 
     outfile << "Never in collision pairs: " << std::endl;
     for(unsigned int i = 0; i < never_in_collision_.size(); i++) {
       outfile << never_in_collision_[i].first << " " << never_in_collision_[i].second << std::endl;
     }
-
     outfile << std::endl;
 
-    outfile << "Sometimes in collision pairs: " << std::endl;
-    for(unsigned int i = 0; i < sometimes_in_collision_.size(); i++) {
-      outfile << sometimes_in_collision_[i].first << " " << sometimes_in_collision_[i].second;
-      outfile << " " << percentage_map_[sometimes_in_collision_[i].first][sometimes_in_collision_[i].second] << std::endl;
+    outfile << "Occasionally in collision pairs: " << std::endl;
+    for(unsigned int i = 0; i < occasionally_in_collision_.size(); i++) {
+      outfile << occasionally_in_collision_[i].first << " " << occasionally_in_collision_[i].second;
+      outfile << " " << percentage_map_[occasionally_in_collision_[i].first][occasionally_in_collision_[i].second] << std::endl;
     }
+  }
+
+  void emitYamlOutputStructures(const std::string& filename) {
+    std::ofstream outfile((filename+".yaml").c_str());
+
+    YAML::Emitter outy;
+    outy << YAML::BeginMap;
+    outy << YAML::Key << "default_collision_operations";
+    outy << YAML::Value << YAML::BeginSeq; 
+    for(unsigned int i = 0; i < saved_often_in_collision_.size(); i++) {
+      outy << YAML::BeginMap; 
+      outy << YAML::Key << "object1" << YAML::Value << saved_often_in_collision_[i].first;
+      outy << YAML::Key << "object2" << YAML::Value << saved_often_in_collision_[i].second;
+      outy << YAML::Key << "operation" << YAML::Value << "disable";
+      outy << YAML::Comment("Often in collision");
+      outy << YAML::EndMap;
+    }
+    for(unsigned int i = 0; i < saved_always_in_collision_.size(); i++) {
+      outy << YAML::BeginMap; 
+      outy << YAML::Key << "object1" << YAML::Value << saved_always_in_collision_[i].first;
+      outy << YAML::Key << "object2" << YAML::Value << saved_always_in_collision_[i].second;
+      outy << YAML::Key << "operation" << YAML::Value << "disable";
+      outy << YAML::Comment("Always in collision");
+      outy << YAML::EndMap;
+    }
+    for(unsigned int i = 0; i < never_in_collision_.size(); i++) {
+      outy << YAML::BeginMap; 
+      outy << YAML::Key << "object1" << YAML::Value << never_in_collision_[i].first;
+      outy << YAML::Key << "object2" << YAML::Value << never_in_collision_[i].second;
+      outy << YAML::Key << "operation" << YAML::Value << "disable";
+      outy << YAML::Comment("Never in collision");
+      outy << YAML::EndMap;
+    }
+    outy << YAML::EndMap;
+    outfile << outy.c_str();
   }
 
   void performanceTestFromOutputStructures() {
@@ -358,6 +425,25 @@ public:
     ROS_INFO_STREAM("Always disabled collision check average " <<
                     (ros::WallTime::now()-n1).toSec()/(num*1.0));
 
+    for(unsigned int i = 0; i < saved_often_in_collision_.size(); i++) {
+      altered_acm.changeEntry(saved_often_in_collision_[i].first,
+                               saved_often_in_collision_[i].second,
+                               true);
+    }    
+
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+    n1 = ros::WallTime::now();
+    for(unsigned int i = 0; i < num; i++) {
+      generateRandomState(state);
+      ode_collision_model_->updateRobotModel(&state);
+      std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+      std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+      ode_collision_model_->getAllCollisionContacts(allowed_contacts,
+                                                    coll_space_contacts,
+                                                    1);
+    }
+    ROS_INFO_STREAM("Often disabled collision check average " <<
+                    (ros::WallTime::now()-n1).toSec()/(num*1.0));
 
     for(unsigned int i = 0; i < never_in_collision_.size(); i++) {
       altered_acm.changeEntry(never_in_collision_[i].first,
@@ -426,8 +512,11 @@ protected:
   std::vector<std::pair<std::string, std::string> > always_in_collision_;
   std::vector<std::pair<std::string, std::string> > saved_always_in_collision_;
   std::vector<std::pair<std::string, std::string> > never_in_collision_;
-  std::vector<std::pair<std::string, std::string> > sometimes_in_collision_;
+  std::vector<std::pair<std::string, std::string> > often_in_collision_;
+  std::vector<std::pair<std::string, std::string> > saved_often_in_collision_;
+  std::vector<std::pair<std::string, std::string> > occasionally_in_collision_;
   std::map<std::string, std::map<std::string, double> > percentage_map_;
+  std::map<std::string, std::map<std::string, double> > often_percentage_map_;
 
 };
 
