@@ -190,6 +190,25 @@ public:
   }
 
   void generateAndCompareOutputStructures(unsigned int num) {
+    sampleAndCountCollisions(ESTABLISH_ALWAYS_NUM);
+    
+    ROS_INFO_STREAM("Established always in collision pairs");
+
+    planning_models::KinematicState state(kmodel_);
+    collision_space::EnvironmentModel::AllowedCollisionMatrix altered_acm = ode_collision_model_->getCurrentAllowedCollisionMatrix();
+
+    altered_acm.changeEntry(false);
+    for(unsigned int i = 0; i < always_in_collision_.size(); i++) {
+      altered_acm.changeEntry(always_in_collision_[i].first,
+                               always_in_collision_[i].second,
+                               true);
+    }    
+
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+
+    saved_always_in_collision_ = always_in_collision_;
+
+
     std::map<std::string, std::map<std::string, double> > first_percentage_map;
     sampleAndCountCollisions(num);
     first_percentage_map = percentage_map_;
