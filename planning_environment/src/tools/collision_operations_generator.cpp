@@ -53,6 +53,9 @@ double gen_rand(double min, double max)
   return result;
 }
 
+static const unsigned int ESTABLISH_ALWAYS_NUM = 100;
+static const unsigned int PERFORMANCE_TESTING_NUM = 500;
+
 class CollisionOperationsGenerator {
 
 public:
@@ -131,6 +134,24 @@ public:
   }
 
   void generateOutputCollisionOperations(unsigned int num, const std::string& output_file) {
+    sampleAndCountCollisions(ESTABLISH_ALWAYS_NUM);
+    
+    ROS_INFO_STREAM("Established always in collision pairs");
+
+    planning_models::KinematicState state(kmodel_);
+    collision_space::EnvironmentModel::AllowedCollisionMatrix altered_acm = ode_collision_model_->getCurrentAllowedCollisionMatrix();
+
+    altered_acm.changeEntry(false);
+    for(unsigned int i = 0; i < always_in_collision_.size(); i++) {
+      altered_acm.changeEntry(always_in_collision_[i].first,
+                               always_in_collision_[i].second,
+                               true);
+    }    
+
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+
+    saved_always_in_collision_ = always_in_collision_;
+    
     sampleAndCountCollisions(num);
     printOutputStructures(output_file);
   }
@@ -149,7 +170,7 @@ public:
       ode_collision_model_->getAllCollisionContacts(allowed_contacts,
                                                     coll_space_contacts,
                                                     1);
-      if(i % 100 == 0) {
+      if(i != 0 && i % 100 == 0) {
         ROS_INFO_STREAM("Num " << i << " getting all contacts takes " << (ros::WallTime::now()-n1).toSec());
         n1 = ros::WallTime::now();
       }
@@ -258,8 +279,8 @@ public:
     std::ofstream outfile(filename.c_str());
 
     outfile << "Always in collision pairs: " << std::endl;
-    for(unsigned int i = 0; i < always_in_collision_.size(); i++) {
-      outfile << always_in_collision_[i].first << " " << always_in_collision_[i].second << std::endl;
+    for(unsigned int i = 0; i < saved_always_in_collision_.size(); i++) {
+      outfile << saved_always_in_collision_[i].first << " " << saved_always_in_collision_[i].second << std::endl;
     }
 
     outfile << std::endl;
@@ -277,6 +298,69 @@ public:
       outfile << " " << percentage_map_[sometimes_in_collision_[i].first][sometimes_in_collision_[i].second] << std::endl;
     }
   }
+
+  void performanceTestFromOutputStructures() {
+    unsigned int num = PERFORMANCE_TESTING_NUM;
+    planning_models::KinematicState state(kmodel_);
+    collision_space::EnvironmentModel::AllowedCollisionMatrix altered_acm = ode_collision_model_->getCurrentAllowedCollisionMatrix();
+
+    altered_acm.changeEntry(false);
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+    ros::WallTime n1 = ros::WallTime::now();
+    for(unsigned int i = 0; i < num; i++) {
+      generateRandomState(state);
+      ode_collision_model_->updateRobotModel(&state);
+      std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+      std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+      ode_collision_model_->getAllCollisionContacts(allowed_contacts,
+                                                    coll_space_contacts,
+                                                    1);
+    }
+    ROS_INFO_STREAM("All enabled collision check average " <<
+                    (ros::WallTime::now()-n1).toSec()/(num*1.0));
+
+    for(unsigned int i = 0; i < saved_always_in_collision_.size(); i++) {
+      altered_acm.changeEntry(saved_always_in_collision_[i].first,
+                               saved_always_in_collision_[i].second,
+                               true);
+    }    
+
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+    n1 = ros::WallTime::now();
+    for(unsigned int i = 0; i < num; i++) {
+      generateRandomState(state);
+      ode_collision_model_->updateRobotModel(&state);
+      std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+      std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+      ode_collision_model_->getAllCollisionContacts(allowed_contacts,
+                                                    coll_space_contacts,
+                                                    1);
+    }
+    ROS_INFO_STREAM("Always disabled collision check average " <<
+                    (ros::WallTime::now()-n1).toSec()/(num*1.0));
+
+
+    for(unsigned int i = 0; i < never_in_collision_.size(); i++) {
+      altered_acm.changeEntry(never_in_collision_[i].first,
+                               never_in_collision_[i].second,
+                               true);
+    }    
+    ode_collision_model_->setAlteredCollisionMatrix(altered_acm);
+    n1 = ros::WallTime::now();
+    for(unsigned int i = 0; i < num; i++) {
+      generateRandomState(state);
+      ode_collision_model_->updateRobotModel(&state);
+      std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+      std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+      ode_collision_model_->getAllCollisionContacts(allowed_contacts,
+                                                    coll_space_contacts,
+                                                    1);
+    }
+    ROS_INFO_STREAM("Never disabled collision check average " <<
+                    (ros::WallTime::now()-n1).toSec()/(num*1.0));
+    
+  }
+
 
   bool isOk() const {
     return ok_;
@@ -321,13 +405,14 @@ protected:
   std::map<std::string, std::map<std::string, unsigned int> > collision_count_map_;
 
   std::vector<std::pair<std::string, std::string> > always_in_collision_;
+  std::vector<std::pair<std::string, std::string> > saved_always_in_collision_;
   std::vector<std::pair<std::string, std::string> > never_in_collision_;
   std::vector<std::pair<std::string, std::string> > sometimes_in_collision_;
   std::map<std::string, std::map<std::string, double> > percentage_map_;
 
 };
 
-static const unsigned int TIMES = 100000;
+static const unsigned int TIMES = 1000;
 
 int main(int argc, char** argv) {
 
@@ -355,6 +440,7 @@ int main(int argc, char** argv) {
 
   if(argc == 3) {
     cog.generateOutputCollisionOperations(TIMES, output_file);
+    cog.performanceTestFromOutputStructures();
   } else {
     cog.generateAndCompareOutputStructures(TIMES);
   }
