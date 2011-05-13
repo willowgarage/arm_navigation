@@ -53,6 +53,8 @@ rosbuild_add_executable(filter_attached_objects src/tools/filter_attached_object
 target_link_libraries(filter_attached_objects planning_environment)
 rosbuild_link_boost(filter_attached_objects thread)
 
+rosbuild_add_executable(collision_operations_generator src/tools/collision_operations_generator.cpp) 
+
 #rosbuild_add_executable(display_planner_collision_model src/tools/display_planner_collision_model.cpp) 
 #target_link_libraries(display_planner_collision_model planning_environment)
 #rosbuild_link_boost(display_planner_collision_model thread)

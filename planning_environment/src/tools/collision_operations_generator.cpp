@@ -37,14 +37,36 @@
 
 #include <ros/ros.h>
 
+#include <map>
+#include <string>
+#include <vector>
+#include <fstream>
+
+#include <planning_models/kinematic_model.h>
+#include <planning_models/kinematic_state.h>
+#include <collision_space/environmentODE.h>
+
+double gen_rand(double min, double max)
+{
+  int rand_num = rand()%100+1;
+  double result = min + (double)((max-min)*rand_num)/101.0;
+  return result;
+}
+
 class CollisionOperationsGenerator {
+
+public:
 
   CollisionOperationsGenerator(const std::string& full_path_name) {
     
-    urdf_ok_ = urdf_model_.initFile(full_path_name);
+    ok_ = false;
 
-    if(!urdf_ok_) ROS_WARN_STREAM("Urdf file " << full_path_name << " not ok");
+    bool urdf_ok = urdf_model_.initFile(full_path_name);
 
+    if(!urdf_ok) {
+      ROS_WARN_STREAM("Urdf file " << full_path_name << " not ok");
+      return;
+    }
     std::vector<planning_models::KinematicModel::GroupConfig> gcs;
     std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
     const urdf::Link *root = urdf_model_.getRoot().get();
@@ -52,19 +74,39 @@ class CollisionOperationsGenerator {
     //now this should work with an non-identity transform
     planning_models::KinematicModel::MultiDofConfig config("world_joint");
     config.type = "Floating";
-    config.parent_frame_id = root->name_;
-    config.child_frame_id = root->name_;
+    config.parent_frame_id = root->name;
+    config.child_frame_id = root->name;
     multi_dof_configs.push_back(config);
     
-    kin_model_ = new planning_models::KinematicModel(urdf_model_,gcs, multi_dof_configs);    
-    if(kin_model_->getRoot() == NULL) {
+    kmodel_ = new planning_models::KinematicModel(urdf_model_,gcs, multi_dof_configs);    
+    if(kmodel_->getRoot() == NULL) {
       ROS_INFO_STREAM("Kinematic root is NULL");
       return;
     }
+
+    ode_collision_model_ = new collision_space::EnvironmentModelODE();
+
+    const std::vector<planning_models::KinematicModel::LinkModel*>& coll_links = kmodel_->getLinkModelsWithCollisionGeometry();
+  
+    std::vector<std::string> coll_names;
+    for(unsigned int i = 0; i < coll_links.size(); i++) {
+      coll_names.push_back(coll_links[i]->getName());
+    }
+    collision_space::EnvironmentModel::AllowedCollisionMatrix default_collision_matrix(coll_names,false);
+    std::map<std::string, double> default_link_padding_map;
+    ode_collision_model_->setRobotModel(kmodel_, default_collision_matrix, 
+                                        default_link_padding_map, 0.0, 1.0);
+    generateSamplingStructures();
+    ok_ = true;
   }
 
-  void generateSamplingStructure() {
-    const std::vector<planning_models::KinematicModel::JointModel*>& jmv = kin_model_->getJointModels();
+  ~CollisionOperationsGenerator() {
+    delete ode_collision_model_;
+    delete kmodel_;
+  }
+
+  void generateSamplingStructures() {
+    const std::vector<planning_models::KinematicModel::JointModel*>& jmv = kmodel_->getJointModels();
     //assuming that 0th is world joint, which we don't want to include
     for(unsigned int i = 1; i < jmv.size(); i++) {
       const std::map<std::string, std::pair<double, double> >& joint_bounds = jmv[i]->getAllVariableBounds();
@@ -86,7 +128,167 @@ class CollisionOperationsGenerator {
         joint_bounds_map_[it->first] = it->second;        
       }
     }
-    const std::vector<planning_models::KinematicModel::LinkModel*>& lmv = kin_model_->getLinkModels();
+  }
+
+  void generateOutputCollisionOperations(unsigned int num, const std::string& output_file) {
+    sampleAndCountCollisions(num);
+    printOutputStructures(output_file);
+  }
+
+  void sampleAndCountCollisions(unsigned int num) {
+    resetCountingMap();
+
+    planning_models::KinematicState state(kmodel_);
+
+    ros::WallTime n1 = ros::WallTime::now();
+    for(unsigned int i = 0; i < num; i++) {
+      generateRandomState(state);
+      ode_collision_model_->updateRobotModel(&state);
+      std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+      std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+      ode_collision_model_->getAllCollisionContacts(allowed_contacts,
+                                                    coll_space_contacts,
+                                                    1);
+      if(i % 100 == 0) {
+        ROS_INFO_STREAM("Num " << i << " getting all contacts takes " << (ros::WallTime::now()-n1).toSec());
+        n1 = ros::WallTime::now();
+      }
+      for(unsigned int i = 0; i < coll_space_contacts.size(); i++) {
+        collision_space::EnvironmentModel::Contact& contact = coll_space_contacts[i];
+        if(collision_count_map_.find(contact.body_name_1) == collision_count_map_.end()) {
+          ROS_WARN_STREAM("Problem - have no count for collision body " << contact.body_name_1);
+        }
+        if(collision_count_map_.find(contact.body_name_2) == collision_count_map_.end()) {
+          ROS_WARN_STREAM("Problem - have no count for collision body " << contact.body_name_2);
+        }
+        collision_count_map_[contact.body_name_1][contact.body_name_2]++;
+        collision_count_map_[contact.body_name_2][contact.body_name_1]++;
+      }
+    }
+    buildOutputStructures(num);
+  }
+
+  void generateAndCompareOutputStructures(unsigned int num) {
+    std::map<std::string, std::map<std::string, double> > first_percentage_map;
+    sampleAndCountCollisions(num);
+    first_percentage_map = percentage_map_;
+    
+    ROS_INFO_STREAM("Done with first");
+
+    sampleAndCountCollisions(num);
+
+    ROS_INFO_STREAM("Done with second");
+
+    for(std::map<std::string, std::map<std::string, double> >::iterator it = first_percentage_map.begin();
+        it != first_percentage_map.end();
+        it++) {
+      for(std::map<std::string, double>::iterator it2 = it->second.begin();
+          it2 != it->second.end();
+          it2++) {
+        bool first_all = (it2->second == num);
+        bool second_all = (percentage_map_[it->first][it2->first] == num);
+        
+        if(first_all != second_all) {
+          ROS_INFO_STREAM("Links " << it->first << " and " << it2->first << " different all");
+        }
+        
+        bool first_never = (it2->second == 0);
+        bool second_never = (percentage_map_[it->first][it2->first] == 0);
+        
+        if(first_never != second_never) {
+          ROS_INFO_STREAM("Links " << it->first << " and " << it2->first << " different never " << it2->second << " " << percentage_map_[it->first][it2->first]);
+        }
+      }
+    }
+  }
+
+  void buildOutputStructures(unsigned int num) {
+    always_in_collision_.clear();
+    never_in_collision_.clear();
+    sometimes_in_collision_.clear();
+    percentage_map_.clear();
+    for(std::map<std::string, std::map<std::string, unsigned int> >::iterator it = collision_count_map_.begin();
+        it != collision_count_map_.end();
+        it++) {
+      for(std::map<std::string, unsigned int>::iterator it2 = it->second.begin();
+          it2 != it->second.end();
+          it2++) {
+        if(it->first == it2->first) {
+          continue;
+        }
+        bool already_in_lists = false;
+        //if we've already registered this pair continue
+        if(percentage_map_.find(it->first) != percentage_map_.end()) {
+          if(percentage_map_.find(it->first)->second.find(it2->first) != 
+             percentage_map_.find(it->first)->second.end()) {
+            already_in_lists = true;
+          }
+        }
+        if(percentage_map_.find(it2->first) != percentage_map_.end()) {
+          if(percentage_map_.find(it2->first)->second.find(it->first) != 
+             percentage_map_.find(it2->first)->second.end()) {
+            already_in_lists = true;
+          }
+        }
+        if(it2->second == num) {
+          if(!already_in_lists) {
+            always_in_collision_.push_back(std::pair<std::string, std::string>(it->first, it2->first));
+          }
+          percentage_map_[it->first][it2->first] = 1.0;
+          percentage_map_[it2->first][it->first] = 1.0;
+        } else if(it2->second == 0) {
+          if(!already_in_lists) {
+            never_in_collision_.push_back(std::pair<std::string, std::string>(it->first, it2->first));
+          }
+          percentage_map_[it->first][it2->first] = 0.0;
+          percentage_map_[it2->first][it->first] = 0.0;          
+        } else {
+          if(!already_in_lists) {
+            sometimes_in_collision_.push_back(std::pair<std::string, std::string>(it->first, it2->first));
+          }
+          double per = (it2->second*1.0)/(num*1.0);
+          percentage_map_[it->first][it2->first] = per;
+          percentage_map_[it2->first][it->first] = per;                    
+        }
+      }
+    }
+  }
+
+  void printOutputStructures(const std::string& filename) {
+    std::ofstream outfile(filename.c_str());
+
+    outfile << "Always in collision pairs: " << std::endl;
+    for(unsigned int i = 0; i < always_in_collision_.size(); i++) {
+      outfile << always_in_collision_[i].first << " " << always_in_collision_[i].second << std::endl;
+    }
+
+    outfile << std::endl;
+
+    outfile << "Never in collision pairs: " << std::endl;
+    for(unsigned int i = 0; i < never_in_collision_.size(); i++) {
+      outfile << never_in_collision_[i].first << " " << never_in_collision_[i].second << std::endl;
+    }
+
+    outfile << std::endl;
+
+    outfile << "Sometimes in collision pairs: " << std::endl;
+    for(unsigned int i = 0; i < sometimes_in_collision_.size(); i++) {
+      outfile << sometimes_in_collision_[i].first << " " << sometimes_in_collision_[i].second;
+      outfile << " " << percentage_map_[sometimes_in_collision_[i].first][sometimes_in_collision_[i].second] << std::endl;
+    }
+  }
+
+  bool isOk() const {
+    return ok_;
+  }
+
+protected:
+
+  void resetCountingMap() {
+    const std::vector<planning_models::KinematicModel::LinkModel*>& lmv = kmodel_->getLinkModelsWithCollisionGeometry();
+
+    collision_count_map_.clear();
+
     //assuming that 0th is world joint, which we don't want to include
     std::map<std::string, unsigned int> all_link_zero;
     for(unsigned int i = 0; i < lmv.size(); i++) {
@@ -97,9 +299,67 @@ class CollisionOperationsGenerator {
     }
   }
 
-protected:
+  void generateRandomState(planning_models::KinematicState& state) {
+    std::map<std::string, double> values;
+    for(std::map<std::string, std::pair<double, double> >::iterator it = joint_bounds_map_.begin();
+        it != joint_bounds_map_.end();
+        it++) {
+      values[it->first] = gen_rand(it->second.first, it->second.second);
+      //ROS_INFO_STREAM("Value for " << it->first << " is " << values[it->first] << " bounds " << 
+      //                it->second.first << " " << it->second.second);
+    }
+    state.setKinematicState(values);
+  }
+
+  bool ok_;
+
+  collision_space::EnvironmentModel* ode_collision_model_;
+  planning_models::KinematicModel* kmodel_;
+  urdf::Model urdf_model_;
 
   std::map<std::string, std::pair<double, double> > joint_bounds_map_;
   std::map<std::string, std::map<std::string, unsigned int> > collision_count_map_;
 
+  std::vector<std::pair<std::string, std::string> > always_in_collision_;
+  std::vector<std::pair<std::string, std::string> > never_in_collision_;
+  std::vector<std::pair<std::string, std::string> > sometimes_in_collision_;
+  std::map<std::string, std::map<std::string, double> > percentage_map_;
+
 };
+
+static const unsigned int TIMES = 100000;
+
+int main(int argc, char** argv) {
+
+  ros::init(argc, argv, "collision_operations_generator");
+
+  srand(time(NULL));
+  
+  if(argc < 2) {
+    ROS_INFO_STREAM("Must specify a urdf file");
+    exit(0);
+  }
+
+  std::string urdf_file = argv[1];
+  std::string output_file;
+  if(argc == 3) {
+    output_file = argv[2];
+  }
+
+  CollisionOperationsGenerator cog(urdf_file);
+
+  if(!cog.isOk()) {
+    ROS_INFO_STREAM("Something wrong with urdf");
+    exit(0);
+  }
+
+  if(argc == 3) {
+    cog.generateOutputCollisionOperations(TIMES, output_file);
+  } else {
+    cog.generateAndCompareOutputStructures(TIMES);
+  }
+
+  ros::shutdown();
+  exit(0);
+}
+  
