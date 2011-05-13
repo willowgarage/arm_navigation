@@ -27,6 +27,7 @@
   <depend package="planning_environment_msgs" />
   <depend package="pcl_ros" />
   <depend package="robot_self_filter" />
+  <depend package="yaml_cpp" />
 
   <url>http://ros.org/wiki/planning_environment</url>
 
