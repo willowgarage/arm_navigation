@@ -274,6 +274,8 @@ public:
   /** \briefs Reverts link padding to that set at robot initialization */
   virtual void revertAlteredLinkPadding();
 
+  const std::map<std::string,double>& getDefaultLinkPaddingMap() const;
+
   std::map<std::string,double> getCurrentLinkPaddingMap() const;
 
   double getCurrentLinkPadding(std::string name) const;

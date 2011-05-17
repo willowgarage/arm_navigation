@@ -410,6 +410,10 @@ void collision_space::EnvironmentModel::revertAlteredLinkPadding() {
   use_altered_link_padding_map_ = false;
 }
 
+const std::map<std::string, double>& collision_space::EnvironmentModel::getDefaultLinkPaddingMap() const {
+  return default_link_padding_map_;
+}
+
 std::map<std::string, double> collision_space::EnvironmentModel::getCurrentLinkPaddingMap() const {
   std::map<std::string, double> ret_map = default_link_padding_map_;
   for(std::map<std::string, double>::const_iterator it = altered_link_padding_map_.begin();
