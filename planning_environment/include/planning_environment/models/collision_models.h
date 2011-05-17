@@ -69,6 +69,10 @@ public:
 	
   CollisionModels(const std::string &description);
 
+  CollisionModels(boost::shared_ptr<urdf::Model> urdf,
+                  planning_models::KinematicModel* kmodel,
+                  collision_space::EnvironmentModel* ode_collision_model_);
+
   virtual ~CollisionModels(void);
 
   //
@@ -374,7 +378,7 @@ public:
   }
       
   const std::map<std::string,double>& getDefaultLinkPaddingMap() const {
-    return default_link_padding_map_;
+    return ode_collision_model_->getDefaultLinkPaddingMap();
   }
   
   bool isPlanningSceneSet() const {
@@ -412,8 +416,8 @@ protected:
 
   std::map<std::string, std::map<std::string, bodies::BodyVector*> > link_attached_objects_;
 	
-  void loadCollision();
-  void setupModel(collision_space::EnvironmentModel* model);
+  void loadCollisionFromParamServer();
+  void setupModelFromParamServer(collision_space::EnvironmentModel* model);
 	
   collision_space::EnvironmentModel* ode_collision_model_;
 
@@ -426,7 +430,6 @@ protected:
   std::vector<double> bounding_planes_;
 
   std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;
-  std::map<std::string, double> default_link_padding_map_;
 
   std::map<std::string, geometry_msgs::TransformStamped> scene_transform_map_;
 

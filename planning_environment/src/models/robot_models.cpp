@@ -40,13 +40,29 @@
 #include <boost/algorithm/string.hpp>
 #include <sstream>
 
+planning_environment::RobotModels::RobotModels(const std::string &description) : priv_nh_("~")
+{
+  description_ = nh_.resolveName(description);
+  loaded_models_ = false;
+  loadRobotFromParamServer();
+}
+
+planning_environment::RobotModels::RobotModels(boost::shared_ptr<urdf::Model> urdf,
+                                               planning_models::KinematicModel* kmodel) {
+  urdf_ = urdf;
+  kmodel_ = kmodel;
+  loaded_models_ = true;
+}
+
+
 void planning_environment::RobotModels::reload(void)
 {
   urdf_.reset();
-  loadRobot();
+  delete kmodel_;
+  loadRobotFromParamServer();
 }
 
-void planning_environment::RobotModels::loadRobot(void)
+void planning_environment::RobotModels::loadRobotFromParamServer(void)
 {
   std::string content;
   if (nh_.getParam(description_, content))
@@ -55,10 +71,12 @@ void planning_environment::RobotModels::loadRobot(void)
     if (urdf_->initString(content))
     {
       loaded_models_ = true;
-      bool hasMulti = readMultiDofConfigs();
-      readGroupConfigs();
+      std::vector<planning_models::KinematicModel::GroupConfig> group_configs;
+      std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
+      bool hasMulti = loadMultiDofConfigsFromParamServer(multi_dof_configs);
+      loadGroupConfigsFromParamServer(multi_dof_configs, group_configs);
       if(hasMulti) {
-        kmodel_ = new planning_models::KinematicModel(*urdf_, group_configs_, multi_dof_configs_);
+        kmodel_ = new planning_models::KinematicModel::KinematicModel(*urdf_, group_configs, multi_dof_configs);
       } else {
         ROS_WARN("Can't do anything without a root transform");
       }
@@ -73,7 +91,9 @@ void planning_environment::RobotModels::loadRobot(void)
     ROS_ERROR("Robot model '%s' not found! Did you remap 'robot_description'?", description_.c_str());
 }
 
-bool planning_environment::RobotModels::readMultiDofConfigs() {
+bool planning_environment::RobotModels::loadMultiDofConfigsFromParamServer(std::vector<planning_models::KinematicModel::MultiDofConfig>& configs) 
+{
+  configs.clear();
   
   XmlRpc::XmlRpcValue multi_dof_joints;
   
@@ -123,16 +143,19 @@ bool planning_environment::RobotModels::readMultiDofConfigs() {
         mdc.name_equivalents[it->first] = std::string(it->second);
       }
     }
-    multi_dof_configs_.push_back(mdc);
+    configs.push_back(mdc);
   }
-  if(multi_dof_configs_.empty()) {
+  if(configs.empty()) {
     return false;
   }
   return true;
 }
 
-void planning_environment::RobotModels::readGroupConfigs() {
+void planning_environment::RobotModels::loadGroupConfigsFromParamServer(const std::vector<planning_models::KinematicModel::MultiDofConfig>& multi_dof_configs,
+                                                                        std::vector<planning_models::KinematicModel::GroupConfig>& configs) {
   
+  configs.clear();
+
   XmlRpc::XmlRpcValue all_groups;
   
   std::string group_name = description_ + "_planning/groups";
@@ -161,8 +184,8 @@ void planning_environment::RobotModels::readGroupConfigs() {
     }
     std::string gname = all_groups[i]["name"];
     bool already_have = false;
-    for(unsigned int j = 0; j < group_configs_.size(); j++) {
-      if(group_configs_[j].name_ == gname) {
+    for(unsigned int j = 0; j < configs.size(); j++) {
+      if(configs[j].name_ == gname) {
         ROS_WARN_STREAM("Already have group name " << gname); 
         already_have = true;
         break;
@@ -176,7 +199,7 @@ void planning_environment::RobotModels::readGroupConfigs() {
     }
     //only need to test one condition
     if(all_groups[i].hasMember("base_link")) {
-      group_configs_.push_back(planning_models::KinematicModel::GroupConfig(gname,
+      configs.push_back(planning_models::KinematicModel::GroupConfig(gname,
                                                                             all_groups[i]["base_link"],
                                                                             all_groups[i]["tip_link"])); 
     } else {
@@ -206,8 +229,8 @@ void planning_environment::RobotModels::readGroupConfigs() {
           joints.push_back(jname);
         } else {
           bool have_multi = false;
-          for(unsigned int i = 0; i < multi_dof_configs_.size(); i++) {
-            if(jname == multi_dof_configs_[i].name) {
+          for(unsigned int i = 0; i < multi_dof_configs.size(); i++) {
+            if(jname == multi_dof_configs[i].name) {
               joints.push_back(jname);
               have_multi = true;
               break;
@@ -218,9 +241,9 @@ void planning_environment::RobotModels::readGroupConfigs() {
           }
         }
       }                                                
-      group_configs_.push_back(planning_models::KinematicModel::GroupConfig(gname,
-                                                                            joints,
-                                                                            subgroups));
+      configs.push_back(planning_models::KinematicModel::GroupConfig(gname,
+                                                                     joints,
+                                                                     subgroups));
     }
   }
 }

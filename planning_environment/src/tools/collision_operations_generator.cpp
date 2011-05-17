@@ -185,7 +185,7 @@ public:
       ode_collision_model_->getAllCollisionContacts(allowed_contacts,
                                                     coll_space_contacts,
                                                     1);
-      if(i != 0 && i % 100 == 0) {
+      if(i != 0 && i % 1000 == 0) {
         ROS_INFO_STREAM("Num " << i << " getting all contacts takes " << (ros::WallTime::now()-n1).toSec());
         n1 = ros::WallTime::now();
       }
@@ -520,7 +520,7 @@ protected:
 
 };
 
-static const unsigned int TIMES = 1000;
+static const unsigned int TIMES = 50000;
 
 int main(int argc, char** argv) {
 

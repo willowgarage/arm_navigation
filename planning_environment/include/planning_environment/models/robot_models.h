@@ -54,12 +54,10 @@ class RobotModels
 {
 public:
 		
-  RobotModels(const std::string &description) : priv_nh_("~")
-  {
-    description_ = nh_.resolveName(description);
-    loaded_models_ = false;
-    loadRobot();
-  }
+  RobotModels(const std::string &description);
+
+  RobotModels(boost::shared_ptr<urdf::Model> urdf,
+              planning_models::KinematicModel* kmodel);
 
   virtual ~RobotModels(void)
   {
@@ -109,11 +107,11 @@ public:
 
 protected:
 	
-  void loadRobot(void);
+  void loadRobotFromParamServer(void);
 
-  void readGroupConfigs();
-	
-  bool readMultiDofConfigs();
+  bool loadMultiDofConfigsFromParamServer(std::vector<planning_models::KinematicModel::MultiDofConfig>& configs);
+  void loadGroupConfigsFromParamServer(const std::vector<planning_models::KinematicModel::MultiDofConfig>& multi_dof_configs,
+                                       std::vector<planning_models::KinematicModel::GroupConfig>& configs);
 	
   ros::NodeHandle nh_;
   ros::NodeHandle priv_nh_;
@@ -123,12 +121,7 @@ protected:
   bool loaded_models_;
   planning_models::KinematicModel* kmodel_;
   
-  boost::shared_ptr<urdf::Model> urdf_;
-
-  std::vector<planning_models::KinematicModel::GroupConfig> group_configs_;
-  std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs_;
-  
-  
+  boost::shared_ptr<urdf::Model> urdf_;  
 };
     
 }

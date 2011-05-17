@@ -49,7 +49,14 @@
 planning_environment::CollisionModels::CollisionModels(const std::string &description) : RobotModels(description)
 {
   planning_scene_set_ = false;
-  loadCollision();
+  loadCollisionFromParamServer();
+}
+
+planning_environment::CollisionModels::CollisionModels(boost::shared_ptr<urdf::Model> urdf,
+                                                       planning_models::KinematicModel* kmodel,
+                                                       collision_space::EnvironmentModel* ode_collision_model) : RobotModels(urdf, kmodel)
+{
+  ode_collision_model_ = ode_collision_model_;
 }
 
 planning_environment::CollisionModels::~CollisionModels(void)
@@ -60,7 +67,7 @@ planning_environment::CollisionModels::~CollisionModels(void)
   delete ode_collision_model_;
 }
 
-void planning_environment::CollisionModels::setupModel(collision_space::EnvironmentModel* model)
+void planning_environment::CollisionModels::setupModelFromParamServer(collision_space::EnvironmentModel* model)
 {
   XmlRpc::XmlRpcValue coll_ops;
 
@@ -108,10 +115,10 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
   nh_.param(description_ + "_planning/default_attached_padding", attached_padd_, 0.05);
 
   const std::vector<planning_models::KinematicModel::LinkModel*>& coll_links = kmodel_->getLinkModelsWithCollisionGeometry();
-  
+  std::map<std::string, double> default_link_padding_map;  
   std::vector<std::string> coll_names;
   for(unsigned int i = 0; i < coll_links.size(); i++) {
-    default_link_padding_map_[coll_links[i]->getName()] = default_padd_;
+    default_link_padding_map[coll_links[i]->getName()] = default_padd_;
     coll_names.push_back(coll_links[i]->getName());
   }
 
@@ -133,7 +140,7 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
         std::string link = std::string(link_padding_xml[i]["link"]);
         double padding = link_padding_xml[i]["padding"];
         //we don't care if this is a group or what, we're shoving it in
-        default_link_padding_map_[link] = padding;
+        default_link_padding_map[link] = padding;
       }
     }
   }
@@ -160,7 +167,7 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
   }
 
   model->lock();
-  model->setRobotModel(kmodel_, default_collision_matrix, default_link_padding_map_, default_padd_, default_scale_);
+  model->setRobotModel(kmodel_, default_collision_matrix, default_link_padding_map, default_padd_, default_scale_);
 
   for (unsigned int i = 0 ; i < bounding_planes_.size() / 4 ; ++i)
   {
@@ -172,7 +179,7 @@ void planning_environment::CollisionModels::setupModel(collision_space::Environm
   model->unlock();    
 }
 
-void planning_environment::CollisionModels::loadCollision()
+void planning_environment::CollisionModels::loadCollisionFromParamServer()
 {
   // a list of static planes bounding the environment
   bounding_planes_.clear();
@@ -197,7 +204,7 @@ void planning_environment::CollisionModels::loadCollision()
   if (loadedModels())
   {
     ode_collision_model_ = new collision_space::EnvironmentModelODE();
-    setupModel(ode_collision_model_);
+    setupModelFromParamServer(ode_collision_model_);
 	
     //	bullet_collision_model_ = boost::shared_ptr<collision_space::EnvironmentModel>(new collision_space::EnvironmentModelBullet());
     //	setupModel(bullet_collision_model_, links);
