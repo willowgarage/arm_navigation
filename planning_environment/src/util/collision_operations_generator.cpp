@@ -42,7 +42,7 @@
 static const unsigned int ESTABLISH_ALWAYS_NUM = 100;
 static const unsigned int ESTABLISH_OFTEN_NUM = 500;
 static const double ESTABLISH_OFTEN_PERCENTAGE = .5;
-static const unsigned int ESTABLISH_OCCASIONAL_NUM = 50000;
+static const unsigned int ESTABLISH_OCCASIONAL_NUM = 1000;
 static const unsigned int PERFORMANCE_TESTING_NUM = 500;
 
 using namespace planning_environment;
@@ -59,6 +59,7 @@ CollisionOperationsGenerator::CollisionOperationsGenerator(planning_environment:
   cm_ = cm;
 
   generateSamplingStructures();
+  enableAllCollisions();
 
 }
 
@@ -125,12 +126,15 @@ void CollisionOperationsGenerator::enableAllCollisions() {
 void CollisionOperationsGenerator::disablePairCollisionChecking(const CollisionOperationsGenerator::StringPair& pair) {
   collision_space::EnvironmentModel::AllowedCollisionMatrix altered_acm = cm_->getCurrentAllowedCollisionMatrix();
   altered_acm.changeEntry(pair.first, pair.second, true);
+  cm_->setAlteredAllowedCollisionMatrix(altered_acm);
 }
 
 void CollisionOperationsGenerator::disablePairCollisionChecking(const std::vector<CollisionOperationsGenerator::StringPair>& pair_vec) {
+  collision_space::EnvironmentModel::AllowedCollisionMatrix altered_acm = cm_->getCurrentAllowedCollisionMatrix();
   for(unsigned int i = 0; i < pair_vec.size(); i++) {
-    disablePairCollisionChecking(pair_vec[i]);
+    altered_acm.changeEntry(pair_vec[i].first, pair_vec[i].second, true);
   }
+  cm_->setAlteredAllowedCollisionMatrix(altered_acm);
 }
 
 void CollisionOperationsGenerator::generateSamplingStructures() {
@@ -226,6 +230,10 @@ void CollisionOperationsGenerator::buildOutputStructures(unsigned int num, doubl
         meets_threshold_collision.push_back(StringPair(it->first, it2->first));
         percentages.push_back(per);
         joint_values.push_back(collision_joint_values_[it->first][it2->first]);
+      } else {
+        if(per > .01) {
+          ROS_DEBUG_STREAM("Per between " << it->first << " and " << it2->first << " is " << per  << " low " << low_threshold << " high " << high_threshold);
+        }
       }
     }
   }

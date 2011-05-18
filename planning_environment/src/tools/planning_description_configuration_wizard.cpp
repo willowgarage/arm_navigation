@@ -43,11 +43,13 @@
 #include <tf/transform_broadcaster.h>
 #include <collision_space/environmentODE.h>
 #include <rosgraph_msgs/Clock.h>
+#include <planning_environment/util/collision_operations_generator.h>
 
 #include <ncurses.h>
 
 //in 100 hz ticks
 static const unsigned int CONTROL_SPEED = 10;
+static const std::string VIS_TOPIC_NAME = "planning_description_configuration_wizard";
 
 class PlanningDescriptionConfigurationWizard {
 public:  
@@ -76,19 +78,25 @@ public:
     }
 
     cm_ = NULL;
+    ops_gen_ = NULL;
 
     if(!setupWithWorldFixedFrame("", "Floating")) {
       return;
     }
 
-    //vis_marker_publisher_ = nh_.advertise<visualization_msgs::Marker>(VIS_TOPIC_NAME, 128);
-    //vis_marker_array_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>(VIS_TOPIC_NAME+"_array", 128);
+    vis_marker_publisher_ = nh_.advertise<visualization_msgs::Marker>(VIS_TOPIC_NAME, 128);
+    vis_marker_array_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>(VIS_TOPIC_NAME+"_array", 128);
 
     inited_ = true;
   }
 
   ~PlanningDescriptionConfigurationWizard() {
-    delete cm_;
+    if(cm_ != NULL) { 
+      delete cm_;
+    }
+    if(ops_gen_ != NULL) {
+      delete ops_gen_;
+    }
   }
 
   void deleteKinematicStates() {
@@ -128,6 +136,9 @@ public:
     if(cm_ != NULL) { 
       delete cm_;
     }
+    if(ops_gen_ != NULL) {
+      delete ops_gen_;
+    }
     planning_models::KinematicModel* kmodel = new planning_models::KinematicModel(*urdf_, gcs, multi_dof_configs);
 
     if(kmodel->getRoot() == NULL) {
@@ -155,14 +166,196 @@ public:
     cm_ = new planning_environment::CollisionModels(urdf_,
                                                     kmodel, 
                                                     ode_collision_model_);
+    ops_gen_ = new planning_environment::CollisionOperationsGenerator(cm_);
+
     lock_.unlock();
 
     return true;
   }
 
+  void setAlwaysAndDefaultInCollisionMarkers(std::vector<planning_environment::CollisionOperationsGenerator::StringPair>& default_in_collision) {
+    lock_.lock();
+
+    std::vector<planning_environment::CollisionOperationsGenerator::StringPair> always_in_collision;
+    std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
+
+    ops_gen_->generateAlwaysInCollisionPairs(always_in_collision, in_collision_joint_values);
+
+    robot_state_->setKinematicStateToDefault();
+    
+    std_msgs::ColorRGBA always_color;
+    always_color.a = 1.0;
+    always_color.r = 1.0;
+    always_color.g = .8;
+    always_color.b = 0.04;
+
+    collision_markers_.markers.clear();
+    cm_->getAllCollisionPointMarkers(*robot_state_,
+                                     collision_markers_,
+                                     always_color,
+                                     ros::Duration(.2));
+
+    ops_gen_->disablePairCollisionChecking(always_in_collision);
+    ops_gen_->generateDefaultInCollisionPairs(default_in_collision, in_collision_joint_values);
+
+    std_msgs::ColorRGBA default_color;
+    default_color.a = 1.0;
+    default_color.r = 0.0;
+    default_color.g = .8;
+    default_color.b = 0.04;
+    
+    cm_->getAllCollisionPointMarkers(*robot_state_,
+                                     collision_markers_,
+                                     default_color,
+                                     ros::Duration(.2));
+
+    lock_.unlock();
+  }
+
+  visualization_msgs::Marker transformEnvironmentModelContactInfoMarker(const collision_space::EnvironmentModel::Contact& c) {
+    std::string ns_name;
+    ns_name = c.body_name_1;
+    ns_name +="+";
+    ns_name += c.body_name_2;
+    visualization_msgs::Marker mk;
+    mk.header.stamp = ros::Time::now();
+    mk.header.frame_id = cm_->getWorldFrameId();
+    mk.ns = ns_name;
+    mk.id = 0;
+    mk.type = visualization_msgs::Marker::SPHERE;
+    mk.action = visualization_msgs::Marker::ADD;
+    mk.pose.position.x = c.pos.x();
+    mk.pose.position.y = c.pos.y();
+    mk.pose.position.z = c.pos.z();
+    mk.pose.orientation.w = 1.0;
+    
+    mk.scale.x = mk.scale.y = mk.scale.z = 0.1;
+    return mk;
+  }
+
+  void considerOftenInCollisionPairs() {
+
+    std::vector<planning_environment::CollisionOperationsGenerator::StringPair> often_in_collision;
+    std::vector<double> percentages;
+    std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
+
+    ops_gen_->generateOftenInCollisionPairs(often_in_collision, percentages, in_collision_joint_values);
+
+    if(often_in_collision.size() == 0) {
+      printw("No additional often in collision pairs");
+      refresh();
+      return;
+    }
+
+    std_msgs::ColorRGBA color;
+    color.a = 1.0;
+    color.r = 1.0;
+    color.g = 0.0;
+    color.b = 1.0;
+
+    considerInCollisionPairs(often_in_collision,
+                             percentages,
+                             in_collision_joint_values,
+                             color);
+
+  }
+
+  void considerOccasionallyInCollisionPairs() {
+
+    std::vector<planning_environment::CollisionOperationsGenerator::StringPair> in_collision;
+    std::vector<planning_environment::CollisionOperationsGenerator::StringPair> not_in_collision;
+    std::vector<double> percentages;
+    std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
+
+    ops_gen_->generateOccasionallyAndNeverInCollisionPairs(in_collision, not_in_collision, percentages, in_collision_joint_values);
+
+    if(in_collision.size() == 0) {
+      printw("No additional often in collision pairs");
+      refresh();
+      return;
+    }
+
+    std_msgs::ColorRGBA color;
+    color.a = 1.0;
+    color.r = 1.0;
+    color.g = 0.0;
+    color.b = 1.0;
+
+    considerInCollisionPairs(in_collision,
+                             percentages,
+                             in_collision_joint_values,
+                             color);
+
+  }
+  
+  void considerInCollisionPairs(std::vector<planning_environment::CollisionOperationsGenerator::StringPair>& in_collision_pairs,
+                                std::vector<double>& percentages,
+                                std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues>& in_collision_joint_values,
+                                const std_msgs::ColorRGBA& color
+) {
+    for(unsigned int i = 0; i < in_collision_pairs.size(); i++) {
+      lock_.lock();
+      collision_markers_.markers.clear();
+      robot_state_->setKinematicState(in_collision_joint_values[i]);
+      if(!cm_->isKinematicStateInCollision(*robot_state_)) {
+        ROS_INFO_STREAM("Really should be in collision");
+      }
+      std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+      std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+      cm_->getCollisionSpace()->getAllCollisionContacts(allowed_contacts,
+                                                        coll_space_contacts,
+                                                        1);
+      bool found = false;
+      visualization_msgs::Marker marker;
+      for(unsigned int j = 0; j < coll_space_contacts.size(); j++) {
+        if((coll_space_contacts[j].body_name_1 == in_collision_pairs[i].first &&
+            coll_space_contacts[j].body_name_2 == in_collision_pairs[i].second) ||
+           (coll_space_contacts[j].body_name_1 == in_collision_pairs[i].second &&
+            coll_space_contacts[j].body_name_2 == in_collision_pairs[i].first)) {
+          found = true;
+          marker = transformEnvironmentModelContactInfoMarker(coll_space_contacts[j]);
+          marker.color = color;
+          marker.lifetime = ros::Duration(.2);
+          collision_markers_.markers.push_back(marker);
+        }
+      }
+      lock_.unlock();
+      if(!found) { 
+        ROS_WARN_STREAM("Collision that should be there not found");
+      } else {
+        printw("Disable all collisions between %s and %s (frequency in collision %g) (y or n)?", in_collision_pairs[i].first.c_str(), in_collision_pairs[i].second.c_str(), percentages[i]);
+        refresh();
+        char str[80];
+        getstr(str);
+        if(str[0] != 'n') {
+          ops_gen_->disablePairCollisionChecking(in_collision_pairs[i]);
+        }
+      }
+    }
+  }
+ 
+
+  void updateCollisionsInCurrentState() {
+    lock_.lock();
+    std_msgs::ColorRGBA default_color;
+    default_color.a = 1.0;
+    default_color.r = 0.0;
+    default_color.g = .8;
+    default_color.b = 0.04;
+
+    collision_markers_.markers.clear();
+    
+    cm_->getAllCollisionPointMarkers(*robot_state_,
+                                     collision_markers_,
+                                     default_color,
+                                     ros::Duration(.2));
+    lock_.unlock();
+  }
+
   void sendMarkers() 
   {
     lock_.lock();
+    vis_marker_array_publisher_.publish(collision_markers_);
     lock_.unlock();
   }
 
@@ -206,6 +399,11 @@ public:
     return inited_;
   }
 
+  planning_environment::CollisionOperationsGenerator* getOperationsGenerator() 
+  { 
+    return ops_gen_;
+  }
+
 protected:
 
   bool inited_;
@@ -213,10 +411,14 @@ protected:
   ros::NodeHandle nh_;
   boost::shared_ptr<urdf::Model> urdf_;  
   planning_environment::CollisionModels* cm_;
+  planning_environment::CollisionOperationsGenerator* ops_gen_;
   planning_models::KinematicState* robot_state_;
   collision_space::EnvironmentModel* ode_collision_model_;
+  visualization_msgs::MarkerArray collision_markers_;
 
   tf::TransformBroadcaster transform_broadcaster_;
+  ros::Publisher vis_marker_publisher_;
+  ros::Publisher vis_marker_array_publisher_;
   
   boost::recursive_mutex lock_;
 
@@ -255,6 +457,8 @@ void quit(int sig)
 
 int main(int argc, char** argv)
 {
+
+  srand(time(NULL));
   ros::init(argc, argv, "planning_description_configuration_wizard", ros::init_options::NoSigintHandler);
 
   if(argc < 2) {
@@ -277,6 +481,30 @@ int main(int argc, char** argv)
   initscr();
   use_default_colors();
   start_color();
+
+  std::vector<planning_environment::CollisionOperationsGenerator::StringPair> default_in_collision;
+  pdcw->setAlwaysAndDefaultInCollisionMarkers(default_in_collision);
+
+  // printw("In rviz collisions resulting from the pairs of links that are always in collision are shown in yellow.\n");
+  // printw("These will be disabled\n");
+  // printw("Link pairs that are in collision in the default state are shown in green\n");
+  // for(unsigned int i = 0; i < default_in_collision.size(); i++) {
+  //   printw("Disable all collisions between %s and %s (y or n)?", default_in_collision[i].first.c_str(), default_in_collision[i].second.c_str());
+  //   refresh();
+  //   char str[80];
+  //   getstr(str);
+  //   if(str[0] != 'n') {
+  //     pdcw->getOperationsGenerator()->disablePairCollisionChecking(default_in_collision[i]);
+  //   }
+  //   pdcw->updateCollisionsInCurrentState();
+  // }
+  printw("Finding often in collision pairs\n");
+  refresh();
+  pdcw->considerOftenInCollisionPairs();
+
+  printw("Finding occasionally in collision pairs\n");
+  refresh();
+  pdcw->considerOccasionallyInCollisionPairs();
 
   refresh();
   getch();

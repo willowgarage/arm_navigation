@@ -56,7 +56,7 @@ planning_environment::CollisionModels::CollisionModels(boost::shared_ptr<urdf::M
                                                        planning_models::KinematicModel* kmodel,
                                                        collision_space::EnvironmentModel* ode_collision_model) : RobotModels(urdf, kmodel)
 {
-  ode_collision_model_ = ode_collision_model_;
+  ode_collision_model_ = ode_collision_model;
 }
 
 planning_environment::CollisionModels::~CollisionModels(void)
