@@ -18,6 +18,7 @@ rosbuild_add_library(planning_environment src/models/robot_models.cpp
 					 src/monitors/planning_monitor.cpp
 					 src/util/kinematic_state_constraint_evaluator.cpp
 					 src/util/construct_object.cpp
+					 src/util/collision_operations_generator.cpp
 					 src/models/model_utils.cpp
 					 src/monitors/monitor_utils.cpp)
 
@@ -53,7 +54,7 @@ rosbuild_add_executable(filter_attached_objects src/tools/filter_attached_object
 target_link_libraries(filter_attached_objects planning_environment)
 rosbuild_link_boost(filter_attached_objects thread)
 
-rosbuild_add_executable(collision_operations_generator src/tools/collision_operations_generator.cpp) 
+#rosbuild_add_executable(collision_operations_generator src/tools/collision_operations_generator.cpp) 
 
 rosbuild_add_executable(planning_description_configuration_wizard src/tools/planning_description_configuration_wizard.cpp) 
 target_link_libraries(planning_description_configuration_wizard planning_environment)
