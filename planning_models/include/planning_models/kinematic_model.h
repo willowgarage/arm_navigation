@@ -473,6 +473,7 @@ public:
 	    
     JointModelGroup(const std::string& name,
                     const std::vector<const JointModel*>& joint_vector,
+                    const std::vector<const JointModel*>& fixed_joint_vector,
                     const KinematicModel* parent_model);
     
     ~JointModelGroup(void);
@@ -491,6 +492,11 @@ public:
     const std::vector<const JointModel*>& getJointModels() const
     {
       return joint_model_vector_;
+    }
+
+    const std::vector<const JointModel*>& getFixedJointModels() const
+    {
+      return fixed_joint_model_vector_;
     }
     
     const std::vector<std::string>& getJointModelNames() const
@@ -543,6 +549,9 @@ public:
 
     /** \brief Joint instances in the order they appear in the group state */
     std::vector<const JointModel*> joint_model_vector_;
+
+    /** \brief Fixed joint instances in this group */
+    std::vector<const JointModel*> fixed_joint_model_vector_;
 
     /** \brief A map from joint names to their instances */
     std::map<std::string, const JointModel*> joint_model_map_;
@@ -658,6 +667,8 @@ public:
   bool hasModelGroup(const std::string& group) const;
 
   bool addModelGroup(const GroupConfig& group);
+
+  void removeModelGroup(const std::string& group);
 
   const JointModelGroup* getModelGroup(const std::string& name) const
   {

@@ -392,8 +392,8 @@ TEST(FK, OneRobot)
 
   //only the links in between the joints, and the children of the leafs
   ASSERT_EQ(g_one->getGroupLinkModels().size(), 4);
-  //g_two only has two links as it only contains base_joint and joint_a as joint_b is fixed
-  ASSERT_EQ(g_two->getGroupLinkModels().size(), 2);
+  //g_two only has three links
+  ASSERT_EQ(g_two->getGroupLinkModels().size(), 3);
   ASSERT_EQ(g_three->getGroupLinkModels().size(), 4);
     
   EXPECT_EQ(g_one->getJointModelNames()[0],"base_joint");

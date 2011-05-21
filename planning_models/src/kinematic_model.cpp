@@ -168,6 +168,12 @@ void planning_models::KinematicModel::buildGroups(const std::vector<GroupConfig>
   }
 }
 
+void planning_models::KinematicModel::removeModelGroup(const std::string& group) {
+  if(!hasModelGroup(group)) return;
+  delete joint_model_group_map_[group];
+  joint_model_group_map_.erase(group);
+}
+
 bool planning_models::KinematicModel::addModelGroup(const planning_models::KinematicModel::GroupConfig& gc)
 {
   if(joint_model_group_map_.find(gc.name_) != joint_model_group_map_.end()) {
@@ -175,6 +181,7 @@ bool planning_models::KinematicModel::addModelGroup(const planning_models::Kinem
     return false;
   }
   std::vector<const JointModel*> jointv;
+  std::vector<const JointModel*> fixed_jointv;
   if(!gc.tip_link_.empty() && !gc.base_link_.empty()) {
     if(!gc.subgroups_.empty()) {
       ROS_WARN_STREAM("Ignoring subgroups as tip and base are defined for group " << gc.name_);
@@ -213,6 +220,8 @@ bool planning_models::KinematicModel::addModelGroup(const planning_models::Kinem
       const FixedJointModel* fjm = dynamic_cast<const FixedJointModel*>(lm->getParentJointModel());
       if(fjm == NULL) {
         jointv.push_back(lm->getParentJointModel());
+      } else {
+        fixed_jointv.push_back(fjm);
       }
       lm = lm->getParentJointModel()->getParentLinkModel();
     }
@@ -260,7 +269,7 @@ bool planning_models::KinematicModel::addModelGroup(const planning_models::Kinem
     ROS_WARN_STREAM("Group " << gc.name_ << " must have at least one valid joint");
     return false;
   }
-  joint_model_group_map_[gc.name_] = new JointModelGroup(gc.name_, jointv, this);
+  joint_model_group_map_[gc.name_] = new JointModelGroup(gc.name_, jointv, fixed_jointv, this);
   return true;
 }
 
@@ -1231,12 +1240,14 @@ planning_models::KinematicModel::AttachedBodyModel::~AttachedBodyModel(void)
 /* ------------------------ JointModelGroup ------------------------ */
 planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::string& group_name,
                                                                   const std::vector<const JointModel*> &group_joints,
+                                                                  const std::vector<const JointModel*> &fixed_group_joints,
                                                                   const KinematicModel* parent_model) :
   name_(group_name)
 {
   ROS_DEBUG_STREAM("\nGroup " << group_name);
 
   joint_model_vector_ = group_joints;
+  fixed_joint_model_vector_ = fixed_group_joints;
   joint_model_name_vector_.resize(group_joints.size());
 
   ROS_DEBUG_STREAM("Joints:");    
@@ -1247,13 +1258,22 @@ planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::str
     joint_model_map_[group_joints[i]->getName()] = group_joints[i];
   }
 
+  ROS_DEBUG_STREAM("Fixed joints:");    
+  for (unsigned int i = 0 ; i < fixed_joint_model_vector_.size() ; ++i)
+  {
+    ROS_DEBUG_STREAM(fixed_joint_model_vector_[i]->getName());
+  }
+
+  std::vector<const JointModel*> all_joints = group_joints;
+  all_joints.insert(all_joints.end(), fixed_group_joints.begin(), fixed_group_joints.end());
+
   //now we need to find all the set of joints within this group
   //that root distinct subtrees
   std::map<std::string, bool> is_root;
-  for (unsigned int i = 0 ; i < group_joints.size() ; ++i)
+  for (unsigned int i = 0 ; i < all_joints.size() ; ++i)
   {
     bool found = false;
-    const JointModel *joint = joint_model_vector_[i];
+    const JointModel *joint = all_joints[i];
     //if we find that an ancestor is also in the group, then the joint is not a root
     while (joint->getParentLinkModel() != NULL)
     {
@@ -1265,17 +1285,17 @@ planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::str
     }
 	
     if(!found) {
-      joint_roots_.push_back(joint_model_vector_[i]);
-      is_root[joint_model_vector_[i]->getName()] = true;
+      joint_roots_.push_back(all_joints[i]);
+      is_root[all_joints[i]->getName()] = true;
     } else {
-      is_root[joint_model_vector_[i]->getName()] = false;
+      is_root[all_joints[i]->getName()] = false;
     }
   }
 
   //now we need to make another pass for group links
   std::set<const LinkModel*> group_links_set;
-  for(unsigned int i = 0; i < group_joints.size(); i++) {
-    const JointModel *joint = joint_model_vector_[i];
+  for(unsigned int i = 0; i < all_joints.size(); i++) {
+    const JointModel *joint = all_joints[i];
     //push children in directly
     group_links_set.insert(joint->getChildLinkModel());
     while (joint->getParentLinkModel() != NULL)
