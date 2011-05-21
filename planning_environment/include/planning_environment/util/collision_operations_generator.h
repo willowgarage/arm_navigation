@@ -52,6 +52,14 @@ class CollisionOperationsGenerator {
 
 public:
 
+  enum DisableType {
+    ALWAYS,
+    DEFAULT,
+    OFTEN,
+    OCCASIONALLY,
+    NEVER
+  };
+
   CollisionOperationsGenerator(CollisionModels* cm);
   
   ~CollisionOperationsGenerator() {
@@ -79,20 +87,22 @@ public:
   void disablePairCollisionChecking(const std::vector<StringPair>& pair_vec);
 
   void enableAllCollisions();
-
-  //void outputYamlStringOfSavedResults();
+  void outputYamlStringOfSavedResults(const std::string& output_file,  std::map<DisableType, std::vector<StringPair> >& disable_types);
   //void outputFileOfSavedResults();
 
-protected:
+  void performanceTestSavedResults(std::map<CollisionOperationsGenerator::DisableType, std::vector<CollisionOperationsGenerator::StringPair> >& disable_types);
 
-  void generateSamplingStructures();
+  void generateSamplingStructures(const std::map<std::string, bool>& add_map);
+
+protected:
 
   void sampleAndCountCollisions(unsigned int num);
 
   void buildOutputStructures(unsigned int num, double low_value, double high_value, 
                              std::vector<StringPair>& meets_threshold_collision,
                              std::vector<double>& collision_percentages, 
-                             std::vector<CollidingJointValues>& joint_values);
+                             std::vector<CollidingJointValues>& joint_values,
+                             std::map<std::string, std::map<std::string, double> >& percentage_num);
   
   void resetCountingMap();
 
