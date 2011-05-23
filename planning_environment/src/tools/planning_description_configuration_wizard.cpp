@@ -181,31 +181,50 @@ public:
   void setupGroups() {
 
     while(1) {
+      clear();
+      std::vector<std::string> group_names;
+      kmodel_->getModelGroupNames(group_names);
+      printw("Current groups:\n");
+      for(unsigned int i = 0; i < group_names.size(); i++) {
+        printw("%d) %s\n", i, group_names[i].c_str());
+      }
       printw("Enter 0 to accept current group set\n");
+      printw("Enter an 'x' followed by the group number to delete a current group.\n");
       printw("Enter 1 to add a group based on kinematic chain\n");
       printw("Enter 2 to add a group based on a joint collection\n");
       printw("Enter 3 to add a group based on a subgroup collection\n");
       refresh();
       char str[80];
       getstr(str); 
-      unsigned int entry;
-      std::stringstream ss(str);
-      ss >> entry;
-      if(entry == 0) break;
-      printw("Enter name for new group: ");
-      getstr(str);
-      std::stringstream ss2(str);
-      std::string new_group_name;
-      ss2 >> new_group_name;
-      if(entry == 0) {
-        break;
-      } else if(entry == 1) {
-        setupGroupKinematicChain(new_group_name);
-      } // else {
-      //   setupGroupJointCollection(new_group_name);
-      // } else {
-      //   setupGroupSubgroupCollection(new_group_name);
-      // }
+      if(str[0] == 'x') {
+        unsigned int entry;
+        std::stringstream ss(&str[0]);
+        ss >> entry;
+        deleteKinematicStates();
+        kmodel_->removeModelGroup(group_names[entry]);
+        robot_state_ = new planning_models::KinematicState(kmodel_);
+        robot_state_->setKinematicStateToDefault();
+      } else {
+        unsigned int entry;
+        std::stringstream ss(str);
+        ss >> entry;
+        if(entry == 0) break;
+        printw("Enter name for new group: ");
+        getstr(str);
+        std::stringstream ss2(str);
+        std::string new_group_name;
+        ss2 >> new_group_name;
+        if(entry == 0) {
+          break;
+        } else if(entry == 1) {
+          setupGroupKinematicChain(new_group_name);
+        } else {
+          setupGroupJointCollection(new_group_name);
+        }
+        //} else {
+        //   setupGroupSubgroupCollection(new_group_name);
+        // }
+      }
     }
   }
 
@@ -232,15 +251,15 @@ public:
         printw("%s\n", lmv[i]->getName().c_str());
       }
       printw("New group name: %s\n", new_group_name.c_str());
-      printw("Enter 'B' followed by a link number to set the base link for the group.\n");
-      printw("Enter 'T' followed by a link number to set the base link for the group.\n");
-      printw("Enter 'Q' to exit\n");
+      printw("Enter 'b' followed by a link number to set the base link for the group.\n");
+      printw("Enter 't' followed by a link number to set the base link for the group.\n");
+      printw("Enter 'q' to exit\n");
       if(has_tip && has_base) {
-        printw("Enter 'X' to validate/visualize the group\n");
+        printw("Enter 'x' to validate/visualize the group\n");
       } 
       if(group_ok) {
         printw("Visualization shows group links in red and updated links in green\n");
-        printw("Enter 'A' to accept group\n");
+        printw("Enter 'a' to accept group\n");
       }
       if(!last_status.empty()) {
         printw("Last status msg: %s\n", last_status.c_str());
@@ -248,13 +267,13 @@ public:
       refresh();
       char str[80];
       getstr(str); 
-      if(str[0] == 'Q') {
+      if(str[0] == 'q') {
         break;
-      } else if(str[0] == 'B' || str[0] == 'T') {
+      } else if(str[0] == 'b' || str[0] == 't') {
         std::stringstream ss(&str[1]);
         unsigned int entry;
         ss >> entry;
-        if(str[0] == 'B') {
+        if(str[0] == 'b') {
           base_num = entry;
           has_base = true;
         } else {
@@ -262,7 +281,7 @@ public:
           has_tip = true;
         }
       } else if(has_tip && has_base) {
-        if(str[0] == 'A') {
+        if(str[0] == 'a') {
           if(!group_ok) {
             last_status = "Must validate group before accepting";
             continue;
@@ -292,6 +311,99 @@ public:
         lock_.unlock();
       }
     }
+  }
+
+  void setupGroupJointCollection(const std::string& new_group_name) {
+    const std::vector<planning_models::KinematicModel::JointModel*>& jmv = kmodel_->getJointModels();
+    std::vector<bool> is_included(jmv.size(), false);
+    while(1) {
+      clear();
+      for(unsigned int i = 0; i < jmv.size(); i++) {
+        printw("%-3d ", i);
+        if(is_included[i]) {
+          printw("(X) ");
+        } else {
+          printw("( )");
+        }
+        printw("%s\n", jmv[i]->getName().c_str());
+      }
+      printw("New group name: %s\n", new_group_name.c_str());
+      printw("Enter a joint number or two numbers seperated by a ':' to toggle inclusion\n");
+      printw("Enter an 'a' followed by a joint number to toggle that joint and all downstream joints\n");
+      printw("Enter 'r' to reset all entries\n");
+      printw("Enter 'v' to visualize all member and updated links of the current selection (shown in green)\n");
+      printw("Enter 'x' to accept this joint collection\n");
+      refresh();
+      char str[80];
+      getstr(str); 
+      if(str[0] == 'x' || str[0] == 'v') {
+        lock_.lock();
+        std::vector<std::string> joints;
+        for(unsigned int i = 0; i < is_included.size(); i++) {
+          if(is_included[i]) {
+            joints.push_back(jmv[i]->getName());
+          }
+        }
+        deleteKinematicStates();
+        if(kmodel_->hasModelGroup(new_group_name)) {
+          kmodel_->removeModelGroup(new_group_name);
+        }
+        std::vector<std::string> emp;
+        planning_models::KinematicModel::GroupConfig gc(new_group_name,
+                                                        joints,
+                                                        emp);
+        bool group_ok = kmodel_->addModelGroup(gc);
+        if(!group_ok) {
+          ROS_ERROR_STREAM("Joint collection group really should be ok");
+          current_show_group_ = "";
+        } else {
+          if(str[0] == 'v') {
+            current_show_group_ = new_group_name;
+          }
+          robot_state_ = new planning_models::KinematicState(kmodel_);
+          robot_state_->setKinematicStateToDefault();
+        }
+        lock_.unlock();
+        if(str[0] == 'x') {
+          break;
+        }
+      } else if(str[0] == 'r') {
+        for(unsigned int i = 0; i < is_included.size(); i++) {
+          is_included[i] = false;
+        }
+      } else if(str[0] == 'a') {
+        std::stringstream ss(&str[1]);
+        unsigned int entry;
+        ss >> entry;
+        std::vector<std::string> joints = kmodel_->getChildJointModelNames(jmv[entry]);
+        for(unsigned int i = 0; i < joints.size(); i++) {
+          for(unsigned int j = 0; j < jmv.size(); j++) {
+            if(joints[i] == jmv[j]->getName()) {
+              is_included[j] = !is_included[j];
+              break;
+            }
+          }
+        }
+      } else {
+        unsigned int entry;
+        std::stringstream ss(str);
+        ss >> entry;
+        char c;
+        ss >> c;
+        if(c != ':') {
+          is_included[entry] = !is_included[entry];
+        } else {
+          unsigned int entry2;
+          ss >> entry2;
+          for(unsigned int q = entry; q <= entry2; q++) {
+            is_included[q] = !is_included[q];
+          }
+        }
+      }
+    }
+    lock_.lock();
+    current_show_group_ = "";
+    lock_.unlock();
   }
 
   void setJointsForCollisionSampling() {
