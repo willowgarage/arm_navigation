@@ -87,7 +87,7 @@ public:
   void disablePairCollisionChecking(const std::vector<StringPair>& pair_vec);
 
   void enableAllCollisions();
-  void outputYamlStringOfSavedResults(const std::string& output_file,  std::map<DisableType, std::vector<StringPair> >& disable_types);
+  void outputYamlStringOfSavedResults(YAML::Emitter& outy, const std::map<DisableType, std::vector<StringPair> >& disable_types);
   //void outputFileOfSavedResults();
 
   void performanceTestSavedResults(std::map<CollisionOperationsGenerator::DisableType, std::vector<CollisionOperationsGenerator::StringPair> >& disable_types);

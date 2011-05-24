@@ -43,8 +43,8 @@
 static const unsigned int ESTABLISH_ALWAYS_NUM = 100;
 static const unsigned int ESTABLISH_OFTEN_NUM = 500;
 static const double ESTABLISH_OFTEN_PERCENTAGE = .5;
-static const unsigned int ESTABLISH_OCCASIONAL_NUM = 100000;
-static const unsigned int PERFORMANCE_TESTING_NUM = 5000;
+static const unsigned int ESTABLISH_OCCASIONAL_NUM = 1000;
+static const unsigned int PERFORMANCE_TESTING_NUM = 2000;
 
 using namespace planning_environment;
 
@@ -339,14 +339,10 @@ void CollisionOperationsGenerator::performanceTestSavedResults(std::map<Collisio
 }
  
 
-void CollisionOperationsGenerator::outputYamlStringOfSavedResults(const std::string& output_file,  std::map<CollisionOperationsGenerator::DisableType, std::vector<CollisionOperationsGenerator::StringPair> >& disable_types) {
-  std::ofstream outfile(output_file.c_str(), std::ios_base::app);
-  
-  YAML::Emitter outy;
-  outy << YAML::BeginMap;
+void CollisionOperationsGenerator::outputYamlStringOfSavedResults(YAML::Emitter& outy,  const std::map<CollisionOperationsGenerator::DisableType, std::vector<CollisionOperationsGenerator::StringPair> >& disable_types) {
   outy << YAML::Key << "default_collision_operations";
   outy << YAML::Value << YAML::BeginSeq; 
-  for(std::map<DisableType, std::vector<StringPair> >::iterator it = disable_types.begin(); 
+  for(std::map<DisableType, std::vector<StringPair> >::const_iterator it = disable_types.begin(); 
       it != disable_types.end(); it++) {
     std::string com;
     if(it->first == ALWAYS) {
@@ -370,8 +366,6 @@ void CollisionOperationsGenerator::outputYamlStringOfSavedResults(const std::str
      outy << YAML::EndMap;
     }
   }
-  outy << YAML::EndMap;
-  outfile << outy.c_str();
 }
 
 void CollisionOperationsGenerator::resetCountingMap() {

@@ -72,9 +72,6 @@ public:
 
     outfile_name_ = getRobotName()+"_planning_description.yaml";
     
-    //opening to clear
-    std::ofstream outf(outfile_name_.c_str(), std::ios_base::trunc);
-
     //pushing to the param server
     std::string com = "rosparam set robot_description -t "+full_path_name;
 
@@ -163,19 +160,16 @@ public:
   }
 
   void emitWorldJointYAML() {
-    
-    std::ofstream outf(outfile_name_.c_str(), std::ios_base::app);
-    
-    YAML::Emitter outy;
-    outy << YAML::BeginMap;
-    outy << YAML::Key << "multi_dof_joints";
-    outy << YAML::Value << YAML::BeginSeq; 
-    outy << YAML::BeginMap; 
-    outy << YAML::Key << "name" << YAML::Value << world_joint_config_.name;
-    outy << YAML::Key << "type" << YAML::Value << world_joint_config_.type;
-    outy << YAML::Key << "parent_frame_id" << YAML::Value << world_joint_config_.parent_frame_id;
-    outy << YAML::Key << "child_frame_id" << YAML::Value << world_joint_config_.child_frame_id;
-    outy << YAML::EndMap;
+
+    emitter_ << YAML::Key << "multi_dof_joints";
+    emitter_ << YAML::Value << YAML::BeginSeq; 
+    emitter_ << YAML::BeginMap; 
+    emitter_ << YAML::Key << "name" << YAML::Value << world_joint_config_.name;
+    emitter_ << YAML::Key << "type" << YAML::Value << world_joint_config_.type;
+    emitter_ << YAML::Key << "parent_frame_id" << YAML::Value << world_joint_config_.parent_frame_id;
+    emitter_ << YAML::Key << "child_frame_id" << YAML::Value << world_joint_config_.child_frame_id;
+    emitter_ << YAML::EndMap;
+    emitter_ << YAML::EndSeq;
   }
 
   void setupGroups() {
@@ -200,10 +194,13 @@ public:
         unsigned int entry;
         std::stringstream ss(&str[0]);
         ss >> entry;
+        lock_.lock();
         deleteKinematicStates();
         kmodel_->removeModelGroup(group_names[entry]);
         robot_state_ = new planning_models::KinematicState(kmodel_);
         robot_state_->setKinematicStateToDefault();
+        group_config_map_.erase(group_names[entry]);
+        lock_.unlock();
       } else {
         unsigned int entry;
         std::stringstream ss(str);
@@ -218,10 +215,9 @@ public:
           break;
         } else if(entry == 1) {
           setupGroupKinematicChain(new_group_name);
-        } else {
+        } else if(entry == 2) {
           setupGroupJointCollection(new_group_name);
-        }
-        //} else {
+        } // else {
         //   setupGroupSubgroupCollection(new_group_name);
         // }
       }
@@ -299,11 +295,12 @@ public:
                                                         lmv[base_num]->getName(),
                                                         lmv[tip_num]->getName());
         group_ok = kmodel_->addModelGroup(gc);
+        robot_state_ = new planning_models::KinematicState(kmodel_);
+        robot_state_->setKinematicStateToDefault();
         if(group_ok) {
+          group_config_map_[new_group_name] = gc;
           current_show_group_ = new_group_name;
           last_status = "Group " + current_show_group_ + " ok";
-          robot_state_ = new planning_models::KinematicState(kmodel_);
-          robot_state_->setKinematicStateToDefault();
         } else {
           current_show_group_ = "";
           last_status = "Group not ok";
@@ -353,15 +350,16 @@ public:
                                                         joints,
                                                         emp);
         bool group_ok = kmodel_->addModelGroup(gc);
+        robot_state_ = new planning_models::KinematicState(kmodel_);
+        robot_state_->setKinematicStateToDefault();
         if(!group_ok) {
           ROS_ERROR_STREAM("Joint collection group really should be ok");
           current_show_group_ = "";
         } else {
+          group_config_map_[new_group_name] = gc;
           if(str[0] == 'v') {
             current_show_group_ = new_group_name;
           }
-          robot_state_ = new planning_models::KinematicState(kmodel_);
-          robot_state_->setKinematicStateToDefault();
         }
         lock_.unlock();
         if(str[0] == 'x') {
@@ -405,6 +403,72 @@ public:
     current_show_group_ = "";
     lock_.unlock();
   }
+
+  void emitGroupYAML() {
+    emitter_ << YAML::Key << "groups";
+    emitter_ << YAML::Value << YAML::BeginSeq; 
+
+    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map_.begin();
+        it != group_config_map_.end();
+        it++) {
+      ROS_INFO_STREAM("Outputting group " << it->first);
+      emitter_ << YAML::BeginMap; 
+      emitter_ << YAML::Key << "name" << YAML::Value << it->first;
+      if(!it->second.base_link_.empty()) {
+        emitter_ << YAML::Key << "base_link" << YAML::Value << it->second.base_link_;
+        emitter_ << YAML::Key << "tip_link" << YAML::Value << it->second.tip_link_;
+      } else {
+        if(!it->second.subgroups_.empty()) {
+          emitter_ << YAML::Key << "subgroups";
+          emitter_ << YAML::Value << YAML::BeginSeq;
+          for(unsigned int i = 0; i < it->second.subgroups_.size(); i++) {
+            emitter_ << it->second.subgroups_[i];
+          } 
+          emitter_ << YAML::EndSeq;
+        }
+        if(!it->second.joints_.empty()) {
+          emitter_ << YAML::Key << "joints";
+          emitter_ << YAML::Value << YAML::BeginSeq;
+          for(unsigned int i = 0; i < it->second.joints_.size(); i++) {
+            emitter_ << it->second.joints_[i];
+          } 
+          emitter_ << YAML::EndSeq;
+        }
+      }
+      emitter_ << YAML::EndMap;
+    }
+    emitter_ << YAML::EndSeq;
+  }
+
+  // void setupGroupSubgroupCollection(const std::string& new_group_name) {
+  //   while(1) {
+  //     clear();
+  //     std::vector<std::string> group_names;
+  //     kmodel_->getModelGroupNames(group_names);
+  //     std::vector<bool> is_included(group_names.size(), false);
+  //     for(unsigned int i = 0; i < group_names.size(); i++) {
+  //       printw("%d) ", i);
+  //       if(is_included[i]) {
+  //         printw("(X)");
+  //       } else {
+  //         printw("( )");
+  //       }
+  //       printw(" %s\n", group_names[i].c_str());
+  //     }
+  //     printw("Enter a subgroup number to toggle inclusion\n");
+  //     printw("Enter 'v' to visualize current subgroup\n");
+  //     printw("Enter 'x' to accept current subgroup\n");
+  //     refresh();
+  //     char str[80];
+  //     getstr(str); 
+  //     unsigned int entry;
+  //     std::stringstream ss(str);
+  //     ss >> entry;
+  //     if(entry == 0) {
+        
+  //     }
+  //   }
+  // }
 
   void setJointsForCollisionSampling() {
     ode_collision_model_ = new collision_space::EnvironmentModelODE();
@@ -681,9 +745,17 @@ public:
   }
  
   void outputPlanningDescriptionYAML() {
+    //initial map
+    emitter_ << YAML::BeginMap;
     emitWorldJointYAML();
+    emitGroupYAML();
     ops_gen_->performanceTestSavedResults(disable_map_);
-    ops_gen_->outputYamlStringOfSavedResults(outfile_name_, disable_map_);
+    ops_gen_->outputYamlStringOfSavedResults(emitter_, disable_map_);
+    //end map
+    emitter_ << YAML::EndMap;
+    std::ofstream outf(outfile_name_.c_str(), std::ios_base::trunc);
+    
+    outf << emitter_.c_str();
   }
 
   void updateCollisionsInCurrentState() {
@@ -872,12 +944,15 @@ protected:
   std::map<planning_environment::CollisionOperationsGenerator::DisableType, std::vector<planning_environment::CollisionOperationsGenerator::StringPair> > disable_map_;
 
   std::string current_show_group_;
+  std::map<std::string, planning_models::KinematicModel::GroupConfig> group_config_map_;
 
   tf::TransformBroadcaster transform_broadcaster_;
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
   
   boost::recursive_mutex lock_;
+
+  YAML::Emitter emitter_;
 
 };
 
