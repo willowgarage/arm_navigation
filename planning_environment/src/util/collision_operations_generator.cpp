@@ -44,7 +44,7 @@ static const unsigned int ESTABLISH_ALWAYS_NUM = 100;
 static const unsigned int ESTABLISH_OFTEN_NUM = 500;
 static const double ESTABLISH_OFTEN_PERCENTAGE = .5;
 static const unsigned int ESTABLISH_OCCASIONAL_NUM = 1000;
-static const unsigned int PERFORMANCE_TESTING_NUM = 2000;
+static const unsigned int PERFORMANCE_TESTING_NUM = 1000;
 
 using namespace planning_environment;
 

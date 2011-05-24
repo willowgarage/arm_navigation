@@ -37,6 +37,7 @@
 #include <math.h>
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/model_utils.h>
@@ -46,6 +47,7 @@
 #include <planning_environment/util/collision_operations_generator.h>
 
 #include <ncurses.h>
+#include <tinyxml/tinyxml.h>
 
 //in 100 hz ticks
 static const unsigned int CONTROL_SPEED = 10;
@@ -57,25 +59,50 @@ WINDOW* right_win;
 class PlanningDescriptionConfigurationWizard {
 public:  
 
-  PlanningDescriptionConfigurationWizard(const std::string& full_path_name) :
-    inited_(false), world_joint_config_("world_joint")
+  PlanningDescriptionConfigurationWizard(const std::string& urdf_package, const std::string& urdf_path) :
+    inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package), urdf_path_(urdf_path)
   {
-    ROS_INFO_STREAM("full path name is " << full_path_name);
+    std::string full_urdf_path = ros::package::getPath(urdf_package_)+urdf_path_;
+
+    ROS_INFO_STREAM("full path name is " << full_urdf_path);
 
     urdf_ = boost::shared_ptr<urdf::Model>(new urdf::Model());
-    bool urdf_ok = urdf_->initFile(full_path_name);
+    bool urdf_ok = urdf_->initFile(full_urdf_path);
     
     if(!urdf_ok) {
-      ROS_WARN_STREAM("Urdf file " << full_path_name << " not ok");
+      ROS_WARN_STREAM("Urdf file " << full_urdf_path << " not ok");
       return;
     }
 
-    outfile_name_ = getRobotName()+"_planning_description.yaml";
+    //making directories
+    dir_name_ = getRobotName()+"_arm_navigation"; 
+    std::string mdir = "roscreate-pkg "+dir_name_; 
+    int ok = system(mdir.c_str());
+    //above might fail if the directory is already there
     
-    //pushing to the param server
-    std::string com = "rosparam set robot_description -t "+full_path_name;
+    mdir ="mkdir -p "+dir_name_+"/config";
+    ok = system(mdir.c_str());
+    if(ok != 0) {
+      ROS_WARN_STREAM("Making subdirectory not ok");
+      return;
+    }
 
-    int ok = system(com.c_str());
+    mdir = "mkdir -p "+dir_name_+"/launch";
+    ok = system(mdir.c_str());
+    if(ok != 0) {
+      ROS_WARN_STREAM("Making subdirectory not ok");
+      return;
+    }
+
+    yaml_outfile_name_ = getRobotName()+"_planning_description.yaml";
+    full_yaml_outfile_name_ = dir_name_+"/config/"+yaml_outfile_name_;
+    launch_outfile_name_ = getRobotName()+"_planning_environment.launch";
+    full_launch_outfile_name_ = dir_name_+"/launch/"+launch_outfile_name_;
+
+    //pushing to the param server
+    std::string com = "rosparam set robot_description -t "+full_urdf_path;
+
+    ok = system(com.c_str());
     
     if(ok != 0) {
       ROS_WARN_STREAM("Setting parameter system call not ok");
@@ -403,6 +430,7 @@ public:
     current_show_group_ = "";
     lock_.unlock();
   }
+
 
   void emitGroupYAML() {
     emitter_ << YAML::Key << "groups";
@@ -758,6 +786,27 @@ public:
     outf << emitter_.c_str();
   }
 
+  void outputPlanningEnvironmentLaunch() {
+    TiXmlDocument doc;
+    TiXmlElement* launch_root = new TiXmlElement("launch");
+    doc.LinkEndChild(launch_root);
+
+    TiXmlElement *rd;
+    rd = new TiXmlElement("rosparam"); 
+    launch_root->LinkEndChild(rd);
+    rd->SetAttribute("command","load");
+    rd->SetAttribute("ns", "robot_description");
+    rd->SetAttribute("file", "$(find "+urdf_package_+")"+urdf_path_);
+
+    TiXmlElement *rp;
+    rp = new TiXmlElement("rosparam");
+    launch_root->LinkEndChild(rp);
+    rp->SetAttribute("command","load");
+    rp->SetAttribute("ns", "robot_description_planning");
+    rp->SetAttribute("file", "$(find "+dir_name_+")/config/"+yaml_outfile_name_);
+    doc.SaveFile(full_launch_outfile_name_);
+  }
+
   void updateCollisionsInCurrentState() {
     lock_.lock();
     std_msgs::ColorRGBA default_color;
@@ -868,16 +917,16 @@ public:
   std::string getRobotName() {
     return urdf_->getName();
   }
-
-void getRobotMeshResourceMarkersGivenState(const planning_models::KinematicState& state,
-                                           visualization_msgs::MarkerArray& arr,
-                                           const std_msgs::ColorRGBA& color,
-                                           const std::string& name, 
-                                           const ros::Duration& lifetime,
-                                           const std::vector<std::string>* names) const
+  
+  void getRobotMeshResourceMarkersGivenState(const planning_models::KinematicState& state,
+                                             visualization_msgs::MarkerArray& arr,
+                                             const std_msgs::ColorRGBA& color,
+                                             const std::string& name, 
+                                             const ros::Duration& lifetime,
+                                             const std::vector<std::string>* names) const
   {  
     boost::shared_ptr<urdf::Model> robot_model = urdf_;
-
+    
     std::vector<std::string> link_names;
     if(names == NULL) {
       kmodel_->getLinkModelNames(link_names);
@@ -954,6 +1003,12 @@ protected:
 
   YAML::Emitter emitter_;
 
+  std::string dir_name_;
+  std::string yaml_outfile_name_, full_yaml_outfile_name_;
+  std::string launch_outfile_name_, full_launch_outfile_name_;
+
+  std::string urdf_package_, urdf_path_;
+
 };
 
 PlanningDescriptionConfigurationWizard* pdcw;
@@ -993,13 +1048,14 @@ int main(int argc, char** argv)
   srand(time(NULL));
   ros::init(argc, argv, "planning_description_configuration_wizard", ros::init_options::NoSigintHandler);
 
-  if(argc < 2) {
-    ROS_INFO_STREAM("Must specify a urdf file");
+  if(argc < 3) {
+    ROS_INFO_STREAM("Must specify a package and relative urdf file");
     exit(0);
   }
 
-  std::string urdf_file = argv[1];
-  pdcw = new PlanningDescriptionConfigurationWizard(urdf_file);
+  std::string urdf_package = argv[1];
+  std::string urdf_path = argv[2];
+  pdcw = new PlanningDescriptionConfigurationWizard(urdf_package, urdf_path);
 
   if(!pdcw->isInited()) {
     ROS_WARN_STREAM("Can't init. Exiting");
@@ -1014,6 +1070,8 @@ int main(int argc, char** argv)
   use_default_colors();
   start_color();
 
+  pdcw->outputPlanningEnvironmentLaunch();
+  
   pdcw->setupGroups();
 
   pdcw->setJointsForCollisionSampling();
