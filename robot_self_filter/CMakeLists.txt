@@ -15,7 +15,6 @@ rosbuild_init()
 rosbuild_add_boost_directories()
 
 rosbuild_add_library(robot_self_filter src/self_mask.cpp)
-target_link_libraries(robot_self_filter assimp)
 rosbuild_add_openmp_flags(robot_self_filter)
 
 rosbuild_add_executable (test_filter src/test_filter.cpp)
