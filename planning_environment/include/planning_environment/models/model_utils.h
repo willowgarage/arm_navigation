@@ -74,6 +74,10 @@ bool applyOrderedCollisionOperationsListToACM(const motion_planning_msgs::Ordere
                                               const std::vector<std::string>& att_names,
                                               const planning_models::KinematicModel* model,
                                               collision_space::EnvironmentModel::AllowedCollisionMatrix& matrix);
+
+void getAllKinematicStateStampedTransforms(const planning_models::KinematicState& state,
+                                           std::vector<geometry_msgs::TransformStamped>& trans_vector,
+                                           const ros::Time& stamp); 
        
 /*
 void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &curAllowed,

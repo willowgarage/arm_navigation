@@ -105,6 +105,11 @@ public:
     return kmodel_->getRoot()->getParentFrameId();
   }
 
+  std::string getRobotName(void) const 
+  {
+    return urdf_->getName();
+  }
+
 protected:
 	
   void loadRobotFromParamServer(void);

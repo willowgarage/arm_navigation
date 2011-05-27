@@ -480,3 +480,20 @@ void planning_environment::convertFromLinkPaddingMapToLinkPaddingVector(const st
     link_padding_vector.push_back(lp);
   }
 }
+
+void planning_environment::getAllKinematicStateStampedTransforms(const planning_models::KinematicState& state,
+                                                                 std::vector<geometry_msgs::TransformStamped>& trans_vector,
+                                                                 const ros::Time& stamp)
+{
+  trans_vector.clear();
+  for(unsigned int i = 0; i < state.getLinkStateVector().size(); i++) {      
+    const planning_models::KinematicState::LinkState* ls = state.getLinkStateVector()[i];
+    geometry_msgs::TransformStamped ts;
+    ts.header.stamp = stamp;
+    ts.header.frame_id = state.getKinematicModel()->getRoot()->getParentFrameId();
+    ts.child_frame_id = ls->getName();
+    if(ts.header.frame_id == ts.child_frame_id) continue; 
+    tf::transformTFToMsg(ls->getGlobalLinkTransform(),ts.transform);
+    trans_vector.push_back(ts);
+  }
+} 

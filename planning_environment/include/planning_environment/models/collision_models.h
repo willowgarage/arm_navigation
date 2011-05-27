@@ -318,7 +318,13 @@ public:
                                              const std::string& name, 
                                              const ros::Duration& lifetime,
                                              const std::vector<std::string>* names = NULL) const;
-  
+
+  void getGroupAndUpdatedJointMarkersGivenState(const planning_models::KinematicState& state,
+                                                visualization_msgs::MarkerArray& arr,
+                                                const std::string& group_name, 
+                                                const std_msgs::ColorRGBA& group_color,
+                                                const std_msgs::ColorRGBA& updated_color,
+                                                const ros::Duration& lifetime) const;
   ///
   /// Functions for bag manipulation
   ///

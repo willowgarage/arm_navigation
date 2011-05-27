@@ -2021,6 +2021,50 @@ void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(con
   }
 }
 
+void planning_environment::CollisionModels::getGroupAndUpdatedJointMarkersGivenState(const planning_models::KinematicState& state,
+                                                                                     visualization_msgs::MarkerArray& arr,
+                                                                                     const std::string& group_name, 
+                                                                                     const std_msgs::ColorRGBA& group_color,
+                                                                                     const std_msgs::ColorRGBA& updated_color,
+                                                                                     const ros::Duration& lifetime) const {
+
+  const planning_models::KinematicModel::JointModelGroup* jmg = kmodel_->getModelGroup(group_name);
+  
+  if(jmg == NULL) {
+    ROS_WARN_STREAM("No group " << group_name << " for visualization");
+    return;
+  }
+
+  std::vector<std::string> group_link_names = jmg->getGroupLinkNames();      
+  getRobotMeshResourceMarkersGivenState(state,
+                                        arr,
+                                        group_color,
+                                        group_name,
+                                        lifetime,
+                                        &group_link_names);
+      
+  std::vector<std::string> updated_link_model_names = jmg->getUpdatedLinkModelNames();
+  std::map<std::string, bool> dont_include;
+  for(unsigned int i = 0; i < group_link_names.size(); i++) {
+    dont_include[group_link_names[i]] = true;
+  }
+
+  std::vector<std::string> ex_list;
+  for(unsigned int i = 0; i < updated_link_model_names.size(); i++) {
+    if(dont_include.find(updated_link_model_names[i]) == dont_include.end()) {
+      ex_list.push_back(updated_link_model_names[i]);
+    }
+  }
+  getRobotMeshResourceMarkersGivenState(state,
+                                        arr,
+                                        updated_color,
+                                        group_name+"_updated_links",
+                                        lifetime,
+                                        &ex_list);
+
+}
+
+
 void planning_environment::CollisionModels::writePlanningSceneBag(const std::string& filename,
                                                                   const planning_environment_msgs::PlanningScene& planning_scene) const
 {

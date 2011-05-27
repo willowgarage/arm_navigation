@@ -226,7 +226,6 @@ public:
         kmodel_->removeModelGroup(group_names[entry]);
         robot_state_ = new planning_models::KinematicState(kmodel_);
         robot_state_->setKinematicStateToDefault();
-        group_config_map_.erase(group_names[entry]);
         lock_.unlock();
       } else {
         unsigned int entry;
@@ -325,7 +324,6 @@ public:
         robot_state_ = new planning_models::KinematicState(kmodel_);
         robot_state_->setKinematicStateToDefault();
         if(group_ok) {
-          group_config_map_[new_group_name] = gc;
           current_show_group_ = new_group_name;
           last_status = "Group " + current_show_group_ + " ok";
         } else {
@@ -383,7 +381,6 @@ public:
           ROS_ERROR_STREAM("Joint collection group really should be ok");
           current_show_group_ = "";
         } else {
-          group_config_map_[new_group_name] = gc;
           if(str[0] == 'v') {
             current_show_group_ = new_group_name;
           }
@@ -436,10 +433,11 @@ public:
     emitter_ << YAML::Key << "groups";
     emitter_ << YAML::Value << YAML::BeginSeq; 
 
-    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map_.begin();
-        it != group_config_map_.end();
+    const std::map<std::string, planning_models::KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
+
+    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
+        it != group_config_map.end();
         it++) {
-      ROS_INFO_STREAM("Outputting group " << it->first);
       emitter_ << YAML::BeginMap; 
       emitter_ << YAML::Key << "name" << YAML::Value << it->first;
       if(!it->second.base_link_.empty()) {
@@ -740,6 +738,7 @@ public:
       bool found = false;
       visualization_msgs::Marker marker;
       for(unsigned int j = 0; j < coll_space_contacts.size(); j++) {
+
         if((coll_space_contacts[j].body_name_1 == in_collision_pairs[i].first &&
             coll_space_contacts[j].body_name_2 == in_collision_pairs[i].second) ||
            (coll_space_contacts[j].body_name_1 == in_collision_pairs[i].second &&
@@ -777,11 +776,11 @@ public:
     emitter_ << YAML::BeginMap;
     emitWorldJointYAML();
     emitGroupYAML();
-    ops_gen_->performanceTestSavedResults(disable_map_);
+    //ops_gen_->performanceTestSavedResults(disable_map_);
     ops_gen_->outputYamlStringOfSavedResults(emitter_, disable_map_);
     //end map
     emitter_ << YAML::EndMap;
-    std::ofstream outf(outfile_name_.c_str(), std::ios_base::trunc);
+    std::ofstream outf(full_yaml_outfile_name_.c_str(), std::ios_base::trunc);
     
     outf << emitter_.c_str();
   }
@@ -791,20 +790,94 @@ public:
     TiXmlElement* launch_root = new TiXmlElement("launch");
     doc.LinkEndChild(launch_root);
 
-    TiXmlElement *rd;
-    rd = new TiXmlElement("rosparam"); 
+    TiXmlElement *rd = new TiXmlElement("rosparam"); 
     launch_root->LinkEndChild(rd);
     rd->SetAttribute("command","load");
     rd->SetAttribute("ns", "robot_description");
     rd->SetAttribute("file", "$(find "+urdf_package_+")"+urdf_path_);
 
-    TiXmlElement *rp;
-    rp = new TiXmlElement("rosparam");
+    TiXmlElement *rp = new TiXmlElement("rosparam");
     launch_root->LinkEndChild(rp);
     rp->SetAttribute("command","load");
     rp->SetAttribute("ns", "robot_description_planning");
     rp->SetAttribute("file", "$(find "+dir_name_+")/config/"+yaml_outfile_name_);
     doc.SaveFile(full_launch_outfile_name_);
+  }
+  
+  void outputKinematicsLaunchFiles() {
+    TiXmlDocument doc;
+    TiXmlElement* launch_root = new TiXmlElement("launch");
+    doc.LinkEndChild(launch_root);
+    
+    TiXmlElement *inc = new TiXmlElement("include");
+    launch_root->LinkEndChild(inc);
+    inc->SetAttribute("file","$(find "+dir_name_+")/launch/"+launch_outfile_name_);
+
+    const std::map<std::string, planning_models::KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
+
+    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
+        it != group_config_map.end();
+        it++) {
+      if(!it->second.base_link_.empty()) {
+        TiXmlElement *node = new TiXmlElement("node");
+        launch_root->LinkEndChild(node);
+        node->SetAttribute("pkg","arm_kinematics_constraint_aware");
+        node->SetAttribute("type","arm_kinematics_constraint_aware");
+        node->SetAttribute("name", getRobotName()+"_"+it->first+"_kinematics");
+
+        TiXmlElement *group_param = new TiXmlElement("param");
+        node->LinkEndChild(group_param);
+        group_param->SetAttribute("name", "group");
+        group_param->SetAttribute("type", "string");
+        group_param->SetAttribute("value", it->first);
+
+        TiXmlElement *base_param = new TiXmlElement("param");
+        node->LinkEndChild(base_param);
+        base_param->SetAttribute("name", it->first+"/root_name");
+        base_param->SetAttribute("type", "string");
+        base_param->SetAttribute("value", it->second.base_link_);
+
+        TiXmlElement *tip_param = new TiXmlElement("param");
+        node->LinkEndChild(tip_param);
+        tip_param->SetAttribute("name", it->first+"/tip_name");
+        tip_param->SetAttribute("type", "string");
+        tip_param->SetAttribute("value", it->second.tip_link_);
+
+        TiXmlElement *solver_param = new TiXmlElement("param");
+        node->LinkEndChild(solver_param);
+        solver_param->SetAttribute("name", "kinematics_solver");
+        solver_param->SetAttribute("type", "string");
+        solver_param->SetAttribute("value", "arm_kinematics_constraint_aware/KDLArmKinematicsPlugin");
+      }
+    }
+    doc.SaveFile(dir_name_+"/launch/constraint_aware_kinematics.launch");
+  }
+
+  void outputPlanningComponentVisualizerLaunchFile() {
+    TiXmlDocument doc;
+    TiXmlElement* launch_root = new TiXmlElement("launch");
+    doc.LinkEndChild(launch_root);
+    
+    TiXmlElement *inc = new TiXmlElement("include");
+    launch_root->LinkEndChild(inc);
+    inc->SetAttribute("file","$(find "+dir_name_+")/launch/"+launch_outfile_name_);
+
+    TiXmlElement *pre = new TiXmlElement("include");
+    launch_root->LinkEndChild(pre);
+    pre->SetAttribute("file","$(find planning_environment)/launch/planning_environment_visualization_prerequisites.launch");
+
+    TiXmlElement *kin = new TiXmlElement("include");
+    launch_root->LinkEndChild(kin);
+    kin->SetAttribute("file", "$(find "+dir_name_+")/launch/constraint_aware_kinematics.launch");
+
+    TiXmlElement *vis = new TiXmlElement("node");
+    launch_root->LinkEndChild(vis);
+    vis->SetAttribute("pkg","move_arm");
+    vis->SetAttribute("type","planning_components_visualizer");
+    vis->SetAttribute("name","planning_components_visualizer"); 
+    vis->SetAttribute("output","screen");
+
+    doc.SaveFile(dir_name_+"/launch/planning_components_visualizer.launch");
   }
 
   void updateCollisionsInCurrentState() {
@@ -883,27 +956,10 @@ public:
     c.clock.nsec = cur_time.nsec;
     c.clock.sec = cur_time.sec;
     std::vector<geometry_msgs::TransformStamped> trans_vector;
-    getAllRobotStampedTransforms(*robot_state_, trans_vector, c.clock);
+    planning_environment::getAllKinematicStateStampedTransforms(*robot_state_, trans_vector, c.clock);
     transform_broadcaster_.sendTransform(trans_vector);
     lock_.unlock();
   };
-
-  void getAllRobotStampedTransforms(const planning_models::KinematicState& state,
-                                    std::vector<geometry_msgs::TransformStamped>& trans_vector,
-                                    const ros::Time& stamp) 
-  {
-    trans_vector.clear();
-    for(unsigned int i = 0; i < state.getLinkStateVector().size(); i++) {      
-      const planning_models::KinematicState::LinkState* ls = state.getLinkStateVector()[i];
-      geometry_msgs::TransformStamped ts;
-      ts.header.stamp = stamp;
-      ts.header.frame_id = kmodel_->getRoot()->getParentFrameId();
-      ts.child_frame_id = ls->getName();
-      if(ts.header.frame_id == ts.child_frame_id) continue; 
-      tf::transformTFToMsg(ls->getGlobalLinkTransform(),ts.transform);
-      trans_vector.push_back(ts);
-    }
-  }
 
   bool isInited() const {
     return inited_;
@@ -979,7 +1035,6 @@ public:
 protected:
 
   bool inited_;
-  std::string outfile_name_;
 
   ros::NodeHandle nh_;
   boost::shared_ptr<urdf::Model> urdf_;  
@@ -993,7 +1048,6 @@ protected:
   std::map<planning_environment::CollisionOperationsGenerator::DisableType, std::vector<planning_environment::CollisionOperationsGenerator::StringPair> > disable_map_;
 
   std::string current_show_group_;
-  std::map<std::string, planning_models::KinematicModel::GroupConfig> group_config_map_;
 
   tf::TransformBroadcaster transform_broadcaster_;
   ros::Publisher vis_marker_publisher_;
@@ -1073,6 +1127,9 @@ int main(int argc, char** argv)
   pdcw->outputPlanningEnvironmentLaunch();
   
   pdcw->setupGroups();
+
+  pdcw->outputKinematicsLaunchFiles();
+  pdcw->outputPlanningComponentVisualizerLaunchFile();
 
   pdcw->setJointsForCollisionSampling();
 
