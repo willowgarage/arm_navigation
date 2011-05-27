@@ -147,7 +147,6 @@ private:
 
   kinematics_msgs::KinematicSolverInfo chain_info_;
 
-  tf::TransformListener tf_;
 };
 }
 #endif

@@ -107,8 +107,8 @@ bool KDLArmKinematicsPlugin::initialize(std::string name)
   double epsilon;
 
   private_handle.param("max_solver_iterations", max_iterations, 1000);
-  private_handle.param("max_search_iterations", max_search_iterations_, 1000);
-  private_handle.param("epsilon", epsilon, 1e-2);
+  private_handle.param("max_search_iterations", max_search_iterations_, 3);
+  private_handle.param("epsilon", epsilon, 1e-5);
 
   // Build Solvers
   fk_solver_.reset(new KDL::ChainFkSolverPos_recursive(kdl_chain_));
@@ -290,8 +290,9 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
   if(ik_valid >= 0)
   {
     solution.resize(dimension_);
-    for(unsigned int i=0; i < dimension_; i++)
+    for(unsigned int i=0; i < dimension_; i++) {
       solution[i] = jnt_pos_out(i);
+    }
     error_code = kinematics::SUCCESS;
     return true;
   }
@@ -337,8 +338,8 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
   }
   for(int i=0; i < max_search_iterations_; i++)
   {
-    jnt_pos_in = getRandomConfiguration();
     int ik_valid = ik_solver_pos_->CartToJnt(jnt_pos_in,pose_desired,jnt_pos_out);                      
+    jnt_pos_in = getRandomConfiguration();
     if(ik_valid < 0)                                                                                                       
       continue;
     std::vector<double> solution_local;
@@ -353,8 +354,7 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
     }
   }
   ROS_DEBUG("An IK that satisifes the constraints and is collision free could not be found");   
-  if (error_code == 0)
-    error_code = kinematics::NO_IK_SOLUTION;
+  error_code = kinematics::NO_IK_SOLUTION;
   return false;
 }
 

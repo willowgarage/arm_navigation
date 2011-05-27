@@ -69,7 +69,7 @@ ArmKinematicsConstraintAware::ArmKinematicsConstraintAware(): kinematics_loader_
   }
   catch(pluginlib::PluginlibException& ex)
   {
-    ROS_ERROR("The plugin failed to load. Error: %s", ex.what());    //handle the class failing to load
+    ROS_ERROR("The plugin failed to load. Error1: %s", ex.what());    //handle the class failing to load
     active_ = false;
     return;
   }
@@ -148,7 +148,7 @@ bool ArmKinematicsConstraintAware::getConstraintAwarePositionIK(kinematics_msgs:
   collision_models_interface_->disableCollisionsForNonUpdatedLinks(group_);
 
   ros::Time start_time = ros::Time::now();
-  ROS_INFO("Received IK request is in the frame: %s",request_in.ik_request.pose_stamped.header.frame_id.c_str());
+  ROS_DEBUG("Received IK request is in the frame: %s",request_in.ik_request.pose_stamped.header.frame_id.c_str());
 
   ik_request_ = request_in.ik_request;
   constraints_ = request_in.constraints;
@@ -166,18 +166,19 @@ bool ArmKinematicsConstraintAware::getConstraintAwarePositionIK(kinematics_msgs:
     return true;
   }  
   ik_request_.pose_stamped = pose_msg_out;
+  ROS_DEBUG_STREAM("Pose is " << pose_msg_out.pose.position.x << " " << pose_msg_out.pose.position.y << " " << pose_msg_out.pose.position.z);
   ROS_DEBUG("Transformed IK request is in the frame: %s",ik_request_.pose_stamped.header.frame_id.c_str());
   arm_kinematics_constraint_aware::reorderJointState(ik_request_.ik_seed_state.joint_state,chain_info_);
 
   ros::Time ik_solver_time = ros::Time::now();
   int kinematics_error_code;
-  bool ik_valid = (kinematics_solver_->searchPositionIK(ik_request_.pose_stamped.pose,
-                                                        ik_request_.ik_seed_state.joint_state.position,
-                                                        request_in.timeout.toSec(),
-                                                        response.solution.joint_state.position,
-                                                        boost::bind(&ArmKinematicsConstraintAware::initialPoseCheck, this, _1, _2, _3),
-                                                        boost::bind(&ArmKinematicsConstraintAware::collisionCheck, this, _1, _2, _3),kinematics_error_code)>=0);
-  ROS_INFO("IK solver time: %f",(ros::Time::now()-ik_solver_time).toSec());
+  bool ik_valid = kinematics_solver_->searchPositionIK(ik_request_.pose_stamped.pose,
+                                                       ik_request_.ik_seed_state.joint_state.position,
+                                                       request_in.timeout.toSec(),
+                                                       response.solution.joint_state.position,
+                                                       boost::bind(&ArmKinematicsConstraintAware::initialPoseCheck, this, _1, _2, _3),
+                                                       boost::bind(&ArmKinematicsConstraintAware::collisionCheck, this, _1, _2, _3),kinematics_error_code);
+  ROS_DEBUG("IK solver time: %f",(ros::Time::now()-ik_solver_time).toSec());
 
   if(ik_valid)
   {
@@ -193,13 +194,20 @@ bool ArmKinematicsConstraintAware::getConstraintAwarePositionIK(kinematics_msgs:
       display_trajectory_publisher_.publish(display_trajectory);
       }
     */
-    ROS_DEBUG("IK service time: %f",(ros::Time::now()-start_time).toSec());
+    kinematics_msgs::GetPositionFK::Request req; 
+    kinematics_msgs::GetPositionFK::Response res;
+    req.header = pose_msg_out.header;
+    req.robot_state.joint_state = response.solution.joint_state;
+    req.fk_link_names.push_back(request_in.ik_request.ik_link_name);
+    getPositionFK(req,res);
+    ROS_DEBUG_STREAM("Fk says " << res.pose_stamped[0].pose.position.x << " " << res.pose_stamped[0].pose.position.y << " " << res.pose_stamped[0].pose.position.z);
+
     response.error_code.val = response.error_code.SUCCESS;
     return true;
   }
   else
   {
-    ROS_ERROR("An IK solution could not be found");
+    ROS_DEBUG("A collision aware ik solution could not be found");
     response.error_code = kinematicsErrorCodeToMotionPlanningErrorCode(kinematics_error_code);
     if(response.error_code.val != response.error_code.IK_LINK_IN_COLLISION) 
     {
@@ -244,7 +252,7 @@ void ArmKinematicsConstraintAware::initialPoseCheck(const geometry_msgs::Pose &i
   pose_stamped.pose = ik_pose;
   pose_stamped.header.stamp = ros::Time::now();
   pose_stamped.header.frame_id = kinematic_frame_id;
-   if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+  if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                   planning_frame_id,
                                                                   pose_stamped.header,
                                                                   pose_stamped.pose,
@@ -329,7 +337,7 @@ void ArmKinematicsConstraintAware::sendEndEffectorPose(const planning_models::Ki
       }
     }
   }
-  vis_marker_array_publisher_.publish(hand_array);
+  //vis_marker_array_publisher_.publish(hand_array);
 }
 
 void ArmKinematicsConstraintAware::printStringVec(const std::string &prefix, const std::vector<std::string> &string_vector)
@@ -355,11 +363,19 @@ bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK:
 
   geometry_msgs::PoseStamped pose_msg_in = request.ik_request.pose_stamped;
   geometry_msgs::PoseStamped pose_msg_out;
-  if(!convertPoseToRootFrame(pose_msg_in,pose_msg_out,root_name_,tf_))
-  {
+  planning_environment::setRobotStateAndComputeTransforms(request.ik_request.robot_state, *collision_models_interface_->getPlanningSceneState());
+  
+  if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                  root_name_,
+                                                                  pose_msg_in.header,
+                                                                  pose_msg_in.pose,
+                                                                  pose_msg_out)) {
     response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return true;
-  }
+  }  
+  request.ik_request.pose_stamped = pose_msg_out;
+  ROS_DEBUG_STREAM("Pose is " << pose_msg_out.pose.position.x << " " << pose_msg_out.pose.position.y << " " << pose_msg_out.pose.position.z);
+
   arm_kinematics_constraint_aware::reorderJointState(request.ik_request.ik_seed_state.joint_state,chain_info_);
 
   int kinematics_error_code;
@@ -375,6 +391,13 @@ bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK:
   {
     response.solution.joint_state.name = chain_info_.joint_names;
     response.error_code.val = response.error_code.SUCCESS;
+    kinematics_msgs::GetPositionFK::Request req; 
+    kinematics_msgs::GetPositionFK::Response res;
+    req.header = request.ik_request.pose_stamped.header;
+    req.robot_state.joint_state = response.solution.joint_state;
+    req.fk_link_names.push_back(request.ik_request.ik_link_name);
+    getPositionFK(req,res);
+    ROS_DEBUG_STREAM("Fk says " << res.pose_stamped[0].pose.position.x << " " << res.pose_stamped[0].pose.position.y << " " << res.pose_stamped[0].pose.position.z);
     return true;
   }
   else
@@ -436,15 +459,14 @@ bool ArmKinematicsConstraintAware::getPositionFK(kinematics_msgs::GetPositionFK:
       pose_stamped.pose = solutions[i];
       pose_stamped.header.frame_id = root_name_;
       pose_stamped.header.stamp = ros::Time();
-      try
-      {
-        tf_.transformPose(request.header.frame_id,pose_stamped,pose_stamped);
-      }
-      catch(...)
-      {
-        ROS_ERROR("Could not transform FK pose to frame: %s",request.header.frame_id.c_str());
+      
+      if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                      request.header.frame_id,
+                                                                      pose_stamped.header,
+                                                                      solutions[i],
+                                                                      pose_stamped)) {
         response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
-        return false;
+        return true;
       }
       response.pose_stamped[i] = pose_stamped;
       response.fk_link_names[i] = request.fk_link_names[i];
