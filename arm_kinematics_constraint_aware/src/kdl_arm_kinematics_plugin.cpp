@@ -177,8 +177,13 @@ bool KDLArmKinematicsPlugin::readJoints(urdf::Model &robot_model)
       float lower, upper;
       int hasLimits;
       if ( joint->type != urdf::Joint::CONTINUOUS ) {
-        lower = joint->limits->lower;
-        upper = joint->limits->upper;
+        if(joint->safety) {
+          lower = joint->safety->soft_lower_limit; 
+          upper = joint->safety->soft_upper_limit;
+        } else {
+          lower = joint->limits->lower;
+          upper = joint->limits->upper;
+        }
         hasLimits = 1;
       } else {
         lower = -M_PI;
