@@ -151,9 +151,12 @@ void planning_models::KinematicModel::buildGroups(const std::vector<GroupConfig>
         }
         if(all_subgroups_added) {
           //only get one chance to do it right
-          addModelGroup(group_configs[i]);
-          processed[i] = true;
-          added = true;
+          if(addModelGroup(group_configs[i])) {
+            processed[i] = true;
+            added = true;
+          } else {
+            ROS_WARN_STREAM("Failed to add group " << group_configs[i].name_);
+          }
         }
       }
     }
@@ -172,6 +175,7 @@ void planning_models::KinematicModel::removeModelGroup(const std::string& group)
   if(!hasModelGroup(group)) return;
   delete joint_model_group_map_[group];
   joint_model_group_map_.erase(group);
+  joint_model_group_config_map_.erase(group);
 }
 
 bool planning_models::KinematicModel::addModelGroup(const planning_models::KinematicModel::GroupConfig& gc)
@@ -270,6 +274,7 @@ bool planning_models::KinematicModel::addModelGroup(const planning_models::Kinem
     return false;
   }
   joint_model_group_map_[gc.name_] = new JointModelGroup(gc.name_, jointv, fixed_jointv, this);
+  joint_model_group_config_map_[gc.name_] = gc;
   return true;
 }
 

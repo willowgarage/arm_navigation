@@ -93,6 +93,9 @@ public:
 
   struct GroupConfig
   {
+    GroupConfig() { 
+    }
+
     GroupConfig(std::string name, 
                 std::string base_link,
                 std::string tip_link) 
@@ -681,6 +684,10 @@ public:
     return joint_model_group_map_;
   }
 
+  const std::map<std::string, GroupConfig>& getJointModelGroupConfigMap() const {
+    return joint_model_group_config_map_;
+  }
+
   void getModelGroupNames(std::vector<std::string>& getModelGroupNames) const;
 
   void clearAllAttachedBodyModels();
@@ -694,6 +701,10 @@ public:
   void addAttachedBodyModel(const std::string& link_name, AttachedBodyModel* att_body_model);
 
   std::vector<const AttachedBodyModel*> getAttachedBodyModels() const;
+
+  std::string getRobotName() const {
+    return model_name_;
+  }
 	
 private:
 	
@@ -722,6 +733,7 @@ private:
   JointModel *root_;
 	
   std::map<std::string, JointModelGroup*> joint_model_group_map_;
+  std::map<std::string, GroupConfig> joint_model_group_config_map_;
 
   void buildGroups(const std::vector<GroupConfig>&);
   JointModel* buildRecursive(LinkModel *parent, const urdf::Link *link, 
