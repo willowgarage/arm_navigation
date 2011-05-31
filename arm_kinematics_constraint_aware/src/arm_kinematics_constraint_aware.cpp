@@ -262,7 +262,9 @@ void ArmKinematicsConstraintAware::initialPoseCheck(const geometry_msgs::Pose &i
   //disabling all collision for arm links
   collision_space::EnvironmentModel::AllowedCollisionMatrix save_acm = collision_models_interface_->getCurrentAllowedCollisionMatrix();
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = save_acm;
-  acm.changeEntry(arm_links_, arm_links_, true);
+  for(unsigned int i = 0; i < arm_links_.size(); i++) {
+    acm.changeEntry(arm_links_[i], true);
+  }
   collision_models_interface_->setAlteredAllowedCollisionMatrix(acm);
 
   btTransform transform;
