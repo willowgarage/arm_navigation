@@ -785,6 +785,75 @@ public:
     outf << emitter_.c_str();
   }
 
+  void outputOMPLGroupYAML() {
+    YAML::Emitter emitter;
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "planner_configs";
+    
+    emitter << YAML::Value << YAML::BeginMap;
+
+    emitter << YAML::Key << "SBLkConfig1";
+    emitter << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "type" << YAML::Value << "kinematic::SBL";
+    emitter << YAML::EndMap;
+
+    emitter << YAML::Key << "LBKPIECEkConfig1";
+    emitter << YAML::Value << YAML::BeginMap;
+    emitter << YAML::Key << "type" << YAML::Value << "kinematic::LBKPIECE";
+    emitter << YAML::EndMap;
+
+    emitter << YAML::EndMap;
+
+    emitter << YAML::Key << "groups";
+    const std::map<std::string, planning_models::KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
+
+    emitter << YAML::Value << YAML::BeginSeq; 
+    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
+        it != group_config_map.end();
+        it++) {
+      emitter << it->first;
+    }
+    emitter << YAML::EndSeq;
+
+    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
+        it != group_config_map.end();
+        it++) {
+      emitter << YAML::Key << it->first;
+      emitter << YAML::Value << YAML::BeginMap;
+      emitter << YAML::Key << "planner_type" << YAML::Value << "JointPlanner";
+      emitter << YAML::Key << "planner_configs" << YAML::Value << YAML::BeginSeq;
+      emitter << "SBLkConfig1" << "LBKPIECEkConfig1" << YAML::EndSeq;
+      emitter << YAML::Key << "projection_evaluator" << YAML::Value << "joint_state";
+      emitter << YAML::EndMap;
+    }
+    emitter << YAML::EndMap;
+    std::ofstream outf((dir_name_+"/config/ompl_planning.yaml").c_str(), std::ios_base::trunc);
+    
+    outf << emitter.c_str();    
+  }
+
+  void outputOMPLLaunchFile() {
+    TiXmlDocument doc;
+    TiXmlElement* launch_root = new TiXmlElement("launch");
+    doc.LinkEndChild(launch_root);
+    
+    TiXmlElement *inc = new TiXmlElement("include");
+    launch_root->LinkEndChild(inc);
+    inc->SetAttribute("file","$(find "+dir_name_+")/launch/"+launch_outfile_name_);
+
+    TiXmlElement *node = new TiXmlElement("node");
+    launch_root->LinkEndChild(node);
+    node->SetAttribute("pkg","ompl_ros_interface");
+    node->SetAttribute("type", "ompl_ros");
+    node->SetAttribute("name", "ompl_planning");
+
+    TiXmlElement *rp = new TiXmlElement("rosparam");
+    node->LinkEndChild(rp);
+    rp->SetAttribute("command","load");
+    rp->SetAttribute("file", "$(find "+dir_name_+")/config/ompl_planning.yaml");
+    doc.SaveFile(dir_name_+"/launch/ompl_planning.launch");
+  }
+
   void outputPlanningEnvironmentLaunch() {
     TiXmlDocument doc;
     TiXmlElement* launch_root = new TiXmlElement("launch");
@@ -869,6 +938,10 @@ public:
     TiXmlElement *kin = new TiXmlElement("include");
     launch_root->LinkEndChild(kin);
     kin->SetAttribute("file", "$(find "+dir_name_+")/launch/constraint_aware_kinematics.launch");
+
+    TiXmlElement *ompl = new TiXmlElement("include");
+    launch_root->LinkEndChild(ompl);
+    ompl->SetAttribute("file", "$(find "+dir_name_+")/launch/ompl_planning.launch");
 
     TiXmlElement *vis = new TiXmlElement("node");
     launch_root->LinkEndChild(vis);
@@ -1130,6 +1203,8 @@ int main(int argc, char** argv)
 
   pdcw->outputKinematicsLaunchFiles();
   pdcw->outputPlanningComponentVisualizerLaunchFile();
+  pdcw->outputOMPLGroupYAML();
+  pdcw->outputOMPLLaunchFile();
 
   pdcw->setJointsForCollisionSampling();
 
