@@ -61,6 +61,8 @@ static const std::string VIS_TOPIC_NAME = "planning_components_visualizer";
 //in 100 hz ticks
 static const unsigned int CONTROL_SPEED = 10;
 
+static const ros::Duration PLANNING_DURATION = ros::Duration(5.0);
+
 static const double BASE_TRANS_SPEED=.3;
 static const double BASE_ROT_SPEED = .15;
 
@@ -68,15 +70,66 @@ static const double HAND_TRANS_SPEED=.05;
 static const double HAND_ROT_SPEED = .15;
 
 static const std::string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
-
+static const std::string PLANNER_SERVICE_NAME = "/ompl_planning/plan_kinematic_path";
 class PlanningComponentsVisualizer {
 
 public:
+
+  struct StateTrajectoryDisplay {
+    
+    StateTrajectoryDisplay() {
+      state_ = NULL;
+      reset();
+    }
+    
+    void reset() {
+      if(state_ != NULL) {
+        delete state_;
+        state_ = NULL;
+      }
+      has_joint_trajectory_ = false;
+      play_joint_trajectory_ = false;
+      show_joint_trajectory_ = false;
+      current_trajectory_point_ = 0;
+      trajectory_bad_point_ = 0;
+      trajectory_error_code_.val = 0;
+    }
+
+    planning_models::KinematicState* state_;
+    trajectory_msgs::JointTrajectory joint_trajectory_;
+    unsigned int current_trajectory_point_;
+    std_msgs::ColorRGBA color_;
+    bool has_joint_trajectory_;
+    bool play_joint_trajectory_;
+    bool show_joint_trajectory_;
+    motion_planning_msgs::ArmNavigationErrorCodes trajectory_error_code_;
+    unsigned int trajectory_bad_point_;
+  };
 
   struct GroupCollection {
     GroupCollection() {
       group_state_ = NULL;
       good_ik_solution_ = false;
+      state_trajectory_display_map_["planner"].color_.a = .6;
+      state_trajectory_display_map_["planner"].color_.r = 0.0;
+      state_trajectory_display_map_["planner"].color_.g = 0.0;
+      state_trajectory_display_map_["planner"].color_.b = 1.0;
+    }
+
+    ~GroupCollection() {
+      reset();
+    }
+
+    void reset() {
+      for(std::map<std::string, StateTrajectoryDisplay>::iterator it = state_trajectory_display_map_.begin(); 
+          it != state_trajectory_display_map_.end();
+          it++) {
+        it->second.reset();
+      }
+      if(group_state_ != NULL) {
+        delete group_state_;
+        group_state_ = NULL;
+      }
     }
 
     std::string name_;
@@ -85,6 +138,7 @@ public:
     ros::ServiceClient non_coll_aware_ik_service_;
     bool good_ik_solution_;
     planning_models::KinematicState* group_state_;
+    std::map<std::string, StateTrajectoryDisplay> state_trajectory_display_map_;
   };
 
   PlanningComponentsVisualizer() {
@@ -98,8 +152,13 @@ public:
     }
     get_planning_scene_client_ = nh_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
 
-    const std::map<std::string, planning_models::KinematicModel::GroupConfig>& group_config_map = cm_->getKinematicModel()->getJointModelGroupConfigMap();
 
+    while(!ros::service::waitForService(PLANNER_SERVICE_NAME, ros::Duration(1.0))) {
+      ROS_INFO_STREAM("Waiting for planner service " << PLANNER_SERVICE_NAME);
+    }
+    planner_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME, true);
+
+    const std::map<std::string, planning_models::KinematicModel::GroupConfig>& group_config_map = cm_->getKinematicModel()->getJointModelGroupConfigMap();
     for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
         it != group_config_map.end();
         it++) {
@@ -212,6 +271,9 @@ public:
         printw("Examining current group %s\n", current_group_name_.c_str());
         printw("Type 'q' to return to group selection\n");
         printw("Type 'c' to toggle collision-aware/non-collision aware ik\n");
+        if(doesGroupHaveGoodIKSolution(current_group_name_)) {
+          printw("Type 'p' to plan to current end-effector state\n");
+        }
         printw("Type 'i/k' for end effector forward/back\n");
         printw("Type 'j/l' for end effector left/right\n");
         printw("Type 'h/n' for end effector up/down\n");
@@ -235,7 +297,14 @@ public:
         break;
       case 'c':
         coll_aware = !coll_aware;
+        moveEndEffectorMarkers(0.0, 0.0, 0.0,
+                               0.0,0.0,0.0, coll_aware);
         print = true;
+        break;
+      case 'p':
+        if(doesGroupHaveGoodIKSolution(current_group_name_)) {
+          planToEndEffectorState(group_collection_map_[current_group_name_]);
+        }
         break;
       case 'i':
         moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0,
@@ -345,6 +414,7 @@ public:
     //   }
     // }
     std::map<std::string, double> joint_values;
+    std::vector<std::string> joint_names;
     if(coll_aware) {
       kinematics_msgs::GetConstraintAwarePositionIK::Request ik_req;
       kinematics_msgs::GetConstraintAwarePositionIK::Response ik_res;
@@ -355,7 +425,7 @@ public:
         return false;
       }
       if(ik_res.error_code.val != ik_res.error_code.SUCCESS) {
-        ROS_INFO_STREAM("Call yields bad error code " << ik_res.error_code.val);
+        ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
         return false;
       }
       for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
@@ -374,14 +444,122 @@ public:
         ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
         return false;
       }
+      joint_names = ik_res.solution.joint_state.name;
       for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
         joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
       }
     }
     lock_.lock();
     gc.group_state_->setKinematicState(joint_values);
+    if(coll_aware) {
+      motion_planning_msgs::Constraints emp_con;
+      motion_planning_msgs::ArmNavigationErrorCodes error_code;
+      
+      if(!cm_->isKinematicStateValid(*gc.group_state_,
+                                     joint_names,
+                                     error_code,
+                                     emp_con,
+                                     emp_con,
+                                     true)) {
+        ROS_INFO_STREAM("Problem with response");
+      }
+    }
     lock_.unlock();
     return true;
+  }
+
+  bool planToEndEffectorState(PlanningComponentsVisualizer::GroupCollection& gc) {
+    motion_planning_msgs::MotionPlanRequest motion_plan_request;
+    motion_plan_request.group_name = gc.name_;
+    motion_plan_request.num_planning_attempts = 1;
+    motion_plan_request.allowed_planning_time = PLANNING_DURATION;
+    const planning_models::KinematicState::JointStateGroup* jsg = gc.group_state_->getJointStateGroup(gc.name_);
+    motion_plan_request.goal_constraints.joint_constraints.resize(jsg->getJointNames().size());
+    std::vector<double> joint_values;
+    jsg->getKinematicStateValues(joint_values);
+    for(unsigned int i = 0; i < jsg->getJointNames().size(); i++) {
+      motion_plan_request.goal_constraints.joint_constraints[i].joint_name = jsg->getJointNames()[i];
+      motion_plan_request.goal_constraints.joint_constraints[i].position = joint_values[i];
+      motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.001;
+      motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.001;
+    }      
+    planning_environment::convertKinematicStateToRobotState(*robot_state_, ros::Time::now(),
+                                                            cm_->getWorldFrameId(), motion_plan_request.start_state);
+    motion_planning_msgs::GetMotionPlan::Request plan_req;
+    plan_req.motion_plan_request = motion_plan_request;
+    motion_planning_msgs::GetMotionPlan::Response plan_res;
+    if(!planner_service_client_.call(plan_req, plan_res)) {
+      ROS_INFO("Something wrong with planner client");
+      return false;
+    }
+    StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_["planner"];
+    if(plan_res.error_code.val != plan_res.error_code.SUCCESS) {
+      disp.trajectory_error_code_ = plan_res.error_code;
+      ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
+      return false;
+    }
+    last_motion_plan_request_ = motion_plan_request;
+    playTrajectory(gc, "planner", plan_res.trajectory.joint_trajectory);
+    return true;
+  }
+
+  bool playTrajectory(PlanningComponentsVisualizer::GroupCollection& gc,
+                      const std::string& source_name, 
+                      const trajectory_msgs::JointTrajectory& traj) {
+    lock_.lock();  
+    if(gc.state_trajectory_display_map_.find(source_name) == gc.state_trajectory_display_map_.end()) {
+      ROS_INFO_STREAM("No state display for group " << gc.name_ << " source name " << source_name);
+      lock_.unlock();  
+      return false;
+    }
+    StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_[source_name];
+    disp.reset();
+    disp.joint_trajectory_ = traj;
+    disp.has_joint_trajectory_ = true;
+    disp.show_joint_trajectory_ = true;
+    disp.play_joint_trajectory_ = true;
+    disp.state_ = new planning_models::KinematicState(*robot_state_);
+    std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+    cm_->isJointTrajectoryValid(*disp.state_,
+                                disp.joint_trajectory_, 
+                                last_motion_plan_request_.goal_constraints,
+                                last_motion_plan_request_.path_constraints,
+                                disp.trajectory_error_code_, 
+                                trajectory_error_codes, false);
+    if(disp.trajectory_error_code_.val != disp.trajectory_error_code_.SUCCESS) {
+      disp.trajectory_bad_point_ = trajectory_error_codes.size()-1;
+    } else {
+      disp.trajectory_bad_point_ = -1;
+    }
+    moveThroughTrajectory(gc, source_name, 0);
+    lock_.unlock();  
+    return true;
+  }
+
+  void moveThroughTrajectory(PlanningComponentsVisualizer::GroupCollection& gc,
+                             const std::string& source_name, int step) {
+    lock_.lock();
+    StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_[source_name];
+    unsigned int tsize = disp.joint_trajectory_.points.size(); 
+    if(tsize == 0 || disp.state_ == NULL) {
+      lock_.unlock();
+      return;
+    }
+    if((int) disp.current_trajectory_point_ + step < 0) {
+      disp.current_trajectory_point_ = 0;
+    } else {
+      disp.current_trajectory_point_ = ((int)disp.current_trajectory_point_)+step;
+    }
+    if(disp.current_trajectory_point_ >= tsize-1) {
+      disp.current_trajectory_point_ = tsize-1;
+      disp.play_joint_trajectory_ = false;
+    }
+    std::map<std::string, double> joint_values;
+    for(unsigned int i = 0; i < disp.joint_trajectory_.joint_names.size(); i++) {
+      joint_values[disp.joint_trajectory_.joint_names[i]] = disp.joint_trajectory_.points[disp.current_trajectory_point_].positions[i];
+    }
+    disp.state_->setKinematicState(joint_values);
+    lock_.unlock();
   }
 
   void sendMarkers() {
@@ -432,6 +610,33 @@ public:
                                                ros::Duration(.2));
 
       }
+      for(std::map<std::string, StateTrajectoryDisplay>::iterator it = gc.state_trajectory_display_map_.begin();
+          it != gc.state_trajectory_display_map_.end();
+          it++) {
+        if(it->second.play_joint_trajectory_) {
+          moveThroughTrajectory(gc, it->first, 5);
+        }
+        if(it->second.show_joint_trajectory_) {
+          const std::vector<const planning_models::KinematicModel::LinkModel*>& updated_links = 
+            cm_->getKinematicModel()->getModelGroup(gc.name_)->getUpdatedLinkModels();
+          std::vector<std::string> lnames;
+          lnames.resize(updated_links.size());
+          for(unsigned int i = 0; i < updated_links.size(); i++) {
+            lnames[i] = updated_links[i]->getName();
+          }
+          cm_->getRobotMeshResourceMarkersGivenState(*(it->second.state_),
+                                                     arr,
+                                                     it->second.color_,
+                                                     it->first+"_trajectory",
+                                                     ros::Duration(.2),
+                                                     &lnames);
+          cm_->getAttachedCollisionObjectMarkers(*(it->second.state_),
+                                                 arr,
+                                                 it->first+"_trajectory",
+                                                 it->second.color_,
+                                                 ros::Duration(.2));
+        }
+      }
       vis_marker_array_publisher_.publish(arr);
     }
     lock_.unlock();
@@ -449,16 +654,19 @@ public:
     lock_.unlock();
   };
 
+  bool doesGroupHaveGoodIKSolution(const std::string& group) const {
+    if(group_collection_map_.find(group) == group_collection_map_.end()) {
+      return false;
+    }
+    return group_collection_map_.find(group)->second.good_ik_solution_;
+  }
 protected:
   
   void deleteKinematicStates() {
     for(std::map<std::string, GroupCollection>::iterator it = group_collection_map_.begin();
         it != group_collection_map_.end();
         it++) {
-      if(it->second.group_state_ != NULL) {
-        delete it->second.group_state_;
-        it->second.group_state_ = NULL;
-      }
+      it->second.reset();
     }
   }
 
@@ -475,6 +683,9 @@ protected:
   ros::Publisher vis_marker_array_publisher_;
 
   ros::ServiceClient get_planning_scene_client_;
+  ros::ServiceClient planner_service_client_;
+
+  motion_planning_msgs::MotionPlanRequest last_motion_plan_request_;
   
   boost::recursive_mutex lock_;
 };
