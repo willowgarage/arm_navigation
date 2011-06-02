@@ -38,7 +38,9 @@ using namespace KDL;
 using namespace tf;
 using namespace std;
 using namespace ros;
-
+ 
+const double BOUNDS_EPSILON = .00001;
+ 
 //register KDLArmKinematics as a KinematicsBase implementation
 PLUGINLIB_DECLARE_CLASS(arm_kinematics_constraint_aware,KDLArmKinematicsPlugin, arm_kinematics_constraint_aware::KDLArmKinematicsPlugin, kinematics::KinematicsBase)
 
@@ -178,11 +180,11 @@ bool KDLArmKinematicsPlugin::readJoints(urdf::Model &robot_model)
       int hasLimits;
       if ( joint->type != urdf::Joint::CONTINUOUS ) {
         if(joint->safety) {
-          lower = joint->safety->soft_lower_limit; 
-          upper = joint->safety->soft_upper_limit;
+          lower = joint->safety->soft_lower_limit+BOUNDS_EPSILON; 
+          upper = joint->safety->soft_upper_limit-BOUNDS_EPSILON;
         } else {
-          lower = joint->limits->lower;
-          upper = joint->limits->upper;
+          lower = joint->limits->lower+BOUNDS_EPSILON;
+          upper = joint->limits->upper-BOUNDS_EPSILON;
         }
         hasLimits = 1;
       } else {
