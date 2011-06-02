@@ -71,6 +71,8 @@ static const double HAND_ROT_SPEED = .15;
 
 static const std::string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
 static const std::string PLANNER_SERVICE_NAME = "/ompl_planning/plan_kinematic_path";
+static const std::string TRAJECTORY_FILTER_SERVICE_NAME="/trajectory_filter_server/filter_trajectory_with_constraints";
+
 class PlanningComponentsVisualizer {
 
 public:
@@ -110,10 +112,16 @@ public:
     GroupCollection() {
       group_state_ = NULL;
       good_ik_solution_ = false;
+
       state_trajectory_display_map_["planner"].color_.a = .6;
       state_trajectory_display_map_["planner"].color_.r = 0.0;
       state_trajectory_display_map_["planner"].color_.g = 0.0;
       state_trajectory_display_map_["planner"].color_.b = 1.0;
+
+      state_trajectory_display_map_["filter"].color_.a = .6;
+      state_trajectory_display_map_["filter"].color_.r = 0.0;
+      state_trajectory_display_map_["filter"].color_.g = 1.0;
+      state_trajectory_display_map_["filter"].color_.b = 1.0;
     }
 
     ~GroupCollection() {
@@ -151,13 +159,17 @@ public:
       ROS_INFO_STREAM("Waiting for planning scene service " << GET_PLANNING_SCENE_NAME);
     }
     get_planning_scene_client_ = nh_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
-
-
+    
     while(!ros::service::waitForService(PLANNER_SERVICE_NAME, ros::Duration(1.0))) {
       ROS_INFO_STREAM("Waiting for planner service " << PLANNER_SERVICE_NAME);
     }
     planner_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME, true);
-
+    
+    while(!ros::service::waitForService(TRAJECTORY_FILTER_SERVICE_NAME, ros::Duration(1.0))) {
+      ROS_INFO_STREAM("Waiting for trajectory filter service " << TRAJECTORY_FILTER_SERVICE_NAME);
+    }
+    trajectory_filter_service_client_ = nh_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER_SERVICE_NAME, true);
+    
     const std::map<std::string, planning_models::KinematicModel::GroupConfig>& group_config_map = cm_->getKinematicModel()->getJointModelGroupConfigMap();
     for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
         it != group_config_map.end();
@@ -200,6 +212,23 @@ public:
 
     planning_environment_msgs::GetPlanningScene::Request planning_scene_req;
     planning_environment_msgs::GetPlanningScene::Response planning_scene_res;
+
+    mapping_msgs::CollisionObject object;
+    object.header.stamp = ros::Time::now();
+    object.header.frame_id = "base_link";
+    object.id = "pole";
+    object.shapes.resize(1);
+    object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+    object.shapes[0].dimensions.resize(2);
+    object.shapes[0].dimensions[0] = .1;
+    object.shapes[0].dimensions[1] = 2.0;
+    object.poses.resize(1);
+    object.poses[0].position.x = 1.0;
+    object.poses[0].position.y = .4;
+    object.poses[0].position.z = 1.0;
+    object.poses[0].orientation.w = 1.0;
+    
+    planning_scene_req.planning_scene_diff.collision_objects.push_back(object);
 
     planning_environment::convertKinematicStateToRobotState(*robot_state_,
                                                             ros::Time::now(),
@@ -262,7 +291,7 @@ public:
   void movePlanningGroup() {
     clear();
     noecho();
-    bool coll_aware = false;
+    bool coll_aware = true;
     bool quit = false;
     bool print = true;
     while(!quit) {
@@ -271,9 +300,7 @@ public:
         printw("Examining current group %s\n", current_group_name_.c_str());
         printw("Type 'q' to return to group selection\n");
         printw("Type 'c' to toggle collision-aware/non-collision aware ik\n");
-        if(doesGroupHaveGoodIKSolution(current_group_name_)) {
-          printw("Type 'p' to plan to current end-effector state\n");
-        }
+        printw("Type 'w' to filter planner trajectory\n");
         printw("Type 'i/k' for end effector forward/back\n");
         printw("Type 'j/l' for end effector left/right\n");
         printw("Type 'h/n' for end effector up/down\n");
@@ -306,29 +333,34 @@ public:
           planToEndEffectorState(group_collection_map_[current_group_name_]);
         }
         break;
+      case 'w':
+        if(doesGroupHaveGoodTrajectory(current_group_name_,"planner")) {
+          filterPlannerTrajectory(group_collection_map_[current_group_name_]);
+        }
+        break;
       case 'i':
         moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0,
-                                    0.0,0.0,0.0, coll_aware);
+                               0.0,0.0,0.0, coll_aware);
         break;
       case 'k':
         moveEndEffectorMarkers(-HAND_TRANS_SPEED, 0.0, 0.0,
-                                    0.0,0.0,0.0, coll_aware);
+                               0.0,0.0,0.0, coll_aware);
         break;
       case 'j':
         moveEndEffectorMarkers(0.0, HAND_TRANS_SPEED, 0.0,
-                                    0.0,0.0,0.0, coll_aware);
+                               0.0,0.0,0.0, coll_aware);
         break;
       case 'l':
         moveEndEffectorMarkers(0.0, -HAND_TRANS_SPEED, 0.0,
-                                    0.0,0.0,0.0, coll_aware);
+                               0.0,0.0,0.0, coll_aware);
         break;
       case 'h':
         moveEndEffectorMarkers(0.0, 0.0, HAND_TRANS_SPEED,
-                                    0.0,0.0,0.0, coll_aware);
+                               0.0,0.0,0.0, coll_aware);
         break;
       case 'n':
         moveEndEffectorMarkers(0.0, 0.0, -HAND_TRANS_SPEED,
-                                    0.0,0.0,0.0, coll_aware);
+                               0.0,0.0,0.0, coll_aware);
         break;
       case 'r':
         moveEndEffectorMarkers(0.0, 0.0, 0.0,
@@ -336,23 +368,23 @@ public:
         break;
       case 'f':
         moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                    0.0, -HAND_ROT_SPEED, 0.0, coll_aware);
+                               0.0, -HAND_ROT_SPEED, 0.0, coll_aware);
         break;
       case 'd':
         moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                    0.0, 0.0, HAND_ROT_SPEED, coll_aware);
+                               0.0, 0.0, HAND_ROT_SPEED, coll_aware);
         break;
       case 'g':
         moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                    0.0, 0.0, -HAND_ROT_SPEED, coll_aware);
+                               0.0, 0.0, -HAND_ROT_SPEED, coll_aware);
         break;
       case 'v':
         moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                    HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
+                               HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
         break;
       case 'b':
         moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                                    -HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
+                               -HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
         break;
       }
     }
@@ -428,6 +460,7 @@ public:
         ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
         return false;
       }
+      joint_names = ik_res.solution.joint_state.name;
       for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
         joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
       }
@@ -444,7 +477,6 @@ public:
         ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
         return false;
       }
-      joint_names = ik_res.solution.joint_state.name;
       for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
         joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
       }
@@ -496,10 +528,41 @@ public:
     if(plan_res.error_code.val != plan_res.error_code.SUCCESS) {
       disp.trajectory_error_code_ = plan_res.error_code;
       ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
+      gc.state_trajectory_display_map_["planner"].reset();
       return false;
     }
     last_motion_plan_request_ = motion_plan_request;
     playTrajectory(gc, "planner", plan_res.trajectory.joint_trajectory);
+    return true;
+  }
+  
+  bool filterPlannerTrajectory(PlanningComponentsVisualizer::GroupCollection& gc) {
+    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request filter_req;
+    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response filter_res;
+    
+    planning_environment::convertKinematicStateToRobotState(*robot_state_, ros::Time::now(),
+                                                            cm_->getWorldFrameId(), filter_req.start_state);
+    StateTrajectoryDisplay& planner_disp = gc.state_trajectory_display_map_["planner"];
+    filter_req.trajectory = planner_disp.joint_trajectory_;
+    filter_req.group_name = gc.name_;
+
+    filter_req.goal_constraints = last_motion_plan_request_.goal_constraints;
+    filter_req.path_constraints = last_motion_plan_request_.path_constraints;
+    filter_req.allowed_time = ros::Duration(2.0);
+
+    if(!trajectory_filter_service_client_.call(filter_req, filter_res)) {
+      ROS_INFO("Problem with trajectory filter");
+      gc.state_trajectory_display_map_["filter"].reset();
+      return false;
+    }
+    StateTrajectoryDisplay& filter_disp = gc.state_trajectory_display_map_["filter"];
+    if(filter_res.error_code.val != filter_res.error_code.SUCCESS) {
+      filter_disp.trajectory_error_code_ = filter_res.error_code;
+      ROS_INFO_STREAM("Bad trajectory_filter error code " << filter_res.error_code.val);
+      gc.state_trajectory_display_map_["filter"].reset();
+      return false;
+    }
+    playTrajectory(gc, "filter", filter_res.trajectory);
     return true;
   }
 
@@ -564,6 +627,28 @@ public:
 
   void sendMarkers() {
     lock_.lock();
+    visualization_msgs::MarkerArray arr;
+
+    std_msgs::ColorRGBA stat_color_;
+    stat_color_.a = 0.5;
+    stat_color_.r = 0.1;
+    stat_color_.g = 0.8;
+    stat_color_.b = 0.3;
+
+    std_msgs::ColorRGBA attached_color_;
+    attached_color_.a = 0.5;
+    attached_color_.r = 0.6;
+    attached_color_.g = 0.4;
+    attached_color_.b = 0.3;
+
+
+    cm_->getAllCollisionSpaceObjectMarkers(*robot_state_,
+                                           arr,
+                                           "",
+                                           stat_color_,
+                                           attached_color_,
+                                           ros::Duration(.2));
+
     if(!current_group_name_.empty()) {
       std_msgs::ColorRGBA group_color;
       group_color.a = 1.0;
@@ -583,7 +668,6 @@ public:
       bad_color.g = 0.0;
       bad_color.b = 0.0;
 
-      visualization_msgs::MarkerArray arr;
       GroupCollection& gc = group_collection_map_[current_group_name_];
       if(gc.good_ik_solution_) { 
         cm_->getGroupAndUpdatedJointMarkersGivenState(*gc.group_state_,
@@ -637,8 +721,8 @@ public:
                                                  ros::Duration(.2));
         }
       }
-      vis_marker_array_publisher_.publish(arr);
     }
+    vis_marker_array_publisher_.publish(arr);
     lock_.unlock();
   }
 
@@ -660,6 +744,18 @@ public:
     }
     return group_collection_map_.find(group)->second.good_ik_solution_;
   }
+
+  bool doesGroupHaveGoodTrajectory(const std::string& group, const std::string& source) const {
+    if(group_collection_map_.find(group) == group_collection_map_.end()) {
+      return false;
+    }
+    const GroupCollection& gc = group_collection_map_.find(group)->second;
+    if(gc.state_trajectory_display_map_.find(source) == gc.state_trajectory_display_map_.end()) {
+      return false;
+    }
+    return gc.state_trajectory_display_map_.find(source)->second.has_joint_trajectory_;
+  }
+
 protected:
   
   void deleteKinematicStates() {
@@ -684,6 +780,7 @@ protected:
 
   ros::ServiceClient get_planning_scene_client_;
   ros::ServiceClient planner_service_client_;
+  ros::ServiceClient trajectory_filter_service_client_;
 
   motion_planning_msgs::MotionPlanRequest last_motion_plan_request_;
   
