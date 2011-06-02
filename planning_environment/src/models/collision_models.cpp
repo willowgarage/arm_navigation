@@ -693,7 +693,7 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
   if(shapes.size() > 0) {
     ode_collision_model_->addObjects(COLLISION_MAP_NAME, shapes, masked_poses);
   } else {
-    ROS_INFO_STREAM("Not setting an collision map objects");
+    ROS_DEBUG_STREAM("Not setting any collision map objects");
   }
   ode_collision_model_->unlock();
   bodiesUnlock();
@@ -1405,9 +1405,11 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
 	if(!state.isJointWithinBounds(joint_names[j])) {
 	  std::pair<double, double> bounds; 
 	  state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j], bounds);
+          double val = state.getJointState(joint_names[j])->getJointStateValues()[0];
 	  ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
-			  " value: " << state.getJointState(joint_names[j])->getJointStateValues()[0] << 
-			  " low: " << bounds.first << " high: " << bounds.second);
+			  " value: " << val << 
+			  " low: " << bounds.first << " diff low: " << val-bounds.first << " high: " << bounds.second 
+                          << " diff high: " << val-bounds.second);
 	}
       }
     }

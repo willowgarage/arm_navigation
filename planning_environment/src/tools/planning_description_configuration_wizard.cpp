@@ -52,6 +52,7 @@
 //in 100 hz ticks
 static const unsigned int CONTROL_SPEED = 10;
 static const std::string VIS_TOPIC_NAME = "planning_description_configuration_wizard";
+static const double DEFAULT_ACCELERATION = 1.0;
 
 WINDOW* left_win;
 WINDOW* right_win;
@@ -76,9 +77,14 @@ public:
 
     //making directories
     dir_name_ = getRobotName()+"_arm_navigation"; 
-    std::string mdir = "roscreate-pkg "+dir_name_; 
-    int ok = system(mdir.c_str());
-    //above might fail if the directory is already there
+
+    std::string del_com = "rm -rf " + dir_name_;
+    int ok = system(del_com.c_str());
+
+    std::string mdir = "roscreate-pkg "+dir_name_;
+    mdir += " planning_environment arm_kinematics_constraint_aware ompl_ros_interface ";
+    mdir += "trajectory_filter_server constraint_aware_spline_smoother move_arm";
+    ok = system(mdir.c_str());
     
     mdir ="mkdir -p "+dir_name_+"/config";
     ok = system(mdir.c_str());
@@ -496,6 +502,55 @@ public:
   //   }
   // }
 
+  void outputJointLimitsYAML() {
+    std::map<std::string, bool> already;
+    boost::shared_ptr<urdf::Model> robot_model = urdf_;
+    YAML::Emitter emitter;
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "joint_limits";
+    emitter << YAML::Value << YAML::BeginMap;
+    const std::map<std::string, planning_models::KinematicModel::JointModelGroup*>& group_map = kmodel_->getJointModelGroupMap();
+    for(std::map<std::string, planning_models::KinematicModel::JointModelGroup*>::const_iterator it = group_map.begin();
+        it != group_map.end();
+        it++) {
+      const std::vector<const planning_models::KinematicModel::JointModel*>& jmv = it->second->getJointModels();
+      
+      for(unsigned int i = 0; i < jmv.size(); i++) {
+        boost::shared_ptr<const urdf::Joint> urdf_joint = robot_model->getJoint(jmv[i]->getName());
+        double max_vel = 0.0;
+        if(urdf_joint) {
+          max_vel = urdf_joint->limits->velocity;
+        }
+        const std::map<std::string, std::pair<double, double> >& bounds_map = jmv[i]->getAllVariableBounds();
+        for(std::map<std::string, std::pair<double, double> >::const_iterator it2 = bounds_map.begin();
+            it2 != bounds_map.end(); 
+            it2++) {
+          if(already.find(it2->first) == already.end()) {
+            already[it2->first] = true;
+            emitter << YAML::Key << it2->first;
+            emitter << YAML::Value << YAML::BeginMap;
+            emitter << YAML::Key << "has_position_limits";
+            const planning_models::KinematicModel::RevoluteJointModel* rev 
+              = dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(jmv[i]);
+            bool has_limits = (rev == NULL || !rev->continuous_);
+            emitter << YAML::Value << has_limits;
+            emitter << YAML::Key << "has_velocity_limits" << YAML::Value << "true";
+            emitter << YAML::Key << "max_velocity" << YAML::Value << max_vel;
+            emitter << YAML::Key << "has_acceleration_limits" << YAML::Value << "true";
+            emitter << YAML::Key << "max_acceleration" << YAML::Value << DEFAULT_ACCELERATION;
+            emitter << YAML::Key << "angle_wraparound" << YAML::Value << !has_limits;
+            emitter << YAML::EndMap;
+          }
+        }
+      }
+    }
+    emitter << YAML::EndMap;
+    emitter << YAML::EndMap;
+    std::ofstream outf((dir_name_+"/config/joint_limits.yaml").c_str(), std::ios_base::trunc);
+    
+    outf << emitter.c_str();
+  }
+
   void setJointsForCollisionSampling() {
     ode_collision_model_ = new collision_space::EnvironmentModelODE();
 
@@ -854,6 +909,34 @@ public:
     doc.SaveFile(dir_name_+"/launch/ompl_planning.launch");
   }
 
+  void outputTrajectoryFilterLaunch() {
+    TiXmlDocument doc;
+    TiXmlElement* launch_root = new TiXmlElement("launch");
+    doc.LinkEndChild(launch_root);
+    
+    TiXmlElement *inc = new TiXmlElement("include");
+    launch_root->LinkEndChild(inc);
+    inc->SetAttribute("file","$(find "+dir_name_+")/launch/"+launch_outfile_name_);
+
+    TiXmlElement *node = new TiXmlElement("node");
+    launch_root->LinkEndChild(node);
+    node->SetAttribute("pkg","trajectory_filter_server");
+    node->SetAttribute("type","trajectory_filter_server");
+    node->SetAttribute("name", "trajectory_filter_server");
+
+    TiXmlElement *rp = new TiXmlElement("rosparam");
+    node->LinkEndChild(rp);
+    rp->SetAttribute("command","load");
+    rp->SetAttribute("file", "$(find trajectory_filter_server)/config/filters.yaml");
+
+    TiXmlElement *rp2 = new TiXmlElement("rosparam");
+    node->LinkEndChild(rp2);
+    rp2->SetAttribute("command","load");
+    rp2->SetAttribute("file", "$(find "+dir_name_+")/config/joint_limits.yaml");
+
+    doc.SaveFile(dir_name_+"/launch/trajectory_filter_server.launch");
+  }
+
   void outputPlanningEnvironmentLaunch() {
     TiXmlDocument doc;
     TiXmlElement* launch_root = new TiXmlElement("launch");
@@ -942,6 +1025,10 @@ public:
     TiXmlElement *ompl = new TiXmlElement("include");
     launch_root->LinkEndChild(ompl);
     ompl->SetAttribute("file", "$(find "+dir_name_+")/launch/ompl_planning.launch");
+
+    TiXmlElement *fil = new TiXmlElement("include");
+    launch_root->LinkEndChild(fil);
+    fil->SetAttribute("file", "$(find "+dir_name_+")/launch/trajectory_filter_server.launch");
 
     TiXmlElement *vis = new TiXmlElement("node");
     launch_root->LinkEndChild(vis);
@@ -1205,6 +1292,8 @@ int main(int argc, char** argv)
   pdcw->outputPlanningComponentVisualizerLaunchFile();
   pdcw->outputOMPLGroupYAML();
   pdcw->outputOMPLLaunchFile();
+  pdcw->outputTrajectoryFilterLaunch();
+  pdcw->outputJointLimitsYAML();
 
   pdcw->setJointsForCollisionSampling();
 
