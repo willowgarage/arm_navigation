@@ -169,6 +169,10 @@ public:
     tolerance_ = tol;
   }
 
+  // Set to public to allow user to manually call these if callback overriden
+  void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene);
+  void revertPlanningSceneCallback();
+
 private:
 
   // updates the current state of the spheres in the gradient
@@ -176,8 +180,7 @@ private:
                              const std::vector<std::string>& attached_body_names, 
                              std::vector<GradientInfo>& gradients);
 
-  void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene); 
-  void revertPlanningSceneCallback();
+
 
   void deleteAllStaticObjectDecompositions();
   void deleteAllAttachedObjectDecompositions();
