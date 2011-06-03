@@ -83,20 +83,20 @@ namespace ompl_ros_interface
     virtual bool initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker);
 
     /**
-     * @brief Initialize the planning state manifold
+     * @brief Initialize the planning state space
      */
-    virtual bool initializePlanningManifold(ompl::base::StateManifoldPtr &state_manifold);
+    virtual bool initializePlanningStateSpace(ompl::base::StateSpacePtr &state_space);
 
     /**
-     * @brief Load a manifold from the parameter server
-     * @param node_handle - The node handle to load the manifold information from
-     * @param manifold_name - The name of the manifold to initialize
-     * @param state_manifold - The state manifold to use
-     * @param real_vector_index -  The index of the real vector manifold in the state manifold (treated as a compound manifold)
+     * @brief Load a state space from the parameter server
+     * @param node_handle - The node handle to load the state space information from
+     * @param space_name - The name of the state space to initialize
+     * @param state_space - The state space to use
+     * @param real_vector_index -  The index of the real vector state space in the state space (treated as a compound state space)
      */
-    bool getManifoldFromParamServer(const ros::NodeHandle &node_handle,
-                                    const std::string &manifold_name,
-                                    ompl::base::StateManifoldPtr& state_manifold,
+    bool getSpaceFromParamServer(const ros::NodeHandle &node_handle,
+                                    const std::string &space_name,
+                                    ompl::base::StateSpacePtr& state_space,
                                     int& real_vector_index);
 
   protected:
@@ -112,7 +112,7 @@ namespace ompl_ros_interface
     boost::shared_ptr<ompl_ros_interface::OmplRosStateTransformer> state_transformer_;
 
     virtual bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
-                                        ompl::base::ScopedState<ompl::base::CompoundStateManifold> &goal);
+                                        ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal);
 
   };
 }

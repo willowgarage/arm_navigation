@@ -40,7 +40,7 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 
-#include <ompl/base/StateManifold.h>
+#include <ompl/base/StateSpace.h>
 #include <ompl/base/ScopedState.h>
 #include <ompl/base/State.h>
 
@@ -60,14 +60,14 @@ class OmplRosStateTransformer
 public:
   /**
    * @brief Default constructor
-   * @param state_manifold - The state manifold that the planner is operating on
+   * @param state_space - The state space that the planner is operating on
    * @param physical_joint_model_group - The "physical" joint model group that the planner is operating on
    * @param frame_id - The (possibly abstract) frame_id that the planner operates in. The frame_id in the planning request must match this frame_id.
   */
-  OmplRosStateTransformer(const ompl::base::StateManifoldPtr &state_manifold,
+  OmplRosStateTransformer(const ompl::base::StateSpacePtr &state_space,
                           const planning_models::KinematicModel::JointModelGroup *physical_joint_model_group)
   {
-    state_manifold_ = state_manifold;
+    state_space_ = state_space;
     physical_joint_model_group_ = physical_joint_model_group;
   }
 
@@ -107,7 +107,7 @@ public:
                                 ompl::base::State &ompl_state) = 0;
 
   /**
-   * @brief Return the frame in which planning manifold is defined
+   * @brief Return the frame in which planning state space is defined
    */ 
   virtual std::string getFrame(){ return std::string(" ");};
 
@@ -117,7 +117,7 @@ public:
   virtual  motion_planning_msgs::RobotState getDefaultState() = 0;
 
 protected:
-  ompl::base::StateManifoldPtr state_manifold_;
+  ompl::base::StateSpacePtr state_space_;
   const planning_models::KinematicModel::JointModelGroup* physical_joint_model_group_;
 };
 

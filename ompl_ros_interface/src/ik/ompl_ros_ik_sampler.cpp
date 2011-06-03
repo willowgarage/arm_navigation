@@ -38,14 +38,14 @@
 
 namespace ompl_ros_interface
 {
-bool OmplRosIKSampler::initialize(const ompl::base::StateManifoldPtr &state_manifold,
+bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
                                   const std::string &kinematics_solver_name,
                                   const std::string &group_name,
                                   const std::string &end_effector_name,
                                   const planning_environment::PlanningMonitor *planning_monitor)
 {
   planning_monitor_ = planning_monitor;
-  state_manifold_ = state_manifold;
+  state_space_ = state_space;
   group_name_ = group_name;
   end_effector_name_ = end_effector_name;
   ROS_INFO("Trying to initialize solver %s",kinematics_solver_name.c_str());
@@ -72,7 +72,7 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateManifoldPtr &state_mani
     return false;
   }
   ROS_INFO("Initialized solver %s",kinematics_solver_name.c_str());
-  scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateManifold>(state_manifold_));
+  scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateSpace>(state_space_));
   seed_state_.joint_state.name = kinematics_solver_->getJointNames();
   seed_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
   //  motion_planning_msgs::printJointState(seed_state_.joint_state);
@@ -143,7 +143,7 @@ bool OmplRosIKSampler::sampleGoal(const ompl::base::GoalLazySamples *gls, ompl::
   motion_planning_msgs::RobotState seed_state,solution_state;
   seed_state = seed_state_;
   solution_state = solution_state_; 
-  ompl::base::ScopedState<ompl::base::CompoundStateManifold> scoped_state(state_manifold_);
+  ompl::base::ScopedState<ompl::base::CompoundStateSpace> scoped_state(state_space_);
   //sample a state at random
   scoped_state.random();
 

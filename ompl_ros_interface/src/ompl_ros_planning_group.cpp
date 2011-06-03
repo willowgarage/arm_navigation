@@ -51,12 +51,12 @@ bool OmplRosPlanningGroup::initialize(const ros::NodeHandle &node_handle,
   if(!initializePhysicalGroup())
     return false;
 
-  if(!initializePlanningManifold(state_manifold_))
+  if(!initializePlanningStateSpace(state_space_))
     return false;
 
   double longest_valid_segment_fraction;
   node_handle_.param(group_name_+"/longest_valid_segment_fraction",longest_valid_segment_fraction,0.005);
-  state_manifold_->setLongestValidSegmentFraction(longest_valid_segment_fraction);
+  state_space_->setLongestValidSegmentFraction(longest_valid_segment_fraction);
 
   //Setup the projection evaluator for this group
   if(!initializeProjectionEvaluator())
@@ -65,7 +65,7 @@ bool OmplRosPlanningGroup::initialize(const ros::NodeHandle &node_handle,
     return false;
   }
 
-  planner_.reset(new ompl::geometric::SimpleSetup(state_manifold_));
+  planner_.reset(new ompl::geometric::SimpleSetup(state_space_));
   
   if(!initializePlanner())
     return false;
@@ -112,9 +112,9 @@ bool OmplRosPlanningGroup::initializeProjectionEvaluator()
   }
   node_handle_.getParam(group_name_+"/projection_evaluator",projection_evaluator);
   ompl::base::ProjectionEvaluatorPtr ompl_projection_evaluator;
-  ompl_projection_evaluator.reset(new ompl_ros_interface::OmplRosProjectionEvaluator(state_manifold_.get(),
+  ompl_projection_evaluator.reset(new ompl_ros_interface::OmplRosProjectionEvaluator(state_space_.get(),
                                                                                      projection_evaluator));
-  state_manifold_->registerDefaultProjection(ompl_projection_evaluator);
+  state_space_->registerDefaultProjection(ompl_projection_evaluator);
   return true;
 }
 
@@ -307,7 +307,7 @@ bool OmplRosPlanningGroup::omplPathGeometricToRobotTrajectory(const ompl::geomet
 {
   if(!ompl_ros_interface::jointStateGroupToRobotTrajectory(physical_joint_state_group_,robot_trajectory))
     return false;
-  if(!ompl_ros_interface::omplPathGeometricToRobotTrajectory(path,state_manifold_,robot_trajectory))
+  if(!ompl_ros_interface::omplPathGeometricToRobotTrajectory(path,state_space_,robot_trajectory))
     return false;
   return true;
 }
@@ -343,7 +343,9 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
   {
     ROS_DEBUG("Found solution for request in %f seconds",planner_->getLastPlanComputationTime());
     response.planning_time = ros::Duration(planner_->getLastPlanComputationTime());
-    planner_->simplifySolution();
+    planner_->getPathSimplifier()->reduceVertices(planner_->getSolutionPath());
+    planner_->getPathSimplifier()->collapseCloseVertices(planner_->getSolutionPath());
+    
     try
     {
       response.trajectory = getSolutionPath();

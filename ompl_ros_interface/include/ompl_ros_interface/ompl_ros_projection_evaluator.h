@@ -47,17 +47,17 @@ namespace ompl_ros_interface
 
 /**
  * @class OmplRosProjectionEvaluator
- * @brief A projection evaluator specifically designed for the ROS interface to OMPL while using a compound state manifold
+ * @brief A projection evaluator specifically designed for the ROS interface to OMPL while using a compound state space
 */
 class OmplRosProjectionEvaluator : public ompl::base::ProjectionEvaluator
 {
 public:
   /**
    * @brief Default constructor
-   * @param manifold - A pointer to the state manifold to use in construction of the projection evaluator
+   * @param state_space - A pointer to the state space to use in construction of the projection evaluator
    * @param evaluator_name - A name to be given to the evaluator
    */  
-	OmplRosProjectionEvaluator(const ompl::base::StateManifold *manifold, 
+	OmplRosProjectionEvaluator(const ompl::base::StateSpace *state_space, 
                              const std::string &evaluator_name);
 	
   /**

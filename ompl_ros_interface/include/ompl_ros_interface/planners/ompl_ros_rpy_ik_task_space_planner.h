@@ -54,12 +54,12 @@ namespace ompl_ros_interface
     virtual motion_planning_msgs::RobotTrajectory getSolutionPath();
 
     virtual bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
-                                        ompl::base::ScopedState<ompl::base::CompoundStateManifold> &goal);
+                                        ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal);
 
   private:
 
     bool poseStampedToOmplState(const geometry_msgs::PoseStamped &pose_stamped, 
-                                ompl::base::ScopedState<ompl::base::CompoundStateManifold> &goal,
+                                ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal,
                                 const bool &return_if_outside_constraints = true);
 
     geometry_msgs::PoseStamped getEndEffectorPose(const motion_planning_msgs::RobotState &robot_state);
@@ -81,10 +81,10 @@ namespace ompl_ros_interface
                                    const bool &need_both_constraints);
 
     bool positionConstraintToOmplStateBounds(const motion_planning_msgs::PositionConstraint &position_constraint,
-                                             ompl::base::StateManifoldPtr &goal);
+                                             ompl::base::StateSpacePtr &goal);
 
     bool orientationConstraintToOmplStateBounds(const motion_planning_msgs::OrientationConstraint &orientation_constraint,
-                                                ompl::base::StateManifoldPtr &goal);
+                                                ompl::base::StateSpacePtr &goal);
 
     std::string end_effector_name_;
       

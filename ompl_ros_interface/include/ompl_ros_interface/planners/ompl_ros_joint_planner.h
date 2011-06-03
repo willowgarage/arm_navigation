@@ -84,9 +84,9 @@ namespace ompl_ros_interface
     virtual bool initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker);
 
     /**
-     * @brief Initialize the planning state manifold
+     * @brief Initialize the planning state space
      */
-    virtual bool initializePlanningManifold(ompl::base::StateManifoldPtr &state_manifold);
+    virtual bool initializePlanningStateSpace(ompl::base::StateSpacePtr &state_space);
 
     /**
       @brief Returns the solution path

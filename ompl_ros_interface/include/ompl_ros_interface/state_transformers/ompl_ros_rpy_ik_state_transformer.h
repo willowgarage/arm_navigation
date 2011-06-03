@@ -51,12 +51,12 @@ class OmplRosRPYIKStateTransformer : public OmplRosIKStateTransformer
 {
 public:
   /* @brief Default constructor
-     @param state_manifold - The state manifold that the planner is operating on
+     @param state_space - The state space that the planner is operating on
      @param physical_joint_model_group - The "physical" joint model group that the planner is operating on
   */
-  OmplRosRPYIKStateTransformer(const ompl::base::StateManifoldPtr &state_manifold,
+  OmplRosRPYIKStateTransformer(const ompl::base::StateSpacePtr &state_space,
                                const planning_models::KinematicModel::JointModelGroup* physical_joint_model_group) 
-  : OmplRosIKStateTransformer(state_manifold,physical_joint_model_group){};
+  : OmplRosIKStateTransformer(state_space,physical_joint_model_group){};
 
   ~OmplRosRPYIKStateTransformer(){}
     
@@ -90,7 +90,7 @@ private:
   int real_vector_index_;
   motion_planning_msgs::RobotState seed_state_, solution_state_;
   int x_index_, y_index_, z_index_, pitch_index_, roll_index_, yaw_index_;  
-  boost::shared_ptr<ompl::base::ScopedState<ompl::base::CompoundStateManifold> > scoped_state_;
+  boost::shared_ptr<ompl::base::ScopedState<ompl::base::CompoundStateSpace> > scoped_state_;
 
   ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;
   ompl_ros_interface::RobotStateToOmplStateMapping robot_state_to_ompl_state_mapping_;

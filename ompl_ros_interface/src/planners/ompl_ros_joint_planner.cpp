@@ -39,15 +39,15 @@
 namespace ompl_ros_interface
 {
 
-bool OmplRosJointPlanner::initializePlanningManifold(ompl::base::StateManifoldPtr &state_manifold)
+bool OmplRosJointPlanner::initializePlanningStateSpace(ompl::base::StateSpacePtr &state_space)
 {
-  //Setup the corresponding ompl manifold
-  state_manifold = ompl_ros_interface::jointGroupToOmplStateManifoldPtr(physical_joint_group_,
+  //Setup the corresponding ompl state space
+  state_space = ompl_ros_interface::jointGroupToOmplStateSpacePtr(physical_joint_group_,
                                                                         ompl_state_to_kinematic_state_mapping_,
                                                                         kinematic_state_to_ompl_state_mapping_);
-  if(!state_manifold)
+  if(!state_space)
   {
-    ROS_ERROR("Could not set up the ompl state manifold from group %s",group_name_.c_str());
+    ROS_ERROR("Could not set up the ompl state space from group %s",group_name_.c_str());
     return false;
   }
   std::string physical_group_name = physical_joint_group_->getName();
@@ -60,7 +60,7 @@ bool OmplRosJointPlanner::initializePlanningManifold(ompl::base::StateManifoldPt
       node_handle_.getParam(physical_group_name+"/kinematics_solver",kinematics_solver_name_);
       ROS_DEBUG("Kinematics solver: %s",kinematics_solver_name_.c_str());
       ROS_DEBUG("Created new ik sampler: %s",kinematics_solver_name_.c_str());
-      if(!ik_sampler_.initialize(state_manifold_,kinematics_solver_name_,physical_group_name,end_effector_name_,planning_monitor_))
+      if(!ik_sampler_.initialize(state_space_,kinematics_solver_name_,physical_group_name,end_effector_name_,planning_monitor_))
       {
         ROS_ERROR("Could not set IK sampler for pose goal");
       }
@@ -166,7 +166,7 @@ bool OmplRosJointPlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &
 bool OmplRosJointPlanner::setStart(motion_planning_msgs::GetMotionPlan::Request &request,
                                     motion_planning_msgs::GetMotionPlan::Response &response)
 {
-  ompl::base::ScopedState<ompl::base::CompoundStateManifold> start(state_manifold_);
+  ompl::base::ScopedState<ompl::base::CompoundStateSpace> start(state_space_);
   ROS_DEBUG("Start");
   if(!ompl_ros_interface::kinematicStateGroupToOmplState(physical_joint_state_group_,
                                                          kinematic_state_to_ompl_state_mapping_,
@@ -201,7 +201,7 @@ bool OmplRosJointPlanner::setStart(motion_planning_msgs::GetMotionPlan::Request 
 bool OmplRosJointPlanner::setJointGoal(motion_planning_msgs::GetMotionPlan::Request &request,
                                         motion_planning_msgs::GetMotionPlan::Response &response)
 {
-  ompl::base::ScopedState<ompl::base::CompoundStateManifold> goal(state_manifold_);
+  ompl::base::ScopedState<ompl::base::CompoundStateSpace> goal(state_space_);
   ompl::base::GoalPtr goal_states(new ompl::base::GoalStates(planner_->getSpaceInformation()));
   unsigned int dimension = physical_joint_state_group_->getDimension();
   unsigned int num_goals = request.motion_plan_request.goal_constraints.joint_constraints.size()/dimension;
