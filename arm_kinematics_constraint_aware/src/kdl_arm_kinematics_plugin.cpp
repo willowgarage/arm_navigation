@@ -337,7 +337,8 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
   }
   for(int i=0; i < max_search_iterations_; i++)
   {
-    jnt_pos_in = getRandomConfiguration();
+    if (i > 0)
+      jnt_pos_in = getRandomConfiguration();
     int ik_valid = ik_solver_pos_->CartToJnt(jnt_pos_in,pose_desired,jnt_pos_out);                      
     if(ik_valid < 0)                                                                                                       
       continue;
