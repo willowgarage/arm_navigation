@@ -954,6 +954,7 @@ public:
     rp->SetAttribute("ns", "robot_description_planning");
     rp->SetAttribute("file", "$(find "+dir_name_+")/config/"+yaml_outfile_name_);
     doc.SaveFile(full_launch_outfile_name_);
+
   }
   
   void outputKinematicsLaunchFiles() {
@@ -1002,6 +1003,8 @@ public:
         solver_param->SetAttribute("value", "arm_kinematics_constraint_aware/KDLArmKinematicsPlugin");
       }
     }
+
+
     doc.SaveFile(dir_name_+"/launch/constraint_aware_kinematics.launch");
   }
 
@@ -1036,6 +1039,12 @@ public:
     vis->SetAttribute("type","planning_components_visualizer");
     vis->SetAttribute("name","planning_components_visualizer"); 
     vis->SetAttribute("output","screen");
+
+    TiXmlElement *state_publisher = new TiXmlElement("node");
+    launch_root->LinkEndChild(state_publisher);
+    state_publisher->SetAttribute("pkg","robot_state_publisher" );
+    state_publisher->SetAttribute("type", "state_publisher");
+    state_publisher->SetAttribute("name", "rob_st_pub");
 
     doc.SaveFile(dir_name_+"/launch/planning_components_visualizer.launch");
   }
