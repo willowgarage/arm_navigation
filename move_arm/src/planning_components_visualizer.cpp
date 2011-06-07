@@ -52,755 +52,1777 @@
 #include <trajectory_msgs/JointTrajectory.h>
 #include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <motion_planning_msgs/convert_messages.h>
+#include <interactive_markers/interactive_marker_server.h>
+#include <interactive_markers/menu_handler.h>
 #include <move_arm/move_arm_warehouse_reader.h>
+#include <sensor_msgs/JointState.h>
 
 #include <ncurses.h>
 
-static const std::string VIS_TOPIC_NAME = "planning_components_visualizer";
+using namespace std;
+using namespace motion_planning_msgs;
+using namespace interactive_markers;
+using namespace visualization_msgs;
+using namespace planning_environment;
+using namespace planning_models;
+using namespace geometry_msgs;
+
+static const string VIS_TOPIC_NAME = "planning_components_visualizer";
 
 //in 100 hz ticks
 static const unsigned int CONTROL_SPEED = 10;
 
 static const ros::Duration PLANNING_DURATION = ros::Duration(5.0);
 
-static const double BASE_TRANS_SPEED=.3;
+static const double BASE_TRANS_SPEED = .3;
 static const double BASE_ROT_SPEED = .15;
 
-static const double HAND_TRANS_SPEED=.05;
+static const double HAND_TRANS_SPEED = .05;
 static const double HAND_ROT_SPEED = .15;
 
-static const std::string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
-static const std::string PLANNER_SERVICE_NAME = "/ompl_planning/plan_kinematic_path";
-static const std::string TRAJECTORY_FILTER_SERVICE_NAME="/trajectory_filter_server/filter_trajectory_with_constraints";
+static const string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
+static const string PLANNER_SERVICE_NAME = "/ompl_planning/plan_kinematic_path";
+static const string TRAJECTORY_FILTER_SERVICE_NAME = "/trajectory_filter_server/filter_trajectory_with_constraints";
 
-class PlanningComponentsVisualizer {
+typedef map<MenuHandler::EntryHandle, string> MenuEntryMap;
+typedef map<string, MenuEntryMap> MenuMap;
+typedef map<string, MenuHandler> MenuHandlerMap;
 
-public:
+class PlanningComponentsVisualizer
+{
 
-  struct StateTrajectoryDisplay {
-    
-    StateTrajectoryDisplay() {
-      state_ = NULL;
-      reset();
-    }
-    
-    void reset() {
-      if(state_ != NULL) {
-        delete state_;
-        state_ = NULL;
+  public:
+
+    /// May be for IK control, joint control, or collision objects.
+    enum InteractiveMarkerType
+    {
+      EndEffectorControl, JointControl, CollisionObject
+    };
+
+    /// Contains data for selectable markers. Stored in a large map.
+    struct SelectableMarker
+    {
+        /// IK control, joint control, or collision object.
+        InteractiveMarkerType type_;
+
+        /// Name of the menu marker.
+        string name_;
+
+        /// Name of the 6DOF marker
+        string controlName_;
+
+        /// Text above the control.
+        string controlDescription_;
+    };
+
+    struct StateTrajectoryDisplay
+    {
+
+        StateTrajectoryDisplay()
+        {
+          state_ = NULL;
+          reset();
+        }
+
+        void reset()
+        {
+          if(state_ != NULL)
+          {
+            delete state_;
+            state_ = NULL;
+          }
+          has_joint_trajectory_ = false;
+          play_joint_trajectory_ = false;
+          show_joint_trajectory_ = false;
+          current_trajectory_point_ = 0;
+          trajectory_bad_point_ = 0;
+          trajectory_error_code_.val = 0;
+        }
+
+        KinematicState* state_;
+        trajectory_msgs::JointTrajectory joint_trajectory_;unsigned int current_trajectory_point_;
+        std_msgs::ColorRGBA color_;
+        bool has_joint_trajectory_;
+        bool play_joint_trajectory_;
+        bool show_joint_trajectory_;
+        ArmNavigationErrorCodes trajectory_error_code_;unsigned int trajectory_bad_point_;
+    };
+
+    struct GroupCollection
+    {
+        GroupCollection()
+        {
+          group_state_ = NULL;
+          good_ik_solution_ = false;
+
+          state_trajectory_display_map_["planner"].color_.a = .6;
+          state_trajectory_display_map_["planner"].color_.r = 1.0;
+          state_trajectory_display_map_["planner"].color_.g = 1.0;
+          state_trajectory_display_map_["planner"].color_.b = 0.5;
+
+          state_trajectory_display_map_["filter"].color_.a = .6;
+          state_trajectory_display_map_["filter"].color_.r = 0.5;
+          state_trajectory_display_map_["filter"].color_.g = 1.0;
+          state_trajectory_display_map_["filter"].color_.b = 1.0;
+        }
+
+        ~GroupCollection()
+        {
+          reset();
+        }
+
+        void reset()
+        {
+          for(map<string, StateTrajectoryDisplay>::iterator it = state_trajectory_display_map_.begin(); it
+          != state_trajectory_display_map_.end(); it++)
+          {
+            it->second.reset();
+          }
+          if(group_state_ != NULL)
+          {
+            delete group_state_;
+            group_state_ = NULL;
+          }
+        }
+
+        string name_;
+        string ik_link_name_;
+        ros::ServiceClient coll_aware_ik_service_;
+        ros::ServiceClient non_coll_aware_ik_service_;
+        bool good_ik_solution_;
+        KinematicState* group_state_;
+        map<string, StateTrajectoryDisplay> state_trajectory_display_map_;
+    };
+
+    PlanningComponentsVisualizer()
+    {
+
+      num_collision_poles_ = 0;
+      cm_ = new CollisionModels("robot_description");
+      vis_marker_publisher_ = nh_.advertise<Marker> (VIS_TOPIC_NAME, 128);
+      vis_marker_array_publisher_ = nh_.advertise<MarkerArray> (VIS_TOPIC_NAME + "_array", 128);
+      joint_state_publisher_ = nh_.advertise<sensor_msgs::JointState> ("joint_states", 10);
+
+      process_function_ptr_ = boost::bind(&PlanningComponentsVisualizer::processInteractiveFeedback, this, _1);
+
+      while(!ros::service::waitForService(GET_PLANNING_SCENE_NAME, ros::Duration(1.0)))
+      {
+        ROS_INFO_STREAM("Waiting for planning scene service " << GET_PLANNING_SCENE_NAME);
       }
-      has_joint_trajectory_ = false;
-      play_joint_trajectory_ = false;
-      show_joint_trajectory_ = false;
-      current_trajectory_point_ = 0;
-      trajectory_bad_point_ = 0;
-      trajectory_error_code_.val = 0;
+
+      get_planning_scene_client_
+      = nh_.serviceClient<planning_environment_msgs::GetPlanningScene> (GET_PLANNING_SCENE_NAME);
+
+      while(!ros::service::waitForService(PLANNER_SERVICE_NAME, ros::Duration(1.0)))
+      {
+        ROS_INFO_STREAM("Waiting for planner service " << PLANNER_SERVICE_NAME);
+      }
+
+      planner_service_client_ = nh_.serviceClient<GetMotionPlan> (PLANNER_SERVICE_NAME, true);
+
+      while(!ros::service::waitForService(TRAJECTORY_FILTER_SERVICE_NAME, ros::Duration(1.0)))
+      {
+        ROS_INFO_STREAM("Waiting for trajectory filter service " << TRAJECTORY_FILTER_SERVICE_NAME);
+      }
+
+      trajectory_filter_service_client_
+      = nh_.serviceClient<FilterJointTrajectoryWithConstraints> (TRAJECTORY_FILTER_SERVICE_NAME, true);
+
+      const map<string, KinematicModel::GroupConfig>& group_config_map =
+          cm_->getKinematicModel()->getJointModelGroupConfigMap();
+
+      for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
+          it != group_config_map.end(); it++)
+      {
+        if(!it->second.base_link_.empty())
+        {
+          group_map_[it->first].name_ = it->first;
+          group_map_[it->first].ik_link_name_ = it->second.tip_link_;
+          string ik_service_name = "/" + cm_->getKinematicModel()->getRobotName() + "_" + it->first + "_kinematics/";
+          string coll_aware_name = ik_service_name + "get_constraint_aware_ik";
+          string non_coll_aware_name = ik_service_name + "get_ik";
+
+          while(!ros::service::waitForService(coll_aware_name, ros::Duration(1.0)))
+          {
+            ROS_INFO_STREAM("Waiting for service " << coll_aware_name);
+          }
+
+          while(!ros::service::waitForService(non_coll_aware_name, ros::Duration(1.0)))
+          {
+            ROS_INFO_STREAM("Waiting for service " << non_coll_aware_name);
+          }
+
+          group_map_[it->first].coll_aware_ik_service_ = nh_.serviceClient<
+              kinematics_msgs::GetConstraintAwarePositionIK> (coll_aware_name, true);
+
+          group_map_[it->first].non_coll_aware_ik_service_
+          = nh_.serviceClient<kinematics_msgs::GetPositionIK> (non_coll_aware_name, true);
+        }
+      }
+      robot_state_ = new KinematicState(cm_->getKinematicModel());
+      robot_state_->setKinematicStateToDefault();
+      sendPlanningScene();
+
+      // Create a new interactive marker server.
+      interactive_marker_server_.reset(new InteractiveMarkerServer("planning_visualizer_controls", "", false));
+
+      // Allocate memory to each of the menu entry maps.
+      menu_entry_maps_["End Effector"] = MenuEntryMap();
+      menu_entry_maps_["End Effector Selection"] = MenuEntryMap();
+      menu_entry_maps_["Top Level"] = MenuEntryMap();
+      menu_entry_maps_["Collision Object"] = MenuEntryMap();
+      menu_entry_maps_["Collision Object Selection"] = MenuEntryMap();
+
+      // Allocate memory to the menu handlers
+      menu_handler_map_["End Effector"];
+      menu_handler_map_["End Effector Selection"];
+      menu_handler_map_["Top Level"];
+      menu_handler_map_["Collision Object"];
+      menu_handler_map_["Collision Object Selection"];
+
+      // Create end effector menus
+      registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Plan Here");
+      registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Filter Trajectory");
+      registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Deselect");
+      registerMenuEntry(menu_handler_map_["End Effector Selection"], menu_entry_maps_["End Effector Selection"],
+                        "Select");
+
+
+      // Create collision object menus
+      registerMenuEntry(menu_handler_map_["Collision Object Selection"],
+                        menu_entry_maps_["Collision Object Selection"], "Select");
+      registerMenuEntry(menu_handler_map_["Collision Object Selection"],
+                        menu_entry_maps_["Collision Object Selection"], "Delete");
+      registerMenuEntry(menu_handler_map_["Collision Object"], menu_entry_maps_["Collision Object"], "Deselect");
+      registerMenuEntry(menu_handler_map_["Collision Object"], menu_entry_maps_["Collision Object"], "Delete");
+
+      // Create top level menu.
+      registerMenuEntry(menu_handler_map_["Top Level"], menu_entry_maps_["Top Level"], "Create Pole");
+      MenuHandler::EntryHandle sub_menu_handle = menu_handler_map_["Top Level"].insert("Select Planning Chain");
+
+      // "Select Planning Chain" sub menu.
+      unsigned int cmd = 0;
+      for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
+      {
+        registerSubMenuEntry(menu_handler_map_["Top Level"], menu_entry_maps_["Top Level"], it->first, sub_menu_handle);
+
+        // These positions will be reset by main()
+        makeSelectableMarker(PlanningComponentsVisualizer::EndEffectorControl,
+                             btTransform(btQuaternion(0.0f,0.0f,0.0f,1.0f), btVector3(0.0f,0.0f,0.0f)),
+                             it->first, it->first, 0.5f);
+        cmd ++;
+      }
+      // Create menu marker.
+      makeTopLevelMenu();
+
+      interactive_marker_server_->applyChanges();
+
+      ROS_INFO_STREAM("Initialized");
+
     }
 
-    planning_models::KinematicState* state_;
-    trajectory_msgs::JointTrajectory joint_trajectory_;
-    unsigned int current_trajectory_point_;
-    std_msgs::ColorRGBA color_;
-    bool has_joint_trajectory_;
-    bool play_joint_trajectory_;
-    bool show_joint_trajectory_;
-    motion_planning_msgs::ArmNavigationErrorCodes trajectory_error_code_;
-    unsigned int trajectory_bad_point_;
-  };
-
-  struct GroupCollection {
-    GroupCollection() {
-      group_state_ = NULL;
-      good_ik_solution_ = false;
-
-      state_trajectory_display_map_["planner"].color_.a = .6;
-      state_trajectory_display_map_["planner"].color_.r = 0.0;
-      state_trajectory_display_map_["planner"].color_.g = 0.0;
-      state_trajectory_display_map_["planner"].color_.b = 1.0;
-
-      state_trajectory_display_map_["filter"].color_.a = .6;
-      state_trajectory_display_map_["filter"].color_.r = 0.0;
-      state_trajectory_display_map_["filter"].color_.g = 1.0;
-      state_trajectory_display_map_["filter"].color_.b = 1.0;
+    ~PlanningComponentsVisualizer()
+    {
+      deleteKinematicStates();
+      delete robot_state_;
+      delete cm_;
     }
 
-    ~GroupCollection() {
-      reset();
+    /////
+    /// @brief Generates a new collision pole ID.
+    /// @return an int, which is unique.
+    /////
+    int nextCollisionPole()
+    {
+      return ++num_collision_poles_;
     }
 
-    void reset() {
-      for(std::map<std::string, StateTrajectoryDisplay>::iterator it = state_trajectory_display_map_.begin(); 
-          it != state_trajectory_display_map_.end();
-          it++) {
+    /////
+    /// @brief deletes the collision pole with the given ID.
+    /// @param num the ID of the pole.
+    /////
+    void removeCollisionPole(int num)
+    {
+      stringstream id;
+      id << "pole_" << num;
+      removeCollisionPoleByName(id.str());
+    }
+
+    /////
+    /// @brief deletes the collision pole with the given name.
+    /// @param id the name of the pole.
+    /////
+    void removeCollisionPoleByName(string id)
+    {
+      ROS_INFO("Removing collision pole %s", id.c_str());
+      mapping_msgs::CollisionObject& cylinder_object = collision_poles_[id];
+      cylinder_object.operation.operation = mapping_msgs::CollisionObjectOperation::REMOVE;
+    }
+
+    /////
+    /// @brief Creates a collision pole with the given ID at location given by pose. Creates a selectable marker too.
+    /// @param num the ID of the pole. (must be unique)
+    /// @param pose the location and orientation of the pole.
+    /////
+    void createCollisionPole(int num, Pose pose)
+    {
+      ROS_INFO("Creating collision pole %d", num);
+
+
+      mapping_msgs::CollisionObject cylinder_object;
+      cylinder_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+      cylinder_object.header.stamp = ros::Time::now();
+
+      geometric_shapes_msgs::Shape object;
+      object.type = geometric_shapes_msgs::Shape::CYLINDER;
+      object.dimensions.resize(2);
+      object.dimensions[0] = .1;
+      object.dimensions[1] = 2.0;
+
+      cylinder_object.shapes.push_back(object);
+      cylinder_object.poses.push_back(pose);
+      stringstream id;
+      id << "pole_" << num;
+      cylinder_object.id = id.str();
+      collision_poles_[id.str()] = cylinder_object;
+
+      btTransform cur = toBulletTransform(pose);
+      makePoleContextMenu(cur, id.str(), "", 2.0f);
+    }
+
+    void sendPlanningScene()
+    {
+      ROS_INFO("Sending Planning Scene....");
+
+      lock_.lock();
+      planning_environment_msgs::GetPlanningScene::Request planning_scene_req;
+      planning_environment_msgs::GetPlanningScene::Response planning_scene_res;
+
+      vector<string> removals;
+      // Handle additions and removals of planning scene objects.
+      for(map<string, mapping_msgs::CollisionObject>::const_iterator it = collision_poles_.begin();
+          it != collision_poles_.end(); it++)
+      {
+        string name = it->first;
+        mapping_msgs::CollisionObject object = it->second;
+
+        // Add or remove objects.
+        if(object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE)
+        {
+          planning_scene_req.planning_scene_diff.collision_objects.push_back(object);
+        }
+        else
+        {
+          removals.push_back(it->first);
+        }
+      }
+
+      // Delete collision poles from the map which were removed.
+      for(size_t i = 0; i < removals.size(); i++)
+      {
+        collision_poles_.erase(removals[i]);
+      }
+
+      convertKinematicStateToRobotState(*robot_state_, ros::Time::now(), cm_->getWorldFrameId(),
+                                        planning_scene_req.planning_scene_diff.robot_state);
+      deleteKinematicStates();
+
+      if(robot_state_ != NULL)
+      {
+        ROS_INFO("Reverting planning scene to default.");
+        cm_->revertPlanningScene(robot_state_);
+        robot_state_ = NULL;
+      }
+
+      if(!get_planning_scene_client_.call(planning_scene_req, planning_scene_res))
+      {
+        ROS_WARN("Can't get planning scene");
+        lock_.unlock();
+        return;
+      }
+
+      robot_state_ = cm_->setPlanningScene(planning_scene_res.planning_scene);
+
+      if(robot_state_ == NULL)
+      {
+        ROS_ERROR("Something wrong with planning scene");
+        lock_.unlock();
+        return;
+      }
+      lock_.unlock();
+
+      ROS_INFO("Planning scene sent.");
+    }
+
+    void selectPlanningGroup()
+    {
+      while(1)
+      {
+        echo();
+        deleteKinematicStates();
+        unsigned int num = 0;
+        clear();
+        vector<string> names;
+        for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++, num++)
+        {
+          names.push_back(it->first);
+          printw("%d) %s\n", num, it->first.c_str());
+        }
+        printw("Enter a number to select the group\n");
+        refresh();
+        char str[80];
+        getstr(str);
+        unsigned int entry;
+        stringstream ss(str);
+        ss >> entry;
+
+        selectPlanningGroup(entry);
+
+        movePlanningGroup();
+        lock_.lock();
+        current_group_name_ = "";
+        deleteKinematicStates();
+        lock_.unlock();
+      }
+    }
+
+    void selectPlanningGroup(unsigned int entry)
+    {
+      ROS_INFO("Selecting planning group %u", entry);
+      lock_.lock();
+      vector<string> names;
+      for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
+      {
+        names.push_back(it->first);
+      }
+      string old_group_name = current_group_name_;
+      current_group_name_ = names[entry];
+      group_map_[current_group_name_].group_state_ = new KinematicState(*robot_state_);
+      moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false);
+
+      // If we previously selected a planning group, deselect its marker.
+      if(old_group_name != "" && selectableMarkerExists(old_group_name + "_selectable"))
+      {
+        GroupCollection& gc = group_map_[old_group_name];
+        btTransform cur = robot_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
+        deselectMarker(selectable_markers_[old_group_name + "_selectable"], cur);
+      }
+
+      // Select the new planning gruop's marker.
+      if(selectableMarkerExists(current_group_name_ + "_selectable"))
+      {
+        GroupCollection& gc = group_map_[current_group_name_];
+        btTransform cur = gc.group_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
+        selectMarker(selectable_markers_[current_group_name_ + "_selectable"], cur);
+        createSelectableJointMarkers(gc);
+      }
+
+      interactive_marker_server_->applyChanges();
+      lock_.unlock();
+      ROS_INFO("Planning group selected.");
+    }
+
+    void movePlanningGroup()
+    {
+      bool quit = false;
+
+      // I had to disable this unfortunately... It was really messing with my debug prints.
+      while(!quit)
+      {
+        // TODO: Simply remove this function.
+        sleep(1.0);
+      }
+      /*
+      clear();
+      noecho();
+      bool coll_aware = true;
+      bool quit = false;
+      bool print = true;
+      while(!quit)
+      {
+        if(print)
+        {
+          clear();
+          printw("Examining current group %s\n", current_group_name_.c_str());
+          printw("Type 'q' to return to group selection\n");
+          printw("Type 'c' to toggle collision-aware/non-collision aware ik\n");
+          printw("Type 'w' to filter planner trajectory\n");
+          printw("Type 'i/k' for end effector forward/back\n");
+          printw("Type 'j/l' for end effector left/right\n");
+          printw("Type 'h/n' for end effector up/down\n");
+          printw("Type 'r/f' for end effector pitch up/down\n");
+          printw("Type 'd/g' for end effector yaw up/down\n");
+          printw("Type 'v/b' for end effector roll up/down\n");
+          printw("Current using");
+          if(coll_aware)
+          {
+            printw(" collision-aware ");
+          }
+          else
+          {
+            printw(" non-collision-aware ");
+          }
+          printw("ik\n");
+          refresh();
+          print = false;
+        }
+        char c = getch();
+        switch (c)
+        {
+          case 'q':
+            quit = true;
+            break;
+          case 'c':
+            coll_aware = !coll_aware;
+            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
+            print = true;
+            break;
+          case 'p':
+            if(doesGroupHaveGoodIKSolution(current_group_name_))
+            {
+              planToEndEffectorState(group_map_[current_group_name_]);
+            }
+            break;
+          case 'w':
+            if(doesGroupHaveGoodTrajectory(current_group_name_, "planner"))
+            {
+              filterPlannerTrajectory(group_map_[current_group_name_]);
+            }
+            break;
+          case 'i':
+            moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
+            break;
+          case 'k':
+            moveEndEffectorMarkers(-HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
+            break;
+          case 'j':
+            moveEndEffectorMarkers(0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
+            break;
+          case 'l':
+            moveEndEffectorMarkers(0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
+            break;
+          case 'h':
+            moveEndEffectorMarkers(0.0, 0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
+            break;
+          case 'n':
+            moveEndEffectorMarkers(0.0, 0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
+            break;
+          case 'r':
+            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, coll_aware);
+            break;
+          case 'f':
+            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, coll_aware);
+            break;
+          case 'd':
+            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, coll_aware);
+            break;
+          case 'g':
+            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, coll_aware);
+            break;
+          case 'v':
+            moveEndEffectorMarkers(0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
+            break;
+          case 'b':
+            moveEndEffectorMarkers(0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
+            break;
+        }
+      }
+       */
+    }
+
+    void moveEndEffectorMarkers(double vx, double vy, double vz, double vr, double vp, double vw,
+                                bool coll_aware = true)
+
+    {
+      lock_.lock();
+      GroupCollection& gc = group_map_[current_group_name_];
+      btTransform cur = gc.group_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
+      double mult = CONTROL_SPEED / 100.0;
+
+      btVector3& curOrigin = cur.getOrigin();
+      btVector3 newOrigin(curOrigin.x() + (vx * mult), curOrigin.y() + (vy * mult), curOrigin.z() + (vz * mult));
+      cur.setOrigin(newOrigin);
+
+      btScalar roll, pitch, yaw;
+
+      cur.getBasis().getRPY(roll, pitch, yaw);
+      roll += vr * mult;
+      pitch += vp * mult;
+      yaw += vw * mult;
+
+      if(roll > 2 * M_PI)
+      {
+        roll -= 2 * M_PI;
+      }
+      else if(roll < -2 * M_PI)
+      {
+        roll += 2 * M_PI;
+      }
+
+      if(pitch > 2 * M_PI)
+      {
+        pitch -= 2 * M_PI;
+      }
+      else if(pitch < -2 * M_PI)
+      {
+        pitch += 2 * M_PI;
+      }
+
+      cur.getBasis().setRPY(roll, pitch, yaw);
+
+      setNewEndEffectorPosition(gc, cur, coll_aware);
+
+      lock_.unlock();
+    }
+
+    ////
+    /// @brief Given the group collection, creates a set of selectable markers for each joint in the group.
+    /// @param gc the group collection to create joint markers for.
+    ////
+    void createSelectableJointMarkers(GroupCollection& gc)
+    {
+#ifdef JOINT_CONTROL
+      vector<KinematicModel::JointModel*> jointModels =
+          gc.group_state_->getKinematicModel()->getJointModels();
+
+      // For each joint model, find the location of its axis and make a control there.
+      for(size_t i = 0; i < jointModels.size(); i++)
+      {
+        KinematicModel::JointModel* model = jointModels[i];
+        if(model->getParentLinkModel() != NULL)
+        {
+          string parentLinkName = model->getParentLinkModel()->getName();
+          btTransform transform =
+              gc.group_state_->getLinkState(parentLinkName)->getGlobalLinkTransform() *
+              gc.group_state_->getJointState(model->getName())->getVariableTransform();
+
+          makeSelectableMarker(JointControl,transform,model->getName(),"", 0.33f, false);
+        }
+      }
+      interactive_marker_server_->applyChanges();
+#endif
+    }
+
+    /////
+    /// @brief Sets the kinematic state of a joint in the given group collection.
+    /// @param gc the group collection that the joint is in.
+    /// @param value the value of the joint. Clipped to limits automatically.
+    /// @return the value of the joint after it was snapped to limits.
+    /////
+    double setJointState(GroupCollection& gc, std::string& jointName, double value)
+    {
+      map<string, double> stateMap;
+      gc.group_state_->getKinematicStateValues(stateMap);
+
+      // Limits on the joint.
+      map<string, pair<double,double> > jointBounds =
+          gc.group_state_->getKinematicModel()->getJointModel(jointName)->getAllVariableBounds();
+
+      // For each joint limit, keep snap the value of the joint into it.
+      // TODO: Figure out why each joint has multiple values.
+      for(map<string,pair<double,double> >::iterator it = jointBounds.begin(); it != jointBounds.end(); it++)
+      {
+        if(value < it->second.first)
+        {
+          value = it->second.first;
+        }
+        else if(value > it->second.first)
+        {
+          value = it->second.first;
+        }
+      }
+
+      stateMap[jointName] = value;
+
+      // Update robot state.
+      gc.group_state_->setKinematicState(stateMap);
+
+      // Send state to robot mode.
+      publishJointStates(gc);
+
+      // Reset existing markers for the joints.
+      if(selectableMarkerExists(current_group_name_ + "_selectable"))
+      {
+        GroupCollection& gc = group_map_[current_group_name_];
+        btTransform cur = gc.group_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
+        deselectMarker(selectable_markers_[current_group_name_ + "_selectable"], cur);
+        selectMarker(selectable_markers_[current_group_name_ + "_selectable"], cur);
+      }
+
+      return value;
+    }
+
+    void setNewEndEffectorPosition(GroupCollection& gc, btTransform& cur, bool coll_aware)
+    {
+      if(!gc.group_state_->updateKinematicStateWithLinkAt(gc.ik_link_name_, cur))
+      {
+        ROS_INFO("Problem");
+      }
+
+      if(solveIKForEndEffectorPose(gc, coll_aware))
+      {
+        gc.good_ik_solution_ = true;
+
+      }
+      else
+      {
+        gc.good_ik_solution_ = false;
+      }
+    }
+
+    bool solveIKForEndEffectorPose(PlanningComponentsVisualizer::GroupCollection& gc, bool coll_aware = true,
+                                   bool constrain_pitch_and_roll = false, double change_redundancy = 0.0)
+    {
+      kinematics_msgs::PositionIKRequest ik_request;
+      ik_request.ik_link_name = gc.ik_link_name_;
+      ik_request.pose_stamped.header.frame_id = cm_->getWorldFrameId();
+      ik_request.pose_stamped.header.stamp = ros::Time::now();
+      tf::poseTFToMsg(gc.group_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(),
+                      ik_request.pose_stamped.pose);
+      convertKinematicStateToRobotState(*gc.group_state_, ros::Time::now(), cm_->getWorldFrameId(),
+                                        ik_request.robot_state);
+      ik_request.ik_seed_state = ik_request.robot_state;
+
+      // if(change_redundancy != 0.0) {
+      //   for(unsigned int i = 0; i < ik_request.ik_seed_state.joint_state.name.size(); i++) {
+      //     if(ik_request.ik_seed_state.joint_state.name[i] == redundancy_joint_) {
+      //       ik_request.ik_seed_state.joint_state.position[i] += change_redundancy;
+      //     }
+      //   }
+      // }
+      map<string, double> joint_values;
+      vector<string> joint_names;
+
+      if(coll_aware)
+      {
+        kinematics_msgs::GetConstraintAwarePositionIK::Request ik_req;
+        kinematics_msgs::GetConstraintAwarePositionIK::Response ik_res;
+        ik_req.ik_request = ik_request;
+        ik_req.timeout = ros::Duration(1.0);
+        if(!gc.coll_aware_ik_service_.call(ik_req, ik_res))
+        {
+          ROS_INFO("Problem with ik service call");
+          return false;
+        }
+        if(ik_res.error_code.val != ik_res.error_code.SUCCESS)
+        {
+          ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
+          return false;
+        }
+        joint_names = ik_res.solution.joint_state.name;
+        for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++)
+        {
+          joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
+        }
+
+      }
+      else
+      {
+        kinematics_msgs::GetPositionIK::Request ik_req;
+        kinematics_msgs::GetPositionIK::Response ik_res;
+        ik_req.ik_request = ik_request;
+        ik_req.timeout = ros::Duration(1.0);
+        if(!gc.non_coll_aware_ik_service_.call(ik_req, ik_res))
+        {
+          ROS_INFO("Problem with ik service call");
+          return false;
+        }
+        if(ik_res.error_code.val != ik_res.error_code.SUCCESS)
+        {
+          ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
+          return false;
+        }
+        for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++)
+        {
+          joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
+        }
+
+      }
+
+      lock_.lock();
+      gc.group_state_->setKinematicState(joint_values);
+
+      createSelectableJointMarkers(gc);
+      if(coll_aware)
+      {
+        Constraints emp_con;
+        ArmNavigationErrorCodes error_code;
+
+        if(!cm_->isKinematicStateValid(*gc.group_state_, joint_names, error_code, emp_con, emp_con, true))
+        {
+          ROS_INFO_STREAM("Problem with response");
+        }
+      }
+      lock_.unlock();
+
+      publishJointStates(gc);
+
+      return true;
+    }
+
+    /////
+    /// @brief Sends the joint states of the given group collection to the robot state publisher.
+    /// @param gc the group collection to publish the states for.
+    /////
+    void publishJointStates(GroupCollection& gc)
+    {
+      sensor_msgs::JointState msg;
+      msg.header.frame_id = "/base_link";
+      msg.header.stamp = ros::Time::now();
+
+      vector<KinematicState::JointState*> jointStates = gc.group_state_->getJointStateVector();
+
+      for(size_t i = 0; i < jointStates.size(); i++)
+      {
+        KinematicState::JointState* state = jointStates[i];
+        msg.name.push_back(state->getName());
+
+        // Assume that joints only have one value.
+        if(state->getJointStateValues().size() > 0)
+        {
+          msg.position.push_back(state->getJointStateValues()[0]);
+        }
+        else
+        {
+          msg.position.push_back(0.0f);
+        }
+      }
+      joint_state_publisher_.publish(msg);
+    }
+
+    bool planToEndEffectorState(PlanningComponentsVisualizer::GroupCollection& gc)
+    {
+      MotionPlanRequest motion_plan_request;
+      motion_plan_request.group_name = gc.name_;
+      motion_plan_request.num_planning_attempts = 1;
+      motion_plan_request.allowed_planning_time = PLANNING_DURATION;
+      const KinematicState::JointStateGroup* jsg = gc.group_state_->getJointStateGroup(gc.name_);
+      motion_plan_request.goal_constraints.joint_constraints.resize(jsg->getJointNames().size());
+      vector<double> joint_values;
+      jsg->getKinematicStateValues(joint_values);
+      for(unsigned int i = 0; i < jsg->getJointNames().size(); i++)
+      {
+        motion_plan_request.goal_constraints.joint_constraints[i].joint_name = jsg->getJointNames()[i];
+        motion_plan_request.goal_constraints.joint_constraints[i].position = joint_values[i];
+        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.001;
+        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.001;
+      }
+      convertKinematicStateToRobotState(*robot_state_, ros::Time::now(), cm_->getWorldFrameId(),
+                                        motion_plan_request.start_state);
+      GetMotionPlan::Request plan_req;
+      plan_req.motion_plan_request = motion_plan_request;
+      GetMotionPlan::Response plan_res;
+      if(!planner_service_client_.call(plan_req, plan_res))
+      {
+        ROS_INFO("Something wrong with planner client");
+        return false;
+      }
+      StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_["planner"];
+      if(plan_res.error_code.val != plan_res.error_code.SUCCESS)
+      {
+        disp.trajectory_error_code_ = plan_res.error_code;
+        ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
+        gc.state_trajectory_display_map_["planner"].reset();
+        return false;
+      }
+      last_motion_plan_request_ = motion_plan_request;
+      playTrajectory(gc, "planner", plan_res.trajectory.joint_trajectory);
+      return true;
+    }
+
+    bool filterPlannerTrajectory(PlanningComponentsVisualizer::GroupCollection& gc)
+    {
+      FilterJointTrajectoryWithConstraints::Request filter_req;
+      FilterJointTrajectoryWithConstraints::Response filter_res;
+
+      convertKinematicStateToRobotState(*robot_state_, ros::Time::now(), cm_->getWorldFrameId(), filter_req.start_state);
+      StateTrajectoryDisplay& planner_disp = gc.state_trajectory_display_map_["planner"];
+      filter_req.trajectory = planner_disp.joint_trajectory_;
+      filter_req.group_name = gc.name_;
+
+      filter_req.goal_constraints = last_motion_plan_request_.goal_constraints;
+      filter_req.path_constraints = last_motion_plan_request_.path_constraints;
+      filter_req.allowed_time = ros::Duration(2.0);
+
+      if(!trajectory_filter_service_client_.call(filter_req, filter_res))
+      {
+        ROS_INFO("Problem with trajectory filter");
+        gc.state_trajectory_display_map_["filter"].reset();
+        return false;
+      }
+      StateTrajectoryDisplay& filter_disp = gc.state_trajectory_display_map_["filter"];
+      if(filter_res.error_code.val != filter_res.error_code.SUCCESS)
+      {
+        filter_disp.trajectory_error_code_ = filter_res.error_code;
+        ROS_INFO_STREAM("Bad trajectory_filter error code " << filter_res.error_code.val);
+        gc.state_trajectory_display_map_["filter"].reset();
+        return false;
+      }
+      playTrajectory(gc, "filter", filter_res.trajectory);
+      return true;
+    }
+
+    bool playTrajectory(PlanningComponentsVisualizer::GroupCollection& gc, const string& source_name,
+                        const trajectory_msgs::JointTrajectory& traj)
+    {
+      lock_.lock();
+      if(gc.state_trajectory_display_map_.find(source_name) == gc.state_trajectory_display_map_.end())
+      {
+        ROS_INFO_STREAM("No state display for group " << gc.name_ << " source name " << source_name);
+        lock_.unlock();
+        return false;
+      }
+      StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_[source_name];
+      disp.reset();
+      disp.joint_trajectory_ = traj;
+      disp.has_joint_trajectory_ = true;
+      disp.show_joint_trajectory_ = true;
+      disp.play_joint_trajectory_ = true;
+      disp.state_ = new KinematicState(*robot_state_);
+      vector<ArmNavigationErrorCodes> trajectory_error_codes;
+
+      cm_->isJointTrajectoryValid(*disp.state_, disp.joint_trajectory_, last_motion_plan_request_.goal_constraints,
+                                  last_motion_plan_request_.path_constraints, disp.trajectory_error_code_,
+                                  trajectory_error_codes, false);
+
+      if(disp.trajectory_error_code_.val != disp.trajectory_error_code_.SUCCESS)
+      {
+        disp.trajectory_bad_point_ = trajectory_error_codes.size() - 1;
+      }
+      else
+      {
+        disp.trajectory_bad_point_ = -1;
+      }
+
+      moveThroughTrajectory(gc, source_name, 0);
+      lock_.unlock();
+      return true;
+    }
+
+    void moveThroughTrajectory(PlanningComponentsVisualizer::GroupCollection& gc, const string& source_name, int step)
+    {
+      lock_.lock();
+      StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_[source_name];
+      unsigned int tsize = disp.joint_trajectory_.points.size();
+      if(tsize == 0 || disp.state_ == NULL)
+      {
+        lock_.unlock();
+        return;
+      }
+      if((int)disp.current_trajectory_point_ + step < 0)
+      {
+        disp.current_trajectory_point_ = 0;
+      }
+      else
+      {
+        disp.current_trajectory_point_ = ((int)disp.current_trajectory_point_) + step;
+      }
+      if(disp.current_trajectory_point_ >= tsize - 1)
+      {
+        disp.current_trajectory_point_ = tsize - 1;
+        disp.play_joint_trajectory_ = false;
+        disp.show_joint_trajectory_ = false;
+      }
+      map<string, double> joint_values;
+      for(unsigned int i = 0; i < disp.joint_trajectory_.joint_names.size(); i++)
+      {
+        joint_values[disp.joint_trajectory_.joint_names[i]]
+                     = disp.joint_trajectory_.points[disp.current_trajectory_point_].positions[i];
+      }
+      disp.state_->setKinematicState(joint_values);
+      lock_.unlock();
+    }
+
+    /////
+    /// @brief Creates a new menu entry for the given menu handler, putting its handle in the given map.
+    /// @param handler the menu handler to associate this entry with.
+    /// @param map the menu entry map to associate the name with a handle.
+    /// @param the name which appears in the menu.
+    /// @param subMenuHandle a menu handle to an existing menu entry in the menu handler given.
+    /////
+    void registerSubMenuEntry(MenuHandler& handler, MenuEntryMap& map, string name,
+                              MenuHandler::EntryHandle subMenuHandle)
+    {
+      map[handler.insert(subMenuHandle, name, process_function_ptr_)] = name;
+    }
+
+    /////
+    /// @brief Creates a new menu entry for the given menu handler, putting its handle in the given map.
+    /// @param handler the menu handler to associate this entry with.
+    /// @param map the menu entry map to associate the name with a handle.
+    /// @param the name which appears in the menu.
+    /////
+    void registerMenuEntry(MenuHandler& handler, MenuEntryMap& map, string name)
+    {
+      map[handler.insert(name, process_function_ptr_)] = name;
+    }
+
+    void sendMarkers()
+    {
+      lock_.lock();
+      MarkerArray arr;
+
+      std_msgs::ColorRGBA stat_color_;
+      stat_color_.a = 0.0;
+      stat_color_.r = 0.1;
+      stat_color_.g = 0.8;
+      stat_color_.b = 0.3;
+
+      std_msgs::ColorRGBA attached_color_;
+      attached_color_.a = 0.0;
+      attached_color_.r = 0.6;
+      attached_color_.g = 0.4;
+      attached_color_.b = 0.3;
+
+      cm_->getAllCollisionSpaceObjectMarkers(*robot_state_, arr, "", stat_color_, attached_color_, ros::Duration(.2));
+
+      if(!current_group_name_.empty())
+      {
+        std_msgs::ColorRGBA group_color;
+        group_color.a = 0.0;
+        group_color.r = 0.0;
+        group_color.g = .8;
+        group_color.b = 0.04;
+
+        std_msgs::ColorRGBA updated_color;
+        updated_color.a = 0.0;
+        updated_color.r = 1.0;
+        updated_color.g = 0.0;
+        updated_color.b = 1.0;
+
+        std_msgs::ColorRGBA bad_color;
+        bad_color.a = 0.9;
+        bad_color.r = 1.0;
+        bad_color.g = 0.0;
+        bad_color.b = 0.0;
+
+        GroupCollection& gc = group_map_[current_group_name_];
+        const KinematicModel* kinematic_model = cm_->getKinematicModel();
+
+        if(gc.good_ik_solution_)
+        {
+          cm_->getGroupAndUpdatedJointMarkersGivenState(*gc.group_state_, arr, current_group_name_, group_color,
+                                                        updated_color, ros::Duration(.2));
+        }
+        else
+        {
+          vector<string> lnames =
+              kinematic_model->getChildLinkModelNames(kinematic_model->getLinkModel(gc.ik_link_name_));
+
+          //first link is ik_link_name_
+          lnames.erase(lnames.begin());
+          cm_->getRobotMeshResourceMarkersGivenState(*gc.group_state_, arr, bad_color, current_group_name_,
+                                                     ros::Duration(.2), &lnames);
+          cm_->getAttachedCollisionObjectMarkers(*gc.group_state_, arr, current_group_name_, bad_color,
+                                                 ros::Duration(.2));
+
+        }
+        for(map<string, StateTrajectoryDisplay>::iterator it = gc.state_trajectory_display_map_.begin(); it
+        != gc.state_trajectory_display_map_.end(); it++)
+        {
+          if(it->second.play_joint_trajectory_)
+          {
+            moveThroughTrajectory(gc, it->first, 5);
+          }
+          if(it->second.show_joint_trajectory_)
+          {
+            const vector<const KinematicModel::LinkModel*>& updated_links =
+                kinematic_model->getModelGroup(gc.name_)->getUpdatedLinkModels();
+            vector<string> lnames;
+            lnames.resize(updated_links.size());
+            for(unsigned int i = 0; i < updated_links.size(); i++)
+            {
+              lnames[i] = updated_links[i]->getName();
+            }
+            cm_->getRobotMeshResourceMarkersGivenState(*(it->second.state_), arr, it->second.color_,
+                                                       it->first + "_trajectory", ros::Duration(0.2), &lnames);
+
+            cm_->getAttachedCollisionObjectMarkers(*(it->second.state_), arr, it->first + "_trajectory",
+                                                   it->second.color_, ros::Duration(0.2));
+          }
+        }
+      }
+      vis_marker_array_publisher_.publish(arr);
+      lock_.unlock();
+    }
+
+    void sendTransforms()
+    {
+      lock_.lock();
+      // TODO: Is it necessary to publish interactive markers each update?
+      interactive_marker_server_->applyChanges();
+      lock_.unlock();
+
+      // TODO: This was replaced by another node, the robot state publisher.
+      /*
+       lock_.lock();
+       ros::WallTime cur_time = ros::WallTime::now();
+       rosgraph_msgs::Clock c;
+       c.clock.nsec = cur_time.nsec;
+       c.clock.sec = cur_time.sec;
+       vector<TransformStamped> trans_vector;
+       getAllKinematicStateStampedTransforms(*robot_state_, trans_vector, c.clock);
+       //transform_broadcaster_.sendTransform(trans_vector);
+       lock_.unlock();
+       */
+    }
+
+    /////
+    /// @brief Creates a box shaped marker.
+    /// @param msg the interactive marker to associate this box with.
+    /// @param alpha the transparency of the marker.
+    /// @return the marker (which is a box).
+    /////
+    Marker makeMarkerBox(InteractiveMarker &msg, float alpha = 1.0f)
+    {
+      Marker marker;
+      marker.type = Marker::CUBE;
+      // Scale is arbitrarily 1/4 of the marker's scale.
+      marker.scale.x = msg.scale * 0.25;
+      marker.scale.y = msg.scale * 0.25;
+      marker.scale.z = msg.scale * 0.25;
+      marker.color.r = 1.0;
+      marker.color.g = 1.0;
+      marker.color.b = 1.0;
+      marker.color.a = alpha;
+
+      return marker;
+    }
+
+    /////
+    /// @brief Creates a cylinder shaped marker.
+    /// @param msg the interactive marker to associate this cylinder with.
+    /// @param alpha the transparency of the marker.
+    /// @return the marker (which is a cylinder).
+    /////
+    Marker makeMarkerCylinder(InteractiveMarker &msg, float alpha = 1.0f)
+    {
+      Marker marker;
+      marker.type = Marker::CYLINDER;
+      // Scale is arbitrary
+      marker.scale.x = msg.scale * 0.11;
+      marker.scale.y = msg.scale * 0.11;
+      marker.scale.z = msg.scale * 1.1;
+      marker.color.r = 0.2;
+      marker.color.g = 0.9;
+      marker.color.b = 0.2;
+      marker.color.a = alpha;
+
+      return marker;
+    }
+
+    /////
+    /// @brief Creates a sphere-shaped marker.
+    /// @param msg the interactive marker to associate this sphere with.
+    /// @return the marker (which is a sphere)
+    /////
+    Marker makeMarkerSphere(InteractiveMarker &msg)
+    {
+      Marker marker;
+
+      marker.type = Marker::SPHERE;
+      // Scale is arbitrary.
+      marker.scale.x = msg.scale * 0.75;
+      marker.scale.y = msg.scale * 0.75;
+      marker.scale.z = msg.scale * 0.75;
+      marker.color.r = 0.8;
+      marker.color.g = 0.8;
+      marker.color.b = 1.0;
+      marker.color.a = 0.1;
+
+      return marker;
+    }
+
+    /////
+    /// @brief Creates a clickable, box shaped marker.
+    /// @param msg the interactive marker to associate this box with.
+    /// @param alpha the transparency of the marker.
+    /// @return the control (which is a clickable box)
+    /////
+    InteractiveMarkerControl& makeInteractiveBoxControl(InteractiveMarker &msg, float alpha = 1.0f)
+    {
+      InteractiveMarkerControl control;
+      control.always_visible = true;
+      control.markers.push_back(makeMarkerBox(msg, alpha));
+      msg.controls.push_back(control);
+      return msg.controls.back();
+    }
+
+    /////
+    /// @brief Creates a clickable, cylinder shaped marker.
+    /// @param msg the interactive marker to associate this cylinder with.
+    /// @param alpha the transparency of the marker.
+    /// @return the control (which is a clickable cylinder)
+    /////
+    InteractiveMarkerControl& makeInteractiveCylinderControl(InteractiveMarker &msg, float alpha = 1.0f)
+    {
+      InteractiveMarkerControl control;
+      control.always_visible = true;
+      control.markers.push_back(makeMarkerCylinder(msg, alpha));
+      msg.controls.push_back(control);
+      return msg.controls.back();
+    }
+
+    /////
+    /// @brief Sends all collision pole changes and changes to the robot state to the planning environment.
+    ////
+    void refreshEnvironment()
+    {
+      GroupCollection& gc = group_map_[current_group_name_];
+      sendPlanningScene();
+      group_map_[current_group_name_].group_state_ = new KinematicState(*robot_state_);
+      moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false);
+
+      btTransform cur = toBulletTransform(last_ee_poses_[current_group_name_]);
+      setNewEndEffectorPosition(gc, cur, true);
+    }
+
+    /////
+    /// @brief Main function that handles interactive marker feedback of all kinds.
+    /// @param feedback the feedback message received by ROS.
+    /// TODO: Replace this with several feedback functions.
+    /////
+    void processInteractiveFeedback(const InteractiveMarkerFeedbackConstPtr &feedback)
+    {
+      GroupCollection& gc = group_map_[current_group_name_];
+      switch (feedback->event_type)
+      {
+        case InteractiveMarkerFeedback::BUTTON_CLICK:
+          if(feedback->marker_name.rfind("_selectable") != string::npos)
+          {
+            btTransform cur = toBulletTransform(feedback->pose);
+            if(isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
+            {
+              unsigned int cmd = 0;
+              for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
+              {
+
+                if(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable")) == it->first)
+                {
+                  deleteKinematicStates();
+                  selectPlanningGroup(cmd);
+                  break;
+                }
+                cmd++;
+              }
+
+            }
+            else if(feedback->marker_name.rfind("pole_") != string::npos)
+            {
+              selectMarker(selectable_markers_[feedback->marker_name], cur);
+            }
+          }
+          break;
+
+        case InteractiveMarkerFeedback::MENU_SELECT:
+          MenuHandler::EntryHandle handle;
+          if(feedback->marker_name.rfind("_selectable") != string::npos)
+          {
+            btTransform cur = toBulletTransform(feedback->pose);
+            if(isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
+            {
+              menu_handler_map_["End Effector Selection"].getHandle(feedback->command, handle);
+
+              unsigned int cmd = 0;
+              for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
+              {
+
+                if(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable")) == it->first)
+                {
+                  deleteKinematicStates();
+                  selectPlanningGroup(cmd);
+                  break;
+                }
+                cmd++;
+              }
+
+            }
+            else if(feedback->marker_name.rfind("pole_") != string::npos)
+            {
+              menu_handler_map_["Collision Object Selection"].getHandle(feedback->command, handle);
+
+              if(menu_entry_maps_["Collision Object Selection"][handle] == "Select")
+              {
+                selectMarker(selectable_markers_[feedback->marker_name], cur);
+              }
+              else if(menu_entry_maps_["Collision Object Selection"][handle] == "Delete")
+              {
+                this->removeCollisionPoleByName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable")));
+                interactive_marker_server_->erase(feedback->marker_name);
+                refreshEnvironment();
+              }
+            }
+          }
+          else if(feedback->marker_name == "top_level")
+          {
+            menu_handler_map_["Top Level"].getHandle(feedback->command, handle);
+
+            if(menu_entry_maps_["Top Level"][handle] == "Create Pole")
+            {
+              Pose polePose;
+              polePose.position.x = 2.0f;
+              polePose.position.z = 1.0f;
+              polePose.position.y = 0.0f;
+              polePose.orientation.x = 0.0f;
+              polePose.orientation.y = 0.0f;
+              polePose.orientation.z = 0.0f;
+              polePose.orientation.w = 1.0f;
+
+              createCollisionPole(nextCollisionPole(), polePose);
+              refreshEnvironment();
+            }
+
+            unsigned int cmd = 0;
+            for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
+            {
+
+              if(menu_entry_maps_["Top Level"][handle] == it->first)
+              {
+                selectPlanningGroup(cmd);
+                break;
+              }
+              cmd++;
+            }
+
+          }
+          else if(isGroupName(feedback->marker_name))
+          {
+            menu_handler_map_["End Effector"].getHandle(feedback->command, handle);
+            if(menu_entry_maps_["End Effector"][handle] == "Plan Here")
+            {
+              planToEndEffectorState(gc);
+            }
+            else if(menu_entry_maps_["End Effector"][handle] == "Filter Trajectory")
+            {
+              filterPlannerTrajectory(gc);
+            }
+            else if(menu_entry_maps_["End Effector"][handle] == "Deselect")
+            {
+              btTransform cur = toBulletTransform(feedback->pose);
+              deselectMarker(selectable_markers_[feedback->marker_name + "_selectable"], cur);
+            }
+          }
+          else if(feedback->marker_name.rfind("pole_") != string::npos)
+          {
+            menu_handler_map_["Collision Object"].getHandle(feedback->command, handle);
+
+            stringstream controlName;
+            controlName << feedback->marker_name;
+
+            if(menu_entry_maps_["Collision Object"][handle] == "Delete")
+            {
+              this->removeCollisionPoleByName(feedback->marker_name);
+              interactive_marker_server_->erase(feedback->marker_name);
+              refreshEnvironment();
+            }
+            else if(menu_entry_maps_["Collision Object"][handle] == "Deselect")
+            {
+              btTransform cur = toBulletTransform(feedback->pose);
+              deselectMarker(selectable_markers_[feedback->marker_name + "_selectable"], cur);
+            }
+          }
+
+          break;
+
+        case InteractiveMarkerFeedback::MOUSE_UP:
+          if(feedback->marker_name.rfind("pole_") != string::npos && feedback->marker_name.rfind("_selectable") == string::npos)
+          {
+            refreshEnvironment();
+          }
+          break;
+
+        case InteractiveMarkerFeedback::POSE_UPDATE:
+          if(isGroupName(feedback->marker_name))
+          {
+            btTransform cur = toBulletTransform(feedback->pose);
+            setNewEndEffectorPosition(gc, cur, true);
+            last_ee_poses_[current_group_name_] = feedback->pose;
+          }
+          else if(feedback->marker_name.rfind("pole_") != string::npos)
+          {
+            string poleName = feedback->marker_name;
+            collision_poles_[poleName].poses.clear();
+            collision_poles_[poleName].poses.push_back(feedback->pose);
+          }
+          break;
+      }
+      interactive_marker_server_->applyChanges();
+    }
+
+    /////
+    /// @brief Returns true if the string of the given name corresponds to a kinematic chain in the robot.
+    /// @param name a string corresponding to a kinematic chain.
+    /// @return true if the name is a kinematic chain, or false otherwise.
+    /////
+    bool isGroupName(const string& name)
+    {
+      return group_map_.find(name) != group_map_.end();
+    }
+
+    void makeTopLevelMenu()
+    {
+      InteractiveMarker int_marker;
+      int_marker.pose.position.z = 2.25;
+      int_marker.name = "top_level";
+      int_marker.description = "Planning Visualizer";
+      int_marker.header.frame_id = "/base_link";
+      makeInteractiveBoxControl(int_marker, 0.0f);
+
+      InteractiveMarkerControl control;
+      control.interaction_mode = InteractiveMarkerControl::MENU;
+      control.description = "Command...";
+      int_marker.controls.push_back(control);
+
+      interactive_marker_server_->insert(int_marker);
+      interactive_marker_server_->setCallback(int_marker.name, process_function_ptr_);
+      menu_handler_map_["Top Level"].apply(*interactive_marker_server_, int_marker.name);
+    }
+
+    ////
+    /// @brief Wrapper for makeSelectableMarker which assumes we are creating a collision pole.
+    ////
+    void makePoleContextMenu(btTransform transform, string name, string description, float scale = 1.0f)
+    {
+
+      makeSelectableMarker(PlanningComponentsVisualizer::CollisionObject, transform, name, description, scale);
+    }
+
+    /////
+    /// @brief Creates a marker that is initially a clickable menu. Upon selection it turns into a 6DOF control.
+    /// @param type the type (collision object, joint, IK control, etc.) of the selectable marker.
+    /// @param transform location and orientation of the marker.
+    /// @param name internal, unique representation of the marker (this is for the 6DOF control)
+    /// @param description displayed above the menu marker and the 6DOF marker.
+    /// @param scale uniformly sizes the marker and its controls
+    /// @param publish if true, the marker server will publish the marker. Otherwise, it will not.
+    /////
+    void makeSelectableMarker(InteractiveMarkerType type, btTransform transform, string name, string description,
+                              float scale = 1.0f, bool publish = true)
+    {
+      SelectableMarker selectable_marker;
+      selectable_marker.type_ = type;
+      selectable_marker.name_ = name + "_selectable";
+      selectable_marker.controlName_ = name;
+      selectable_marker.controlDescription_ = description;
+
+      InteractiveMarker marker;
+      marker.header.frame_id = "/base_link";
+      marker.header.stamp = ros::Time::now();
+      marker.pose.position.x = transform.getOrigin().x();
+      marker.pose.position.y = transform.getOrigin().y();
+      marker.pose.position.z = transform.getOrigin().z();
+      marker.pose.orientation.w = transform.getRotation().w();
+      marker.pose.orientation.x = transform.getRotation().x();
+      marker.pose.orientation.y = transform.getRotation().y();
+      marker.pose.orientation.z = transform.getRotation().z();
+      marker.scale = scale;
+      marker.name = name + "_selectable";
+      marker.description = description;
+      InteractiveMarkerControl control;
+      control.interaction_mode = InteractiveMarkerControl::BUTTON;
+      control.always_visible = true;
+
+      switch (type)
+      {
+        case PlanningComponentsVisualizer::EndEffectorControl:
+          control.markers.push_back(makeMarkerBox(marker, 0.5f));
+          marker.controls.push_back(control);
+          interactive_marker_server_->insert(marker);
+          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+          menu_handler_map_["End Effector Selection"].apply(*interactive_marker_server_, marker.name);
+          break;
+        case PlanningComponentsVisualizer::CollisionObject:
+          control.markers.push_back(makeMarkerCylinder(marker, 1.0f));
+          marker.controls.push_back(control);
+          interactive_marker_server_->insert(marker);
+          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+          menu_handler_map_["Collision Object Selection"].apply(*interactive_marker_server_, marker.name);
+          break;
+        case PlanningComponentsVisualizer::JointControl:
+          control.markers.push_back(makeMarkerBox(marker, 0.5f));
+          marker.controls.push_back(control);
+          interactive_marker_server_->insert(marker);
+          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+          menu_handler_map_["Joint Selection"].apply(*interactive_marker_server_, marker.name);
+          break;
+      }
+
+      selectable_markers_[marker.name] = selectable_marker;
+
+      if(publish)
+      {
+        interactive_marker_server_->applyChanges();
+      }
+    }
+
+    ////
+    /// @brief Returns true if a selectable marker of the given name exists in the marker map.
+    /// @param name the unique identifier of the marker.
+    /// @returns true if the marker exists, or false otherwise.
+    ////
+    bool selectableMarkerExists(string name)
+    {
+      return selectable_markers_.find(name) != selectable_markers_.end();
+    }
+
+    /////
+    /// @brief Removes the menu marker given and replaces it with a 6DOF marker
+    /// @param marker a reference to the selectablemarker struct.
+    /// @param transform location to select the marker.
+    /////
+    void selectMarker(SelectableMarker& marker, btTransform transform)
+    {
+      if(!interactive_marker_server_->erase(marker.name_))
+      {
+        return;
+      }
+
+      switch (marker.type_)
+      {
+        case PlanningComponentsVisualizer::EndEffectorControl:
+          makeInteractive6DOFMarker(false, transform, marker.controlName_, marker.controlDescription_, 0.225f, false);
+          break;
+        case PlanningComponentsVisualizer::CollisionObject:
+          makeInteractive6DOFMarker(false, transform, marker.controlName_, marker.controlDescription_, 2.0f, true);
+          break;
+        case PlanningComponentsVisualizer::JointControl:
+          makeInteractive6DOFMarker(false, transform, marker.controlName_, marker.controlDescription_, 0.225f, false);
+          break;
+      }
+    }
+
+    /////
+    /// @brief Removes the 6DOF control of the given marker and replaces it with a menu.
+    /// @param marker a reference to the selectablemarker struct.
+    /// @param transform location of the marker when it is de-selected.
+    /////
+    void deselectMarker(SelectableMarker& marker, btTransform transform)
+    {
+      if(!interactive_marker_server_->erase(marker.controlName_))
+      {
+        return;
+      }
+
+      float scale = 1.0f;
+
+      switch (marker.type_)
+      {
+        case PlanningComponentsVisualizer::EndEffectorControl:
+          scale = 0.5f;
+          break;
+        case PlanningComponentsVisualizer::CollisionObject:
+          scale = 2.0f;
+          break;
+        case PlanningComponentsVisualizer::JointControl:
+          scale = 0.225f;
+          break;
+      }
+
+      makeSelectableMarker(marker.type_, transform, marker.controlName_, marker.controlDescription_, scale);
+    }
+
+    /////
+    /// @brief Creates an interactive 6DOF marker control.
+    /// @param fixed if true, the axes remain fixed to the frame of the marker. Otherwise they rotate with input.
+    /// @param transform the location and rotation of the 6DOF marker.
+    /// @param name used internally to represent the marker. Must be unique.
+    /// @param description drawn above the marker as a label.
+    /// @param scale uniformly sets the size in meters of the marker.
+    /// @param pole if true, the marker is a large green cylinder. Otherwise it is a small white cube.
+    /////
+    void makeInteractive6DOFMarker(bool fixed, btTransform transform, string name, string description,
+                                   float scale = 1.0f, bool pole = false)
+    {
+      InteractiveMarker marker;
+      marker.header.frame_id = "/base_link";
+      marker.pose.position.x = transform.getOrigin().x();
+      marker.pose.position.y = transform.getOrigin().y();
+      marker.pose.position.z = transform.getOrigin().z();
+      marker.pose.orientation.w = transform.getRotation().w();
+      marker.pose.orientation.x = transform.getRotation().x();
+      marker.pose.orientation.y = transform.getRotation().y();
+      marker.pose.orientation.z = transform.getRotation().z();
+      marker.scale = scale;
+      marker.name = name;
+      marker.description = description;
+
+      if(!pole)
+      {
+        makeInteractiveBoxControl(marker, 0.5f);
+      }
+      else
+      {
+        makeInteractiveCylinderControl(marker, 1.0f);
+      }
+
+      InteractiveMarkerControl control;
+
+      if(fixed)
+      {
+        control.orientation_mode = InteractiveMarkerControl::FIXED;
+      }
+
+      control.orientation.w = 1;
+      control.orientation.x = 1;
+      control.orientation.y = 0;
+      control.orientation.z = 0;
+      control.always_visible = false;
+      control.interaction_mode = InteractiveMarkerControl::ROTATE_AXIS;
+      marker.controls.push_back(control);
+      control.interaction_mode = InteractiveMarkerControl::MOVE_AXIS;
+      marker.controls.push_back(control);
+
+      control.orientation.w = 1;
+      control.orientation.x = 0;
+      control.orientation.y = 1;
+      control.orientation.z = 0;
+      control.interaction_mode = InteractiveMarkerControl::ROTATE_AXIS;
+      marker.controls.push_back(control);
+      control.interaction_mode = InteractiveMarkerControl::MOVE_AXIS;
+      marker.controls.push_back(control);
+
+      control.orientation.w = 1;
+      control.orientation.x = 0;
+      control.orientation.y = 0;
+      control.orientation.z = 1;
+      control.interaction_mode = InteractiveMarkerControl::ROTATE_AXIS;
+      marker.controls.push_back(control);
+      control.interaction_mode = InteractiveMarkerControl::MOVE_AXIS;
+      marker.controls.push_back(control);
+
+      interactive_marker_server_->insert(marker);
+      interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+
+      control.interaction_mode = InteractiveMarkerControl::MENU;
+      //control.markers.push_back(makeMarkerSphere(marker));
+      marker.controls.push_back(control);
+
+      if(!pole)
+      {
+        menu_handler_map_["End Effector"].apply(*interactive_marker_server_, marker.name);
+      }
+      else
+      {
+        menu_handler_map_["Collision Object"].apply(*interactive_marker_server_, marker.name);
+      }
+
+    }
+
+    bool doesGroupHaveGoodIKSolution(const string& group) const
+    {
+      if(group_map_.find(group) == group_map_.end())
+      {
+        return false;
+      }
+      return group_map_.find(group)->second.good_ik_solution_;
+    }
+
+    bool doesGroupHaveGoodTrajectory(const string& group, const string& source) const
+    {
+      if(group_map_.find(group) == group_map_.end())
+      {
+        return false;
+      }
+      const GroupCollection& gc = group_map_.find(group)->second;
+      if(gc.state_trajectory_display_map_.find(source) == gc.state_trajectory_display_map_.end())
+      {
+        return false;
+      }
+      return gc.state_trajectory_display_map_.find(source)->second.has_joint_trajectory_;
+    }
+
+    /////
+    /// Returns the number of kinematic chains in the robot.
+    /// @return size_t with number of chains of the robot.
+    /////
+    size_t getNumPlanningGroups()
+    {
+      return group_map_.size();
+    }
+
+  protected:
+
+    btTransform toBulletTransform(geometry_msgs::Pose pose)
+    {
+      btQuaternion quat = btQuaternion(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+      btVector3 vec = btVector3(pose.position.x, pose.position.y, pose.position.z);
+      return btTransform(quat, vec);
+    }
+
+    void deleteKinematicStates()
+    {
+      for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
+      {
         it->second.reset();
       }
-      if(group_state_ != NULL) {
-        delete group_state_;
-        group_state_ = NULL;
-      }
     }
 
-    std::string name_;
-    std::string ik_link_name_;
-    ros::ServiceClient coll_aware_ik_service_;
-    ros::ServiceClient non_coll_aware_ik_service_;
-    bool good_ik_solution_;
-    planning_models::KinematicState* group_state_;
-    std::map<std::string, StateTrajectoryDisplay> state_trajectory_display_map_;
-  };
+    boost::recursive_mutex lock_;
+    boost::shared_ptr<InteractiveMarkerServer> interactive_marker_server_;
 
-  PlanningComponentsVisualizer() {
+    CollisionModels* cm_;
 
-    cm_ = new planning_environment::CollisionModels("robot_description");
-    vis_marker_publisher_ = nh_.advertise<visualization_msgs::Marker>(VIS_TOPIC_NAME, 128);
-    vis_marker_array_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>(VIS_TOPIC_NAME+"_array", 128);
-    
-    while(!ros::service::waitForService(GET_PLANNING_SCENE_NAME, ros::Duration(1.0))) {
-      ROS_INFO_STREAM("Waiting for planning scene service " << GET_PLANNING_SCENE_NAME);
-    }
-    get_planning_scene_client_ = nh_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
-    
-    while(!ros::service::waitForService(PLANNER_SERVICE_NAME, ros::Duration(1.0))) {
-      ROS_INFO_STREAM("Waiting for planner service " << PLANNER_SERVICE_NAME);
-    }
-    planner_service_client_ = nh_.serviceClient<motion_planning_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME, true);
-    
-    while(!ros::service::waitForService(TRAJECTORY_FILTER_SERVICE_NAME, ros::Duration(1.0))) {
-      ROS_INFO_STREAM("Waiting for trajectory filter service " << TRAJECTORY_FILTER_SERVICE_NAME);
-    }
-    trajectory_filter_service_client_ = nh_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER_SERVICE_NAME, true);
-    
-    const std::map<std::string, planning_models::KinematicModel::GroupConfig>& group_config_map = cm_->getKinematicModel()->getJointModelGroupConfigMap();
-    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
-        it != group_config_map.end();
-        it++) {
-      if(!it->second.base_link_.empty()) {
-        group_collection_map_[it->first].name_ = it->first;
-        group_collection_map_[it->first].ik_link_name_ = it->second.tip_link_;
-        std::string ik_service_name = "/"+cm_->getKinematicModel()->getRobotName()+"_"+it->first+"_kinematics/";
-        std::string coll_aware_name = ik_service_name+"get_constraint_aware_ik";
-        std::string non_coll_aware_name = ik_service_name+"get_ik";
-        while(!ros::service::waitForService(coll_aware_name, ros::Duration(1.0))) {
-          ROS_INFO_STREAM("Waiting for service " << coll_aware_name);
-        }
-        while(!ros::service::waitForService(non_coll_aware_name, ros::Duration(1.0))) {
-          ROS_INFO_STREAM("Waiting for service " << non_coll_aware_name);
-        }
-        group_collection_map_[it->first].coll_aware_ik_service_ = 
-          nh_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(coll_aware_name, true);
-        group_collection_map_[it->first].non_coll_aware_ik_service_ = 
-          nh_.serviceClient<kinematics_msgs::GetPositionIK>(non_coll_aware_name, true);
-      }
-    }
-    robot_state_ = new planning_models::KinematicState(cm_->getKinematicModel());
-    robot_state_->setKinematicStateToDefault();
+    /// Used to generate new IDs for collision poles. Not the actual number of poles.
+    int num_collision_poles_;
 
-    sendPlanningScene();
+    KinematicState* robot_state_;
 
-    ROS_INFO_STREAM("Initialized");
-    
-  }
+    map<string, GroupCollection> group_map_;
 
-  ~PlanningComponentsVisualizer() { 
-    deleteKinematicStates();
-    delete robot_state_;
-    delete cm_;
-  }
+    /// Map of collision pole names to messages sent to ROS.
+    map<string, mapping_msgs::CollisionObject> collision_poles_;
 
-  void sendPlanningScene() {
-    lock_.lock();
+    /// Maps end effector link names to their previously recorded poses.
+    map<string, Pose> last_ee_poses_;
 
-    planning_environment_msgs::GetPlanningScene::Request planning_scene_req;
-    planning_environment_msgs::GetPlanningScene::Response planning_scene_res;
+    /// Maps selectable marker names to a struct containing their information.
+    map<string, SelectableMarker> selectable_markers_;
 
-    mapping_msgs::CollisionObject object;
-    object.header.stamp = ros::Time::now();
-    object.header.frame_id = "base_link";
-    object.id = "pole";
-    object.shapes.resize(1);
-    object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
-    object.shapes[0].dimensions.resize(2);
-    object.shapes[0].dimensions[0] = .1;
-    object.shapes[0].dimensions[1] = 2.0;
-    object.poses.resize(1);
-    object.poses[0].position.x = 1.0;
-    object.poses[0].position.y = .4;
-    object.poses[0].position.z = 1.0;
-    object.poses[0].orientation.w = 1.0;
-    
-    planning_scene_req.planning_scene_diff.collision_objects.push_back(object);
+    /// Boost function pointer to the main interactive feedback function.
+    MenuHandler::FeedbackCallback process_function_ptr_;
 
-    planning_environment::convertKinematicStateToRobotState(*robot_state_,
-                                                            ros::Time::now(),
-                                                            cm_->getWorldFrameId(), 
-                                                            planning_scene_req.planning_scene_diff.robot_state);
-    deleteKinematicStates();
-    if(robot_state_ != NULL) {
-      cm_->revertPlanningScene(robot_state_);
-      robot_state_ = NULL;
-    }
-    
-    if(!get_planning_scene_client_.call(planning_scene_req, planning_scene_res)) {
-      ROS_WARN("Can't get planning scene");
-      lock_.unlock();
-      return;
-    }
+    /// Maps strings to menu handlers. This is used for convenience and extensibility.
+    MenuHandlerMap menu_handler_map_;
 
-    robot_state_ = cm_->setPlanningScene(planning_scene_res.planning_scene);
-    if(robot_state_ == NULL) {
-      ROS_ERROR("Something wrong with planning scene");
-      lock_.unlock();
-      return;
-    }
-    lock_.unlock();
-  }
+    /// Maps MenuHandles to their names. Used to determine which menu entry is selected.
+    MenuMap menu_entry_maps_;
 
-  void selectPlanningGroup() {
-    while(1) {
-      echo();
-      deleteKinematicStates();
-      unsigned int num = 0;
-      clear();
-      std::vector<std::string> names;
-      for(std::map<std::string, GroupCollection>::iterator it = group_collection_map_.begin();
-          it != group_collection_map_.end();
-          it++, num++) {
-        names.push_back(it->first);
-        printw("%d) %s\n", num, it->first.c_str());
-      }
-      printw("Enter a number to select the group\n");
-      refresh();
-      char str[80];
-      getstr(str); 
-      unsigned int entry;
-      std::stringstream ss(str);
-      ss >> entry;
-      lock_.lock();
-      current_group_name_ = names[entry]; 
-      group_collection_map_[current_group_name_].group_state_ = new planning_models::KinematicState(*robot_state_);
-      moveEndEffectorMarkers(0.0,0.0,0.0,0.0,0.0,0.0,false);
-      lock_.unlock();
-      movePlanningGroup();
-      lock_.lock();
-      current_group_name_ = "";
-      deleteKinematicStates();
-      lock_.unlock();
-    }
-  }
+    MotionPlanRequest last_motion_plan_request_;
 
-  void movePlanningGroup() {
-    clear();
-    noecho();
-    bool coll_aware = true;
-    bool quit = false;
-    bool print = true;
-    while(!quit) {
-      if(print) {
-        clear();
-        printw("Examining current group %s\n", current_group_name_.c_str());
-        printw("Type 'q' to return to group selection\n");
-        printw("Type 'c' to toggle collision-aware/non-collision aware ik\n");
-        printw("Type 'w' to filter planner trajectory\n");
-        printw("Type 'i/k' for end effector forward/back\n");
-        printw("Type 'j/l' for end effector left/right\n");
-        printw("Type 'h/n' for end effector up/down\n");
-        printw("Type 'r/f' for end effector pitch up/down\n"); 
-        printw("Type 'd/g' for end effector yaw up/down\n");
-        printw("Type 'v/b' for end effector roll up/down\n");
-        printw("Current using");
-        if(coll_aware) {
-          printw(" collision-aware ");
-        } else {
-          printw(" non-collision-aware ");
-        }
-        printw("ik\n");
-        refresh();
-        print = false;
-      }
-      char c = getch();
-      switch(c) {
-      case 'q':
-        quit = true;
-        break;
-      case 'c':
-        coll_aware = !coll_aware;
-        moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                               0.0,0.0,0.0, coll_aware);
-        print = true;
-        break;
-      case 'p':
-        if(doesGroupHaveGoodIKSolution(current_group_name_)) {
-          planToEndEffectorState(group_collection_map_[current_group_name_]);
-        }
-        break;
-      case 'w':
-        if(doesGroupHaveGoodTrajectory(current_group_name_,"planner")) {
-          filterPlannerTrajectory(group_collection_map_[current_group_name_]);
-        }
-        break;
-      case 'i':
-        moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0,
-                               0.0,0.0,0.0, coll_aware);
-        break;
-      case 'k':
-        moveEndEffectorMarkers(-HAND_TRANS_SPEED, 0.0, 0.0,
-                               0.0,0.0,0.0, coll_aware);
-        break;
-      case 'j':
-        moveEndEffectorMarkers(0.0, HAND_TRANS_SPEED, 0.0,
-                               0.0,0.0,0.0, coll_aware);
-        break;
-      case 'l':
-        moveEndEffectorMarkers(0.0, -HAND_TRANS_SPEED, 0.0,
-                               0.0,0.0,0.0, coll_aware);
-        break;
-      case 'h':
-        moveEndEffectorMarkers(0.0, 0.0, HAND_TRANS_SPEED,
-                               0.0,0.0,0.0, coll_aware);
-        break;
-      case 'n':
-        moveEndEffectorMarkers(0.0, 0.0, -HAND_TRANS_SPEED,
-                               0.0,0.0,0.0, coll_aware);
-        break;
-      case 'r':
-        moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                               0.0, HAND_ROT_SPEED, 0.0, coll_aware);
-        break;
-      case 'f':
-        moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                               0.0, -HAND_ROT_SPEED, 0.0, coll_aware);
-        break;
-      case 'd':
-        moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                               0.0, 0.0, HAND_ROT_SPEED, coll_aware);
-        break;
-      case 'g':
-        moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                               0.0, 0.0, -HAND_ROT_SPEED, coll_aware);
-        break;
-      case 'v':
-        moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                               HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
-        break;
-      case 'b':
-        moveEndEffectorMarkers(0.0, 0.0, 0.0,
-                               -HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
-        break;
-      }
-    }
-  }
+    ros::NodeHandle nh_;
+    ros::Publisher joint_state_publisher_;
+    ros::Publisher vis_marker_array_publisher_;
+    ros::Publisher vis_marker_publisher_;
+    ros::ServiceClient get_planning_scene_client_;
+    ros::ServiceClient planner_service_client_;
+    ros::ServiceClient trajectory_filter_service_client_;
 
-  void moveEndEffectorMarkers(double vx, double vy, double vz,
-                              double vr, double vp, double vw,
-                              bool coll_aware = true)
+    string current_group_name_;
 
-  {
-    lock_.lock();
-    GroupCollection& gc = group_collection_map_[current_group_name_];
-    btTransform cur = gc.group_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
-    double mult = CONTROL_SPEED/100.0;
-    cur.setOrigin(btVector3(cur.getOrigin().x()+(vx*mult), cur.getOrigin().y()+(vy*mult), cur.getOrigin().z()+(vz*mult))); 
-    btScalar roll, pitch, yaw;
-    cur.getBasis().getRPY(roll,pitch,yaw);
-    roll += vr*mult;
-    pitch += vp*mult;
-    yaw += vw*mult;
-    if(roll > 2*M_PI) {
-      roll -= 2*M_PI;
-    } else if (roll < -2*M_PI) {
-      roll += 2*M_PI;
-    }
-    if(pitch > 2*M_PI) {
-      pitch -= 2*M_PI;
-    } else if (pitch < -2*M_PI) {
-      pitch += 2*M_PI;
-    }
-    cur.getBasis().setRPY(roll,pitch,yaw);
-    if(!gc.group_state_->updateKinematicStateWithLinkAt(gc.ik_link_name_, cur)) {
-      ROS_INFO("Problem");
-    }
-    if(solveIKForEndEffectorPose(gc, coll_aware)) {
-      gc.good_ik_solution_ = true;
-    } else {
-      gc.good_ik_solution_ = false;
-    }
-    lock_.unlock();
-  }
+    tf::TransformBroadcaster transform_broadcaster_;
 
-  bool solveIKForEndEffectorPose(PlanningComponentsVisualizer::GroupCollection& gc, bool coll_aware = true, 
-                                 bool constrain_pitch_and_roll = false, double change_redundancy = 0.0)
-  {
-    kinematics_msgs::PositionIKRequest ik_request;
-    ik_request.ik_link_name = gc.ik_link_name_;
-    ik_request.pose_stamped.header.frame_id = cm_->getWorldFrameId();
-    ik_request.pose_stamped.header.stamp = ros::Time::now();
-    tf::poseTFToMsg(gc.group_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(), ik_request.pose_stamped.pose);
-    planning_environment::convertKinematicStateToRobotState(*gc.group_state_, ros::Time::now(), 
-                                                            cm_->getWorldFrameId(), ik_request.robot_state);
-    ik_request.ik_seed_state = ik_request.robot_state;
-    // if(change_redundancy != 0.0) {
-    //   for(unsigned int i = 0; i < ik_request.ik_seed_state.joint_state.name.size(); i++) {
-    //     if(ik_request.ik_seed_state.joint_state.name[i] == redundancy_joint_) {
-    //       ik_request.ik_seed_state.joint_state.position[i] += change_redundancy;
-    //     }
-    //   }
-    // }
-    std::map<std::string, double> joint_values;
-    std::vector<std::string> joint_names;
-    if(coll_aware) {
-      kinematics_msgs::GetConstraintAwarePositionIK::Request ik_req;
-      kinematics_msgs::GetConstraintAwarePositionIK::Response ik_res;
-      ik_req.ik_request = ik_request;
-      ik_req.timeout = ros::Duration(1.0);
-      if(!gc.coll_aware_ik_service_.call(ik_req, ik_res)) {
-        ROS_INFO("Problem with ik service call");
-        return false;
-      }
-      if(ik_res.error_code.val != ik_res.error_code.SUCCESS) {
-        ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
-        return false;
-      }
-      joint_names = ik_res.solution.joint_state.name;
-      for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
-        joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
-      }
-    } else {
-      kinematics_msgs::GetPositionIK::Request ik_req;
-      kinematics_msgs::GetPositionIK::Response ik_res;
-      ik_req.ik_request = ik_request;
-      ik_req.timeout = ros::Duration(1.0);
-      if(!gc.non_coll_aware_ik_service_.call(ik_req, ik_res)) {
-        ROS_INFO("Problem with ik service call");
-        return false;
-      }
-      if(ik_res.error_code.val != ik_res.error_code.SUCCESS) {
-        ROS_DEBUG_STREAM("Call yields bad error code " << ik_res.error_code.val);
-        return false;
-      }
-      for(unsigned int i = 0; i < ik_res.solution.joint_state.name.size(); i++) {
-        joint_values[ik_res.solution.joint_state.name[i]] = ik_res.solution.joint_state.position[i];
-      }
-    }
-    lock_.lock();
-    gc.group_state_->setKinematicState(joint_values);
-    if(coll_aware) {
-      motion_planning_msgs::Constraints emp_con;
-      motion_planning_msgs::ArmNavigationErrorCodes error_code;
-      
-      if(!cm_->isKinematicStateValid(*gc.group_state_,
-                                     joint_names,
-                                     error_code,
-                                     emp_con,
-                                     emp_con,
-                                     true)) {
-        ROS_INFO_STREAM("Problem with response");
-      }
-    }
-    lock_.unlock();
-    return true;
-  }
-
-  bool planToEndEffectorState(PlanningComponentsVisualizer::GroupCollection& gc) {
-    motion_planning_msgs::MotionPlanRequest motion_plan_request;
-    motion_plan_request.group_name = gc.name_;
-    motion_plan_request.num_planning_attempts = 1;
-    motion_plan_request.allowed_planning_time = PLANNING_DURATION;
-    const planning_models::KinematicState::JointStateGroup* jsg = gc.group_state_->getJointStateGroup(gc.name_);
-    motion_plan_request.goal_constraints.joint_constraints.resize(jsg->getJointNames().size());
-    std::vector<double> joint_values;
-    jsg->getKinematicStateValues(joint_values);
-    for(unsigned int i = 0; i < jsg->getJointNames().size(); i++) {
-      motion_plan_request.goal_constraints.joint_constraints[i].joint_name = jsg->getJointNames()[i];
-      motion_plan_request.goal_constraints.joint_constraints[i].position = joint_values[i];
-      motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.001;
-      motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.001;
-    }      
-    planning_environment::convertKinematicStateToRobotState(*robot_state_, ros::Time::now(),
-                                                            cm_->getWorldFrameId(), motion_plan_request.start_state);
-    motion_planning_msgs::GetMotionPlan::Request plan_req;
-    plan_req.motion_plan_request = motion_plan_request;
-    motion_planning_msgs::GetMotionPlan::Response plan_res;
-    if(!planner_service_client_.call(plan_req, plan_res)) {
-      ROS_INFO("Something wrong with planner client");
-      return false;
-    }
-    StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_["planner"];
-    if(plan_res.error_code.val != plan_res.error_code.SUCCESS) {
-      disp.trajectory_error_code_ = plan_res.error_code;
-      ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
-      gc.state_trajectory_display_map_["planner"].reset();
-      return false;
-    }
-    last_motion_plan_request_ = motion_plan_request;
-    playTrajectory(gc, "planner", plan_res.trajectory.joint_trajectory);
-    return true;
-  }
-  
-  bool filterPlannerTrajectory(PlanningComponentsVisualizer::GroupCollection& gc) {
-    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request filter_req;
-    motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response filter_res;
-    
-    planning_environment::convertKinematicStateToRobotState(*robot_state_, ros::Time::now(),
-                                                            cm_->getWorldFrameId(), filter_req.start_state);
-    StateTrajectoryDisplay& planner_disp = gc.state_trajectory_display_map_["planner"];
-    filter_req.trajectory = planner_disp.joint_trajectory_;
-    filter_req.group_name = gc.name_;
-
-    filter_req.goal_constraints = last_motion_plan_request_.goal_constraints;
-    filter_req.path_constraints = last_motion_plan_request_.path_constraints;
-    filter_req.allowed_time = ros::Duration(2.0);
-
-    if(!trajectory_filter_service_client_.call(filter_req, filter_res)) {
-      ROS_INFO("Problem with trajectory filter");
-      gc.state_trajectory_display_map_["filter"].reset();
-      return false;
-    }
-    StateTrajectoryDisplay& filter_disp = gc.state_trajectory_display_map_["filter"];
-    if(filter_res.error_code.val != filter_res.error_code.SUCCESS) {
-      filter_disp.trajectory_error_code_ = filter_res.error_code;
-      ROS_INFO_STREAM("Bad trajectory_filter error code " << filter_res.error_code.val);
-      gc.state_trajectory_display_map_["filter"].reset();
-      return false;
-    }
-    playTrajectory(gc, "filter", filter_res.trajectory);
-    return true;
-  }
-
-  bool playTrajectory(PlanningComponentsVisualizer::GroupCollection& gc,
-                      const std::string& source_name, 
-                      const trajectory_msgs::JointTrajectory& traj) {
-    lock_.lock();  
-    if(gc.state_trajectory_display_map_.find(source_name) == gc.state_trajectory_display_map_.end()) {
-      ROS_INFO_STREAM("No state display for group " << gc.name_ << " source name " << source_name);
-      lock_.unlock();  
-      return false;
-    }
-    StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_[source_name];
-    disp.reset();
-    disp.joint_trajectory_ = traj;
-    disp.has_joint_trajectory_ = true;
-    disp.show_joint_trajectory_ = true;
-    disp.play_joint_trajectory_ = true;
-    disp.state_ = new planning_models::KinematicState(*robot_state_);
-    std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-    cm_->isJointTrajectoryValid(*disp.state_,
-                                disp.joint_trajectory_, 
-                                last_motion_plan_request_.goal_constraints,
-                                last_motion_plan_request_.path_constraints,
-                                disp.trajectory_error_code_, 
-                                trajectory_error_codes, false);
-    if(disp.trajectory_error_code_.val != disp.trajectory_error_code_.SUCCESS) {
-      disp.trajectory_bad_point_ = trajectory_error_codes.size()-1;
-    } else {
-      disp.trajectory_bad_point_ = -1;
-    }
-    moveThroughTrajectory(gc, source_name, 0);
-    lock_.unlock();  
-    return true;
-  }
-
-  void moveThroughTrajectory(PlanningComponentsVisualizer::GroupCollection& gc,
-                             const std::string& source_name, int step) {
-    lock_.lock();
-    StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_[source_name];
-    unsigned int tsize = disp.joint_trajectory_.points.size(); 
-    if(tsize == 0 || disp.state_ == NULL) {
-      lock_.unlock();
-      return;
-    }
-    if((int) disp.current_trajectory_point_ + step < 0) {
-      disp.current_trajectory_point_ = 0;
-    } else {
-      disp.current_trajectory_point_ = ((int)disp.current_trajectory_point_)+step;
-    }
-    if(disp.current_trajectory_point_ >= tsize-1) {
-      disp.current_trajectory_point_ = tsize-1;
-      disp.play_joint_trajectory_ = false;
-    }
-    std::map<std::string, double> joint_values;
-    for(unsigned int i = 0; i < disp.joint_trajectory_.joint_names.size(); i++) {
-      joint_values[disp.joint_trajectory_.joint_names[i]] = disp.joint_trajectory_.points[disp.current_trajectory_point_].positions[i];
-    }
-    disp.state_->setKinematicState(joint_values);
-    lock_.unlock();
-  }
-
-  void sendMarkers() {
-    lock_.lock();
-    visualization_msgs::MarkerArray arr;
-
-    std_msgs::ColorRGBA stat_color_;
-    stat_color_.a = 0.5;
-    stat_color_.r = 0.1;
-    stat_color_.g = 0.8;
-    stat_color_.b = 0.3;
-
-    std_msgs::ColorRGBA attached_color_;
-    attached_color_.a = 0.5;
-    attached_color_.r = 0.6;
-    attached_color_.g = 0.4;
-    attached_color_.b = 0.3;
-
-
-    cm_->getAllCollisionSpaceObjectMarkers(*robot_state_,
-                                           arr,
-                                           "",
-                                           stat_color_,
-                                           attached_color_,
-                                           ros::Duration(.2));
-
-    if(!current_group_name_.empty()) {
-      std_msgs::ColorRGBA group_color;
-      group_color.a = 1.0;
-      group_color.r = 0.0;
-      group_color.g = .8;
-      group_color.b = 0.04;
-
-      std_msgs::ColorRGBA updated_color;
-      updated_color.a = 1.0;
-      updated_color.r = 1.0;
-      updated_color.g = 0.0;
-      updated_color.b = 1.0;
-
-      std_msgs::ColorRGBA bad_color;
-      bad_color.a = 1.0;
-      bad_color.r = 1.0;
-      bad_color.g = 0.0;
-      bad_color.b = 0.0;
-
-      GroupCollection& gc = group_collection_map_[current_group_name_];
-      if(gc.good_ik_solution_) { 
-        cm_->getGroupAndUpdatedJointMarkersGivenState(*gc.group_state_,
-                                                      arr,
-                                                      current_group_name_,
-                                                      group_color,
-                                                      updated_color,
-                                                      ros::Duration(.2));
-      } else {
-        std::vector<std::string> lnames = 
-          cm_->getKinematicModel()->getChildLinkModelNames(cm_->getKinematicModel()->getLinkModel(gc.ik_link_name_));
-        //first link is ik_link_name_
-        lnames.erase(lnames.begin());
-        cm_->getRobotMeshResourceMarkersGivenState(*gc.group_state_,
-                                                   arr,
-                                                   bad_color,
-                                                   current_group_name_,
-                                                   ros::Duration(.2),
-                                                   &lnames);
-        cm_->getAttachedCollisionObjectMarkers(*gc.group_state_,
-                                               arr,
-                                               current_group_name_,
-                                               bad_color,
-                                               ros::Duration(.2));
-
-      }
-      for(std::map<std::string, StateTrajectoryDisplay>::iterator it = gc.state_trajectory_display_map_.begin();
-          it != gc.state_trajectory_display_map_.end();
-          it++) {
-        if(it->second.play_joint_trajectory_) {
-          moveThroughTrajectory(gc, it->first, 5);
-        }
-        if(it->second.show_joint_trajectory_) {
-          const std::vector<const planning_models::KinematicModel::LinkModel*>& updated_links = 
-            cm_->getKinematicModel()->getModelGroup(gc.name_)->getUpdatedLinkModels();
-          std::vector<std::string> lnames;
-          lnames.resize(updated_links.size());
-          for(unsigned int i = 0; i < updated_links.size(); i++) {
-            lnames[i] = updated_links[i]->getName();
-          }
-          cm_->getRobotMeshResourceMarkersGivenState(*(it->second.state_),
-                                                     arr,
-                                                     it->second.color_,
-                                                     it->first+"_trajectory",
-                                                     ros::Duration(.2),
-                                                     &lnames);
-          cm_->getAttachedCollisionObjectMarkers(*(it->second.state_),
-                                                 arr,
-                                                 it->first+"_trajectory",
-                                                 it->second.color_,
-                                                 ros::Duration(.2));
-        }
-      }
-    }
-    vis_marker_array_publisher_.publish(arr);
-    lock_.unlock();
-  }
-
-  void sendTransforms() {
-    lock_.lock();
-    ros::WallTime cur_time = ros::WallTime::now();
-    rosgraph_msgs::Clock c;
-    c.clock.nsec = cur_time.nsec;
-    c.clock.sec = cur_time.sec;
-    std::vector<geometry_msgs::TransformStamped> trans_vector;
-    planning_environment::getAllKinematicStateStampedTransforms(*robot_state_, trans_vector, c.clock);
-    transform_broadcaster_.sendTransform(trans_vector);
-    lock_.unlock();
-  };
-
-  bool doesGroupHaveGoodIKSolution(const std::string& group) const {
-    if(group_collection_map_.find(group) == group_collection_map_.end()) {
-      return false;
-    }
-    return group_collection_map_.find(group)->second.good_ik_solution_;
-  }
-
-  bool doesGroupHaveGoodTrajectory(const std::string& group, const std::string& source) const {
-    if(group_collection_map_.find(group) == group_collection_map_.end()) {
-      return false;
-    }
-    const GroupCollection& gc = group_collection_map_.find(group)->second;
-    if(gc.state_trajectory_display_map_.find(source) == gc.state_trajectory_display_map_.end()) {
-      return false;
-    }
-    return gc.state_trajectory_display_map_.find(source)->second.has_joint_trajectory_;
-  }
-
-protected:
-  
-  void deleteKinematicStates() {
-    for(std::map<std::string, GroupCollection>::iterator it = group_collection_map_.begin();
-        it != group_collection_map_.end();
-        it++) {
-      it->second.reset();
-    }
-  }
-
-  ros::NodeHandle nh_;
-  std::string current_group_name_;
-
-  std::map<std::string, GroupCollection> group_collection_map_;
-
-  planning_environment::CollisionModels* cm_;
-  planning_models::KinematicState* robot_state_;
-
-  tf::TransformBroadcaster transform_broadcaster_;
-  ros::Publisher vis_marker_publisher_;
-  ros::Publisher vis_marker_array_publisher_;
-
-  ros::ServiceClient get_planning_scene_client_;
-  ros::ServiceClient planner_service_client_;
-  ros::ServiceClient trajectory_filter_service_client_;
-
-  motion_planning_msgs::MotionPlanRequest last_motion_plan_request_;
-  
-  boost::recursive_mutex lock_;
 };
 
 PlanningComponentsVisualizer* pcv;
 
 bool inited = false;
 
-void spin_function() {
+void spin_function()
+{
   ros::WallRate r(100.0);
   unsigned int counter = 0;
-  while(ros::ok()) {
-    if(inited) {
+  while(ros::ok())
+  {
+    if(inited)
+    {
       pcv->sendTransforms();
-      if(counter%CONTROL_SPEED == 0) {
+      if(counter % CONTROL_SPEED == 0)
+      {
         counter = 1;
         pcv->sendMarkers();
-      } else {
+      }
+      else
+      {
         counter++;
       }
     }
@@ -811,7 +1833,8 @@ void spin_function() {
 
 void quit(int sig)
 {
-  if(pcv != NULL) {
+  if(pcv != NULL)
+  {
     delete pcv;
   }
   exit(0);
@@ -827,12 +1850,12 @@ int main(int argc, char** argv)
 
   inited = true;
 
-  initscr();
-  use_default_colors();
-  start_color();
+  for(size_t i = 0; i < pcv->getNumPlanningGroups(); i++)
+  {
+    pcv->selectPlanningGroup(i);
+  }
 
-  pcv->selectPlanningGroup();
-
+  pcv->movePlanningGroup();
   ros::waitForShutdown();
 
   return 0;
