@@ -78,7 +78,7 @@ planning_models::KinematicState::KinematicState(const KinematicModel* kinematic_
 }
 
 planning_models::KinematicState::KinematicState(const KinematicState& ks) :
-  kinematic_model_(ks.getKinematicModel())
+  kinematic_model_(ks.getKinematicModel()), dimension_(0)
 {
   kinematic_model_->sharedLock();
   const std::vector<JointState*>& joint_state_vector = ks.getJointStateVector();
@@ -195,7 +195,7 @@ void planning_models::KinematicState::getKinematicStateValues(std::vector<double
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problem with dimension");
+    ROS_WARN_STREAM("Some problems with state vector dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 
@@ -210,7 +210,7 @@ void planning_models::KinematicState::getKinematicStateValues(std::map<std::stri
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problems with dimension");
+    ROS_WARN_STREAM("Some problems with state map dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 
@@ -681,7 +681,7 @@ void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(s
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problem with dimension");
+    ROS_WARN_STREAM("Some problems with group vector dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 
@@ -696,7 +696,7 @@ void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(s
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problems with dimension");
+    ROS_WARN_STREAM("Some problems with group map dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 
