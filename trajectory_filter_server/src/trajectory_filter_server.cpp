@@ -56,10 +56,6 @@ TrajectoryFilterServer::TrajectoryFilterServer() : private_handle_("~"),
   else
     service_type_ = FILTER_JOINT_TRAJECTORY;
   
-  if(service_type_ == FILTER_JOINT_TRAJECTORY)
-    filter_service_ = private_handle_.advertiseService("filter_trajectory", &TrajectoryFilterServer::filter, this);
-  if(service_type_ == FILTER_JOINT_TRAJECTORY_WITH_CONSTRAINTS)
-    filter_constraints_service_ = private_handle_.advertiseService("filter_trajectory_with_constraints", &TrajectoryFilterServer::filterConstraints, this);
 }
 
 TrajectoryFilterServer::~TrajectoryFilterServer()
@@ -78,6 +74,10 @@ bool TrajectoryFilterServer::init()
   if(!loadURDF())
     return false;
 
+  if(service_type_ == FILTER_JOINT_TRAJECTORY)
+    filter_service_ = private_handle_.advertiseService("filter_trajectory", &TrajectoryFilterServer::filter, this);
+  if(service_type_ == FILTER_JOINT_TRAJECTORY_WITH_CONSTRAINTS)
+    filter_constraints_service_ = private_handle_.advertiseService("filter_trajectory_with_constraints", &TrajectoryFilterServer::filterConstraints, this);
   return true;
 }
 
