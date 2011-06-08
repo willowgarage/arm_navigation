@@ -11,6 +11,8 @@
     <cpp cflags="-I${prefix}/srv/cpp -I${prefix}/msg/cpp"/>
   </export>
 
+  <depend package="geometry_msgs"/>
+
   <platform os="ubuntu" version="9.04"/>
   <platform os="ubuntu" version="9.10"/>
   <platform os="ubuntu" version="10.04"/>
