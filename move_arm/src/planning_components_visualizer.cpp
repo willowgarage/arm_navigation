@@ -96,16 +96,13 @@ class PlanningComponentsVisualizer
     /// Used to decide which kinematic state the user is controlling. The planner plans from start to end.
     enum IKControlType
     {
-      StartPosition,
-      EndPosition
+      StartPosition, EndPosition
     };
 
     /// May be for IK control, joint control, or collision objects.
     enum InteractiveMarkerType
     {
-      EndEffectorControl,
-      JointControl,
-      CollisionObject
+      EndEffectorControl, JointControl, CollisionObject
     };
 
     /// Contains data for selectable markers. Stored in a large map.
@@ -183,12 +180,12 @@ class PlanningComponentsVisualizer
 
         void setState(IKControlType type, KinematicState* state)
         {
-          switch(type)
+          switch (type)
           {
             case PlanningComponentsVisualizer::StartPosition:
               if(start_state_ != NULL)
               {
-               delete start_state_;
+                delete start_state_;
                 start_state_ = NULL;
               }
               start_state_ = state;
@@ -206,7 +203,7 @@ class PlanningComponentsVisualizer
 
         KinematicState* getState(IKControlType type)
         {
-          switch(type)
+          switch (type)
           {
             case PlanningComponentsVisualizer::StartPosition:
               return start_state_;
@@ -220,7 +217,7 @@ class PlanningComponentsVisualizer
         void reset()
         {
           for(map<string, StateTrajectoryDisplay>::iterator it = state_trajectory_display_map_.begin(); it
-          != state_trajectory_display_map_.end(); it++)
+              != state_trajectory_display_map_.end(); it++)
           {
             it->second.reset();
           }
@@ -266,7 +263,7 @@ class PlanningComponentsVisualizer
       }
 
       get_planning_scene_client_
-      = nh_.serviceClient<planning_environment_msgs::GetPlanningScene> (GET_PLANNING_SCENE_NAME);
+          = nh_.serviceClient<planning_environment_msgs::GetPlanningScene> (GET_PLANNING_SCENE_NAME);
 
       while(!ros::service::waitForService(PLANNER_SERVICE_NAME, ros::Duration(1.0)))
       {
@@ -281,13 +278,13 @@ class PlanningComponentsVisualizer
       }
 
       trajectory_filter_service_client_
-      = nh_.serviceClient<FilterJointTrajectoryWithConstraints> (TRAJECTORY_FILTER_SERVICE_NAME, true);
+          = nh_.serviceClient<FilterJointTrajectoryWithConstraints> (TRAJECTORY_FILTER_SERVICE_NAME, true);
 
       const map<string, KinematicModel::GroupConfig>& group_config_map =
           cm_->getKinematicModel()->getJointModelGroupConfigMap();
 
-      for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
-          it != group_config_map.end(); it++)
+      for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin(); it
+          != group_config_map.end(); it++)
       {
         if(!it->second.base_link_.empty())
         {
@@ -311,7 +308,7 @@ class PlanningComponentsVisualizer
               kinematics_msgs::GetConstraintAwarePositionIK> (coll_aware_name, true);
 
           group_map_[it->first].non_coll_aware_ik_service_
-          = nh_.serviceClient<kinematics_msgs::GetPositionIK> (non_coll_aware_name, true);
+              = nh_.serviceClient<kinematics_msgs::GetPositionIK> (non_coll_aware_name, true);
         }
       }
       robot_state_ = new KinematicState(cm_->getKinematicModel());
@@ -336,10 +333,10 @@ class PlanningComponentsVisualizer
       menu_handler_map_["Collision Object Selection"];
 
       // Create end effector menus
-      start_position_handle_ =
-          registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Set Start Position");
-      end_position_handle_ =
-          registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Set End Position");
+      start_position_handle_ = registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"],
+                                                 "Set Start Position");
+      end_position_handle_ = registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"],
+                                               "Set End Position");
 
       menu_handler_map_["End Effector"].setCheckState(start_position_handle_, MenuHandler::UNCHECKED);
       menu_handler_map_["End Effector"].setCheckState(end_position_handle_, MenuHandler::CHECKED);
@@ -349,7 +346,6 @@ class PlanningComponentsVisualizer
       registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Deselect");
       registerMenuEntry(menu_handler_map_["End Effector Selection"], menu_entry_maps_["End Effector Selection"],
                         "Select");
-
 
       // Create collision object menus
       registerMenuEntry(menu_handler_map_["Collision Object Selection"],
@@ -361,17 +357,16 @@ class PlanningComponentsVisualizer
 
       // Create top level menu.
       registerMenuEntry(menu_handler_map_["Top Level"], menu_entry_maps_["Top Level"], "Create Pole");
-      ik_control_handle_ =
-          registerMenuEntry(menu_handler_map_["Top Level"], menu_entry_maps_["Top Level"], "IK Control");
-      joint_control_handle_ =
-          registerMenuEntry(menu_handler_map_["Top Level"], menu_entry_maps_["Top Level"], "Joint Control");
+      ik_control_handle_ = registerMenuEntry(menu_handler_map_["Top Level"], menu_entry_maps_["Top Level"],
+                                             "IK Control");
+      joint_control_handle_ = registerMenuEntry(menu_handler_map_["Top Level"], menu_entry_maps_["Top Level"],
+                                                "Joint Control");
 
       menu_handler_map_["Top Level"].setCheckState(ik_control_handle_, MenuHandler::CHECKED);
       menu_handler_map_["Top Level"].setCheckState(joint_control_handle_, MenuHandler::UNCHECKED);
 
       is_ik_control_active_ = true;
       is_joint_control_active_ = false;
-
 
       MenuHandler::EntryHandle sub_menu_handle = menu_handler_map_["Top Level"].insert("Select Planning Chain");
 
@@ -383,9 +378,9 @@ class PlanningComponentsVisualizer
 
         // These positions will be reset by main()
         makeSelectableMarker(PlanningComponentsVisualizer::EndEffectorControl,
-                             btTransform(btQuaternion(0.0f,0.0f,0.0f,1.0f), btVector3(0.0f,0.0f,0.0f)),
-                             it->first, it->first, 0.5f);
-        cmd ++;
+                             btTransform(btQuaternion(0.0f, 0.0f, 0.0f, 1.0f), btVector3(0.0f, 0.0f, 0.0f)), it->first,
+                             it->first, 0.5f);
+        cmd++;
       }
       // Create menu marker.
       makeTopLevelMenu();
@@ -443,11 +438,10 @@ class PlanningComponentsVisualizer
     {
       ROS_INFO("Creating collision pole %d", num);
 
-
       mapping_msgs::CollisionObject cylinder_object;
       cylinder_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
       cylinder_object.header.stamp = ros::Time::now();
-
+      cylinder_object.header.frame_id = cm_->getWorldFrameId();
       geometric_shapes_msgs::Shape object;
       object.type = geometric_shapes_msgs::Shape::CYLINDER;
       object.dimensions.resize(2);
@@ -475,8 +469,8 @@ class PlanningComponentsVisualizer
 
       vector<string> removals;
       // Handle additions and removals of planning scene objects.
-      for(map<string, mapping_msgs::CollisionObject>::const_iterator it = collision_poles_.begin();
-          it != collision_poles_.end(); it++)
+      for(map<string, mapping_msgs::CollisionObject>::const_iterator it = collision_poles_.begin(); it
+          != collision_poles_.end(); it++)
       {
         string name = it->first;
         mapping_msgs::CollisionObject object = it->second;
@@ -484,6 +478,7 @@ class PlanningComponentsVisualizer
         // Add or remove objects.
         if(object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE)
         {
+          ROS_INFO("Adding Collision Pole %s", object.id.c_str());
           planning_scene_req.planning_scene_diff.collision_objects.push_back(object);
         }
         else
@@ -572,22 +567,22 @@ class PlanningComponentsVisualizer
       }
       string old_group_name = current_group_name_;
 
-
       current_group_name_ = names[entry];
 
       if(group_map_[current_group_name_].end_state_ != NULL)
       {
-        group_map_[current_group_name_].setState(EndPosition, new KinematicState(*group_map_[current_group_name_].end_state_));
+        group_map_[current_group_name_].setState(EndPosition,
+                                                 new KinematicState(*group_map_[current_group_name_].end_state_));
       }
       else
       {
         group_map_[current_group_name_].setState(EndPosition, new KinematicState(*robot_state_));
       }
 
-
       if(group_map_[current_group_name_].start_state_ != NULL)
       {
-        group_map_[current_group_name_].setState(StartPosition, new KinematicState(*group_map_[current_group_name_].start_state_));
+        group_map_[current_group_name_].setState(StartPosition,
+                                                 new KinematicState(*group_map_[current_group_name_].start_state_));
       }
       else
       {
@@ -643,100 +638,100 @@ class PlanningComponentsVisualizer
         sleep(1.0);
       }
       /*
-      clear();
-      noecho();
-      bool coll_aware = true;
-      bool quit = false;
-      bool print = true;
-      while(!quit)
-      {
-        if(print)
-        {
-          clear();
-          printw("Examining current group %s\n", current_group_name_.c_str());
-          printw("Type 'q' to return to group selection\n");
-          printw("Type 'c' to toggle collision-aware/non-collision aware ik\n");
-          printw("Type 'w' to filter planner trajectory\n");
-          printw("Type 'i/k' for end effector forward/back\n");
-          printw("Type 'j/l' for end effector left/right\n");
-          printw("Type 'h/n' for end effector up/down\n");
-          printw("Type 'r/f' for end effector pitch up/down\n");
-          printw("Type 'd/g' for end effector yaw up/down\n");
-          printw("Type 'v/b' for end effector roll up/down\n");
-          printw("Current using");
-          if(coll_aware)
-          {
-            printw(" collision-aware ");
-          }
-          else
-          {
-            printw(" non-collision-aware ");
-          }
-          printw("ik\n");
-          refresh();
-          print = false;
-        }
-        char c = getch();
-        switch (c)
-        {
-          case 'q':
-            quit = true;
-            break;
-          case 'c':
-            coll_aware = !coll_aware;
-            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
-            print = true;
-            break;
-          case 'p':
-            if(doesGroupHaveGoodIKSolution(current_group_name_))
-            {
-              planToEndEffectorState(group_map_[current_group_name_]);
-            }
-            break;
-          case 'w':
-            if(doesGroupHaveGoodTrajectory(current_group_name_, "planner"))
-            {
-              filterPlannerTrajectory(group_map_[current_group_name_]);
-            }
-            break;
-          case 'i':
-            moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
-            break;
-          case 'k':
-            moveEndEffectorMarkers(-HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
-            break;
-          case 'j':
-            moveEndEffectorMarkers(0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
-            break;
-          case 'l':
-            moveEndEffectorMarkers(0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
-            break;
-          case 'h':
-            moveEndEffectorMarkers(0.0, 0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
-            break;
-          case 'n':
-            moveEndEffectorMarkers(0.0, 0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
-            break;
-          case 'r':
-            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, coll_aware);
-            break;
-          case 'f':
-            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, coll_aware);
-            break;
-          case 'd':
-            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, coll_aware);
-            break;
-          case 'g':
-            moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, coll_aware);
-            break;
-          case 'v':
-            moveEndEffectorMarkers(0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
-            break;
-          case 'b':
-            moveEndEffectorMarkers(0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
-            break;
-        }
-      }
+       clear();
+       noecho();
+       bool coll_aware = true;
+       bool quit = false;
+       bool print = true;
+       while(!quit)
+       {
+       if(print)
+       {
+       clear();
+       printw("Examining current group %s\n", current_group_name_.c_str());
+       printw("Type 'q' to return to group selection\n");
+       printw("Type 'c' to toggle collision-aware/non-collision aware ik\n");
+       printw("Type 'w' to filter planner trajectory\n");
+       printw("Type 'i/k' for end effector forward/back\n");
+       printw("Type 'j/l' for end effector left/right\n");
+       printw("Type 'h/n' for end effector up/down\n");
+       printw("Type 'r/f' for end effector pitch up/down\n");
+       printw("Type 'd/g' for end effector yaw up/down\n");
+       printw("Type 'v/b' for end effector roll up/down\n");
+       printw("Current using");
+       if(coll_aware)
+       {
+       printw(" collision-aware ");
+       }
+       else
+       {
+       printw(" non-collision-aware ");
+       }
+       printw("ik\n");
+       refresh();
+       print = false;
+       }
+       char c = getch();
+       switch (c)
+       {
+       case 'q':
+       quit = true;
+       break;
+       case 'c':
+       coll_aware = !coll_aware;
+       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
+       print = true;
+       break;
+       case 'p':
+       if(doesGroupHaveGoodIKSolution(current_group_name_))
+       {
+       planToEndEffectorState(group_map_[current_group_name_]);
+       }
+       break;
+       case 'w':
+       if(doesGroupHaveGoodTrajectory(current_group_name_, "planner"))
+       {
+       filterPlannerTrajectory(group_map_[current_group_name_]);
+       }
+       break;
+       case 'i':
+       moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
+       break;
+       case 'k':
+       moveEndEffectorMarkers(-HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
+       break;
+       case 'j':
+       moveEndEffectorMarkers(0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
+       break;
+       case 'l':
+       moveEndEffectorMarkers(0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
+       break;
+       case 'h':
+       moveEndEffectorMarkers(0.0, 0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
+       break;
+       case 'n':
+       moveEndEffectorMarkers(0.0, 0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
+       break;
+       case 'r':
+       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, coll_aware);
+       break;
+       case 'f':
+       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, coll_aware);
+       break;
+       case 'd':
+       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, coll_aware);
+       break;
+       case 'g':
+       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, coll_aware);
+       break;
+       case 'v':
+       moveEndEffectorMarkers(0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
+       break;
+       case 'b':
+       moveEndEffectorMarkers(0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
+       break;
+       }
+       }
        */
     }
 
@@ -801,7 +796,7 @@ class PlanningComponentsVisualizer
     {
       for(size_t i = 0; i < gc.joint_names_.size(); i++)
       {
-        interactive_marker_server_->erase(gc.joint_names_[i]+"_joint_control");
+        interactive_marker_server_->erase(gc.joint_names_[i] + "_joint_control");
       }
     }
 
@@ -820,30 +815,77 @@ class PlanningComponentsVisualizer
       for(size_t i = 0; i < gc.joint_names_.size(); i++)
       {
         const string& jointName = gc.joint_names_[i];
-        KinematicModel::JointModel* model = (KinematicModel::JointModel*)(gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName));
-        KinematicModel::RevoluteJointModel* revoluteJoint = dynamic_cast<KinematicModel::RevoluteJointModel*>(model);
-        KinematicModel::PrismaticJointModel* prismaticJoint = dynamic_cast<KinematicModel::PrismaticJointModel*>(model);
+        KinematicModel::JointModel* model =
+            (KinematicModel::JointModel*)(gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName));
+        KinematicModel::RevoluteJointModel* revoluteJoint = dynamic_cast<KinematicModel::RevoluteJointModel*> (model);
+        KinematicModel::PrismaticJointModel* prismaticJoint =
+            dynamic_cast<KinematicModel::PrismaticJointModel*> (model);
         if(model->getParentLinkModel() != NULL)
         {
           string parentLinkName = model->getParentLinkModel()->getName();
           string childLinkName = model->getChildLinkModel()->getName();
-          btTransform transform = gc.getState(ik_control_type_)->getLinkState(parentLinkName)->getGlobalLinkTransform()
-              *(gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLinkName)->getJointOriginTransform()
-              *(gc.getState(ik_control_type_)->getJointState(jointName)->getVariableTransform()));
+          btTransform
+              transform =
+                  gc.getState(ik_control_type_)->getLinkState(parentLinkName)->getGlobalLinkTransform()
+                      * (gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLinkName)->getJointOriginTransform()
+                          * (gc.getState(ik_control_type_)->getJointState(jointName)->getVariableTransform()));
+          const shapes::Shape* linkShape = model->getParentLinkModel()->getLinkShape();
+          const shapes::Mesh* meshShape = dynamic_cast<const shapes::Mesh*> (linkShape);
+
+          double maxDimension = 0.0f;
+          if(meshShape != NULL)
+          {
+            for(unsigned int i = 0; i < meshShape->vertexCount; i++)
+            {
+              double x = meshShape->vertices[3 * i];
+              double y = meshShape->vertices[3 * i];
+              double z = meshShape->vertices[3 * i];
+
+              if(abs(maxDimension) < abs(x))
+              {
+                maxDimension = abs(x);
+              }
+
+              if(abs(maxDimension) < abs(y))
+              {
+                maxDimension = abs(y);
+              }
+
+              if(abs(maxDimension) < abs(z))
+              {
+                maxDimension = abs(z);
+              }
+
+            }
+            maxDimension *= 2.5;
+
+            maxDimension = max(0.15, maxDimension);
+            maxDimension = min(0.8, maxDimension);
+          }
+          else
+          {
+            maxDimension = 0.15;
+          }
 
           if(revoluteJoint != NULL)
           {
-            makeInteractive1DOFRotationMarker(transform,revoluteJoint->axis_,
-                                              model->getName()+"_joint_control", "", 0.15f,
-                                              gc.getState(ik_control_type_)->
-                                              getJointState(jointName)->getJointStateValues()[0]);
+            makeInteractive1DOFRotationMarker(
+                                              transform,
+                                              revoluteJoint->axis_,
+                                              model->getName() + "_joint_control",
+                                              "",
+                                              (float)maxDimension,
+                                              gc.getState(ik_control_type_)->getJointState(jointName)->getJointStateValues()[0]);
           }
           else if(prismaticJoint != NULL)
           {
-            makeInteractive1DOFTranslationMarker(transform,prismaticJoint->axis_,
-                                              model->getName()+"_joint_control", "", 0.15f,
-                                              gc.getState(ik_control_type_)->
-                                              getJointState(jointName)->getJointStateValues()[0]);
+            makeInteractive1DOFTranslationMarker(
+                                                 transform,
+                                                 prismaticJoint->axis_,
+                                                 model->getName() + "_joint_control",
+                                                 "",
+                                                 (float)maxDimension,
+                                                 gc.getState(ik_control_type_)-> getJointState(jointName)->getJointStateValues()[0]);
           }
 
         }
@@ -862,34 +904,34 @@ class PlanningComponentsVisualizer
           gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getParentLinkModel()->getName();
       string childLink =
           gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getChildLinkModel()->getName();
-      gc.getState(ik_control_type_)->
-          getJointState(jointName)->
-          setJointStateValues(gc.getState(ik_control_type_)->
-          getLinkState(parentLink)->getGlobalLinkTransform().inverse() * value) ;
+      gc.getState(ik_control_type_)-> getJointState(jointName)-> setJointStateValues(
+                                                                                     gc.getState(ik_control_type_)-> getLinkState(
+                                                                                                                                  parentLink)->getGlobalLinkTransform().inverse()
+                                                                                         * value);
       /*
-      // Limits on the joint.
-      map<string, pair<double,double> > jointBounds =
-          gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getAllVariableBounds();
+       // Limits on the joint.
+       map<string, pair<double,double> > jointBounds =
+       gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getAllVariableBounds();
 
-      // For each joint limit, keep snap the value of the joint into it.
-      // TODO: Figure out why each joint has multiple values.
-      for(map<string,pair<double,double> >::iterator it = jointBounds.begin(); it != jointBounds.end(); it++)
-      {
-        if(value < it->second.first)
-        {
-          value = it->second.first;
-        }
-        else if(value > it->second.first)
-        {
-          value = it->second.first;
-        }
-      }
+       // For each joint limit, keep snap the value of the joint into it.
+       // TODO: Figure out why each joint has multiple values.
+       for(map<string,pair<double,double> >::iterator it = jointBounds.begin(); it != jointBounds.end(); it++)
+       {
+       if(value < it->second.first)
+       {
+       value = it->second.first;
+       }
+       else if(value > it->second.first)
+       {
+       value = it->second.first;
+       }
+       }
 
-      stateMap[jointName] = value;
+       stateMap[jointName] = value;
 
-      // Update robot state.
-      gc.getState(ik_control_type_)->setKinematicState(stateMap);
-      */
+       // Update robot state.
+       gc.getState(ik_control_type_)->setKinematicState(stateMap);
+       */
 
       map<string, double> stateMap;
       if(gc.getState(ik_control_type_)->isJointWithinBounds(jointName))
@@ -904,8 +946,8 @@ class PlanningComponentsVisualizer
 
         if(is_ik_control_active_)
         {
-          selectMarker(selectable_markers_[current_group_name_+"_selectable"],
-                     gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+          selectMarker(selectable_markers_[current_group_name_ + "_selectable"],
+                       gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
         }
       }
     }
@@ -1027,7 +1069,8 @@ class PlanningComponentsVisualizer
     void publishJointStates(GroupCollection& gc)
     {
       sensor_msgs::JointState msg;
-      msg.header.frame_id = "/base_link";
+      msg.header.frame_id = cm_->getWorldFrameId();
+      ;
       msg.header.stamp = ros::Time::now();
 
       vector<KinematicState::JointState*> jointStates = gc.getState(ik_control_type_)->getJointStateVector();
@@ -1099,7 +1142,8 @@ class PlanningComponentsVisualizer
       FilterJointTrajectoryWithConstraints::Request filter_req;
       FilterJointTrajectoryWithConstraints::Response filter_res;
 
-      convertKinematicStateToRobotState(*gc.getState(StartPosition), ros::Time::now(), cm_->getWorldFrameId(), filter_req.start_state);
+      convertKinematicStateToRobotState(*gc.getState(StartPosition), ros::Time::now(), cm_->getWorldFrameId(),
+                                        filter_req.start_state);
       StateTrajectoryDisplay& planner_disp = gc.state_trajectory_display_map_["planner"];
       filter_req.trajectory = planner_disp.joint_trajectory_;
       filter_req.group_name = gc.name_;
@@ -1191,7 +1235,7 @@ class PlanningComponentsVisualizer
       for(unsigned int i = 0; i < disp.joint_trajectory_.joint_names.size(); i++)
       {
         joint_values[disp.joint_trajectory_.joint_names[i]]
-                     = disp.joint_trajectory_.points[disp.current_trajectory_point_].positions[i];
+            = disp.joint_trajectory_.points[disp.current_trajectory_point_].positions[i];
       }
       disp.state_->setKinematicState(joint_values);
       lock_.unlock();
@@ -1206,7 +1250,7 @@ class PlanningComponentsVisualizer
     /// @return the handle that was registered
     /////
     MenuHandler::EntryHandle registerSubMenuEntry(MenuHandler& handler, MenuEntryMap& map, string name,
-                              MenuHandler::EntryHandle subMenuHandle)
+                                                  MenuHandler::EntryHandle subMenuHandle)
     {
       MenuHandler::EntryHandle toReturn = handler.insert(subMenuHandle, name, process_function_ptr_);
       map[toReturn] = name;
@@ -1289,14 +1333,14 @@ class PlanningComponentsVisualizer
 
           //first link is ik_link_name_
           lnames.erase(lnames.begin());
-          cm_->getRobotMeshResourceMarkersGivenState(*gc.getState(ik_control_type_), arr, bad_color, current_group_name_,
-                                                     ros::Duration(.2), &lnames);
+          cm_->getRobotMeshResourceMarkersGivenState(*gc.getState(ik_control_type_), arr, bad_color,
+                                                     current_group_name_, ros::Duration(.2), &lnames);
           cm_->getAttachedCollisionObjectMarkers(*gc.getState(ik_control_type_), arr, current_group_name_, bad_color,
                                                  ros::Duration(.2));
 
         }
         for(map<string, StateTrajectoryDisplay>::iterator it = gc.state_trajectory_display_map_.begin(); it
-        != gc.state_trajectory_display_map_.end(); it++)
+            != gc.state_trajectory_display_map_.end(); it++)
         {
           if(it->second.play_joint_trajectory_)
           {
@@ -1498,7 +1542,8 @@ class PlanningComponentsVisualizer
           if(feedback->marker_name.rfind("_selectable") != string::npos)
           {
             btTransform cur = toBulletTransform(feedback->pose);
-            if(is_ik_control_active_ && isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
+            if(is_ik_control_active_
+                && isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
             {
               menu_handler_map_["End Effector Selection"].getHandle(feedback->command, handle);
 
@@ -1526,7 +1571,9 @@ class PlanningComponentsVisualizer
               }
               else if(menu_entry_maps_["Collision Object Selection"][handle] == "Delete")
               {
-                this->removeCollisionPoleByName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable")));
+                this->removeCollisionPoleByName(
+                                                feedback->marker_name.substr(0,
+                                                                             feedback->marker_name.rfind("_selectable")));
                 interactive_marker_server_->erase(feedback->marker_name);
                 refreshEnvironment();
               }
@@ -1539,7 +1586,7 @@ class PlanningComponentsVisualizer
             if(handle == ik_control_handle_)
             {
               MenuHandler::CheckState currentState;
-              menu_handler_map_["Top Level"].getCheckState(ik_control_handle_,currentState);
+              menu_handler_map_["Top Level"].getCheckState(ik_control_handle_, currentState);
 
               if(currentState == MenuHandler::UNCHECKED)
               {
@@ -1563,7 +1610,7 @@ class PlanningComponentsVisualizer
             else if(handle == joint_control_handle_)
             {
               MenuHandler::CheckState currentState;
-              menu_handler_map_["Top Level"].getCheckState(joint_control_handle_,currentState);
+              menu_handler_map_["Top Level"].getCheckState(joint_control_handle_, currentState);
               if(currentState == MenuHandler::UNCHECKED)
               {
                 is_joint_control_active_ = true;
@@ -1593,7 +1640,6 @@ class PlanningComponentsVisualizer
               createCollisionPole(nextCollisionPole(), polePose);
               refreshEnvironment();
             }
-
 
             unsigned int cmd = 0;
             for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
@@ -1627,7 +1673,7 @@ class PlanningComponentsVisualizer
               {
                 menu_handler_map_["End Effector"].setCheckState(end_position_handle_, MenuHandler::UNCHECKED);
                 ik_control_type_ = StartPosition;
-                selectMarker(selectable_markers_[feedback->marker_name+"_selectable"],
+                selectMarker(selectable_markers_[feedback->marker_name + "_selectable"],
                              gc.start_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
                 menu_handler_map_["End Effector"].reApply(*interactive_marker_server_);
               }
@@ -1635,7 +1681,7 @@ class PlanningComponentsVisualizer
               {
                 menu_handler_map_["End Effector"].setCheckState(start_position_handle_, MenuHandler::UNCHECKED);
                 ik_control_type_ = EndPosition;
-                selectMarker(selectable_markers_[feedback->marker_name+"_selectable"],
+                selectMarker(selectable_markers_[feedback->marker_name + "_selectable"],
                              gc.end_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
                 menu_handler_map_["End Effector"].reApply(*interactive_marker_server_);
               }
@@ -1680,8 +1726,10 @@ class PlanningComponentsVisualizer
           break;
 
         case InteractiveMarkerFeedback::MOUSE_UP:
-          if(feedback->marker_name.rfind("pole_") != string::npos && feedback->marker_name.rfind("_selectable") == string::npos)
+          if(feedback->marker_name.rfind("pole_") != string::npos && feedback->marker_name.rfind("_selectable")
+              == string::npos)
           {
+            collision_poles_[feedback->marker_name].poses[0] = feedback->pose;
             refreshEnvironment();
           }
           break;
@@ -1721,7 +1769,8 @@ class PlanningComponentsVisualizer
       int_marker.pose.position.z = 2.25;
       int_marker.name = "top_level";
       int_marker.description = "Planning Visualizer";
-      int_marker.header.frame_id = "/base_link";
+      int_marker.header.frame_id = cm_->getWorldFrameId();
+      ;
       makeInteractiveBoxControl(int_marker, 0.0f);
 
       InteractiveMarkerControl control;
@@ -1762,7 +1811,8 @@ class PlanningComponentsVisualizer
       selectable_marker.controlDescription_ = description;
 
       InteractiveMarker marker;
-      marker.header.frame_id = "/base_link";
+      marker.header.frame_id = cm_->getWorldFrameId();
+      ;
       marker.header.stamp = ros::Time::now();
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
@@ -1886,11 +1936,12 @@ class PlanningComponentsVisualizer
       makeSelectableMarker(marker.type_, transform, marker.controlName_, marker.controlDescription_, scale);
     }
 
-
-    void makeInteractive1DOFTranslationMarker(btTransform transform, btVector3 axis, string name, string description, float scale = 1.0f, float value = 0.0f)
+    void makeInteractive1DOFTranslationMarker(btTransform transform, btVector3 axis, string name, string description,
+                                              float scale = 1.0f, float value = 0.0f)
     {
       InteractiveMarker marker;
-      marker.header.frame_id = "/base_link";
+      marker.header.frame_id = cm_->getWorldFrameId();
+      ;
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
       marker.pose.position.z = transform.getOrigin().z();
@@ -1924,10 +1975,12 @@ class PlanningComponentsVisualizer
 
     }
 
-    void makeInteractive1DOFRotationMarker(btTransform transform, btVector3 axis,  string name, string description, float scale = 1.0f, float angle = 0.0f)
+    void makeInteractive1DOFRotationMarker(btTransform transform, btVector3 axis, string name, string description,
+                                           float scale = 1.0f, float angle = 0.0f)
     {
       InteractiveMarker marker;
-      marker.header.frame_id = "/base_link";
+      marker.header.frame_id = cm_->getWorldFrameId();
+      ;
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
       marker.pose.position.z = transform.getOrigin().z();
@@ -1973,7 +2026,7 @@ class PlanningComponentsVisualizer
                                    float scale = 1.0f, bool pole = false)
     {
       InteractiveMarker marker;
-      marker.header.frame_id = "/base_link";
+      marker.header.frame_id = cm_->getWorldFrameId();
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
       marker.pose.position.z = transform.getOrigin().z();
