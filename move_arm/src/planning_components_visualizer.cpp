@@ -829,7 +829,7 @@ class PlanningComponentsVisualizer
                   gc.getState(ik_control_type_)->getLinkState(parentLinkName)->getGlobalLinkTransform()
                       * (gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLinkName)->getJointOriginTransform()
                           * (gc.getState(ik_control_type_)->getJointState(jointName)->getVariableTransform()));
-          const shapes::Shape* linkShape = model->getParentLinkModel()->getLinkShape();
+          const shapes::Shape* linkShape = model->getChildLinkModel()->getLinkShape();
           const shapes::Mesh* meshShape = dynamic_cast<const shapes::Mesh*> (linkShape);
 
           double maxDimension = 0.0f;
@@ -841,26 +841,17 @@ class PlanningComponentsVisualizer
               double y = meshShape->vertices[3 * i];
               double z = meshShape->vertices[3 * i];
 
-              if(abs(maxDimension) < abs(x))
+              if(abs(maxDimension) < abs(sqrt(x*x+y*y+z*z)))
               {
                 maxDimension = abs(x);
               }
 
-              if(abs(maxDimension) < abs(y))
-              {
-                maxDimension = abs(y);
-              }
-
-              if(abs(maxDimension) < abs(z))
-              {
-                maxDimension = abs(z);
-              }
-
             }
-            maxDimension *= 2.5;
+
+            maxDimension *= 3.0;
 
             maxDimension = max(0.15, maxDimension);
-            maxDimension = min(0.8, maxDimension);
+            maxDimension = min(0.5, maxDimension);
           }
           else
           {
@@ -1323,8 +1314,11 @@ class PlanningComponentsVisualizer
           otherState = EndPosition;
         }
 
-        cm_->getGroupAndUpdatedJointMarkersGivenState(*gc.getState(otherState), arr, current_group_name_, group_color,
+        if(is_ik_control_active_)
+        {
+          cm_->getGroupAndUpdatedJointMarkersGivenState(*gc.getState(otherState), arr, current_group_name_, group_color,
                                                       updated_color, ros::Duration(.2));
+        }
 
         if(!gc.good_ik_solution_)
         {
