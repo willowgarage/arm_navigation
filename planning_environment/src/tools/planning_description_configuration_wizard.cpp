@@ -942,11 +942,10 @@ public:
     TiXmlElement* launch_root = new TiXmlElement("launch");
     doc.LinkEndChild(launch_root);
 
-    TiXmlElement *rd = new TiXmlElement("rosparam"); 
+    TiXmlElement *rd = new TiXmlElement("param"); 
     launch_root->LinkEndChild(rd);
-    rd->SetAttribute("command","load");
-    rd->SetAttribute("ns", "robot_description");
-    rd->SetAttribute("file", "$(find "+urdf_package_+")"+urdf_path_);
+    rd->SetAttribute("name", "robot_description");
+    rd->SetAttribute("textfile", "$(find "+urdf_package_+")"+urdf_path_);
 
     TiXmlElement *rp = new TiXmlElement("rosparam");
     launch_root->LinkEndChild(rp);
