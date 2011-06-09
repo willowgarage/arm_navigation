@@ -103,17 +103,16 @@ ompl::base::StateManifoldPtr jointGroupToOmplStateManifoldPtr(const planning_mod
         }
         else
         {
-          // the only other case we consider is R^n; since we know that for now at least the only other type of joint available is non-continuous revolute joints
-          // we can use the revoluteJoint cast      
+          // the only other case we consider is R^n; since we know that for now at least the only other type of joint available is a single-dof non-continuous revolute or prismatic joint
           std::pair<double,double> bounds;
-          revolute_joint->getVariableBounds(revolute_joint->getName(), bounds);
+          joint_models[i]->getVariableBounds(joint_models[i]->getName(), bounds);
           real_vector_bounds.low.push_back(bounds.first);
           real_vector_bounds.high.push_back(bounds.second);
-          real_vector_names.push_back(revolute_joint->getName());
+          real_vector_names.push_back(joint_models[i]->getName());
           kinematic_ompl_mapping.joint_state_mapping.push_back(real_vector_bounds.low.size()-1);
           kinematic_ompl_mapping.joint_mapping_type.push_back(ompl_ros_interface::REAL_VECTOR);
           ompl_kinematic_mapping.real_vector_mapping.push_back(i);
-          ROS_DEBUG("Adding real vector joint %s with bounds %f %f",revolute_joint->getName().c_str(),real_vector_bounds.low.back(),real_vector_bounds.high.back());
+          ROS_DEBUG("Adding real vector joint %s with bounds %f %f",joint_models[i]->getName().c_str(),real_vector_bounds.low.back(),real_vector_bounds.high.back());
         }
       }    
     }
