@@ -56,10 +56,28 @@ rosbuild_link_boost(filter_attached_objects thread)
 
 #rosbuild_add_executable(collision_operations_generator src/tools/collision_operations_generator.cpp) 
 
-rosbuild_add_executable(planning_description_configuration_wizard src/tools/planning_description_configuration_wizard.cpp) 
+
+set( sources
+	src/tools/planning_description_configuration_wizard.cpp
+)
+
+set( headers
+        include/planning_environment/tools/planning_description_configuration_wizard.h
+)
+
+
+find_package(Qt4 REQUIRED)
+include(${QT_USE_FILE})
+qt4_wrap_cpp(moc_sources ${headers})
+include_directories(${CMAKE_BINARY_DIR})
+include_directories(${QT_INCLUDE_DIR})
+
+
+rosbuild_add_executable(planning_description_configuration_wizard ${sources} ${headers} ${moc_sources})
 target_link_libraries(planning_description_configuration_wizard planning_environment)
 rosbuild_link_boost(planning_description_configuration_wizard thread)
 target_link_libraries(planning_description_configuration_wizard ncurses)
+target_link_libraries(planning_description_configuration_wizard ${QT_LIBRARIES})
 
 #rosbuild_add_executable(display_planner_collision_model src/tools/display_planner_collision_model.cpp) 
 #target_link_libraries(display_planner_collision_model planning_environment)
