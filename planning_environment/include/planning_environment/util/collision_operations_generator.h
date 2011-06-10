@@ -83,6 +83,7 @@ public:
                                                     std::vector<double>& collision_percentage,
                                                     std::vector<CollidingJointValues>& in_collision_joint_values);
   
+  void enablePairCollisionChecking(const StringPair& pair);  
   void disablePairCollisionChecking(const StringPair& pair);
   void disablePairCollisionChecking(const std::vector<StringPair>& pair_vec);
 

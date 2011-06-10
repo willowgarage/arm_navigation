@@ -181,6 +181,13 @@ void CollisionOperationsGenerator::enableAllCollisions() {
   cm_->setAlteredAllowedCollisionMatrix(altered_acm);
 }
 
+
+void CollisionOperationsGenerator::enablePairCollisionChecking(const CollisionOperationsGenerator::StringPair& pair){
+  collision_space::EnvironmentModel::AllowedCollisionMatrix altered_acm = cm_->getCurrentAllowedCollisionMatrix();
+  altered_acm.changeEntry(pair.first, pair.second, false);
+  cm_->setAlteredAllowedCollisionMatrix(altered_acm);
+
+}
 void CollisionOperationsGenerator::disablePairCollisionChecking(const CollisionOperationsGenerator::StringPair& pair) {
   collision_space::EnvironmentModel::AllowedCollisionMatrix altered_acm = cm_->getCurrentAllowedCollisionMatrix();
   altered_acm.changeEntry(pair.first, pair.second, true);
