@@ -1256,6 +1256,48 @@ public:
   }
 
 public slots:
+
+void selectJointButtonClicked()
+{
+  QList<QTableWidgetItem*> selected =  joint_table_->selectedItems();
+
+  for(int i = 0; i < selected.size(); i++)
+  {
+    std::string name = selected[i]->text().toStdString();
+    bool alreadyExists = false;
+    int rowToAdd = 0;
+    for(int r = 0; r < selected_joint_table_->rowCount(); r++)
+    {
+      QTableWidgetItem* item = selected_joint_table_->item(r, 0);
+
+      if(item->text().toStdString() == name)
+      {
+        alreadyExists = true;
+        break;
+      }
+      rowToAdd = r + 1;
+    }
+
+    if(!alreadyExists)
+    {
+      selected_joint_table_->setRowCount(selected_joint_table_->rowCount() + 1);
+      QTableWidgetItem* newItem = new QTableWidgetItem(name.c_str());
+      newItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+      selected_joint_table_->setItem(rowToAdd, 0, newItem);
+    }
+  }
+}
+
+void deselectJointButtonClicked()
+{
+  QList<QTableWidgetItem*> deselected = selected_joint_table_->selectedItems();
+
+  for(int i = 0; i < deselected.size(); i++)
+  {
+    selected_joint_table_->removeRow(deselected[i]->row());
+  }
+}
+
 void deleteGroupButtonClicked()
 {
   QList<QTableWidgetItem*> itemList = current_group_table_->selectedItems();
@@ -1279,13 +1321,38 @@ void acceptChainClicked()
 
 void acceptGroupClicked()
 {
+  lock_.lock();
+  std::string new_group_name = joint_group_name_field_->text().toStdString();
+  std::vector<std::string> joints;
+  for(int i = 0; i < selected_joint_table_->rowCount(); i++)
+  {
+    joints.push_back(selected_joint_table_->item(i, 0)->text().toStdString());
+  }
 
-}
+  deleteKinematicStates();
+   if(kmodel_->hasModelGroup(new_group_name))
+   {
+     kmodel_->removeModelGroup(new_group_name);
+   }
 
+   std::vector<std::string> emp;
+   planning_models::KinematicModel::GroupConfig gc(new_group_name,
+                                                   joints,
+                                                   emp);
+   bool group_ok = kmodel_->addModelGroup(gc);
 
-void visualizeJointGroupClicked()
-{
+   robot_state_ = new planning_models::KinematicState(kmodel_);
+   robot_state_->setKinematicStateToDefault();
+   if(!group_ok) {
+     ROS_ERROR_STREAM("Joint collection group really should be ok");
+     current_show_group_ = "";
+     popupNotOkayWarning();
+   }
+   popupOkayWarning();
+   updateGroupTable();
+   lock_.unlock();
 
+   createDofPageTable();
 }
 
 void baseLinkTreeClick()
@@ -1363,6 +1430,7 @@ void oftenCollisionTableChanged()
         if(alreadyDisabled)
         {
           disableVector.erase(pos);
+          ops_gen_->enablePairCollisionChecking(linkPair);
         }
       }
       else
@@ -1379,7 +1447,182 @@ void oftenCollisionTableChanged()
 
 void occasionallyCollisionTableChanged()
 {
+  std::vector<std::pair<std::string, std::string> >& disableVector =
+      disable_map_[planning_environment::CollisionOperationsGenerator::OCCASIONALLY];
+  for(int i = 0; i < occasionally_collision_table_->rowCount(); i++)
+  {
+    QCheckBox* box = dynamic_cast<QCheckBox*> (occasionally_collision_table_->cellWidget(i, 3));
+    if(box != NULL)
+    {
+      bool alreadyDisabled = false;
+      std::vector<std::pair<std::string, std::string> >::iterator pos;
+      std::pair<std::string, std::string> linkPair;
+      linkPair.first = occasionally_collision_table_->item(i, 0)->text().toStdString();
+      linkPair.second = occasionally_collision_table_->item(i, 1)->text().toStdString();
+      for(std::vector<std::pair<std::string, std::string> >::iterator it = disableVector.begin(); it
+          != disableVector.end(); it++)
+      {
+        if((*it) == linkPair)
+        {
+          alreadyDisabled = true;
+          pos = it;
+          break;
+        }
+      }
 
+      if(box->isChecked())
+      {
+        if(alreadyDisabled)
+        {
+          disableVector.erase(pos);
+          ops_gen_->enablePairCollisionChecking(linkPair);
+        }
+      }
+      else
+      {
+        if(!alreadyDisabled)
+        {
+          disableVector.push_back(linkPair);
+          ops_gen_->disablePairCollisionChecking(linkPair);
+        }
+      }
+    }
+  }
+}
+
+void generateOccasionallyInCollisionTable()
+{
+  lock_.lock();
+  std::vector<planning_environment::CollisionOperationsGenerator::StringPair> occasionally_in_collision;
+  std::vector<planning_environment::CollisionOperationsGenerator::StringPair> not_in_collision;
+  std::vector<double> percentages;
+  std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
+
+  ops_gen_->generateOccasionallyAndNeverInCollisionPairs(occasionally_in_collision, not_in_collision, percentages,
+                                                         in_collision_joint_values);
+
+  std::vector<std::pair<std::string, std::string> >& disableVector =
+      disable_map_[planning_environment::CollisionOperationsGenerator::ALWAYS];
+
+
+  for(size_t i = 0; i < occasionally_in_collision.size(); i++)
+  {
+    bool alreadyDisabled = false;
+    std::vector<std::pair<std::string, std::string> >::iterator pos;
+    for(std::vector<std::pair<std::string, std::string> >::iterator it = disableVector.begin(); it
+        != disableVector.end(); it++)
+    {
+      if((*it) == occasionally_in_collision[i])
+      {
+        alreadyDisabled = true;
+        pos = it;
+        break;
+      }
+    }
+
+    if(alreadyDisabled)
+    {
+      occasionally_in_collision.erase(pos);
+    }
+  }
+
+
+  for(size_t i = 0; i < not_in_collision.size(); i++)
+  {
+    bool alreadyDisabled = false;
+    std::vector<std::pair<std::string, std::string> >::iterator pos;
+    for(std::vector<std::pair<std::string, std::string> >::iterator it = disableVector.begin(); it
+        != disableVector.end(); it++)
+    {
+      if((*it) == not_in_collision[i])
+      {
+        alreadyDisabled = true;
+        pos = it;
+        break;
+      }
+    }
+
+    if(alreadyDisabled)
+    {
+      not_in_collision.erase(pos);
+    }
+  }
+
+
+  occasionally_collision_table_->clear();
+  occasionally_collision_table_->setRowCount((int)(occasionally_in_collision.size() + not_in_collision.size()));
+  occasionally_collision_table_->setColumnCount(4);
+
+  occasionally_collision_table_->setColumnWidth(0, 300);
+  occasionally_collision_table_->setColumnWidth(1, 300);
+  occasionally_collision_table_->setColumnWidth(2, 300);
+  occasionally_collision_table_->setColumnWidth(3, 300);
+
+  QStringList titleList;
+  titleList.append("Link A");
+  titleList.append("Link B");
+  titleList.append("% Colliding");
+  titleList.append("Enable?");
+
+  occasionally_collision_table_->setHorizontalHeaderLabels(titleList);
+
+  if(occasionally_in_collision.size() + not_in_collision.size() == 0)
+  {
+    occasionally_collision_table_->setRowCount(1);
+    QTableWidgetItem* noCollide = new QTableWidgetItem("No Collisions");
+    occasionally_collision_table_->setItem(0, 0, noCollide);
+  }
+
+  ROS_INFO("%lu links occasionally in collision.", occasionally_in_collision.size());
+
+  for(size_t i = 0; i < occasionally_in_collision.size(); i++)
+  {
+    QTableWidgetItem* linkA = new QTableWidgetItem(occasionally_in_collision[i].first.c_str());
+    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    QTableWidgetItem* linkB = new QTableWidgetItem(occasionally_in_collision[i].second.c_str());
+    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    std::stringstream percentageStream;
+    percentageStream << percentages[i];
+    QTableWidgetItem* percentage = new QTableWidgetItem(percentageStream.str().c_str());
+    percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    QCheckBox* enableBox = new QCheckBox(occasionally_collision_table_);
+    enableBox->setChecked(true);
+    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(occasionallyCollisionTableChanged()));
+
+    occasionally_collision_table_->setItem((int)i, 0, linkA);
+    occasionally_collision_table_->setItem((int)i, 1, linkB);
+    occasionally_collision_table_->setItem((int)i, 2, percentage);
+    occasionally_collision_table_->setCellWidget((int)i, 3, enableBox);
+  }
+
+  for(size_t i = 0; i < not_in_collision.size(); i++)
+  {
+    QTableWidgetItem* linkA = new QTableWidgetItem(not_in_collision[i].first.c_str());
+    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    QTableWidgetItem* linkB = new QTableWidgetItem(not_in_collision[i].second.c_str());
+    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    std::stringstream percentageStream;
+    percentageStream << 0.0;
+    QTableWidgetItem* percentage = new QTableWidgetItem(percentageStream.str().c_str());
+    percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    QCheckBox* enableBox = new QCheckBox(occasionally_collision_table_);
+    enableBox->setChecked(false);
+    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(occasionallyCollisionTableChanged()));
+
+    occasionally_collision_table_->setItem((int)(i+occasionally_in_collision.size()), 0, linkA);
+    occasionally_collision_table_->setItem((int)(i+occasionally_in_collision.size()), 1, linkB);
+    occasionally_collision_table_->setItem((int)(i+occasionally_in_collision.size()), 2, percentage);
+    occasionally_collision_table_->setCellWidget((int)(i+occasionally_in_collision.size()), 3, enableBox);
+  }
+  occasionallyCollisionTableChanged();
+
+  lock_.unlock();
 }
 
 void generateOftenInCollisionTable()
@@ -1417,27 +1660,8 @@ void generateOftenInCollisionTable()
 
   ROS_INFO("%lu links often in collision.", often_in_collision.size());
 
-  std::vector<std::pair<std::string, std::string> >& disableVector =
-      disable_map_[planning_environment::CollisionOperationsGenerator::ALWAYS];
-
   for(size_t i = 0; i < often_in_collision.size(); i++)
   {
-    bool shouldBreak = false;
-
-    for(size_t j = 0; j < disableVector.size(); j++)
-    {
-      if(often_in_collision[i] == disableVector[j])
-      {
-        shouldBreak = true;
-        break;
-      }
-    }
-
-    if(shouldBreak)
-    {
-      break;
-    }
-
     QTableWidgetItem* linkA = new QTableWidgetItem(often_in_collision[i].first.c_str());
     linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
@@ -1450,7 +1674,7 @@ void generateOftenInCollisionTable()
     percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     QCheckBox* enableBox = new QCheckBox(often_collision_table_);
-    enableBox->setChecked(false);
+    enableBox->setChecked(true);
     connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(oftenCollisionTableChanged()));
 
     often_collision_table_->setItem((int)i, 0, linkA);
@@ -1509,11 +1733,27 @@ void generateAlwaysInCollisionTable()
 
 
    lock_.unlock();
+
+
+   ops_gen_->disablePairCollisionChecking(always_in_collision);
+   disable_map_[planning_environment::CollisionOperationsGenerator::ALWAYS] = always_in_collision;
  }
+
+void writeFiles()
+{
+  outputJointLimitsYAML();
+  outputOMPLGroupYAML();
+  outputPlanningDescriptionYAML();
+  outputOMPLLaunchFile();
+  outputKinematicsLaunchFiles();
+  outputTrajectoryFilterLaunch();
+  outputPlanningEnvironmentLaunch();
+  outputPlanningComponentVisualizerLaunchFile();
+}
 
 protected:
 
-  //TODO: Properly implement this
+
   int nextId() const
   {
     switch(currentId())
@@ -1576,7 +1816,7 @@ protected:
     ok_dialog_ = new QDialog(this);
     QVBoxLayout* okDialogLayout = new QVBoxLayout(ok_dialog_);
     QLabel* okText = new QLabel(ok_dialog_);
-    okText->setText("The kinematic chain was valid! Visualize in Rviz.");
+    okText->setText("The planning group was valid! Visualize in Rviz.");
     okDialogLayout->addWidget(okText);
     ok_dialog_->setLayout(okDialogLayout);
 
@@ -1584,7 +1824,7 @@ protected:
     not_ok_dialog_ = new QDialog(this);
     QVBoxLayout* notOkDialogLayout = new QVBoxLayout(not_ok_dialog_);
     QLabel* notOkText = new QLabel(not_ok_dialog_);
-    notOkText->setText("Error! The kinematic chain was invalid!");
+    notOkText->setText("Error! The planning group was invalid!");
     notOkDialogLayout->addWidget(notOkText);
     not_ok_dialog_->setLayout(notOkDialogLayout);
 
@@ -1693,6 +1933,29 @@ protected:
     kinematic_chains_page_->setLayout(layout);
   }
 
+
+  void createJointCollectionTables()
+  {
+    const std::vector<planning_models::KinematicModel::JointModel*>& jmv = kmodel_->getJointModels();
+
+    joint_table_->setRowCount((int)jmv.size());
+    joint_table_->setColumnCount(1);
+    joint_table_->setColumnWidth(0, 300);
+    selected_joint_table_->setColumnCount(1);
+    selected_joint_table_->setColumnWidth(0,300);
+    QStringList headerLabels;
+    headerLabels.append("Joint");
+    joint_table_->setHorizontalHeaderLabels(headerLabels);
+    selected_joint_table_->setHorizontalHeaderLabels(headerLabels);
+    for(size_t i = 1; i < jmv.size(); i++)
+    {
+      QTableWidgetItem* item = new QTableWidgetItem(jmv[i]->getName().c_str());
+      item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+      joint_table_->setItem((int)i - 1, 0, item);
+    }
+  }
+
+
   void initJointCollectionsPage()
   {
     joint_collections_page_ = new QWizardPage(this);
@@ -1713,25 +1976,31 @@ protected:
     jointBox->setLayout(jointLayout);
     layout->addWidget(jointBox, 1, 0, 1, 1);
 
+    QPushButton* selectButton = new QPushButton(jointBox);
+    selectButton->setText("Select");
+    jointLayout->addWidget(selectButton);
+
+    connect(selectButton, SIGNAL(clicked()), this, SLOT(selectJointButtonClicked()));
 
     QGroupBox* selectedBox = new QGroupBox(joint_collections_page_);
     selectedBox->setTitle("Selected Joints");
 
     QVBoxLayout* selectedLayout = new QVBoxLayout(selectedBox);
-    selected_joint_table = new QTableWidget(selectedBox);
-    selectedLayout->addWidget(selected_joint_table);
+    selected_joint_table_ = new QTableWidget(selectedBox);
+    selectedLayout->addWidget(selected_joint_table_);
 
 
     QPushButton* deselectButton = new QPushButton(selectedBox);
     deselectButton->setText("Deselect");
     selectedLayout->addWidget(deselectButton);
 
-    QPushButton* visualizeButton = new QPushButton(selectedBox);
-    visualizeButton->setText("Visualize in Rviz");
-    selectedLayout->addWidget(visualizeButton);
+    connect(deselectButton, SIGNAL(clicked()), this, SLOT(deselectJointButtonClicked()));
 
-    connect(visualizeButton, SIGNAL(clicked()), this, SLOT(visualizeJointGroupClicked()));
-
+    QLabel* jointGroupLabel = new QLabel(selectedBox);
+    jointGroupLabel->setText("\nJoint Group Name: ");
+    joint_group_name_field_ = new QLineEdit(selectedBox);
+    selectedLayout->addWidget(jointGroupLabel);
+    selectedLayout->addWidget(joint_group_name_field_);
     QPushButton* acceptButton = new QPushButton(selectedBox);
     acceptButton->setText("Accept Joint Group");
     selectedLayout->addWidget(acceptButton);
@@ -1743,6 +2012,8 @@ protected:
     addPage(joint_collections_page_);
     setPage(JointCollectionsPage, joint_collections_page_);
     joint_collections_page_->setLayout(layout);
+
+    createJointCollectionTables();
   }
 
   void initSelectDofPage()
@@ -1760,7 +2031,7 @@ protected:
     applyButton->setText("Apply Changes");
     layout->addWidget(applyButton);
 
-    connect(applyButton, SIGNAL(connect()), SLOT(dofSelectionTableChanged()));
+    connect(applyButton, SIGNAL(clicked()), SLOT(dofSelectionTableChanged()));
 
     dof_selection_table_ = new QTableWidget(select_dof_page_);
     layout->addWidget(dof_selection_table_);
@@ -1916,9 +2187,16 @@ protected:
 
     QVBoxLayout* layout = new QVBoxLayout(occasionally_in_collision_page_);
     QLabel* occasionallyLabel = new QLabel(occasionally_in_collision_page_);
-    occasionallyLabel->setText("The following links are occasionally in collision over the sample space."
-        " By default, collisions will be enabled for them. Collisions are visualized in rviz.");
+    occasionallyLabel->setText("The following links are occasionally (or never) in collision over the sample space."
+        " By default, collisions will be disabled for those which never collide,"
+        " and enabled for those which only occasionally collide. Collisions are visualized in rviz.");
     layout->addWidget(occasionallyLabel);
+
+    QPushButton* generateButton = new QPushButton(occasionally_in_collision_page_);
+    generateButton->setText("Generate List (May take a minute)");
+    layout->addWidget(generateButton);
+    connect(generateButton, SIGNAL(clicked()), this, SLOT(generateOccasionallyInCollisionTable()));
+
     occasionally_collision_table_ = new QTableWidget(occasionally_in_collision_page_);
     layout->addWidget(occasionally_collision_table_);
 
@@ -1933,10 +2211,15 @@ protected:
     output_files_page_->setTitle("Output Files");
     QVBoxLayout* layout = new QVBoxLayout(output_files_page_);
     QLabel* outputLabel = new QLabel(output_files_page_);
-    outputLabel->setText("Done! The wizard has auto-generated a stack called <your_robot_name>_arm_navigation "
-        "in your ~/.ros folder.");
-
+    outputLabel->setText("Done! The wizard will auto-generate a stack called <your_robot_name>_arm_navigation "
+        "in your ~/.ros folder when you click the button below.");
     layout->addWidget(outputLabel);
+    QPushButton* generateButton = new QPushButton(output_files_page_);
+    generateButton->setText("Generate Config Files...");
+
+    layout->addWidget(generateButton);
+
+    connect(generateButton, SIGNAL(clicked()), this, SLOT(writeFiles()));
 
     addPage(output_files_page_);
     setPage(OutputFilesPage, output_files_page_);
@@ -2041,11 +2324,12 @@ protected:
   QTableWidget* current_group_table_;
   QTreeWidget* link_tree_;
   QTableWidget* joint_table_;
-  QTableWidget* selected_joint_table;
+  QTableWidget* selected_joint_table_;
   QComboBox* group_selection_mode_box_;
   QLineEdit* chain_name_field_;
   QLineEdit* base_link_field_;
   QLineEdit* tip_link_field_;
+  QLineEdit* joint_group_name_field_;
   QTableWidget* dof_selection_table_;
   QTableWidget* always_collision_table_;
   QTableWidget* often_collision_table_;
