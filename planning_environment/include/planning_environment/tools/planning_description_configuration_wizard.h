@@ -53,7 +53,7 @@ public:
   };
 
   PlanningDescriptionConfigurationWizard(const std::string& urdf_package, const std::string& urdf_path, QWidget* parent = NULL) :
-    inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package), urdf_path_(urdf_path), QWizard(parent)
+    QWizard(parent), inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package), urdf_path_(urdf_path) 
   {
     std::string full_urdf_path = ros::package::getPath(urdf_package_)+urdf_path_;
 
@@ -113,6 +113,8 @@ public:
     if(!setupWithWorldFixedFrame("", "Floating")) {
       return;
     }
+
+    outputConfigAndLaunchRviz();
 
     vis_marker_publisher_ = nh_.advertise<visualization_msgs::Marker>(VIS_TOPIC_NAME, 128);
     vis_marker_array_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>(VIS_TOPIC_NAME+"_array", 128);
@@ -196,6 +198,32 @@ public:
     emitter_ << YAML::Key << "child_frame_id" << YAML::Value << world_joint_config_.child_frame_id;
     emitter_ << YAML::EndMap;
     emitter_ << YAML::EndSeq;
+  }
+
+  void outputConfigAndLaunchRviz() {
+
+    std::string template_name = ros::package::getPath("planning_environment")+"/config/planning_description_configuration_wizard.vcg";
+    
+    std::ifstream template_file(template_name.c_str());
+
+    std::ofstream ofile("planning_description_configuration_wizard.vcg");
+
+    char ch;
+    char buf[80];
+    while(template_file && template_file.get(ch)) {
+      if(ch != '$') {
+        ofile.put(ch);
+      } else {
+        template_file.getline(buf, 80, '$');
+        if(template_file.eof() || template_file.bad()) {
+          ROS_ERROR_STREAM("Bad template file");
+          break;
+        }
+        ofile << kmodel_->getRoot()->getParentFrameId();
+      } 
+    }
+
+    std::ofstream touch_file("vcg_ready");
   }
 
   void setupGroups() {
