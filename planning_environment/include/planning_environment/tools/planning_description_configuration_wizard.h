@@ -1027,7 +1027,7 @@ public:
     launch_root->LinkEndChild(rp);
     rp->SetAttribute("command","load");
     rp->SetAttribute("ns", "robot_description_planning");
-    rp->SetAttribute("textfile", "$(find "+dir_name_+")/config/"+yaml_outfile_name_);
+    rp->SetAttribute("file", "$(find "+dir_name_+")/config/"+yaml_outfile_name_);
     doc.SaveFile(full_launch_outfile_name_);
 
   }
@@ -1084,6 +1084,28 @@ public:
   }
 
   void outputPlanningComponentVisualizerLaunchFile() {
+    //now doing planning components .vcg file
+    std::string template_name_2 = ros::package::getPath("planning_environment")+"/config/planning_components_visualizer.vcg";
+    
+    std::ifstream template_file_2(template_name_2.c_str());
+
+    std::ofstream ofile_2((dir_name_+"/config/planning_components_visualizer.vcg").c_str());
+
+    char ch;
+    char buf[80];
+    while(template_file_2 && template_file_2.get(ch)) {
+      if(ch != '$') {
+        ofile_2.put(ch);
+      } else {
+        template_file_2.getline(buf, 80, '$');
+        if(template_file_2.eof() || template_file_2.bad()) {
+          ROS_ERROR_STREAM("Bad template file");
+          break;
+        }
+        ofile_2 << kmodel_->getRoot()->getParentFrameId();
+      } 
+    }
+
     TiXmlDocument doc;
     TiXmlElement* launch_root = new TiXmlElement("launch");
     doc.LinkEndChild(launch_root);
@@ -1108,6 +1130,13 @@ public:
     launch_root->LinkEndChild(fil);
     fil->SetAttribute("file", "$(find "+dir_name_+")/launch/trajectory_filter_server.launch");
 
+    TiXmlElement *rviz = new TiXmlElement("node");
+    launch_root->LinkEndChild(rviz);
+    rviz->SetAttribute("pkg","rviz");
+    rviz->SetAttribute("type","rviz");
+    rviz->SetAttribute("name","rviz_planning_components");
+    rviz->SetAttribute("args","-d $(find "+dir_name_+")/config/planning_components_visualizer.vcg");
+  
     TiXmlElement *vis = new TiXmlElement("node");
     launch_root->LinkEndChild(vis);
     vis->SetAttribute("pkg","move_arm");
