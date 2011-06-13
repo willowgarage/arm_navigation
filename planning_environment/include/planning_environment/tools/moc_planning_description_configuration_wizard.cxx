@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'planning_description_configuration_wizard.h'
 **
-** Created: Mon Jun 13 14:24:50 2011
+** Created: Mon Jun 13 15:34:55 2011
 **      by: The Qt Meta Object Compiler version 62 (Qt 4.6.2)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -23,7 +23,7 @@ static const uint qt_meta_data_PlanningDescriptionConfigurationWizard[] = {
        4,       // revision
        0,       // classname
        0,    0, // classinfo
-      23,   14, // methods
+      24,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -53,7 +53,8 @@ static const uint qt_meta_data_PlanningDescriptionConfigurationWizard[] = {
      578,   39,   39,   39, 0x0a,
      610,   39,   39,   39, 0x0a,
      643,   39,   39,   39, 0x0a,
-     677,   39,   39,   39, 0x0a,
+     682,  677,   39,   39, 0x0a,
+     704,   39,   39,   39, 0x0a,
 
        0        // eod
 };
@@ -79,7 +80,7 @@ static const char qt_meta_stringdata_PlanningDescriptionConfigurationWizard[] = 
     "generateOftenInCollisionTable()\0"
     "generateAlwaysInCollisionTable()\0"
     "generateDefaultInCollisionTable()\0"
-    "writeFiles()\0"
+    "file\0fileSelected(QString)\0writeFiles()\0"
 };
 
 const QMetaObject PlanningDescriptionConfigurationWizard::staticMetaObject = {
@@ -134,10 +135,11 @@ int PlanningDescriptionConfigurationWizard::qt_metacall(QMetaObject::Call _c, in
         case 19: generateOftenInCollisionTable(); break;
         case 20: generateAlwaysInCollisionTable(); break;
         case 21: generateDefaultInCollisionTable(); break;
-        case 22: writeFiles(); break;
+        case 22: fileSelected((*reinterpret_cast< const QString(*)>(_a[1]))); break;
+        case 23: writeFiles(); break;
         default: ;
         }
-        _id -= 23;
+        _id -= 24;
     }
     return _id;
 }

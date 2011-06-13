@@ -29,6 +29,7 @@
 #include <qt4/QtGui/qpushbutton.h>
 #include <qt4/QtGui/qcheckbox.h>
 #include <qt4/QtGui/qdialog.h>
+#include <qt4/QtGui/qfiledialog.h>
 #include <ncurses.h>
 #include <tinyxml/tinyxml.h>
 
@@ -57,6 +58,7 @@ public:
   PlanningDescriptionConfigurationWizard(const std::string& urdf_package, const std::string& urdf_path, QWidget* parent = NULL) :
     QWizard(parent), inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package), urdf_path_(urdf_path) 
   {
+    package_directory_ = "";
     std::string full_urdf_path = ros::package::getPath(urdf_package_)+urdf_path_;
 
     ROS_INFO_STREAM("full path name is " << full_urdf_path);
@@ -72,28 +74,6 @@ public:
     //making directories
     dir_name_ = getRobotName()+"_arm_navigation";
 
-    std::string del_com = "rm -rf " + dir_name_;
-    int ok = system(del_com.c_str());
-
-    std::string mdir = "roscreate-pkg "+dir_name_;
-    mdir += " planning_environment arm_kinematics_constraint_aware ompl_ros_interface ";
-    mdir += "trajectory_filter_server constraint_aware_spline_smoother move_arm";
-    ok = system(mdir.c_str());
-
-    mdir ="mkdir -p "+dir_name_+"/config";
-    ok = system(mdir.c_str());
-    if(ok != 0) {
-      ROS_WARN_STREAM("Making subdirectory not ok");
-      return;
-    }
-
-    mdir = "mkdir -p "+dir_name_+"/launch";
-    ok = system(mdir.c_str());
-    if(ok != 0) {
-      ROS_WARN_STREAM("Making subdirectory not ok");
-      return;
-    }
-
     yaml_outfile_name_ = getRobotName()+"_planning_description.yaml";
     full_yaml_outfile_name_ = dir_name_+"/config/"+yaml_outfile_name_;
     launch_outfile_name_ = getRobotName()+"_planning_environment.launch";
@@ -102,7 +82,7 @@ public:
     //pushing to the param server
     std::string com = "rosparam set robot_description -t "+full_urdf_path;
 
-    ok = system(com.c_str());
+    int ok = system(com.c_str());
 
     if(ok != 0) {
       ROS_WARN_STREAM("Setting parameter system call not ok");
@@ -406,6 +386,17 @@ public:
   void popupOkayWarning()
   {
     ok_dialog_->show();
+  }
+
+  void popupFileFailure(const char* reason)
+  {
+    file_failure_reason_->setText(reason);
+    file_failure_dialog_->show();
+  }
+
+  void popupFileSuccess()
+  {
+    file_success_dialog_->show();
   }
 
   void updateGroupTable()
@@ -1662,8 +1653,6 @@ void generateOccasionallyInCollisionTable()
   ops_gen_->generateOccasionallyAndNeverInCollisionPairs(occasionally_in_collision, not_in_collision, percentages,
                                                          in_collision_joint_values);
 
-
-
   occasionally_collision_table_->clear();
   occasionally_collision_table_->setRowCount((int)(occasionally_in_collision.size() + not_in_collision.size()));
   occasionally_collision_table_->setColumnCount(4);
@@ -1845,8 +1834,6 @@ void generateAlwaysInCollisionTable()
      always_collision_table_->setItem((int)i, 1, linkB);
 
    }
-
-
    lock_.unlock();
 
 
@@ -1908,9 +1895,62 @@ void generateDefaultInCollisionTable()
   lock_.unlock();
 }
 
+void fileSelected(const QString& file)
+{
+  package_path_field_->setText(file);
+}
 
 void writeFiles()
 {
+  package_directory_ = package_path_field_->text().toStdString();
+  int ok = chdir(package_directory_.c_str());
+
+  if(ok != 0)
+  {
+    ROS_WARN("Unable to change directory to %s", package_directory_.c_str());
+    std::string warning = "Failed to change directory to ";
+    warning += package_directory_;
+    popupFileFailure(warning.c_str());
+    return;
+  }
+
+  std::string del_com = "rm -rf " + dir_name_;
+  ok = system(del_com.c_str());
+
+  if(ok != 0)
+  {
+    ROS_WARN_STREAM("Failed to delete old package!");
+    popupFileFailure("Failed to delete existing package.");
+  }
+
+  std::string mdir = "roscreate-pkg "+dir_name_;
+  mdir += " planning_environment arm_kinematics_constraint_aware ompl_ros_interface ";
+  mdir += "trajectory_filter_server constraint_aware_spline_smoother move_arm";
+  ok = system(mdir.c_str());
+
+  if(ok != 0)
+  {
+    ROS_WARN_STREAM("Failed to create ros package!");
+    popupFileFailure("Creating ros package failed.");
+    return;
+  }
+
+  mdir ="mkdir -p "+dir_name_+"/config";
+  ok = system(mdir.c_str());
+  if(ok != 0) {
+    ROS_WARN_STREAM("Making subdirectory not ok");
+    popupFileFailure("Creating subdirectory /config failed.");
+    return;
+  }
+
+  mdir = "mkdir -p "+dir_name_+"/launch";
+  ok = system(mdir.c_str());
+  if(ok != 0) {
+    ROS_WARN_STREAM("Making subdirectory not ok");
+    popupFileFailure("Creating subdirectory /launch failed");
+    return;
+  }
+
   outputJointLimitsYAML();
   outputOMPLGroupYAML();
   outputPlanningDescriptionYAML();
@@ -1919,6 +1959,8 @@ void writeFiles()
   outputTrajectoryFilterLaunch();
   outputPlanningEnvironmentLaunch();
   outputPlanningComponentVisualizerLaunchFile();
+
+  popupFileSuccess();
 }
 
 protected:
@@ -2005,6 +2047,24 @@ protected:
     notOkDialogLayout->addWidget(notOkText);
     not_ok_dialog_->setLayout(notOkDialogLayout);
 
+
+    file_failure_dialog_ = new QDialog(this);
+    QVBoxLayout* filefailureLayout = new QVBoxLayout(file_failure_dialog_);
+    QLabel* fileFailureText = new QLabel(file_failure_dialog_);
+    fileFailureText->setText("Failed to create files! Reason: ");
+    file_failure_reason_ = new QLabel(this);
+    file_failure_reason_->setText("unspecified.");
+    filefailureLayout->addWidget(fileFailureText);
+    filefailureLayout->addWidget(file_failure_reason_);
+    file_failure_dialog_->setLayout(filefailureLayout);
+
+
+    file_success_dialog_ = new QDialog(this);
+    QVBoxLayout* filesuccessLayout = new QVBoxLayout(file_success_dialog_);
+    QLabel* filesuccessText = new QLabel(file_success_dialog_);
+    filesuccessText->setText("Successfully created files!");
+    filesuccessLayout->addWidget(filesuccessText);
+    file_success_dialog_->setLayout(filesuccessLayout);
 
 
   }
@@ -2384,7 +2444,7 @@ protected:
     QPushButton* toggleSelected = new QPushButton(default_collision_page_);
     toggleSelected->setText("Toggle Selected");
     layout->addWidget(toggleSelected);
-    connect(toggleSelected, SIGNAL(slicked()), this, SLOT(defaultTogglePushed()));
+    connect(toggleSelected, SIGNAL(clicked()), this, SLOT(defaultTogglePushed()));
 
     connect(generateButton, SIGNAL(clicked()), this, SLOT(generateDefaultInCollisionTable()));
 
@@ -2461,8 +2521,23 @@ protected:
     QVBoxLayout* layout = new QVBoxLayout(output_files_page_);
 
     output_files_page_->setSubTitle("Done! The wizard will auto-generate a stack called <your_robot_name>_arm_navigation "
-        "in your ~/.ros folder when you click the button below.");
+        "in the selected folder when you click the generate button below.");
 
+
+    package_path_field_  = new QLineEdit(output_files_page_);
+    package_path_field_->setText("<absolute directory path>");
+    layout->addWidget(package_path_field_);
+
+    QPushButton* selectFileButton = new QPushButton(output_files_page_);
+    selectFileButton->setText("Select Directory ...");
+
+    file_selector_ = new QFileDialog(this);
+    file_selector_->setFileMode(QFileDialog::Directory);
+    file_selector_->setOption(QFileDialog::ShowDirsOnly, true);
+
+    connect(file_selector_, SIGNAL(fileSelected(const QString&)), this, SLOT(fileSelected(const QString&)));
+    connect(selectFileButton, SIGNAL(clicked()), file_selector_, SLOT(open()));
+    layout->addWidget(selectFileButton);
 
     QPushButton* generateButton = new QPushButton(output_files_page_);
     generateButton->setText("Generate Config Files...");
@@ -2556,6 +2631,7 @@ protected:
 
   YAML::Emitter emitter_;
 
+  std::string package_directory_;
   std::string dir_name_;
   std::string yaml_outfile_name_, full_yaml_outfile_name_;
   std::string launch_outfile_name_, full_launch_outfile_name_;
@@ -2591,6 +2667,11 @@ protected:
 
   QDialog* ok_dialog_;
   QDialog* not_ok_dialog_;
+  QDialog* file_failure_dialog_;
+  QLabel* file_failure_reason_;
+  QDialog* file_success_dialog_;
+  QLineEdit* package_path_field_;
+  QFileDialog* file_selector_;
 
 
 };
