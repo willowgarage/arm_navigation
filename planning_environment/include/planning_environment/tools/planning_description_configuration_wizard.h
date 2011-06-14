@@ -957,6 +957,61 @@ public:
       emitter << YAML::Key << "projection_evaluator" << YAML::Value << "joint_state";
       emitter << YAML::EndMap;
     }
+
+    //now doing cartesian for any groups that are kinematic chains
+    for(std::map<std::string, planning_models::KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin();
+        it != group_config_map.end();
+        it++) {
+      if(!it->second.base_link_.empty()) {
+        emitter << YAML::Key << it->first+"_cartesian";
+        emitter << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "parent_frame" << YAML::Value << it->second.base_link_;
+        emitter << YAML::Key << "physical_group" << YAML::Value << it->first;
+        emitter << YAML::Key << "planner_type" << YAML::Value << "RPYIKTaskSpacePlanner";
+
+        emitter << YAML::Key << "manifolds" << YAML::Value << YAML::BeginSeq;
+        emitter << "x" << "y" << "z" << "roll" << "pitch" << "yaw" << YAML::EndSeq;
+
+        emitter << YAML::Key << "x" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "type" << YAML::Value << "Linear";
+        emitter << YAML::Key << "min" << YAML::Value << "-2.0";
+        emitter << YAML::Key << "max" << YAML::Value << "2.0";
+        emitter << YAML::EndMap;
+
+        emitter << YAML::Key << "y" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "type" << YAML::Value << "Linear";
+        emitter << YAML::Key << "min" << YAML::Value << "-2.0";
+        emitter << YAML::Key << "max" << YAML::Value << "2.0";
+        emitter << YAML::EndMap;
+
+        emitter << YAML::Key << "z" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "type" << YAML::Value << "Linear";
+        emitter << YAML::Key << "min" << YAML::Value << "-2.0";
+        emitter << YAML::Key << "max" << YAML::Value << "2.0";
+        emitter << YAML::EndMap;
+
+        emitter << YAML::Key << "roll" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "type" << YAML::Value << "Revolute";
+        emitter << YAML::EndMap;
+
+        emitter << YAML::Key << "pitch" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "type" << YAML::Value << "Revolute";
+        emitter << YAML::EndMap;
+
+        emitter << YAML::Key << "yaw" << YAML::Value << YAML::BeginMap;
+        emitter << YAML::Key << "type" << YAML::Value << "Revolute";
+        emitter << YAML::EndMap;
+        
+        emitter << YAML::Key << "planner_configs" << YAML::Value << YAML::BeginSeq;
+        emitter << "SBLkConfig1" << "LBKPIECEkConfig1" << YAML::EndSeq;
+
+        emitter << YAML::Key << "kinematics_solver" << YAML::Value << "arm_kinematics_constraint_aware/KDLArmKinematicsPlugin";
+        emitter << YAML::Key << "tip_name" << YAML::Value << it->second.tip_link_;
+        emitter << YAML::Key << "root_name" << YAML::Value << it->second.base_link_;
+        emitter << YAML::Key << "projection_evaluator" << YAML::Value << "joint_state";
+        emitter << YAML::Key << "longest_valid_segment_fraction" << YAML::Value << "0.001"; 
+      }
+    }
     emitter << YAML::EndMap;
     std::ofstream outf((dir_name_+"/config/ompl_planning.yaml").c_str(), std::ios_base::trunc);
 
