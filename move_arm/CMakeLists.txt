@@ -22,4 +22,4 @@ target_link_libraries(move_arm_simple_action move_arm_logging)
 
 rosbuild_add_executable(planning_components_visualizer src/planning_components_visualizer.cpp)
 rosbuild_link_boost(planning_components_visualizer thread)
-target_link_libraries(planning_components_visualizer ncurses)
+

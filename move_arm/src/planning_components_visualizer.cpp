@@ -57,8 +57,6 @@
 #include <move_arm/move_arm_warehouse_reader.h>
 #include <sensor_msgs/JointState.h>
 
-#include <ncurses.h>
-
 using namespace std;
 using namespace motion_planning_msgs;
 using namespace interactive_markers;
@@ -254,6 +252,7 @@ class PlanningComponentsVisualizer
       vis_marker_publisher_ = nh_.advertise<Marker> (VIS_TOPIC_NAME, 128);
       vis_marker_array_publisher_ = nh_.advertise<MarkerArray> (VIS_TOPIC_NAME + "_array", 128);
       joint_state_publisher_ = nh_.advertise<sensor_msgs::JointState> ("joint_states", 10);
+      constrain_rp_ = false;
 
       process_function_ptr_ = boost::bind(&PlanningComponentsVisualizer::processInteractiveFeedback, this, _1);
 
@@ -337,9 +336,12 @@ class PlanningComponentsVisualizer
                                                  "Set Start Position");
       end_position_handle_ = registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"],
                                                "Set End Position");
-
+      constrain_rp_handle_ = registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"],
+                                                "Constrain in Roll and Pitch");
+                                                
       menu_handler_map_["End Effector"].setCheckState(start_position_handle_, MenuHandler::UNCHECKED);
       menu_handler_map_["End Effector"].setCheckState(end_position_handle_, MenuHandler::CHECKED);
+      menu_handler_map_["End Effector"].setCheckState(constrain_rp_handle_, MenuHandler::UNCHECKED);
 
       registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Plan");
       registerMenuEntry(menu_handler_map_["End Effector"], menu_entry_maps_["End Effector"], "Filter Trajectory");
@@ -524,38 +526,6 @@ class PlanningComponentsVisualizer
       ROS_INFO("Planning scene sent.");
     }
 
-    void selectPlanningGroup()
-    {
-      while(1)
-      {
-        echo();
-        deleteKinematicStates();
-        unsigned int num = 0;
-        clear();
-        vector<string> names;
-        for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++, num++)
-        {
-          names.push_back(it->first);
-          printw("%d) %s\n", num, it->first.c_str());
-        }
-        printw("Enter a number to select the group\n");
-        refresh();
-        char str[80];
-        getstr(str);
-        unsigned int entry;
-        stringstream ss(str);
-        ss >> entry;
-
-        selectPlanningGroup(entry);
-
-        movePlanningGroup();
-        lock_.lock();
-        current_group_name_ = "";
-        deleteKinematicStates();
-        lock_.unlock();
-      }
-    }
-
     void selectPlanningGroup(unsigned int entry)
     {
       ROS_INFO("Selecting planning group %u", entry);
@@ -625,114 +595,6 @@ class PlanningComponentsVisualizer
       interactive_marker_server_->applyChanges();
       lock_.unlock();
       ROS_INFO("Planning group selected.");
-    }
-
-    void movePlanningGroup()
-    {
-      bool quit = false;
-
-      // I had to disable this unfortunately... It was really messing with my debug prints.
-      while(!quit)
-      {
-        // TODO: Simply remove this function
-        sleep(1.0);
-      }
-      /*
-       clear();
-       noecho();
-       bool coll_aware = true;
-       bool quit = false;
-       bool print = true;
-       while(!quit)
-       {
-       if(print)
-       {
-       clear();
-       printw("Examining current group %s\n", current_group_name_.c_str());
-       printw("Type 'q' to return to group selection\n");
-       printw("Type 'c' to toggle collision-aware/non-collision aware ik\n");
-       printw("Type 'w' to filter planner trajectory\n");
-       printw("Type 'i/k' for end effector forward/back\n");
-       printw("Type 'j/l' for end effector left/right\n");
-       printw("Type 'h/n' for end effector up/down\n");
-       printw("Type 'r/f' for end effector pitch up/down\n");
-       printw("Type 'd/g' for end effector yaw up/down\n");
-       printw("Type 'v/b' for end effector roll up/down\n");
-       printw("Current using");
-       if(coll_aware)
-       {
-       printw(" collision-aware ");
-       }
-       else
-       {
-       printw(" non-collision-aware ");
-       }
-       printw("ik\n");
-       refresh();
-       print = false;
-       }
-       char c = getch();
-       switch (c)
-       {
-       case 'q':
-       quit = true;
-       break;
-       case 'c':
-       coll_aware = !coll_aware;
-       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
-       print = true;
-       break;
-       case 'p':
-       if(doesGroupHaveGoodIKSolution(current_group_name_))
-       {
-       planToEndEffectorState(group_map_[current_group_name_]);
-       }
-       break;
-       case 'w':
-       if(doesGroupHaveGoodTrajectory(current_group_name_, "planner"))
-       {
-       filterPlannerTrajectory(group_map_[current_group_name_]);
-       }
-       break;
-       case 'i':
-       moveEndEffectorMarkers(HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
-       break;
-       case 'k':
-       moveEndEffectorMarkers(-HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, 0.0, coll_aware);
-       break;
-       case 'j':
-       moveEndEffectorMarkers(0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
-       break;
-       case 'l':
-       moveEndEffectorMarkers(0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, 0.0, coll_aware);
-       break;
-       case 'h':
-       moveEndEffectorMarkers(0.0, 0.0, HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
-       break;
-       case 'n':
-       moveEndEffectorMarkers(0.0, 0.0, -HAND_TRANS_SPEED, 0.0, 0.0, 0.0, coll_aware);
-       break;
-       case 'r':
-       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, coll_aware);
-       break;
-       case 'f':
-       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, coll_aware);
-       break;
-       case 'd':
-       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, HAND_ROT_SPEED, coll_aware);
-       break;
-       case 'g':
-       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, -HAND_ROT_SPEED, coll_aware);
-       break;
-       case 'v':
-       moveEndEffectorMarkers(0.0, 0.0, 0.0, HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
-       break;
-       case 'b':
-       moveEndEffectorMarkers(0.0, 0.0, 0.0, -HAND_ROT_SPEED, 0.0, 0.0, coll_aware);
-       break;
-       }
-       }
-       */
     }
 
     bool isValidJointName(GroupCollection& gc, string name)
@@ -951,7 +813,7 @@ class PlanningComponentsVisualizer
         ROS_INFO("Problem");
       }
 
-      if(solveIKForEndEffectorPose(gc, coll_aware))
+      if(solveIKForEndEffectorPose(gc, coll_aware, constrain_rp_))
       {
         gc.good_ik_solution_ = true;
 
@@ -962,8 +824,34 @@ class PlanningComponentsVisualizer
       }
     }
 
-    bool solveIKForEndEffectorPose(PlanningComponentsVisualizer::GroupCollection& gc, bool coll_aware = true,
-                                   bool constrain_pitch_and_roll = false, double change_redundancy = 0.0)
+  void determinePitchRollConstraintsGivenState(const PlanningComponentsVisualizer::GroupCollection& gc,
+                                               const planning_models::KinematicState& state,
+                                               motion_planning_msgs::OrientationConstraint& goal_constraint,
+                                               motion_planning_msgs::OrientationConstraint& path_constraint) const
+  {
+    btTransform cur = state.getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
+    //btScalar roll, pitch, yaw;
+    //cur.getBasis().getRPY(roll,pitch,yaw);
+    goal_constraint.header.frame_id = cm_->getWorldFrameId();
+    goal_constraint.header.stamp = ros::Time::now();
+    goal_constraint.link_name = gc.ik_link_name_;
+    tf::quaternionTFToMsg(cur.getRotation(), goal_constraint.orientation);
+    goal_constraint.absolute_roll_tolerance = 0.04;
+    goal_constraint.absolute_pitch_tolerance = 0.04;
+    goal_constraint.absolute_yaw_tolerance = M_PI;
+    path_constraint.header.frame_id = cm_->getWorldFrameId();
+    path_constraint.header.stamp = ros::Time::now();
+    path_constraint.link_name = gc.ik_link_name_;
+    tf::quaternionTFToMsg(cur.getRotation(), path_constraint.orientation);
+    path_constraint.type = path_constraint.HEADER_FRAME;
+    path_constraint.absolute_roll_tolerance = 0.1;
+    path_constraint.absolute_pitch_tolerance = 0.1;
+    path_constraint.absolute_yaw_tolerance = M_PI;
+  }
+
+
+  bool solveIKForEndEffectorPose(PlanningComponentsVisualizer::GroupCollection& gc, bool coll_aware = true,
+                                 bool constrain_pitch_and_roll = false, double change_redundancy = 0.0)
     {
       kinematics_msgs::PositionIKRequest ik_request;
       ik_request.ik_link_name = gc.ik_link_name_;
@@ -989,6 +877,35 @@ class PlanningComponentsVisualizer
       {
         kinematics_msgs::GetConstraintAwarePositionIK::Request ik_req;
         kinematics_msgs::GetConstraintAwarePositionIK::Response ik_res;
+        if(constrain_pitch_and_roll) {
+          IKControlType other_state;
+          if(ik_control_type_ == EndPosition)
+          {
+            other_state = StartPosition;
+          }
+          else
+          {
+            other_state = EndPosition;
+          }
+          motion_planning_msgs::Constraints goal_constraints;
+          goal_constraints.orientation_constraints.resize(1);
+          motion_planning_msgs::Constraints path_constraints;
+          path_constraints.orientation_constraints.resize(1);
+          determinePitchRollConstraintsGivenState(gc,
+                                                  *gc.getState(other_state),
+                                                  goal_constraints.orientation_constraints[0],
+                                                  path_constraints.orientation_constraints[0]);
+          motion_planning_msgs::ArmNavigationErrorCodes err;
+          if(!cm_->isKinematicStateValid(*gc.getState(ik_control_type_),
+                                         std::vector<std::string>(),
+                                         err,
+                                         goal_constraints,
+                                         path_constraints)) {
+            ROS_INFO_STREAM("Violates rp constraints");
+            return false;
+          }
+          ik_req.constraints = goal_constraints;
+        }
         ik_req.ik_request = ik_request;
         ik_req.timeout = ros::Duration(1.0);
         if(!gc.coll_aware_ik_service_.call(ik_req, ik_res))
@@ -1102,8 +1019,26 @@ class PlanningComponentsVisualizer
       {
         motion_plan_request.goal_constraints.joint_constraints[i].joint_name = jsg->getJointNames()[i];
         motion_plan_request.goal_constraints.joint_constraints[i].position = joint_values[i];
-        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.001;
-        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.001;
+        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.01;
+        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.01;
+      }
+      if(constrain_rp_) {
+        motion_plan_request.group_name += "_cartesian";
+        motion_plan_request.goal_constraints.position_constraints.resize(1);
+        motion_plan_request.goal_constraints.orientation_constraints.resize(1);    
+        geometry_msgs::PoseStamped end_effector_wrist_pose;
+        tf::poseTFToMsg(gc.getState(StartPosition)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(),
+                        end_effector_wrist_pose.pose);
+        end_effector_wrist_pose.header.frame_id = cm_->getWorldFrameId();
+        motion_planning_msgs::poseStampedToPositionOrientationConstraints(end_effector_wrist_pose,
+                                                                          gc.ik_link_name_,
+                                                                          motion_plan_request.goal_constraints.position_constraints[0],
+                                                                          motion_plan_request.goal_constraints.orientation_constraints[0]);
+        motion_plan_request.path_constraints.orientation_constraints.resize(1);
+        determinePitchRollConstraintsGivenState(gc,
+                                                *gc.getState(StartPosition),
+                                                motion_plan_request.goal_constraints.orientation_constraints[0],
+                                                motion_plan_request.path_constraints.orientation_constraints[0]);
       }
       convertKinematicStateToRobotState(*gc.getState(StartPosition), ros::Time::now(), cm_->getWorldFrameId(),
                                         motion_plan_request.start_state);
@@ -1682,6 +1617,19 @@ class PlanningComponentsVisualizer
 
               publishJointStates(gc);
 
+            } 
+            else if(handle == constrain_rp_handle_) {
+              menu_handler_map_["End Effector"].getCheckState(handle, checkState);
+              if(checkState != MenuHandler::CHECKED)
+              {
+                menu_handler_map_["End Effector"].setCheckState(handle, MenuHandler::CHECKED);
+                constrain_rp_ = true;
+              } else {
+                menu_handler_map_["End Effector"].setCheckState(handle, MenuHandler::UNCHECKED);
+                constrain_rp_ = false;
+              }
+              moveEndEffectorMarkers(0.0,0.0,0.0,0.0,0.0,0.0,true);
+              menu_handler_map_["End Effector"].reApply(*interactive_marker_server_);
             }
             else if(menu_entry_maps_["End Effector"][handle] == "Plan")
             {
@@ -2197,6 +2145,8 @@ class PlanningComponentsVisualizer
     MenuHandler::EntryHandle end_position_handle_;
     MenuHandler::EntryHandle ik_control_handle_;
     MenuHandler::EntryHandle joint_control_handle_;
+  MenuHandler::EntryHandle constrain_rp_handle_;
+  bool constrain_rp_;
 
     /// Maps strings to menu handlers. This is used for convenience and extensibility.
     MenuHandlerMap menu_handler_map_;
@@ -2277,7 +2227,6 @@ int main(int argc, char** argv)
     pcv->publishJointStates((*pcv->getPlanningGroup(i)));
   }
 
-  pcv->movePlanningGroup();
   ros::waitForShutdown();
 
   return 0;
