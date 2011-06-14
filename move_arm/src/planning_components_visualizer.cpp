@@ -290,7 +290,7 @@ class PlanningComponentsVisualizer
         {
           group_map_[it->first].name_ = it->first;
           group_map_[it->first].ik_link_name_ = it->second.tip_link_;
-          string ik_service_name = "/" + cm_->getKinematicModel()->getRobotName() + "_" + it->first + "_kinematics/";
+          string ik_service_name = cm_->getKinematicModel()->getRobotName() + "_" + it->first + "_kinematics/";
           string coll_aware_name = ik_service_name + "get_constraint_aware_ik";
           string non_coll_aware_name = ik_service_name + "get_ik";
 
@@ -441,7 +441,7 @@ class PlanningComponentsVisualizer
       mapping_msgs::CollisionObject cylinder_object;
       cylinder_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
       cylinder_object.header.stamp = ros::Time::now();
-      cylinder_object.header.frame_id = cm_->getWorldFrameId();
+      cylinder_object.header.frame_id = "/" + cm_->getWorldFrameId();
       geometric_shapes_msgs::Shape object;
       object.type = geometric_shapes_msgs::Shape::CYLINDER;
       object.dimensions.resize(2);
@@ -860,8 +860,7 @@ class PlanningComponentsVisualizer
 
           if(revoluteJoint != NULL)
           {
-            makeInteractive1DOFRotationMarker(
-                                              transform,
+            makeInteractive1DOFRotationMarker(transform,
                                               revoluteJoint->axis_,
                                               model->getName() + "_joint_control",
                                               "",
@@ -870,8 +869,7 @@ class PlanningComponentsVisualizer
           }
           else if(prismaticJoint != NULL)
           {
-            makeInteractive1DOFTranslationMarker(
-                                                 transform,
+            makeInteractive1DOFTranslationMarker(transform,
                                                  prismaticJoint->axis_,
                                                  model->getName() + "_joint_control",
                                                  "",
@@ -899,30 +897,6 @@ class PlanningComponentsVisualizer
                                                                                      gc.getState(ik_control_type_)-> getLinkState(
                                                                                                                                   parentLink)->getGlobalLinkTransform().inverse()
                                                                                          * value);
-      /*
-       // Limits on the joint.
-       map<string, pair<double,double> > jointBounds =
-       gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getAllVariableBounds();
-
-       // For each joint limit, keep snap the value of the joint into it.
-       // TODO: Figure out why each joint has multiple values.
-       for(map<string,pair<double,double> >::iterator it = jointBounds.begin(); it != jointBounds.end(); it++)
-       {
-       if(value < it->second.first)
-       {
-       value = it->second.first;
-       }
-       else if(value > it->second.first)
-       {
-       value = it->second.first;
-       }
-       }
-
-       stateMap[jointName] = value;
-
-       // Update robot state.
-       gc.getState(ik_control_type_)->setKinematicState(stateMap);
-       */
 
       map<string, double> stateMap;
       if(gc.getState(ik_control_type_)->isJointWithinBounds(jointName))
@@ -966,7 +940,7 @@ class PlanningComponentsVisualizer
     {
       kinematics_msgs::PositionIKRequest ik_request;
       ik_request.ik_link_name = gc.ik_link_name_;
-      ik_request.pose_stamped.header.frame_id = cm_->getWorldFrameId();
+      ik_request.pose_stamped.header.frame_id =  cm_->getWorldFrameId();
       ik_request.pose_stamped.header.stamp = ros::Time::now();
       tf::poseTFToMsg(gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(),
                       ik_request.pose_stamped.pose);
@@ -1060,8 +1034,7 @@ class PlanningComponentsVisualizer
     void publishJointStates(GroupCollection& gc)
     {
       sensor_msgs::JointState msg;
-      msg.header.frame_id = cm_->getWorldFrameId();
-      ;
+      msg.header.frame_id =  cm_->getWorldFrameId();
       msg.header.stamp = ros::Time::now();
 
       vector<KinematicState::JointState*> jointStates = gc.getState(ik_control_type_)->getJointStateVector();
@@ -1763,7 +1736,7 @@ class PlanningComponentsVisualizer
       int_marker.pose.position.z = 2.25;
       int_marker.name = "top_level";
       int_marker.description = "Planning Visualizer";
-      int_marker.header.frame_id = cm_->getWorldFrameId();
+      int_marker.header.frame_id = "/" + cm_->getWorldFrameId();
       ;
       makeInteractiveBoxControl(int_marker, 0.0f);
 
@@ -1805,7 +1778,7 @@ class PlanningComponentsVisualizer
       selectable_marker.controlDescription_ = description;
 
       InteractiveMarker marker;
-      marker.header.frame_id = cm_->getWorldFrameId();
+      marker.header.frame_id = "/" + cm_->getWorldFrameId();
       ;
       marker.header.stamp = ros::Time::now();
       marker.pose.position.x = transform.getOrigin().x();
@@ -1934,7 +1907,7 @@ class PlanningComponentsVisualizer
                                               float scale = 1.0f, float value = 0.0f)
     {
       InteractiveMarker marker;
-      marker.header.frame_id = cm_->getWorldFrameId();
+      marker.header.frame_id = "/" + cm_->getWorldFrameId();
       ;
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
@@ -2020,7 +1993,7 @@ class PlanningComponentsVisualizer
                                    float scale = 1.0f, bool pole = false)
     {
       InteractiveMarker marker;
-      marker.header.frame_id = cm_->getWorldFrameId();
+      marker.header.frame_id = "/" + cm_->getWorldFrameId();
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
       marker.pose.position.z = transform.getOrigin().z();
