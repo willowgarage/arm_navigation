@@ -889,20 +889,42 @@ class PlanningComponentsVisualizer
     /////
     void setJointState(GroupCollection& gc, std::string& jointName, btTransform value)
     {
+      KinematicState* currentState = gc.getState(ik_control_type_);
       string parentLink =
           gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getParentLinkModel()->getName();
       string childLink =
           gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getChildLinkModel()->getName();
-      gc.getState(ik_control_type_)-> getJointState(jointName)-> setJointStateValues(
-                                                                                     gc.getState(ik_control_type_)-> getLinkState(
-                                                                                                                                  parentLink)->getGlobalLinkTransform().inverse()
-                                                                                         * value);
+      KinematicState::JointState* jointState = currentState->getJointState(jointName);
+      const KinematicModel::JointModel* jointModel = jointState->getJointModel();
+
+      bool isRotational = (dynamic_cast<const KinematicModel::RevoluteJointModel*>(jointModel) != NULL);
+      bool isPrismatic = (dynamic_cast<const KinematicModel::PrismaticJointModel*>(jointModel) != NULL);
+
+      KinematicState::LinkState* linkState = currentState->getLinkState(parentLink);
+      btTransform transformedValue;
+
+      if(isPrismatic)
+      {
+        value.setRotation(jointState->getVariableTransform().getRotation());
+        transformedValue = linkState->getGlobalLinkTransform().inverse() *
+            gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLink)->getJointOriginTransform().inverse()
+                * value;
+      }
+      else if(isRotational)
+      {
+        transformedValue = linkState->getGlobalLinkTransform().inverse() *
+            gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLink)->getJointOriginTransform().inverse()
+                * value;
+      }
+
+      btTransform oldState = jointState->getVariableTransform();
+      jointState->setJointStateValues(transformedValue);
 
       map<string, double> stateMap;
-      if(gc.getState(ik_control_type_)->isJointWithinBounds(jointName))
+      if(currentState->isJointWithinBounds(jointName))
       {
-        gc.getState(ik_control_type_)->getKinematicStateValues(stateMap);
-        gc.getState(ik_control_type_)->setKinematicState(stateMap);
+        currentState->getKinematicStateValues(stateMap);
+        currentState->setKinematicState(stateMap);
         robot_state_->setKinematicState(stateMap);
         // Send state to robot model.
         publishJointStates(gc);
@@ -912,9 +934,14 @@ class PlanningComponentsVisualizer
         if(is_ik_control_active_)
         {
           selectMarker(selectable_markers_[current_group_name_ + "_selectable"],
-                       gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+                       currentState->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
         }
       }
+      else
+      {
+        jointState->setJointStateValues(oldState);
+      }
+
     }
 
     void setNewEndEffectorPosition(GroupCollection& gc, btTransform& cur, bool coll_aware)
@@ -1907,8 +1934,7 @@ class PlanningComponentsVisualizer
                                               float scale = 1.0f, float value = 0.0f)
     {
       InteractiveMarker marker;
-      marker.header.frame_id = "/" + cm_->getWorldFrameId();
-      ;
+      marker.header.frame_id = cm_->getWorldFrameId();
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
       marker.pose.position.z = transform.getOrigin().z();
@@ -1927,7 +1953,6 @@ class PlanningComponentsVisualizer
       }
       else
       {
-
         control.orientation.x = axis.x();
         control.orientation.y = axis.z();
         control.orientation.z = axis.y();
@@ -1947,7 +1972,6 @@ class PlanningComponentsVisualizer
     {
       InteractiveMarker marker;
       marker.header.frame_id = cm_->getWorldFrameId();
-      ;
       marker.pose.position.x = transform.getOrigin().x();
       marker.pose.position.y = transform.getOrigin().y();
       marker.pose.position.z = transform.getOrigin().z();
