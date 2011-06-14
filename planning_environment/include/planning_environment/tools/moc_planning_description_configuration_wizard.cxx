@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'planning_description_configuration_wizard.h'
 **
-** Created: Mon Jun 13 15:34:55 2011
+** Created: Mon Jun 13 17:41:29 2011
 **      by: The Qt Meta Object Compiler version 62 (Qt 4.6.2)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -23,7 +23,7 @@ static const uint qt_meta_data_PlanningDescriptionConfigurationWizard[] = {
        4,       // revision
        0,       // classname
        0,    0, // classinfo
-      24,   14, // methods
+      27,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -46,15 +46,18 @@ static const uint qt_meta_data_PlanningDescriptionConfigurationWizard[] = {
      377,   39,   39,   39, 0x0a,
      397,   39,   39,   39, 0x0a,
      416,   39,   39,   39, 0x0a,
-     443,   39,   39,   39, 0x0a,
-     472,   39,   39,   39, 0x0a,
+     434,   39,   39,   39, 0x0a,
+     456,   39,   39,   39, 0x0a,
+     476,   39,   39,   39, 0x0a,
      503,   39,   39,   39, 0x0a,
-     539,   39,   39,   39, 0x0a,
-     578,   39,   39,   39, 0x0a,
-     610,   39,   39,   39, 0x0a,
-     643,   39,   39,   39, 0x0a,
-     682,  677,   39,   39, 0x0a,
-     704,   39,   39,   39, 0x0a,
+     532,   39,   39,   39, 0x0a,
+     563,   39,   39,   39, 0x0a,
+     599,   39,   39,   39, 0x0a,
+     638,   39,   39,   39, 0x0a,
+     670,   39,   39,   39, 0x0a,
+     703,   39,   39,   39, 0x0a,
+     742,  737,   39,   39, 0x0a,
+     764,   39,   39,   39, 0x0a,
 
        0        // eod
 };
@@ -72,7 +75,8 @@ static const char qt_meta_stringdata_PlanningDescriptionConfigurationWizard[] = 
     "deleteGroupButtonClicked()\0"
     "acceptChainClicked()\0acceptGroupClicked()\0"
     "baseLinkTreeClick()\0tipLinkTreeClick()\0"
-    "dofSelectionTableChanged()\0"
+    "validateDoneBox()\0defaultTableClicked()\0"
+    "oftenTableClicked()\0dofSelectionTableChanged()\0"
     "oftenCollisionTableChanged()\0"
     "defaultCollisionTableChanged()\0"
     "occasionallyCollisionTableChanged()\0"
@@ -127,19 +131,22 @@ int PlanningDescriptionConfigurationWizard::qt_metacall(QMetaObject::Call _c, in
         case 11: acceptGroupClicked(); break;
         case 12: baseLinkTreeClick(); break;
         case 13: tipLinkTreeClick(); break;
-        case 14: dofSelectionTableChanged(); break;
-        case 15: oftenCollisionTableChanged(); break;
-        case 16: defaultCollisionTableChanged(); break;
-        case 17: occasionallyCollisionTableChanged(); break;
-        case 18: generateOccasionallyInCollisionTable(); break;
-        case 19: generateOftenInCollisionTable(); break;
-        case 20: generateAlwaysInCollisionTable(); break;
-        case 21: generateDefaultInCollisionTable(); break;
-        case 22: fileSelected((*reinterpret_cast< const QString(*)>(_a[1]))); break;
-        case 23: writeFiles(); break;
+        case 14: validateDoneBox(); break;
+        case 15: defaultTableClicked(); break;
+        case 16: oftenTableClicked(); break;
+        case 17: dofSelectionTableChanged(); break;
+        case 18: oftenCollisionTableChanged(); break;
+        case 19: defaultCollisionTableChanged(); break;
+        case 20: occasionallyCollisionTableChanged(); break;
+        case 21: generateOccasionallyInCollisionTable(); break;
+        case 22: generateOftenInCollisionTable(); break;
+        case 23: generateAlwaysInCollisionTable(); break;
+        case 24: generateDefaultInCollisionTable(); break;
+        case 25: fileSelected((*reinterpret_cast< const QString(*)>(_a[1]))); break;
+        case 26: writeFiles(); break;
         default: ;
         }
-        _id -= 24;
+        _id -= 27;
     }
     return _id;
 }

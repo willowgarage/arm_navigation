@@ -1561,6 +1561,65 @@ void tipLinkTreeClick()
   }
 }
 
+void validateDoneBox()
+{
+  if(group_selection_done_box_->isChecked())
+  {
+    if(current_group_table_->rowCount() <= 0)
+    {
+      group_selection_done_box_->setChecked(false);
+      need_groups_dialog_->show();
+      setup_groups_page_->setButtonText(QWizard::NextButton, "New Group...");
+    }
+    else
+    {
+      setup_groups_page_->setButtonText(QWizard::NextButton, "Next >");
+    }
+  }
+  else
+  {
+    setup_groups_page_->setButtonText(QWizard::NextButton, "New Group...");
+  }
+}
+
+void defaultTableClicked()
+{
+  QList<QTableWidgetItem*> selected = default_collision_table_->selectedItems();
+
+  if(selected.size() == 0)
+  {
+      return;
+  }
+
+  int row = selected[0]->row();
+  std_msgs::ColorRGBA color;
+  color.r = 1.0;
+  color.g = 1.0;
+  color.b = 0.2;
+  color.a = 1.0;
+  visualizeCollision(default_in_collision_joint_values_, default_collision_pairs_, row, color);
+
+}
+
+void oftenTableClicked()
+{
+  QList<QTableWidgetItem*> selected = often_collision_table_->selectedItems();
+
+  if(selected.size() == 0)
+  {
+      return;
+  }
+
+  int row = selected[0]->row();
+  std_msgs::ColorRGBA color;
+  color.r = 1.0;
+  color.g = 1.0;
+  color.b = 0.2;
+  color.a = 1.0;
+  visualizeCollision(often_in_collision_joint_values_, often_collision_pairs_, row, color);
+
+}
+
 void dofSelectionTableChanged()
 {
   int xind = 0;
@@ -1816,20 +1875,18 @@ void generateOccasionallyInCollisionTable()
 void generateOftenInCollisionTable()
 {
   lock_.lock();
-  std::vector<planning_environment::CollisionOperationsGenerator::StringPair> often_in_collision;
   std::vector<double> percentages;
-  std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
 
-  ops_gen_->generateOftenInCollisionPairs(often_in_collision, percentages, in_collision_joint_values);
+  ops_gen_->generateOftenInCollisionPairs(often_collision_pairs_, percentages, often_in_collision_joint_values_);
 
   often_collision_table_->clear();
-  often_collision_table_->setRowCount((int)often_in_collision.size());
+  often_collision_table_->setRowCount((int)often_collision_pairs_.size());
   often_collision_table_->setColumnCount(4);
 
-  often_collision_table_->setColumnWidth(0, 300);
-  often_collision_table_->setColumnWidth(1, 300);
-  often_collision_table_->setColumnWidth(2, 300);
-  often_collision_table_->setColumnWidth(3, 300);
+  often_collision_table_->setColumnWidth(0, 250);
+  often_collision_table_->setColumnWidth(1, 250);
+  often_collision_table_->setColumnWidth(2, 250);
+  often_collision_table_->setColumnWidth(3, 250);
 
   QStringList titleList;
   titleList.append("Link A");
@@ -1839,21 +1896,21 @@ void generateOftenInCollisionTable()
 
   often_collision_table_->setHorizontalHeaderLabels(titleList);
 
-  if(often_in_collision.size() == 0)
+  if(often_collision_pairs_.size() == 0)
   {
     often_collision_table_->setRowCount(1);
     QTableWidgetItem* noCollide = new QTableWidgetItem("No Collisions");
     often_collision_table_->setItem(0, 0, noCollide);
   }
 
-  ROS_INFO("%lu links often in collision.", often_in_collision.size());
+  ROS_INFO("%lu links often in collision.", often_collision_pairs_.size());
 
-  for(size_t i = 0; i < often_in_collision.size(); i++)
+  for(size_t i = 0; i < often_collision_pairs_.size(); i++)
   {
-    QTableWidgetItem* linkA = new QTableWidgetItem(often_in_collision[i].first.c_str());
+    QTableWidgetItem* linkA = new QTableWidgetItem(often_collision_pairs_[i].first.c_str());
     linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
-    QTableWidgetItem* linkB = new QTableWidgetItem(often_in_collision[i].second.c_str());
+    QTableWidgetItem* linkB = new QTableWidgetItem(often_collision_pairs_[i].second.c_str());
     linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     std::stringstream percentageStream;
@@ -1928,13 +1985,11 @@ void generateAlwaysInCollisionTable()
 void generateDefaultInCollisionTable()
 {
   lock_.lock();
-  std::vector<planning_environment::CollisionOperationsGenerator::StringPair> default_in_collision;
-  std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
 
-  ops_gen_->generateDefaultInCollisionPairs(default_in_collision, in_collision_joint_values);
+  ops_gen_->generateDefaultInCollisionPairs(default_collision_pairs_,default_in_collision_joint_values_);
 
   default_collision_table_->clear();
-  default_collision_table_->setRowCount((int)default_in_collision.size());
+  default_collision_table_->setRowCount((int)default_collision_pairs_.size());
   default_collision_table_->setColumnCount(3);
 
   default_collision_table_->setColumnWidth(0, 300);
@@ -1948,21 +2003,21 @@ void generateDefaultInCollisionTable()
 
   default_collision_table_->setHorizontalHeaderLabels(titleList);
 
-  if(default_in_collision.size() == 0)
+  if(default_collision_pairs_.size() == 0)
   {
     default_collision_table_->setRowCount(1);
     QTableWidgetItem* noCollide = new QTableWidgetItem("No Collisions");
     default_collision_table_->setItem(0, 0, noCollide);
   }
 
-  ROS_INFO("%lu links often in collision.", default_in_collision.size());
+  ROS_INFO("%lu links often in collision.", default_collision_pairs_.size());
 
-  for(size_t i = 0; i < default_in_collision.size(); i++)
+  for(size_t i = 0; i < default_collision_pairs_.size(); i++)
   {
-    QTableWidgetItem* linkA = new QTableWidgetItem(default_in_collision[i].first.c_str());
+    QTableWidgetItem* linkA = new QTableWidgetItem(default_collision_pairs_[i].first.c_str());
     linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
-    QTableWidgetItem* linkB = new QTableWidgetItem(default_in_collision[i].second.c_str());
+    QTableWidgetItem* linkB = new QTableWidgetItem(default_collision_pairs_[i].second.c_str());
     linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 
@@ -1970,11 +2025,13 @@ void generateDefaultInCollisionTable()
     enableBox->setChecked(true);
     connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(defaultCollisionTableChanged()));
 
+
     default_collision_table_->setItem((int)i, 0, linkA);
     default_collision_table_->setItem((int)i, 1, linkB);
     default_collision_table_->setCellWidget((int)i, 2, enableBox);
   }
   oftenCollisionTableChanged();
+
 
   lock_.unlock();
 }
@@ -2103,6 +2160,63 @@ protected:
     }
   }
 
+  void visualizeCollision(
+                            std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues>& jointValues,
+                            std::vector<planning_environment::CollisionOperationsGenerator::StringPair>& pairs,
+                            int& index,
+                            std_msgs::ColorRGBA& color)
+    {
+      lock_.lock();
+
+      ROS_INFO("Visualizing collision index %d", index);
+
+      collision_markers_.markers.clear();
+      robot_state_->setKinematicState(jointValues[index]);
+
+      if(!cm_->isKinematicStateInCollision(*robot_state_))
+      {
+        ROS_INFO_STREAM("Really should be in collision");
+      }
+
+      std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
+      std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+      cm_->getCollisionSpace()->getAllCollisionContacts(allowed_contacts, coll_space_contacts, 1);
+
+      visualization_msgs::Marker marker;
+      visualization_msgs::Marker marker2;
+      for(unsigned int j = 0; j < coll_space_contacts.size(); j++)
+      {
+        if((coll_space_contacts[j].body_name_1 == pairs[index].first && coll_space_contacts[j].body_name_2
+            == pairs[index].second) || (coll_space_contacts[j].body_name_1 == pairs[index].second
+            && coll_space_contacts[j].body_name_2 == pairs[index].first))
+        {
+          marker = transformEnvironmentModelContactInfoMarker(coll_space_contacts[j]);
+          marker2 = transformEnvironmentModelContactInfoMarker(coll_space_contacts[j]);
+          marker.color = color;
+          marker.lifetime = ros::Duration(.2);
+          marker2.type = visualization_msgs::Marker::ARROW;
+          marker2.color.r = 1.0;
+          marker2.color.g = 0.0;
+          marker2.color.b = 0.0;
+          marker2.color.a = 1.0;
+          marker2.scale.x = 0.5;
+          marker2.scale.y = 0.5;
+          marker2.scale.z = 0.5;
+          marker2.pose.position.z = marker2.pose.position.z + 0.8;
+          marker2.pose.orientation.x = 0.0;
+          marker2.pose.orientation.y = 1.0;
+          marker2.pose.orientation.z = 0.0;
+          marker2.pose.orientation.w = 1.0;
+          marker2.lifetime = ros::Duration(0.2);
+          collision_markers_.markers.push_back(marker);
+          collision_markers_.markers.push_back(marker2);
+        }
+      }
+      lock_.unlock();
+
+    }
+
+
   void setupQtPages()
   {
     initStartPage();
@@ -2115,6 +2229,14 @@ protected:
     initOftenInCollisionPage();
     initOccasionallyInCollisionPage();
     initOutputFilesPage();
+
+
+    need_groups_dialog_ = new QDialog(this);
+    QVBoxLayout* needsGroupsDialogLayout = new QVBoxLayout(need_groups_dialog_);
+    QLabel* needsGroupsText = new QLabel(need_groups_dialog_);
+    needsGroupsText->setText("Cannot continue without planning groups!");
+    needsGroupsDialogLayout->addWidget(needsGroupsText);
+    need_groups_dialog_->setLayout(needsGroupsDialogLayout);
 
     ok_dialog_ = new QDialog(this);
     QVBoxLayout* okDialogLayout = new QVBoxLayout(ok_dialog_);
@@ -2198,8 +2320,7 @@ protected:
 
     QGridLayout* layout = new QGridLayout(setup_groups_page_);
     setup_groups_page_->setSubTitle("Select planning groups for your robot based on kinematic chains, or joint collections."
-        " When you are finished, please check the checkbox and you can move on by pressing Next. Otherwise, simply press Next"
-        " to create a planning group.");
+        " When you are finished, please check the checkbox and you can move on by pressing Next.");
 
     QGroupBox* selectGroupsBox = new QGroupBox(setup_groups_page_);
     selectGroupsBox->setTitle("Current Groups");
@@ -2220,6 +2341,9 @@ protected:
     group_selection_mode_box_ = new QComboBox(modeBox);
     group_selection_done_box_ = new QCheckBox(modeBox);
     group_selection_done_box_->setText("Done Selecting Groups");
+
+    connect(group_selection_done_box_, SIGNAL(toggled(bool)), this, SLOT(validateDoneBox()));
+
     QStringList texts;
     texts.append("Kinematic Chains");
     texts.append("Joint Collections");
@@ -2235,6 +2359,8 @@ protected:
     setup_groups_page_->setLayout(layout);
     modeBoxLayout->setAlignment(group_selection_mode_box_, Qt::AlignTop);
     layout->setAlignment(modeBox, Qt::AlignTop);
+
+    setup_groups_page_->setButtonText(QWizard::NextButton, "New Group...");
   }
 
   void initKinematicChainsPage()
@@ -2288,6 +2414,8 @@ protected:
     //addPage(kinematic_chains_page_);
     setPage(KinematicChainsPage, kinematic_chains_page_);
     kinematic_chains_page_->setLayout(layout);
+
+    kinematic_chains_page_->setButtonText(QWizard::NextButton, "-");
   }
 
 
@@ -2370,6 +2498,7 @@ protected:
     joint_collections_page_->setLayout(layout);
 
     createJointCollectionTables();
+    joint_collections_page_->setButtonText(QWizard::NextButton, "-");
   }
 
   void initSelectDofPage()
@@ -2515,7 +2644,7 @@ protected:
 
     QVBoxLayout* layout = new QVBoxLayout(default_collision_page_);
     default_collision_page_->setSubTitle("The following links are in collision in the default robot state. n"
-        "By default, collisions will be enabled for them. Collisions are visualized as yellow spheres in rviz.");
+        "By default, collisions will be enabled for them.  Select items to visualize collisions in rviz.");
 
 
     QPushButton* generateButton = new QPushButton(default_collision_page_);
@@ -2525,6 +2654,7 @@ protected:
     default_collision_table_ = new QTableWidget(default_collision_page_);
     layout->addWidget(default_collision_table_);
 
+    connect(default_collision_table_, SIGNAL(cellClicked(int, int)), this, SLOT(defaultTableClicked()));
     QPushButton* toggleSelected = new QPushButton(default_collision_page_);
     toggleSelected->setText("Toggle Selected");
     layout->addWidget(toggleSelected);
@@ -2545,7 +2675,7 @@ protected:
 
     QVBoxLayout* layout = new QVBoxLayout(often_in_collision_page_);
     often_in_collision_page_->setSubTitle("The following links are often in collision over the sample space. "
-        " By default, collisions will be enabled for them. Collisions are visualized in rviz.");
+        " By default, collisions will be enabled for them. Select items to visualize collisions in rviz.");
 
     QPushButton* generateButton = new QPushButton(often_in_collision_page_);
     generateButton->setText("Generate List (May take a minute)");
@@ -2565,6 +2695,8 @@ protected:
     //addPage(often_in_collision_page_);
     setPage(OftenInCollisionPage, often_in_collision_page_);
     often_in_collision_page_->setLayout(layout);
+
+    connect(often_collision_table_, SIGNAL(cellClicked(int, int)), this, SLOT(oftenTableClicked()));
   }
 
   void initOccasionallyInCollisionPage()
@@ -2576,7 +2708,7 @@ protected:
 
     occasionally_in_collision_page_->setSubTitle("The following links are occasionally (or never) in collision over the sample space. "
         "By default, collisions will be disabled for those which never collide,"
-        " and enabled for those which only occasionally collide. Collisions are visualized in rviz.");
+        " and enabled for those which only occasionally collide.");
 
 
     QPushButton* generateButton = new QPushButton(occasionally_in_collision_page_);
@@ -2749,6 +2881,7 @@ protected:
   QTableWidget* occasionally_collision_table_;
   QCheckBox* group_selection_done_box_;
 
+  QDialog* need_groups_dialog_;
   QDialog* ok_dialog_;
   QDialog* not_ok_dialog_;
   QDialog* file_failure_dialog_;
@@ -2757,6 +2890,10 @@ protected:
   QLineEdit* package_path_field_;
   QFileDialog* file_selector_;
 
+  std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> default_in_collision_joint_values_;
+  std::vector<planning_environment::CollisionOperationsGenerator::StringPair> default_collision_pairs_;
+  std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues> often_in_collision_joint_values_;
+  std::vector<planning_environment::CollisionOperationsGenerator::StringPair> often_collision_pairs_;
 
 };
 #endif
