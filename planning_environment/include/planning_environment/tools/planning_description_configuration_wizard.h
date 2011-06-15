@@ -91,10 +91,6 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     bool isInited() const;
     planning_environment::CollisionOperationsGenerator* getOperationsGenerator();
     std::string getRobotName();
-    void getRobotMeshResourceMarkersGivenState(const planning_models::KinematicState& state,
-                                               visualization_msgs::MarkerArray& arr, const std_msgs::ColorRGBA& color,
-                                               const std::string& name, const ros::Duration& lifetime,
-                                               const std::vector<std::string>* names) const;
   public slots:
     std::vector<int> getSelectedRows(QTableWidget* table);
     void toggleTable(QTableWidget* table, int column = 3);

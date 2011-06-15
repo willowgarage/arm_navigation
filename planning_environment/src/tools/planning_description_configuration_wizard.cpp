@@ -1365,7 +1365,7 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
     if(jmg != NULL)
     {
       vector<string> group_link_names = jmg->getGroupLinkNames();
-      getRobotMeshResourceMarkersGivenState(*robot_state_, arr, default_color, current_show_group_, ros::Duration(.2),
+      cm_->getRobotMarkersGivenState(*robot_state_, arr, default_color, current_show_group_, ros::Duration(.2),
                                             &group_link_names);
 
       vector<string> updated_link_model_names = jmg->getUpdatedLinkModelNames();
@@ -1384,7 +1384,7 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
         }
       }
       //first n will be actually in group
-      getRobotMeshResourceMarkersGivenState(*robot_state_, arr, color, current_show_group_ + "_updated_links",
+      cm_->getRobotMarkersGivenState(*robot_state_, arr, color, current_show_group_ + "_updated_links",
                                             ros::Duration(.2), &ex_list);
       vis_marker_array_publisher_.publish(arr);
     }
@@ -1425,6 +1425,7 @@ string PlanningDescriptionConfigurationWizard::getRobotName()
   return urdf_->getName();
 }
 
+/* Functionally replicated from Collision Model ?
 void PlanningDescriptionConfigurationWizard::getRobotMeshResourceMarkersGivenState(const KinematicState& state,
                                                                                    MarkerArray& arr,
                                                                                    const std_msgs::ColorRGBA& color,
@@ -1492,7 +1493,7 @@ void PlanningDescriptionConfigurationWizard::getRobotMeshResourceMarkersGivenSta
     arr.markers.push_back(mark);
   }
 }
-
+*/
 vector<int> PlanningDescriptionConfigurationWizard::getSelectedRows(QTableWidget* table)
 {
   QList<QTableWidgetItem*> selected = table->selectedItems();
@@ -2483,6 +2484,7 @@ void PlanningDescriptionConfigurationWizard::initSetupGroupsPage()
   QPushButton* deleteButton = new QPushButton(selectGroupsBox);
   deleteButton->setText("Delete");
   groupBoxLayout->addWidget(deleteButton);
+  deleteButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   connect(current_group_table_, SIGNAL(itemClicked(QTableWidgetItem*)), SLOT(groupTableClicked()));
   connect(deleteButton, SIGNAL(clicked()), this, SLOT(deleteGroupButtonClicked()));
@@ -2533,10 +2535,12 @@ void PlanningDescriptionConfigurationWizard::initKinematicChainsPage()
   link_tree_ = new QTreeWidget(treeBox);
   treeLayout->addWidget(link_tree_);
   QPushButton* baseLinkButton = new QPushButton(treeBox);
+  baseLinkButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
   baseLinkButton->setText("Select Base Link");
   treeLayout->addWidget(baseLinkButton);
   QPushButton* tipLinkButton = new QPushButton(treeBox);
   tipLinkButton->setText("Select Tip Link");
+  tipLinkButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
   treeLayout->addWidget(tipLinkButton);
   treeBox->setLayout(treeLayout);
   createLinkTree();
@@ -2557,6 +2561,7 @@ void PlanningDescriptionConfigurationWizard::initKinematicChainsPage()
   acceptButton->setText("Accept Chain");
   chainLayout->addRow(acceptButton);
   chainBox->setLayout(chainLayout);
+  acceptButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   connect(acceptButton, SIGNAL(clicked()), this, SLOT(acceptChainClicked()));
 
@@ -2611,6 +2616,8 @@ void PlanningDescriptionConfigurationWizard::initJointCollectionsPage()
   QPushButton* selectButton = new QPushButton(jointBox);
   selectButton->setText("Select");
   jointLayout->addWidget(selectButton);
+  selectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
 
   connect(selectButton, SIGNAL(clicked()), this, SLOT(selectJointButtonClicked()));
 
@@ -2624,6 +2631,7 @@ void PlanningDescriptionConfigurationWizard::initJointCollectionsPage()
   QPushButton* deselectButton = new QPushButton(selectedBox);
   deselectButton->setText("Deselect");
   selectedLayout->addWidget(deselectButton);
+  deselectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   connect(deselectButton, SIGNAL(clicked()), this, SLOT(deselectJointButtonClicked()));
 
@@ -2634,6 +2642,7 @@ void PlanningDescriptionConfigurationWizard::initJointCollectionsPage()
   selectedLayout->addWidget(joint_group_name_field_);
   QPushButton* acceptButton = new QPushButton(selectedBox);
   acceptButton->setText("Accept Joint Group");
+  acceptButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
   selectedLayout->addWidget(acceptButton);
   selectedBox->setLayout(selectedLayout);
   layout->addWidget(selectedBox, 0, 1, 1, 1);
@@ -2664,6 +2673,7 @@ void PlanningDescriptionConfigurationWizard::initSelectDofPage()
   QPushButton* toggleSelected = new QPushButton(select_dof_page_);
   toggleSelected->setText("Toggle Selected");
   layout->addWidget(toggleSelected);
+  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   connect(toggleSelected, SIGNAL(clicked()), SLOT(dofTogglePushed()));
 
@@ -2769,6 +2779,7 @@ void PlanningDescriptionConfigurationWizard::initAlwaysInCollisionPage()
   generateButton->setText("Generate List (May take a minute)");
   layout->addWidget(generateButton);
   connect(generateButton, SIGNAL(clicked()), this, SLOT(generateAlwaysInCollisionTable()));
+  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   always_collision_table_ = new QTableWidget(always_in_collision_page_);
   layout->addWidget(always_collision_table_);
@@ -2790,6 +2801,7 @@ void PlanningDescriptionConfigurationWizard::initDefaultInCollisionPage()
   QPushButton* generateButton = new QPushButton(default_collision_page_);
   generateButton->setText("Generate List (May take a minute)");
   layout->addWidget(generateButton);
+  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   default_collision_table_ = new QTableWidget(default_collision_page_);
   layout->addWidget(default_collision_table_);
@@ -2797,6 +2809,8 @@ void PlanningDescriptionConfigurationWizard::initDefaultInCollisionPage()
   connect(default_collision_table_, SIGNAL(cellClicked(int, int)), this, SLOT(defaultTableClicked()));
   QPushButton* toggleSelected = new QPushButton(default_collision_page_);
   toggleSelected->setText("Toggle Selected");
+  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
   layout->addWidget(toggleSelected);
   connect(toggleSelected, SIGNAL(clicked()), this, SLOT(defaultTogglePushed()));
 
@@ -2819,6 +2833,7 @@ void PlanningDescriptionConfigurationWizard::initOftenInCollisionPage()
   QPushButton* generateButton = new QPushButton(often_in_collision_page_);
   generateButton->setText("Generate List (May take a minute)");
   layout->addWidget(generateButton);
+  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   often_collision_table_ = new QTableWidget(often_in_collision_page_);
   layout->addWidget(often_collision_table_);
@@ -2827,6 +2842,7 @@ void PlanningDescriptionConfigurationWizard::initOftenInCollisionPage()
   toggleSelected->setText("Toggle Selected");
   layout->addWidget(toggleSelected);
   connect(toggleSelected, SIGNAL(clicked()), this, SLOT(oftenTogglePushed()));
+  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   connect(generateButton, SIGNAL(clicked()), this, SLOT(generateOftenInCollisionTable()));
 
@@ -2853,6 +2869,8 @@ void PlanningDescriptionConfigurationWizard::initOccasionallyInCollisionPage()
   generateButton->setText("Generate List (May take a minute)");
   layout->addWidget(generateButton);
   connect(generateButton, SIGNAL(clicked()), this, SLOT(generateOccasionallyInCollisionTable()));
+  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
 
   occasionally_collision_table_ = new QTableWidget(occasionally_in_collision_page_);
   layout->addWidget(occasionally_collision_table_);
@@ -2863,6 +2881,7 @@ void PlanningDescriptionConfigurationWizard::initOccasionallyInCollisionPage()
   toggleSelected->setText("Toggle Selected");
   layout->addWidget(toggleSelected);
   connect(toggleSelected, SIGNAL(clicked()), this, SLOT(occasionallyTogglePushed()));
+  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   //addPage(occasionally_in_collision_page_);
   setPage(OccasionallyInCollisionPage, occasionally_in_collision_page_);
@@ -2885,7 +2904,7 @@ void PlanningDescriptionConfigurationWizard::initOutputFilesPage()
 
   QPushButton* selectFileButton = new QPushButton(output_files_page_);
   selectFileButton->setText("Select Directory ...");
-
+  selectFileButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
   file_selector_ = new QFileDialog(this);
   file_selector_->setFileMode(QFileDialog::Directory);
   file_selector_->setOption(QFileDialog::ShowDirsOnly, true);
@@ -2896,6 +2915,7 @@ void PlanningDescriptionConfigurationWizard::initOutputFilesPage()
 
   QPushButton* generateButton = new QPushButton(output_files_page_);
   generateButton->setText("Generate Config Files...");
+  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   layout->addWidget(generateButton);
 
