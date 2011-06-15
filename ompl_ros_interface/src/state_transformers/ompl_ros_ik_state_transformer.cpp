@@ -70,7 +70,7 @@ OmplRosIKStateTransformer::OmplRosIKStateTransformer(const ompl::base::StateMani
     throw new OMPLROSException();
   }
   ROS_DEBUG("Loaded solver %s",kinematics_solver_name.c_str());
-  if(!kinematics_solver_->initialize(physical_group_name_))
+  if(!kinematics_solver_->initialize(group_name_))
   {
     ROS_ERROR("Could not initialize kinematics solver for group %s",group_name_.c_str());
     throw new OMPLROSException();
