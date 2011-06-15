@@ -1262,7 +1262,7 @@ class PlanningComponentsVisualizer
 
           //first link is ik_link_name_
           lnames.erase(lnames.begin());
-          cm_->getRobotMeshResourceMarkersGivenState(*gc.getState(ik_control_type_), arr, bad_color,
+          cm_->getRobotMarkersGivenState(*gc.getState(ik_control_type_), arr, bad_color,
                                                      current_group_name_, ros::Duration(.2), &lnames);
           cm_->getAttachedCollisionObjectMarkers(*gc.getState(ik_control_type_), arr, current_group_name_, bad_color,
                                                  ros::Duration(.2));
@@ -1285,7 +1285,7 @@ class PlanningComponentsVisualizer
             {
               lnames[i] = updated_links[i]->getName();
             }
-            cm_->getRobotMeshResourceMarkersGivenState(*(it->second.state_), arr, it->second.color_,
+            cm_->getRobotMarkersGivenState(*(it->second.state_), arr, it->second.color_,
                                                        it->first + "_trajectory", ros::Duration(0.2), &lnames);
 
             cm_->getAttachedCollisionObjectMarkers(*(it->second.state_), arr, it->first + "_trajectory",
