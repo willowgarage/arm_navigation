@@ -312,7 +312,7 @@ public:
                                         visualization_msgs::MarkerArray& arr,
                                         bool use_default_padding,
                                         const ros::Duration& lifetime) const;
-  void getRobotMeshResourceMarkersGivenState(const planning_models::KinematicState& state,
+  void getRobotMarkersGivenState(const planning_models::KinematicState& state,
                                              visualization_msgs::MarkerArray& arr,
                                              const std_msgs::ColorRGBA& color,
                                              const std::string& name, 

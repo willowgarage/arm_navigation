@@ -1842,61 +1842,117 @@ void planning_environment::CollisionModels::getAllCollisionSpaceObjectMarkers(co
   getAttachedCollisionObjectMarkers(state, arr, name, attached_color, lifetime);
 }
 
-void planning_environment::CollisionModels::getRobotMeshResourceMarkersGivenState(const planning_models::KinematicState& state,
+void planning_environment::CollisionModels::getRobotMarkersGivenState(
+                                                                                  const planning_models::KinematicState& state,
                                                                                   visualization_msgs::MarkerArray& arr,
                                                                                   const std_msgs::ColorRGBA& color,
-                                                                                  const std::string& name, 
+                                                                                  const std::string& name,
                                                                                   const ros::Duration& lifetime,
                                                                                   const std::vector<std::string>* names) const
-{  
+{
   boost::shared_ptr<urdf::Model> robot_model = getParsedDescription();
 
   std::vector<std::string> link_names;
-  if(names == NULL) {
+  if(names == NULL)
+  {
     kmodel_->getLinkModelNames(link_names);
-  } else {
+  }
+  else
+  {
     link_names = *names;
   }
 
-  for(unsigned int i = 0; i < link_names.size(); i++) {
+  for(unsigned int i = 0; i < link_names.size(); i++)
+  {
     boost::shared_ptr<const urdf::Link> urdf_link = robot_model->getLink(link_names[i]);
-    if(!urdf_link) {
+
+    if(!urdf_link)
+    {
       ROS_INFO_STREAM("Invalid urdf name " << link_names[i]);
       continue;
     }
-    if(!urdf_link->collision) {
+
+    if(!urdf_link->collision)
+    {
       continue;
     }
+
     const urdf::Geometry *geom = urdf_link->collision->geometry.get();
-    if(!geom) {
+
+    if(!geom)
+    {
       continue;
     }
-    const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
-    if(!mesh) {
-      continue;
-    }
-    if(mesh->filename.empty()) {
-      continue;
-    }
+
+    const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*> (geom);
+    const urdf::Box *box = dynamic_cast<const urdf::Box*> (geom);
+    const urdf::Cylinder *cylinder = dynamic_cast<const urdf::Cylinder*> (geom);
+
     const planning_models::KinematicState::LinkState* ls = state.getLinkState(link_names[i]);
-    if(ls == NULL) {
+
+    if(ls == NULL)
+    {
       ROS_WARN_STREAM("No link state for name " << names << " though there's a mesh");
       continue;
     }
-    visualization_msgs::Marker mark;
-    mark.header.frame_id = getWorldFrameId();
-    mark.header.stamp = ros::Time::now();
-    mark.ns = name;
-    mark.id = i;
-    mark.type = mark.MESH_RESOURCE;
-    mark.scale.x = 1.0;
-    mark.scale.y = 1.0;
-    mark.scale.z = 1.0;
-    mark.color = color;
-    mark.mesh_resource = mesh->filename;
-    mark.lifetime = lifetime;
-    tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(),mark.pose); 
-    arr.markers.push_back(mark);
+
+    if(mesh)
+    {
+
+      if(mesh->filename.empty())
+      {
+        continue;
+      }
+
+      visualization_msgs::Marker mark;
+      mark.header.frame_id = getWorldFrameId();
+      mark.header.stamp = ros::Time::now();
+      mark.ns = name;
+      mark.id = i;
+      mark.type = mark.MESH_RESOURCE;
+      mark.scale.x = 1.0;
+      mark.scale.y = 1.0;
+      mark.scale.z = 1.0;
+      mark.color = color;
+      mark.mesh_resource = mesh->filename;
+      mark.lifetime = lifetime;
+      tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
+      arr.markers.push_back(mark);
+
+    }
+    else if(box)
+    {
+      visualization_msgs::Marker mark;
+      mark.header.frame_id = getWorldFrameId();
+      mark.header.stamp = ros::Time::now();
+      mark.ns = name;
+      mark.id = i;
+      mark.type = mark.CUBE;
+      mark.scale.x = box->dim.x;
+      mark.scale.y = box->dim.y;
+      mark.scale.z = box->dim.z;
+      mark.color = color;
+      mark.lifetime = lifetime;
+      tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
+      arr.markers.push_back(mark);
+    }
+    else if(cylinder)
+    {
+      visualization_msgs::Marker mark;
+      mark.header.frame_id = getWorldFrameId();
+      mark.header.stamp = ros::Time::now();
+      mark.ns = name;
+      mark.id = i;
+      mark.type = mark.CYLINDER;
+      mark.scale.x = cylinder->radius;
+      mark.scale.y = cylinder->radius;
+      mark.scale.z = cylinder->length;
+      mark.color = color;
+      mark.lifetime = lifetime;
+      tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
+      arr.markers.push_back(mark);
+    }
+
   }
 }
 
@@ -2038,7 +2094,7 @@ void planning_environment::CollisionModels::getGroupAndUpdatedJointMarkersGivenS
   }
 
   std::vector<std::string> group_link_names = jmg->getGroupLinkNames();      
-  getRobotMeshResourceMarkersGivenState(state,
+  getRobotMarkersGivenState(state,
                                         arr,
                                         group_color,
                                         group_name,
@@ -2057,7 +2113,7 @@ void planning_environment::CollisionModels::getGroupAndUpdatedJointMarkersGivenS
       ex_list.push_back(updated_link_model_names[i]);
     }
   }
-  getRobotMeshResourceMarkersGivenState(state,
+  getRobotMarkersGivenState(state,
                                         arr,
                                         updated_color,
                                         group_name+"_updated_links",
