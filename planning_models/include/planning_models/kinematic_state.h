@@ -295,7 +295,10 @@ public:
       return joint_model_group_;
     }
 
-    const std::string& getName() const;
+    const std::string& getName() const 
+    {
+      return joint_model_group_->getName();
+    }
 
     unsigned int getDimension() const
     {
