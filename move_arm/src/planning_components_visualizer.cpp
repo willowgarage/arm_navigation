@@ -971,6 +971,7 @@ class PlanningComponentsVisualizer
       return true;
     }
 
+
     /////
     /// @brief Sends the joint states of the given group collection to the robot state publisher.
     /// @param gc the group collection to publish the states for.
@@ -1712,8 +1713,6 @@ class PlanningComponentsVisualizer
       int_marker.name = "top_level";
       int_marker.description = "Planning Visualizer";
       int_marker.header.frame_id = "/" + cm_->getWorldFrameId();
-      ;
-      makeInteractiveBoxControl(int_marker, 0.0f);
 
       InteractiveMarkerControl control;
       control.interaction_mode = InteractiveMarkerControl::MENU;
