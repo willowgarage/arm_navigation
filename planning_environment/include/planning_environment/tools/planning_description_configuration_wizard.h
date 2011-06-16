@@ -103,11 +103,14 @@ class PlanningDescriptionConfigurationWizard: public QWizard
 
   signals:
     void changeProgress(int progress);
+    void changeLabel(const char* name);
 
   public slots:
     std::vector<int> getSelectedRows(QTableWidget* table);
     void easyButtonToggled(bool checkState);
     void hardButtonToggled(bool checkState);
+
+    void labelChanged(const char* name);
 
     void verySafeButtonToggled(bool checkState);
     void safeButtonToggled(bool checkState);
@@ -242,6 +245,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     QDialog* generic_dialog_;
     QLabel* generic_dialog_label_;
     QProgressBar* progress_bar_;
+    QLabel* progress_label_;
 
     int progress_;
 
@@ -266,6 +270,7 @@ class AutoConfigureThread : public QThread
     AutoConfigureThread(PlanningDescriptionConfigurationWizard* wizard) : QThread(wizard), wizard_(wizard)
     {
       connect(wizard_, SIGNAL(changeProgress(int)), wizard_, SLOT(update()));
+      connect(wizard_, SIGNAL(changeLabel(const char*)), wizard_, SLOT(labelChanged(const char*)));
     }
 
     void run()

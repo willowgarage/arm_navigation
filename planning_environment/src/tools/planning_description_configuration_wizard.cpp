@@ -892,7 +892,6 @@ void PlanningDescriptionConfigurationWizard::considerAlwaysAndDefaultInCollision
 
 void PlanningDescriptionConfigurationWizard::considerOftenInCollisionPairs()
 {
-
   vector<CollisionOperationsGenerator::StringPair> often_in_collision;
   vector<double> percentages;
   vector<CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
@@ -914,8 +913,7 @@ void PlanningDescriptionConfigurationWizard::considerOftenInCollisionPairs()
 
   clear();
   refresh();
-  printw(
-         "These pairs (with magenta collision markers) are often in collision.  Collisions will be optionally disabled. ");
+  printw("These pairs (with magenta collision markers) are often in collision. Collisions will be optionally disabled. ");
 
   considerInCollisionPairs(often_in_collision, percentages, in_collision_joint_values, color);
   disable_map_[CollisionOperationsGenerator::OFTEN] = often_in_collision;
@@ -2306,6 +2304,11 @@ void PlanningDescriptionConfigurationWizard::writeFiles()
   }
 }
 
+void PlanningDescriptionConfigurationWizard::labelChanged(const char* label)
+{
+  progress_label_->setText(label);
+}
+
 void PlanningDescriptionConfigurationWizard::autoConfigure()
 {
   progress_ = 0;
@@ -2335,8 +2338,9 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   }
   ops_gen_->generateSamplingStructures(cdof_map);
 
-  progress_ = 25;
-  emit changeProgress(25);
+  progress_ = 1;
+  emit changeProgress(1);
+  emit changeLabel("Finding always in collision pairs....");
   /////////////////////////
   // ALWAYS-DEFAULT IN COLLISION
   ////////////////////////
@@ -2350,6 +2354,10 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   robot_state_->setKinematicStateToDefault();
   lock_.unlock();
 
+  progress_ = 10;
+  emit changeProgress(10);
+  emit changeLabel("Finding Default In Collision Pairs....");
+
   ops_gen_->disablePairCollisionChecking(always_in_collision);
   disable_map_[CollisionOperationsGenerator::ALWAYS] = always_in_collision;
   vector<CollisionOperationsGenerator::StringPair> default_in_collision;
@@ -2357,9 +2365,9 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   ops_gen_->disablePairCollisionChecking(default_in_collision);
   disable_map_[CollisionOperationsGenerator::DEFAULT] = default_in_collision;
 
-
-  progress_ = 50;
-  emit changeProgress(50);
+  progress_ = 33;
+  emit changeProgress(33);
+  emit changeLabel("Finding Often In Collision Pairs....");
   ////////////////////////
   // OFTEN IN COLLISION
   ///////////////////////
@@ -2369,8 +2377,9 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   ops_gen_->generateOftenInCollisionPairs(often_in_collision, percentages, in_collision_joint_values);
   disable_map_[CollisionOperationsGenerator::OFTEN] = often_in_collision;
 
-  progress_ = 75;
-  emit changeProgress(75);
+  progress_ = 60;
+  emit changeProgress(60);
+  emit changeLabel("Finding Never In Collision Pairs....");
   ////////////////////////
   // OCC-NEVER IN COLLISION
   ///////////////////////
@@ -2384,6 +2393,8 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
 
   progress_ = 90;
   emit changeProgress(90);
+  emit changeLabel("Writing Files....");
+
   outputJointLimitsYAML();
   outputOMPLGroupYAML();
   outputPlanningDescriptionYAML();
@@ -2731,7 +2742,7 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
    safetyGroupBoxLayout->addWidget(verySafeButton);
    verySafeButton->setChecked(true);
 
-   connect(easyButton, SIGNAL(toggled(bool)), this, SLOT(verySafeButtonToggled(bool)));
+   connect(verySafeButton, SIGNAL(toggled(bool)), this, SLOT(verySafeButtonToggled(bool)));
 
    QRadioButton* safeButton = new QRadioButton(safetyGroupBox);
    safeButton->setText("Safe");
@@ -3214,10 +3225,11 @@ void PlanningDescriptionConfigurationWizard::initOutputFilesPage()
   layout->addWidget(generateButton);
 
   progress_bar_ = new QProgressBar(output_files_page_);
+  progress_label_ = new QLabel(output_files_page_);
   layout->addWidget(progress_bar_);
+  layout->addWidget(progress_label_);
 
   connect(generateButton, SIGNAL(clicked()), this, SLOT(writeFiles()));
-  connect(generateButton, SIGNAL(clicked()), this, SLOT(popupGenericWarning("Please wait...")));
   //addPage(output_files_page_);
   setPage(OutputFilesPage, output_files_page_);
   output_files_page_->setLayout(layout);

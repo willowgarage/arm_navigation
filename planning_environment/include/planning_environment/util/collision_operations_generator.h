@@ -109,11 +109,11 @@ public:
     switch(safety)
     {
       case VerySafe:
-        establish_always_num_ = 10000;
-        establish_often_num_ = 50000;
+        establish_always_num_ = 50000;
+        establish_often_num_ = 150000;
         establish_often_percentage_ = 0.75;
-        establish_occasional_num_ = 100000;
-        performance_testing_num_ = 1000;
+        establish_occasional_num_ = 500000;
+        performance_testing_num_ = 5000;
         break;
 
       case Safe:
