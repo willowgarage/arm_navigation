@@ -262,26 +262,32 @@ inline  void poseConstraintToPositionOrientationConstraints(const motion_plannin
      @brief Convert a stamped pose into a position and orientation constraint 
      @param The input pose stamped
      @param The output position constraint
+     @param (Optional) The size of constraint region cube
+     @param (Optional) The
      @return The output orientation constraint
    */
-inline  void poseStampedToPositionOrientationConstraints(const geometry_msgs::PoseStamped &pose_stamped, const std::string &link_name, motion_planning_msgs::PositionConstraint &position_constraint, motion_planning_msgs::OrientationConstraint &orientation_constraint)
+inline  void poseStampedToPositionOrientationConstraints(const geometry_msgs::PoseStamped &pose_stamped, const std::string &link_name, 
+                                                         motion_planning_msgs::PositionConstraint &position_constraint, 
+                                                         motion_planning_msgs::OrientationConstraint &orientation_constraint, 
+                                                         double region_box_dimension=.01,
+                                                         double absolute_rpy_tolerance=.01)
   {
     position_constraint.header = pose_stamped.header;
     position_constraint.link_name = link_name;
     position_constraint.position = pose_stamped.pose.position;
     position_constraint.weight = 1.0;
     position_constraint.constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
-    position_constraint.constraint_region_shape.dimensions.push_back(0.01);
-    position_constraint.constraint_region_shape.dimensions.push_back(0.01);
-    position_constraint.constraint_region_shape.dimensions.push_back(0.01);
+    position_constraint.constraint_region_shape.dimensions.push_back(region_box_dimension);
+    position_constraint.constraint_region_shape.dimensions.push_back(region_box_dimension);
+    position_constraint.constraint_region_shape.dimensions.push_back(region_box_dimension);
 
     orientation_constraint.header = pose_stamped.header;
     orientation_constraint.link_name = link_name;
     orientation_constraint.orientation = pose_stamped.pose.orientation;
 
-    orientation_constraint.absolute_roll_tolerance  = 0.01;
-    orientation_constraint.absolute_pitch_tolerance = 0.01;
-    orientation_constraint.absolute_yaw_tolerance   = 0.01;
+    orientation_constraint.absolute_roll_tolerance  = absolute_rpy_tolerance;
+    orientation_constraint.absolute_pitch_tolerance = absolute_rpy_tolerance;
+    orientation_constraint.absolute_yaw_tolerance   = absolute_rpy_tolerance;
     orientation_constraint.weight = 1.0;
   }
 
