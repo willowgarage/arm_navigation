@@ -60,6 +60,15 @@ public:
     NEVER
   };
 
+  enum SamplingSafety
+  {
+    VerySafe,
+    Safe,
+    Normal,
+    Fast,
+    VeryFast
+  };
+
   CollisionOperationsGenerator(CollisionModels* cm);
   
   ~CollisionOperationsGenerator() {
@@ -94,6 +103,58 @@ public:
   void performanceTestSavedResults(std::map<CollisionOperationsGenerator::DisableType, std::vector<CollisionOperationsGenerator::StringPair> >& disable_types);
 
   void generateSamplingStructures(const std::map<std::string, bool>& add_map);
+
+  inline void setSafety(SamplingSafety safety)
+  {
+    switch(safety)
+    {
+      case VerySafe:
+        establish_always_num_ = 10000;
+        establish_often_num_ = 50000;
+        establish_often_percentage_ = 0.75;
+        establish_occasional_num_ = 100000;
+        performance_testing_num_ = 1000;
+        break;
+
+      case Safe:
+        establish_always_num_ = 1000;
+        establish_often_num_ = 5000;
+        establish_often_percentage_ = 0.66;
+        establish_occasional_num_ = 10000;
+        performance_testing_num_ = 1000;
+        break;
+
+      case Normal:
+        establish_always_num_ = 100;
+        establish_often_num_ = 500;
+        establish_often_percentage_ = 0.5;
+        establish_occasional_num_ = 1000;
+        performance_testing_num_ = 1000;
+        break;
+
+      case Fast:
+        establish_always_num_ = 50;
+        establish_often_num_ = 100;
+        establish_often_percentage_ = 0.33;
+        establish_occasional_num_ = 100;
+        performance_testing_num_ = 100;
+        break;
+
+      case VeryFast:
+        establish_always_num_ = 10;
+        establish_often_num_ = 10;
+        establish_often_percentage_ = 0.33;
+        establish_occasional_num_ = 10;
+        performance_testing_num_ = 10;
+        break;
+    }
+  }
+
+  unsigned int establish_always_num_;
+  unsigned int establish_often_num_;
+  double establish_often_percentage_;
+  unsigned int establish_occasional_num_;
+  unsigned int performance_testing_num_;
 
 protected:
 

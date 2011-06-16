@@ -32,6 +32,8 @@
 #include <qt4/QtGui/qfiledialog.h>
 #include <ncurses.h>
 #include <tinyxml/tinyxml.h>
+#include <qt4/Qt/qthread.h>
+#include <qt4/QtGui/qprogressbar.h>
 
 static const std::string VIS_TOPIC_NAME = "planning_description_configuration_wizard";
 static const unsigned int CONTROL_SPEED = 10;
@@ -42,6 +44,11 @@ class PlanningDescriptionConfigurationWizard: public QWizard
   Q_OBJECT
 
   public:
+    enum WizardMode
+    {
+      Easy, Advanced
+    };
+
     enum WizardPage
     {
       StartPage, SetupGroupsPage, KinematicChainsPage, JointCollectionsPage, SelectDOFPage, AlwaysInCollisionPage,
@@ -60,6 +67,8 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     bool addGroup(std::string new_group_name, std::string base, std::string tip);
     void popupNotOkayWarning();
     void popupOkayWarning();
+    inline void popupWaitWarning() { popupGenericWarning("Please wait..."); }
+    void popupGenericWarning(const char* text);
     void popupFileFailure(const char* reason);
     void popupFileSuccess();
     void updateGroupTable();
@@ -91,8 +100,21 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     bool isInited() const;
     planning_environment::CollisionOperationsGenerator* getOperationsGenerator();
     std::string getRobotName();
+
+  signals:
+    void changeProgress(int progress);
+
   public slots:
     std::vector<int> getSelectedRows(QTableWidget* table);
+    void easyButtonToggled(bool checkState);
+    void hardButtonToggled(bool checkState);
+
+    void verySafeButtonToggled(bool checkState);
+    void safeButtonToggled(bool checkState);
+    void normalButtonToggled(bool checkState);
+    void fastButtonToggled(bool checkState);
+    void veryFastButtonToggled(bool checkState);
+
     void toggleTable(QTableWidget* table, int column = 3);
     void defaultTogglePushed();
     void oftenTogglePushed();
@@ -120,7 +142,9 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     void generateDefaultInCollisionTable();
     void fileSelected(const QString& file);
     void writeFiles();
-    
+    void autoConfigure();
+    void update();
+
   protected:
     int nextId() const;
     void
@@ -147,6 +171,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     bool addLinkChildRecursive(QTreeWidgetItem* parent, const planning_models::KinematicModel::LinkModel* link,
                                const std::string& parentName);
 
+
     bool inited_;
 
     ros::NodeHandle nh_;
@@ -160,6 +185,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     planning_models::KinematicModel::MultiDofConfig world_joint_config_;
     std::map<planning_environment::CollisionOperationsGenerator::DisableType, std::vector<
         planning_environment::CollisionOperationsGenerator::StringPair> > disable_map_;
+
 
     std::string current_show_group_;
 
@@ -213,6 +239,13 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     QDialog* file_success_dialog_;
     QLineEdit* package_path_field_;
     QFileDialog* file_selector_;
+    QDialog* generic_dialog_;
+    QLabel* generic_dialog_label_;
+    QProgressBar* progress_bar_;
+
+    int progress_;
+
+    WizardMode wizard_mode_;
 
     std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues>
         default_in_collision_joint_values_;
@@ -225,4 +258,21 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     std::vector<planning_environment::CollisionOperationsGenerator::StringPair> occasionally_collision_pairs_;
 
 };
+
+class AutoConfigureThread : public QThread
+{
+  public:
+    PlanningDescriptionConfigurationWizard* wizard_;
+    AutoConfigureThread(PlanningDescriptionConfigurationWizard* wizard) : QThread(wizard), wizard_(wizard)
+    {
+      connect(wizard_, SIGNAL(changeProgress(int)), wizard_, SLOT(update()));
+    }
+
+    void run()
+    {
+      wizard_->autoConfigure();
+    }
+};
+
+
 #endif

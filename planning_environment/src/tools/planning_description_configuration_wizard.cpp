@@ -31,6 +31,7 @@
 
 #include <planning_environment/tools/planning_description_configuration_wizard.h>
 #include <qt4/QtGui/qapplication.h>
+#include <qt4/QtGui/qradiobutton.h>
 
 //in 100 hz ticks
 WINDOW* left_win;
@@ -47,6 +48,7 @@ PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(c
   QWizard(parent), inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package),
       urdf_path_(urdf_path)
 {
+  progress_ = 0;
   package_directory_ = "";
   string full_urdf_path = ros::package::getPath(urdf_package_) + urdf_path_;
 
@@ -92,6 +94,24 @@ PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(c
 
   vis_marker_publisher_ = nh_.advertise<Marker> (VIS_TOPIC_NAME, 128);
   vis_marker_array_publisher_ = nh_.advertise<MarkerArray> (VIS_TOPIC_NAME + "_array", 128);
+
+  wizard_mode_ = PlanningDescriptionConfigurationWizard::Easy;
+  ode_collision_model_ = new EnvironmentModelODE();
+
+  const vector<KinematicModel::LinkModel*>& coll_links = kmodel_->getLinkModelsWithCollisionGeometry();
+
+  vector<string> coll_names;
+  for(unsigned int i = 0; i < coll_links.size(); i++)
+  {
+    coll_names.push_back(coll_links[i]->getName());
+  }
+  EnvironmentModel::AllowedCollisionMatrix default_collision_matrix(coll_names, false);
+  map<string, double> default_link_padding_map;
+  ode_collision_model_->setRobotModel(kmodel_, default_collision_matrix, default_link_padding_map, 0.0, 1.0);
+
+  cm_ = new CollisionModels(urdf_, kmodel_, ode_collision_model_);
+  ops_gen_ = new CollisionOperationsGenerator(cm_);
+
 
   setupQtPages();
   inited_ = true;
@@ -2189,6 +2209,15 @@ void PlanningDescriptionConfigurationWizard::generateDefaultInCollisionTable()
   lock_.unlock();
 }
 
+void PlanningDescriptionConfigurationWizard::popupGenericWarning(const char* text)
+{
+  generic_dialog_label_->setText(text);
+  generic_dialog_->show();
+  generic_dialog_->setVisible(true);
+  generic_dialog_->setModal(true);
+  ROS_INFO("Showing warning: %s", text);
+}
+
 void PlanningDescriptionConfigurationWizard::fileSelected(const QString& file)
 {
   package_path_field_->setText(file);
@@ -2247,6 +2276,114 @@ void PlanningDescriptionConfigurationWizard::writeFiles()
     return;
   }
 
+  if(wizard_mode_ == PlanningDescriptionConfigurationWizard::Easy)
+  {
+    ROS_INFO("Automatically configuring.");
+    AutoConfigureThread* thread = new AutoConfigureThread(this);
+    thread->start();
+  }
+
+  else
+  {
+    outputJointLimitsYAML();
+    progress_bar_->setValue(10);
+    outputOMPLGroupYAML();
+    progress_bar_->setValue(20);
+    outputPlanningDescriptionYAML();
+    progress_bar_->setValue(30);
+    outputOMPLLaunchFile();
+    progress_bar_->setValue(40);
+    outputKinematicsLaunchFiles();
+    progress_bar_->setValue(50);
+    outputTrajectoryFilterLaunch();
+    progress_bar_->setValue(65);
+    outputPlanningEnvironmentLaunch();
+    progress_bar_->setValue(75);
+    outputPlanningComponentVisualizerLaunchFile();
+    progress_bar_->setValue(100);
+
+    popupFileSuccess();
+  }
+}
+
+void PlanningDescriptionConfigurationWizard::autoConfigure()
+{
+  progress_ = 0;
+  //////////////////////
+  // SETUP JOINTS
+  //////////////////////
+  const vector<KinematicModel::JointModel*>& jmv = cm_->getKinematicModel()->getJointModels();
+  vector<bool> consider_dof;
+  //assuming that 0th is world joint, which we don't want to include
+  for(unsigned int i = 1; i < jmv.size(); i++)
+  {
+    const map<string, pair<double, double> >& joint_bounds = jmv[i]->getAllVariableBounds();
+    for(map<string, pair<double, double> >::const_iterator it = joint_bounds.begin(); it != joint_bounds.end(); it++)
+    {
+      consider_dof.push_back(true);
+    }
+  }
+  int xind = 0;
+  map<string, bool> cdof_map;
+  for(unsigned int i = 1; i < jmv.size(); i++)
+  {
+    const map<string, pair<double, double> >& joint_bounds = jmv[i]->getAllVariableBounds();
+    for(map<string, pair<double, double> >::const_iterator it = joint_bounds.begin(); it != joint_bounds.end(); it++)
+    {
+      cdof_map[it->first] = consider_dof[xind++];
+    }
+  }
+  ops_gen_->generateSamplingStructures(cdof_map);
+
+  progress_ = 25;
+  emit changeProgress(25);
+  /////////////////////////
+  // ALWAYS-DEFAULT IN COLLISION
+  ////////////////////////
+
+  vector<CollisionOperationsGenerator::StringPair> always_in_collision;
+  vector<CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
+
+  ops_gen_->generateAlwaysInCollisionPairs(always_in_collision, in_collision_joint_values);
+
+  lock_.lock();
+  robot_state_->setKinematicStateToDefault();
+  lock_.unlock();
+
+  ops_gen_->disablePairCollisionChecking(always_in_collision);
+  disable_map_[CollisionOperationsGenerator::ALWAYS] = always_in_collision;
+  vector<CollisionOperationsGenerator::StringPair> default_in_collision;
+  ops_gen_->generateDefaultInCollisionPairs(default_in_collision, in_collision_joint_values);
+  ops_gen_->disablePairCollisionChecking(default_in_collision);
+  disable_map_[CollisionOperationsGenerator::DEFAULT] = default_in_collision;
+
+
+  progress_ = 50;
+  emit changeProgress(50);
+  ////////////////////////
+  // OFTEN IN COLLISION
+  ///////////////////////
+
+  vector<CollisionOperationsGenerator::StringPair> often_in_collision;
+  vector<double> percentages;
+  ops_gen_->generateOftenInCollisionPairs(often_in_collision, percentages, in_collision_joint_values);
+  disable_map_[CollisionOperationsGenerator::OFTEN] = often_in_collision;
+
+  progress_ = 75;
+  emit changeProgress(75);
+  ////////////////////////
+  // OCC-NEVER IN COLLISION
+  ///////////////////////
+
+  vector<CollisionOperationsGenerator::StringPair> in_collision;
+  vector<CollisionOperationsGenerator::StringPair> not_in_collision;
+
+  ops_gen_->generateOccasionallyAndNeverInCollisionPairs(in_collision, not_in_collision, percentages,
+                                                         in_collision_joint_values);
+  disable_map_[CollisionOperationsGenerator::NEVER] = not_in_collision;
+
+  progress_ = 90;
+  emit changeProgress(90);
   outputJointLimitsYAML();
   outputOMPLGroupYAML();
   outputPlanningDescriptionYAML();
@@ -2255,8 +2392,8 @@ void PlanningDescriptionConfigurationWizard::writeFiles()
   outputTrajectoryFilterLaunch();
   outputPlanningEnvironmentLaunch();
   outputPlanningComponentVisualizerLaunchFile();
-
-  popupFileSuccess();
+  progress_ = 100;
+  emit changeProgress(100);
 }
 
 int PlanningDescriptionConfigurationWizard::nextId() const
@@ -2269,7 +2406,14 @@ int PlanningDescriptionConfigurationWizard::nextId() const
     case SetupGroupsPage:
       if(group_selection_done_box_->isChecked())
       {
-        return SelectDOFPage;
+        if(wizard_mode_ == PlanningDescriptionConfigurationWizard::Advanced)
+        {
+          return SelectDOFPage;
+        }
+        else
+        {
+          return OutputFilesPage;
+        }
       }
       else
       {
@@ -2310,6 +2454,69 @@ int PlanningDescriptionConfigurationWizard::nextId() const
 
     default:
       return -1;
+  }
+}
+
+void PlanningDescriptionConfigurationWizard::update()
+{
+  progress_bar_->setValue(progress_);
+  if(progress_ >= 100)
+  {
+    popupFileSuccess();
+  }
+
+  QWizard::update();
+}
+
+void PlanningDescriptionConfigurationWizard::easyButtonToggled(bool checkState)
+{
+  if(checkState)
+  {
+    wizard_mode_ = PlanningDescriptionConfigurationWizard::Easy;
+  }
+}
+
+void PlanningDescriptionConfigurationWizard::hardButtonToggled(bool checkState)
+{
+  if(checkState)
+  {
+    wizard_mode_ = PlanningDescriptionConfigurationWizard::Advanced;
+  }
+}
+
+void PlanningDescriptionConfigurationWizard::verySafeButtonToggled(bool checkState)
+{
+  if(checkState)
+  {
+    ops_gen_->setSafety(CollisionOperationsGenerator::VerySafe);
+  }
+}
+void PlanningDescriptionConfigurationWizard::safeButtonToggled(bool checkState)
+{
+  if(checkState)
+  {
+    ops_gen_->setSafety(CollisionOperationsGenerator::Safe);
+  }
+}
+void PlanningDescriptionConfigurationWizard::normalButtonToggled(bool checkState)
+{
+  if(checkState)
+  {
+    ops_gen_->setSafety(CollisionOperationsGenerator::Normal);
+  }
+}
+void PlanningDescriptionConfigurationWizard::fastButtonToggled(bool checkState)
+{
+  if(checkState)
+  {
+    ops_gen_->setSafety(CollisionOperationsGenerator::Fast);
+  }
+}
+void PlanningDescriptionConfigurationWizard::veryFastButtonToggled(bool checkState)
+{
+  if(checkState)
+  {
+    ops_gen_->setSafety(CollisionOperationsGenerator::VeryFast);
   }
 }
 
@@ -2385,6 +2592,13 @@ void PlanningDescriptionConfigurationWizard::setupQtPages()
   initOccasionallyInCollisionPage();
   initOutputFilesPage();
 
+  generic_dialog_ = new QDialog(this);
+  QVBoxLayout* gDialogLayout = new QVBoxLayout(generic_dialog_);
+  generic_dialog_label_ = new QLabel(generic_dialog_);
+  generic_dialog_label_->setText("Warning!");
+  gDialogLayout->addWidget(generic_dialog_label_);
+  generic_dialog_->setLayout(gDialogLayout);
+
   need_groups_dialog_ = new QDialog(this);
   QVBoxLayout* needsGroupsDialogLayout = new QVBoxLayout(need_groups_dialog_);
   QLabel* needsGroupsText = new QLabel(need_groups_dialog_);
@@ -2442,6 +2656,7 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
     ROS_ERROR("FAILED TO LOAD ./resources/wizard.png");
   }
   ROS_INFO("Loaded Image with %d bytes.", image->byteCount());
+
   QLabel* imageLabel = new QLabel(start_page_);
   imageLabel->setPixmap(QPixmap::fromImage(*image));
   imageLabel->setMinimumHeight(image->height());
@@ -2450,18 +2665,113 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
                            "Welcome to the ROS planning components configuration wizard! This wizard will guide you through"
                              " creating a planning configuration for your robot.\nThe robot's URDF location should have been passed into the"
                              " program as a command line on startup.");
-  QLabel* label = new QLabel(start_page_);
-  label->setText("After you've selected your robot's planning groups, and set up collision"
-    "\ninformation this wizard will automatically generate a planning stack for your robot, and in no time your"
-    "\nrobot's arms will be able to plan around obstacles efficiently!");
-  label->setMinimumHeight(image->height());
-  label->setAlignment(Qt::AlignTop);
+
+  QGroupBox* descBox = new QGroupBox(start_page_);
+
+  QLabel* label = new QLabel(descBox);
+  QVBoxLayout* descLayout = new QVBoxLayout(descBox);
+  label->setText("After you've selected your robot's planning groups,"
+                 "\nand set up collision information this wizard will"
+                 "\nautomatically generate a planning stack for your"
+                 "\nrobot, and in no time your robot's arms will be "
+                 "\nable to plan around obstacles efficiently!");
   layout->addWidget(imageLabel);
-  layout->addWidget(label);
+  descLayout->addWidget(label);
+
+  label->setAlignment(Qt::AlignTop);
+
+  descBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  descBox->setAlignment(Qt::AlignTop);
+
+  QGroupBox* modeGroupBox = new QGroupBox(descBox);
+  modeGroupBox->setTitle("Select Mode");
+
+  QVBoxLayout* modeGroupBoxLayout = new QVBoxLayout(modeGroupBox);
+  QLabel* modeGroupBoxDesc = new QLabel(modeGroupBox);
+  modeGroupBoxDesc->setText("In Easy mode, your robot will be automatically tested for self-collisions,\nand a planning"
+      " parameter file will be automatically generated.\nAdvanced mode allows you to manually configure collision checking.");
+  modeGroupBoxLayout->addWidget(modeGroupBoxDesc);
+
+  QRadioButton* easyButton = new QRadioButton(modeGroupBox);
+  easyButton->setText("Easy");
+  modeGroupBoxLayout->addWidget(easyButton);
+  easyButton->setChecked(true);
+
+  connect(easyButton, SIGNAL(toggled(bool)), this, SLOT(easyButtonToggled(bool)));
+
+  QRadioButton* hardButton = new QRadioButton(modeGroupBox);
+  hardButton->setText("Advanced");
+  modeGroupBoxLayout->addWidget(hardButton);
+
+  connect(hardButton, SIGNAL(toggled(bool)), this, SLOT(hardButtonToggled(bool)));
+
+  modeGroupBox->setLayout(modeGroupBoxLayout);
+  modeGroupBox->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+  descLayout->addWidget(modeGroupBox);
+  modeGroupBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
+
+
+
+
+  QGroupBox* safetyGroupBox = new QGroupBox(descBox);
+   safetyGroupBox->setTitle("Select Safety");
+
+   QVBoxLayout* safetyGroupBoxLayout = new QVBoxLayout(safetyGroupBox);
+   QLabel* safetyGroupBoxDesc = new QLabel(safetyGroupBox);
+   safetyGroupBoxDesc->setText("Defines the sampling density used to determine whether"
+                               "\ncertain robot poses are in collision. Safer settings"
+                               "\nwill sample longer, while faster settings are more"
+                               "\nlikely to be inaccurate.");
+
+   safetyGroupBoxLayout->addWidget(safetyGroupBoxDesc);
+
+   QRadioButton* verySafeButton = new QRadioButton(safetyGroupBox);
+   verySafeButton->setText("Very Safe");
+   safetyGroupBoxLayout->addWidget(verySafeButton);
+   verySafeButton->setChecked(true);
+
+   connect(easyButton, SIGNAL(toggled(bool)), this, SLOT(verySafeButtonToggled(bool)));
+
+   QRadioButton* safeButton = new QRadioButton(safetyGroupBox);
+   safeButton->setText("Safe");
+   safetyGroupBoxLayout->addWidget(safeButton);
+
+   connect(safeButton, SIGNAL(toggled(bool)), this, SLOT(safeButtonToggled(bool)));
+
+   QRadioButton* normalButton = new QRadioButton(safetyGroupBox);
+   normalButton->setText("Normal");
+   safetyGroupBoxLayout->addWidget(normalButton);
+   normalButton->setChecked(true);
+
+   connect(normalButton, SIGNAL(toggled(bool)), this, SLOT(normalButtonToggled(bool)));
+
+   QRadioButton* fastButton = new QRadioButton(safetyGroupBox);
+   fastButton->setText("Fast");
+   safetyGroupBoxLayout->addWidget(fastButton);
+
+   connect(fastButton, SIGNAL(toggled(bool)), this, SLOT(fastButtonToggled(bool)));
+
+   QRadioButton* veryFastButton = new QRadioButton(safetyGroupBox);
+   veryFastButton->setText("Very Fast");
+   safetyGroupBoxLayout->addWidget(veryFastButton);
+
+   connect(veryFastButton, SIGNAL(toggled(bool)), this, SLOT(veryFastButtonToggled(bool)));
+
+
+   safetyGroupBox->setLayout(safetyGroupBoxLayout);
+   safetyGroupBox->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+   descLayout->addWidget(safetyGroupBox);
+   safetyGroupBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
+
+  layout->addWidget(descBox);
+
 
   setPage(StartPage, start_page_);
   start_page_->setLayout(layout);
   start_page_->setMinimumWidth(1000);
+  start_page_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
 void PlanningDescriptionConfigurationWizard::initSetupGroupsPage()
@@ -2685,22 +2995,6 @@ void PlanningDescriptionConfigurationWizard::initSelectDofPage()
 
 void PlanningDescriptionConfigurationWizard::createDofPageTable()
 {
-  ode_collision_model_ = new EnvironmentModelODE();
-
-  const vector<KinematicModel::LinkModel*>& coll_links = kmodel_->getLinkModelsWithCollisionGeometry();
-
-  vector<string> coll_names;
-  for(unsigned int i = 0; i < coll_links.size(); i++)
-  {
-    coll_names.push_back(coll_links[i]->getName());
-  }
-  EnvironmentModel::AllowedCollisionMatrix default_collision_matrix(coll_names, false);
-  map<string, double> default_link_padding_map;
-  ode_collision_model_->setRobotModel(kmodel_, default_collision_matrix, default_link_padding_map, 0.0, 1.0);
-
-  cm_ = new CollisionModels(urdf_, kmodel_, ode_collision_model_);
-  ops_gen_ = new CollisionOperationsGenerator(cm_);
-
   const vector<KinematicModel::JointModel*>& jmv = cm_->getKinematicModel()->getJointModels();
   vector<bool> consider_dof;
 
@@ -2919,8 +3213,11 @@ void PlanningDescriptionConfigurationWizard::initOutputFilesPage()
 
   layout->addWidget(generateButton);
 
-  connect(generateButton, SIGNAL(clicked()), this, SLOT(writeFiles()));
+  progress_bar_ = new QProgressBar(output_files_page_);
+  layout->addWidget(progress_bar_);
 
+  connect(generateButton, SIGNAL(clicked()), this, SLOT(writeFiles()));
+  connect(generateButton, SIGNAL(clicked()), this, SLOT(popupGenericWarning("Please wait...")));
   //addPage(output_files_page_);
   setPage(OutputFilesPage, output_files_page_);
   output_files_page_->setLayout(layout);
@@ -3039,6 +3336,7 @@ int main(int argc, char** argv)
   string urdf_package = argv[1];
   string urdf_path = argv[2];
   pdcw = new PlanningDescriptionConfigurationWizard(urdf_package, urdf_path, NULL);
+  pdcw->setUpdatesEnabled(true);
 
   qtApp.setActiveWindow(pdcw);
 

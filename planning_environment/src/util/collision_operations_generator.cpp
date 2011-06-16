@@ -40,12 +40,6 @@
 #include <planning_environment/util/collision_operations_generator.h>
 #include <yaml-cpp/yaml.h>
 
-static const unsigned int ESTABLISH_ALWAYS_NUM = 100;
-static const unsigned int ESTABLISH_OFTEN_NUM = 500;
-static const double ESTABLISH_OFTEN_PERCENTAGE = .5;
-static const unsigned int ESTABLISH_OCCASIONAL_NUM = 1000;
-static const unsigned int PERFORMANCE_TESTING_NUM = 1000;
-
 using namespace planning_environment;
 
 inline double gen_rand(double min, double max)
@@ -57,6 +51,7 @@ inline double gen_rand(double min, double max)
 
 CollisionOperationsGenerator::CollisionOperationsGenerator(planning_environment::CollisionModels* cm) 
 {
+  setSafety(CollisionOperationsGenerator::Normal);
   cm_ = cm;
 
   enableAllCollisions();
@@ -66,10 +61,10 @@ CollisionOperationsGenerator::CollisionOperationsGenerator(planning_environment:
 void CollisionOperationsGenerator::generateAlwaysInCollisionPairs(std::vector<CollisionOperationsGenerator::StringPair>& always_in_collision,
                                                                   std::vector<CollisionOperationsGenerator::CollidingJointValues>& in_collision_joint_values)
 {
-  sampleAndCountCollisions(ESTABLISH_ALWAYS_NUM);
+  sampleAndCountCollisions(establish_always_num_);
   std::vector<double> percentages;
   std::map<std::string, std::map<std::string, double> > percentage_num;
-  buildOutputStructures(ESTABLISH_ALWAYS_NUM, 1.0, 1.0,
+  buildOutputStructures(establish_always_num_, 1.0, 1.0,
                         always_in_collision, percentages, in_collision_joint_values, percentage_num);
   
 }
@@ -101,9 +96,9 @@ void CollisionOperationsGenerator::generateOftenInCollisionPairs(std::vector<Col
                                                                  std::vector<double>& percentages, 
                                                                  std::vector<CollisionOperationsGenerator::CollidingJointValues>& in_collision_joint_values)
 {
-  sampleAndCountCollisions(ESTABLISH_OFTEN_NUM);
+  sampleAndCountCollisions(establish_often_num_);
   std::map<std::string, std::map<std::string, double> > percentage_num;
-  buildOutputStructures(ESTABLISH_OFTEN_NUM, ESTABLISH_OFTEN_PERCENTAGE, 1.0,
+  buildOutputStructures(establish_often_num_, establish_often_percentage_, 1.0,
                         often_in_collision, percentages, in_collision_joint_values, percentage_num);
   
 }
@@ -127,14 +122,14 @@ void CollisionOperationsGenerator::generateOccasionallyAndNeverInCollisionPairs(
   std::map<std::string, std::map<std::string, double> > first_percentage_num;
   std::map<std::string, std::map<std::string, double> > second_percentage_num;
 
-  sampleAndCountCollisions(ESTABLISH_OCCASIONAL_NUM);
-  buildOutputStructures(ESTABLISH_OCCASIONAL_NUM, 1.0/(ESTABLISH_OCCASIONAL_NUM*1.0), 1.0,
+  sampleAndCountCollisions(establish_occasional_num_);
+  buildOutputStructures(establish_occasional_num_, 1.0/(establish_occasional_num_*1.0), 1.0,
                         first_in_collision_pairs, collision_percentages, first_in_collision_joint_values, first_percentage_num);
 
   ROS_INFO_STREAM("First in collision size " << first_in_collision_pairs.size());
 
-  sampleAndCountCollisions(ESTABLISH_OCCASIONAL_NUM);
-  buildOutputStructures(ESTABLISH_OCCASIONAL_NUM, 1.0/(ESTABLISH_OCCASIONAL_NUM*1.0), 1.0,
+  sampleAndCountCollisions(establish_occasional_num_);
+  buildOutputStructures(establish_occasional_num_, 1.0/(establish_occasional_num_*1.0), 1.0,
                         second_in_collision_pairs, collision_percentages, second_in_collision_joint_values, second_percentage_num);
 
   ROS_INFO_STREAM("Second in collision size " << second_in_collision_pairs.size());
@@ -320,9 +315,9 @@ void CollisionOperationsGenerator::buildOutputStructures(unsigned int num, doubl
 void CollisionOperationsGenerator::performanceTestSavedResults(std::map<CollisionOperationsGenerator::DisableType, std::vector<CollisionOperationsGenerator::StringPair> >& disable_types) {
   enableAllCollisions();
   ros::WallTime n1 = ros::WallTime::now();
-  sampleAndCountCollisions(PERFORMANCE_TESTING_NUM);
+  sampleAndCountCollisions(performance_testing_num_);
   ROS_INFO_STREAM("With no collisions disabled full collision check take an average of " 
-                  << (ros::WallTime::now()-n1).toSec()/(PERFORMANCE_TESTING_NUM/1.0) << " seconds.");
+                  << (ros::WallTime::now()-n1).toSec()/(performance_testing_num_/1.0) << " seconds.");
   for(std::map<DisableType, std::vector<StringPair> >::iterator it = disable_types.begin(); 
       it != disable_types.end(); it++) {
     disablePairCollisionChecking(it->second);
@@ -340,8 +335,8 @@ void CollisionOperationsGenerator::performanceTestSavedResults(std::map<Collisio
     }
     com += " in collision pairs average full check time is ";
     n1 = ros::WallTime::now();
-    sampleAndCountCollisions(PERFORMANCE_TESTING_NUM);
-    ROS_INFO_STREAM(com << (ros::WallTime::now()-n1).toSec()/(PERFORMANCE_TESTING_NUM/1.0) << " seconds.");
+    sampleAndCountCollisions(performance_testing_num_);
+    ROS_INFO_STREAM(com << (ros::WallTime::now()-n1).toSec()/(performance_testing_num_/1.0) << " seconds.");
   }
 }
  
