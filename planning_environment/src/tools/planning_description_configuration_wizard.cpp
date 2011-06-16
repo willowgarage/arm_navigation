@@ -1092,7 +1092,7 @@ void PlanningDescriptionConfigurationWizard::outputOMPLGroupYAML()
       emitter << YAML::Key << "physical_group" << YAML::Value << it->first;
       emitter << YAML::Key << "planner_type" << YAML::Value << "RPYIKTaskSpacePlanner";
       
-      emitter << YAML::Key << "manifolds" << YAML::Value << YAML::BeginSeq;
+      emitter << YAML::Key << "state_spaces" << YAML::Value << YAML::BeginSeq;
       emitter << "x" << "y" << "z" << "roll" << "pitch" << "yaw" << YAML::EndSeq;
       
       emitter << YAML::Key << "x" << YAML::Value << YAML::BeginMap;
