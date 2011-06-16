@@ -56,10 +56,10 @@ class OmplRosIKStateTransformer : public OmplRosStateTransformer
 public:
   /**
    * @brief Default constructor
-   * @param state_manifold - The state manifold that the planner is operating on
+   * @param state_space - The state space that the planner is operating on
    * @param physical_joint_model_group - The "physical" joint model group that the planner is operating on
    */
-  OmplRosIKStateTransformer(const ompl::base::StateManifoldPtr &state_manifold,
+  OmplRosIKStateTransformer(const ompl::base::StateSpacePtr &state_space,
                             const planning_models::KinematicModel::JointModelGroup* physical_joint_model_group);
   ~OmplRosIKStateTransformer(){}
    

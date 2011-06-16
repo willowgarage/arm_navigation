@@ -153,15 +153,15 @@ namespace ompl_ros_interface
      virtual bool initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker) =0;
 
     /**
-     * @brief Initialize the planning manifold. This function must allocate and instantiate a state manifold on which planning will take place.
+     * @brief Initialize the planning state space. This function must allocate and instantiate a state space on which planning will take place.
      */
-    virtual bool initializePlanningManifold(ompl::base::StateManifoldPtr &state_manifold) = 0;
+    virtual bool initializePlanningStateSpace(ompl::base::StateSpacePtr &state_space) = 0;
 
     std::string group_name_;///the name of the group
 
     planning_environment::CollisionModelsInterface* collision_models_interface_;///A pointer to an instance of the planning monitor
 
-    ompl::base::StateManifoldPtr state_manifold_;///possibly abstract state
+    ompl::base::StateSpacePtr state_space_;///possibly abstract state
 
     /** 
         @brief The actual (physical) joint group that this state maps onto.
@@ -230,4 +230,3 @@ namespace ompl_ros_interface
   };
 }
 #endif //OMPL_ROS_PLANNING_GROUP_H_
-

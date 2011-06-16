@@ -49,25 +49,25 @@ bool OmplRosRPYIKStateTransformer::initialize()
   solution_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
   //  motion_planning_msgs::printJointState(solution_state_.joint_state);
 
-  real_vector_index_ = state_manifold_->as<ompl::base::CompoundStateManifold>()->getSubManifoldIndex("real_vector");
+  real_vector_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
 
   if(real_vector_index_ > -1)
   {
-    x_index_ = state_manifold_->as<ompl::base::CompoundStateManifold>()->as<ompl::base::RealVectorStateManifold>(real_vector_index_)->getDimensionIndex("x");
-    y_index_ = state_manifold_->as<ompl::base::CompoundStateManifold>()->as<ompl::base::RealVectorStateManifold>(real_vector_index_)->getDimensionIndex("y");
-    z_index_ = state_manifold_->as<ompl::base::CompoundStateManifold>()->as<ompl::base::RealVectorStateManifold>(real_vector_index_)->getDimensionIndex("z");
+    x_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index_)->getDimensionIndex("x");
+    y_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index_)->getDimensionIndex("y");
+    z_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index_)->getDimensionIndex("z");
     
-    pitch_index_ = state_manifold_->as<ompl::base::CompoundStateManifold>()->as<ompl::base::RealVectorStateManifold>(real_vector_index_)->getDimensionIndex("pitch");
-    roll_index_ = state_manifold_->as<ompl::base::CompoundStateManifold>()->as<ompl::base::RealVectorStateManifold>(real_vector_index_)->getDimensionIndex("roll");
-    yaw_index_ = state_manifold_->as<ompl::base::CompoundStateManifold>()->as<ompl::base::RealVectorStateManifold>(real_vector_index_)->getDimensionIndex("yaw");
+    pitch_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index_)->getDimensionIndex("pitch");
+    roll_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index_)->getDimensionIndex("roll");
+    yaw_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index_)->getDimensionIndex("yaw");
   }
   else
   {
-    ROS_ERROR("Could not find real vector manifold");
+    ROS_ERROR("Could not find real vector state space");
     return false;
   }
   /*Map any real joints onto the actual physical joints */
-  scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateManifold>(state_manifold_));
+  scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateSpace>(state_space_));
   if(!ompl_ros_interface::getOmplStateToRobotStateMapping(*scoped_state_,seed_state_,ompl_state_to_robot_state_mapping_,false))
   {
     ROS_ERROR("Could not get mapping between ompl state and robot state");
@@ -101,10 +101,11 @@ bool OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State &omp
                    pose.orientation.z << " " << 
                    pose.orientation.w);
 
-  if(kinematics_solver_->getPositionIK(pose,
-                                       seed_state_.joint_state.position,
-                                       solution_state_.joint_state.position,
-				       error_code))
+  if(kinematics_solver_->searchPositionIK(pose,
+                                          seed_state_.joint_state.position,
+                                          0.0,
+                                          solution_state_.joint_state.position,
+                                          error_code))
   {
     robot_state.joint_state = solution_state_.joint_state;
     return true;
@@ -122,13 +123,13 @@ void OmplRosRPYIKStateTransformer::omplStateToPose(const ompl::base::State &ompl
                                                    geometry_msgs::Pose &pose)
 {
   
-  btVector3 tmp_pos(ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateManifold::StateType>(real_vector_index_)->values[x_index_],
-                    ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateManifold::StateType>(real_vector_index_)->values[y_index_],
-                    ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateManifold::StateType>(real_vector_index_)->values[z_index_]);
+  btVector3 tmp_pos(ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[x_index_],
+                    ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[y_index_],
+                    ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[z_index_]);
   btQuaternion tmp_rot;
-  tmp_rot.setRPY(ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateManifold::StateType>(real_vector_index_)->values[roll_index_],
-                 ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateManifold::StateType>(real_vector_index_)->values[pitch_index_],
-                 ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateManifold::StateType>(real_vector_index_)->values[yaw_index_]);
+  tmp_rot.setRPY(ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[roll_index_],
+                 ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[pitch_index_],
+                 ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[yaw_index_]);
   btTransform tmp_transform(tmp_rot,tmp_pos);
   tf::poseTFToMsg(tmp_transform,pose);  
 }

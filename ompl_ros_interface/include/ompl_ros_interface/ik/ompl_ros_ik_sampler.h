@@ -76,13 +76,13 @@ public:
 
   /**
    * @brief Initialize the sampler
-   * @param state_manifold - The state manifld that the planner is operating on
+   * @param state_space - The state manifld that the planner is operating on
    * @param kinematics_solver_name - The name of the plugin that the kinematics solver will use
    * @param group_name - The name of the group that this solver is operating on
    * @param end_effector_name - The name of the end effector for this group
    * @param planning_monitor - A pointer to an instance of the planning monitor
    */
-  bool initialize(const ompl::base::StateManifoldPtr &state_manifold,
+  bool initialize(const ompl::base::StateSpacePtr &state_space,
                   const std::string &kinematics_solver_name,
                   const std::string &group_name,
                   const std::string &end_effector_name,
@@ -117,12 +117,12 @@ private:
   std::vector<geometry_msgs::PoseStamped> ik_poses_;
   unsigned int max_sample_count_,num_samples_;
   unsigned int ik_poses_counter_;
-  ompl::base::StateManifoldPtr state_manifold_;
+  ompl::base::StateSpacePtr state_space_;
   kinematics::KinematicsBase* kinematics_solver_;
   
   std::string kinematics_solver_name_, group_name_, end_effector_name_;
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
-  boost::shared_ptr<ompl::base::ScopedState<ompl::base::CompoundStateManifold> > scoped_state_;
+  boost::shared_ptr<ompl::base::ScopedState<ompl::base::CompoundStateSpace> > scoped_state_;
   motion_planning_msgs::RobotState seed_state_, solution_state_;
 
   ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;

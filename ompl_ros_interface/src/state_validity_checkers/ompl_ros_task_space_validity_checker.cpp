@@ -124,7 +124,7 @@ bool OmplRosTaskSpaceValidityChecker::setStateTransformer(boost::shared_ptr<ompl
   {
     if(state_transformer->getFrame() != parent_frame_)
     {
-      ROS_ERROR("State transformer has parent frame %s. State transformer should function in same frame as planning manifold %s",state_transformer->getFrame().c_str(),parent_frame_.c_str());
+      ROS_ERROR("State transformer has parent frame %s. State transformer should function in same frame as planning state space %s",state_transformer->getFrame().c_str(),parent_frame_.c_str());
       return false;
     }
     state_transformer_ = state_transformer;

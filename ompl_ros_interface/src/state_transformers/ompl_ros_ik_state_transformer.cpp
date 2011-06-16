@@ -38,13 +38,13 @@
 
 namespace ompl_ros_interface
 {
-OmplRosIKStateTransformer::OmplRosIKStateTransformer(const ompl::base::StateManifoldPtr &state_manifold,
-                                                     const planning_models::KinematicModel::JointModelGroup* physical_joint_model_group) : OmplRosStateTransformer(state_manifold, physical_joint_model_group), kinematics_loader_("kinematics_base","kinematics::KinematicsBase")
+OmplRosIKStateTransformer::OmplRosIKStateTransformer(const ompl::base::StateSpacePtr &state_space,
+                                                     const planning_models::KinematicModel::JointModelGroup* physical_joint_model_group) : OmplRosStateTransformer(state_space, physical_joint_model_group), kinematics_loader_("kinematics_base","kinematics::KinematicsBase")
 
 {
   ros::NodeHandle node_handle("~");
   std::string kinematics_solver_name;
-  group_name_ = state_manifold_->getName();
+  group_name_ = state_space_->getName();
   physical_group_name_ = physical_joint_model_group_->getName();
   if(!node_handle.hasParam(group_name_+"/kinematics_solver"))
   {

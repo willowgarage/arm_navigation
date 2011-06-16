@@ -39,11 +39,11 @@
 
 namespace ompl_ros_interface
 {
-bool OmplRosTaskSpacePlanner::initializePlanningManifold(ompl::base::StateManifoldPtr &state_manifold)
+bool OmplRosTaskSpacePlanner::initializePlanningStateSpace(ompl::base::StateSpacePtr &state_space)
 {
   if(!node_handle_.hasParam(group_name_))
   {
-    ROS_ERROR("Could not find description of planning manifold %s",group_name_.c_str());
+    ROS_ERROR("Could not find description of planning state space %s",group_name_.c_str());
     return false;
   }
   if(!node_handle_.getParam(group_name_+"/parent_frame", planning_frame_id_))
@@ -52,62 +52,63 @@ bool OmplRosTaskSpacePlanner::initializePlanningManifold(ompl::base::StateManifo
     return false;
   }
 
-  XmlRpc::XmlRpcValue manifold_list;
-  std::vector<std::string> manifold_names;
-  if(!node_handle_.getParam(group_name_+"/manifolds", manifold_list))
+  XmlRpc::XmlRpcValue space_list;
+  std::vector<std::string> space_names;
+  if(!node_handle_.getParam(group_name_+"/state_spaces", space_list))
   {
-    ROS_ERROR("Could not find parameter %s on param server",(group_name_+"/manifolds").c_str());
+    ROS_ERROR("Could not find parameter %s on param server",(group_name_+"/state_spaces").c_str());
     return false;
   }
-  if(manifold_list.getType() != XmlRpc::XmlRpcValue::TypeArray)
+  if(space_list.getType() != XmlRpc::XmlRpcValue::TypeArray)
   {
-    ROS_ERROR("Manifold list should be of XmlRpc Array type");
+    ROS_ERROR("State space list should be of XmlRpc Array type");
     return false;
   }
+
   int real_vector_index = -1;
-  state_manifold.reset(new ompl::base::CompoundStateManifold());
-  state_manifold->setName(group_name_);
-  for (unsigned int i = 0; i < (unsigned int) manifold_list.size(); ++i) 
+  state_space.reset(new ompl::base::CompoundStateSpace());
+  state_space->setName(group_name_);
+  for (unsigned int i = 0; i < (unsigned int) space_list.size(); ++i) 
   {
-    if(manifold_list[i].getType() != XmlRpc::XmlRpcValue::TypeString)
+    if(space_list[i].getType() != XmlRpc::XmlRpcValue::TypeString)
     {
-      ROS_ERROR("Manifold names should be strings");
+      ROS_ERROR("State space names should be strings");
       return false;
     }
-    manifold_names.push_back(static_cast<std::string>(manifold_list[i]));
-    ROS_DEBUG("Adding manifold: %s",manifold_names.back().c_str());
+    space_names.push_back(static_cast<std::string>(space_list[i]));
+    ROS_INFO("Adding state space: %s",space_names.back().c_str());
 
-    if(collision_models_interface_->getKinematicModel()->hasJointModel(manifold_names.back()))
+    if(collision_models_interface_->getKinematicModel()->hasJointModel(space_names.back()))
     {
-      addToOmplStateManifold(collision_models_interface_->getKinematicModel(),
-                             manifold_names.back(),
-                             state_manifold);
+      addToOmplStateSpace(collision_models_interface_->getKinematicModel(),
+                          space_names.back(),
+                          state_space);
       continue;
     }
 
-    if(!getManifoldFromParamServer(ros::NodeHandle(node_handle_,group_name_+"/"+manifold_names.back()),
-                                   manifold_names.back(),
-                                   state_manifold,
+    if(!getSpaceFromParamServer(ros::NodeHandle(node_handle_,group_name_+"/"+space_names.back()),
+                                   space_names.back(),
+                                   state_space,
                                    real_vector_index))
       return false;
   }
-  if(!state_manifold)
+  if(!state_space)
   {
-    ROS_ERROR("Could not set up the ompl state manifold from group %s",group_name_.c_str());
+    ROS_ERROR("Could not set up the ompl state space from group %s",group_name_.c_str());
     return false;
   }
   return true;
 }
 
-bool OmplRosTaskSpacePlanner::getManifoldFromParamServer(const ros::NodeHandle &node_handle,
-                                                         const std::string &manifold_name,
-                                                         ompl::base::StateManifoldPtr& state_manifold,
+bool OmplRosTaskSpacePlanner::getSpaceFromParamServer(const ros::NodeHandle &node_handle,
+                                                         const std::string &space_name,
+                                                         ompl::base::StateSpacePtr& state_space,
                                                          int& real_vector_index)
 {
   std::string type;
   if(!node_handle.hasParam("type"))
   {
-    ROS_ERROR("Could not find type for manifold %s",manifold_name.c_str());
+    ROS_ERROR("Could not find type for state space %s",space_name.c_str());
     return false;
   }
   node_handle.getParam("type",type);
@@ -115,44 +116,44 @@ bool OmplRosTaskSpacePlanner::getManifoldFromParamServer(const ros::NodeHandle &
   {
     if(real_vector_index < 0)
     {
-      real_vector_index = state_manifold->as<ompl::base::CompoundStateManifold>()->getSubManifoldCount();
-      ompl::base::RealVectorStateManifold *manifold = new ompl::base::RealVectorStateManifold(0);
-      manifold->setName("real_vector");
-      state_manifold->as<ompl::base::CompoundStateManifold>()->addSubManifold(ompl::base::StateManifoldPtr(manifold),1.0);
+      real_vector_index = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+      ompl::base::RealVectorStateSpace *subspace = new ompl::base::RealVectorStateSpace(0);
+      subspace->setName("real_vector");
+      state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace),1.0);
     }
-    ompl::base::StateManifoldPtr real_vector_manifold = state_manifold->as<ompl::base::CompoundStateManifold>()->getSubManifold("real_vector");
+    ompl::base::StateSpacePtr real_vector_state_space = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector");
     double min_value, max_value;
     node_handle.param("min",min_value,-M_PI);
     node_handle.param("max",max_value,M_PI);
-    real_vector_manifold->as<ompl::base::RealVectorStateManifold>()->addDimension(manifold_name,min_value,max_value);    
+    real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->addDimension(space_name,min_value,max_value);    
   }
   else if(type == "Planar")
   {
-    ompl::base::SE2StateManifold *manifold = new ompl::base::SE2StateManifold();
-    manifold->setName(manifold_name);
+    ompl::base::SE2StateSpace *subspace = new ompl::base::SE2StateSpace();
+    subspace->setName(space_name);
     if(!node_handle.hasParam("x/min") || !node_handle.hasParam("x/max") || 
        !node_handle.hasParam("y/min") || !node_handle.hasParam("y/max"))
     {
-      ROS_ERROR("Could not find bounds for planar manifold %s",manifold_name.c_str());
+      ROS_ERROR("Could not find bounds for planar state space %s",space_name.c_str());
     }
     ompl::base::RealVectorBounds real_vector_bounds(2);
     node_handle.getParam("x/min",real_vector_bounds.low[0]);
     node_handle.getParam("x/max",real_vector_bounds.high[0]);
     node_handle.getParam("y/min",real_vector_bounds.low[1]);
     node_handle.getParam("y/max",real_vector_bounds.high[1]);
-    manifold->setBounds(real_vector_bounds);
+    subspace->setBounds(real_vector_bounds);
 
-    state_manifold->as<ompl::base::CompoundStateManifold>()->addSubManifold(ompl::base::StateManifoldPtr(manifold), 1.0);
+    state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
   } 
   else if(type == "Floating")
   {
-    ompl::base::SE3StateManifold *manifold = new ompl::base::SE3StateManifold();
-    manifold->setName(manifold_name);
+    ompl::base::SE3StateSpace *subspace = new ompl::base::SE3StateSpace();
+    subspace->setName(space_name);
     if(!node_handle.hasParam("x/min") || !node_handle.hasParam("x/max") || 
        !node_handle.hasParam("y/min") || !node_handle.hasParam("y/max") ||
        !node_handle.hasParam("z/min") || !node_handle.hasParam("z/max"))
     {
-      ROS_ERROR("Could not find bounds for floating manifold %s",manifold_name.c_str());
+      ROS_ERROR("Could not find bounds for floating state space %s",space_name.c_str());
     }
     ompl::base::RealVectorBounds real_vector_bounds(3);
     node_handle.getParam("x/min",real_vector_bounds.low[0]);
@@ -164,14 +165,14 @@ bool OmplRosTaskSpacePlanner::getManifoldFromParamServer(const ros::NodeHandle &
     node_handle.getParam("z/min",real_vector_bounds.low[2]);
     node_handle.getParam("z/max",real_vector_bounds.high[2]);
 
-    manifold->setBounds(real_vector_bounds);
-    state_manifold->as<ompl::base::CompoundStateManifold>()->addSubManifold(ompl::base::StateManifoldPtr(manifold), 1.0);
+    subspace->setBounds(real_vector_bounds);
+    state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
   } 
   else if(type == "Continuous")
   {
-    ompl::base::SO2StateManifold *manifold = new ompl::base::SO2StateManifold();
-    manifold->setName(manifold_name);
-    state_manifold->as<ompl::base::CompoundStateManifold>()->addSubManifold(ompl::base::StateManifoldPtr(manifold), 1.0);
+    ompl::base::SO2StateSpace *subspace = new ompl::base::SO2StateSpace();
+    subspace->setName(space_name);
+    state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
   } 
   else
   {
@@ -215,12 +216,13 @@ bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan
 bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
                                       motion_planning_msgs::GetMotionPlan::Response &response)
 {
-  ompl::base::ScopedState<ompl::base::CompoundStateManifold> goal(state_manifold_);
+  ompl::base::ScopedState<ompl::base::CompoundStateSpace> goal(state_space_);
   ompl::base::GoalPtr goal_states(new ompl::base::GoalStates(planner_->getSpaceInformation()));
   ROS_DEBUG("Setting my goal");
   if(!constraintsToOmplState(request.motion_plan_request.goal_constraints,goal))
   {
     response.error_code.val = response.error_code.PLANNING_FAILED;
+    ROS_WARN("Problem converting constraints to ompl state");
     return false;
   }
   goal_states->as<ompl::base::GoalStates>()->addState(goal.get());
@@ -241,7 +243,7 @@ bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Reque
 }
 
 bool OmplRosTaskSpacePlanner::constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
-                                                     ompl::base::ScopedState<ompl::base::CompoundStateManifold> &goal)
+                                                     ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal)
 {
   return ompl_ros_interface::constraintsToOmplState(constraints,goal);
 }
@@ -249,7 +251,7 @@ bool OmplRosTaskSpacePlanner::constraintsToOmplState(const motion_planning_msgs:
 bool OmplRosTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan::Request &request,
                                        motion_planning_msgs::GetMotionPlan::Response &response)
 {
-  ompl::base::ScopedState<ompl::base::CompoundStateManifold> start(state_manifold_);
+  ompl::base::ScopedState<ompl::base::CompoundStateSpace> start(state_space_);
   motion_planning_msgs::RobotState cur_state;
   planning_environment::convertKinematicStateToRobotState(*collision_models_interface_->getPlanningSceneState(),
                                                           ros::Time::now(),

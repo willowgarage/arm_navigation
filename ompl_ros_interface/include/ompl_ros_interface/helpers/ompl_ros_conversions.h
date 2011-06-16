@@ -41,13 +41,13 @@
 #include <ros/console.h>
 #include <angles/angles.h>
 
-#include <ompl/base/manifolds/SO2StateManifold.h>
-#include <ompl/base/manifolds/SO3StateManifold.h>
-#include <ompl/base/manifolds/SE2StateManifold.h>
-#include <ompl/base/manifolds/SE3StateManifold.h>
-#include <ompl/base/manifolds/RealVectorStateManifold.h>
+#include <ompl/base/spaces/SO2StateSpace.h>
+#include <ompl/base/spaces/SO3StateSpace.h>
+#include <ompl/base/spaces/SE2StateSpace.h>
+#include <ompl/base/spaces/SE3StateSpace.h>
+#include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/PathGeometric.h>
-#include <ompl/base/StateManifold.h>
+#include <ompl/base/StateSpace.h>
 #include <ompl/base/ScopedState.h>
 #include <ompl/base/State.h>
 
@@ -138,19 +138,19 @@ public:
 
 ompl_ros_interface::MAPPING_TYPE getMappingType(const planning_models::KinematicModel::JointModel *joint_model);
 
-ompl_ros_interface::MAPPING_TYPE getMappingType(const ompl::base::StateManifold *state_manifold);
+ompl_ros_interface::MAPPING_TYPE getMappingType(const ompl::base::StateSpace *state_space);
 
-ompl_ros_interface::MAPPING_TYPE getMappingType(const ompl::base::StateManifoldPtr &state_manifold);
+ompl_ros_interface::MAPPING_TYPE getMappingType(const ompl::base::StateSpacePtr &state_space);
 
 /**
- * @brief create a object of type ompl::base::CompoundStateManifold from an object of 
+ * @brief create a object of type ompl::base::CompoundStateSpace from an object of 
  * type planning_models::KinematicModel::JointGroup
  * @param joint_group The joint group to construct this from
- * @param state_manifold The output state manifold
+ * @param state_space The output state space
  * @param ompl_kinematic_mapping Mapping from the ompl state to the corresponding kinematic state
  * @param kinematic_ompl_mapping Mapping from the kinematic state to the corresponding ompl state
  */
-ompl::base::StateManifoldPtr jointGroupToOmplStateManifoldPtr(const planning_models::KinematicModel::JointModelGroup *joint_group, 
+ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::KinematicModel::JointModelGroup *joint_group, 
                                                               ompl_ros_interface::OmplStateToKinematicStateMapping &ompl_kinematic_mapping,
                                                               ompl_ros_interface::KinematicStateToOmplStateMapping &kinematic_ompl_mapping);
 
@@ -163,7 +163,7 @@ ompl::base::StateManifoldPtr jointGroupToOmplStateManifoldPtr(const planning_mod
  * @param mapping The resultant mapping
  */
 bool getRobotStateToOmplStateMapping(const motion_planning_msgs::RobotState &robot_state, 
-                                     const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+                                     const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                      ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                                      const bool &fail_if_match_not_found = true);
 
@@ -176,7 +176,7 @@ bool getRobotStateToOmplStateMapping(const motion_planning_msgs::RobotState &rob
  * @param mapping The resultant mapping
  */
 bool getJointStateToOmplStateMapping(const sensor_msgs::JointState &joint_state, 
-                                     const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+                                     const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                      ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                                      const bool &fail_if_match_not_found = true);
 
@@ -188,7 +188,7 @@ bool getJointStateToOmplStateMapping(const sensor_msgs::JointState &joint_state,
  * @param joint_state The joint state message to create the mapping to
  * @param mapping The resultant mapping
  */
-bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                      const sensor_msgs::JointState &joint_state,
                                      ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                                      const bool &fail_if_match_not_found = true);
@@ -201,7 +201,7 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
  * @param robot_state The joint state message to create the mapping to
  * @param mapping The resultant mapping
  */
-bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                      const motion_planning_msgs::RobotState &robot_state, 
                                      ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                                      const bool &fail_if_match_not_found = true);
@@ -214,7 +214,7 @@ bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::C
  *  @param mapping The mapping to use for this conversion
  *  @param robot_state The robot state message to create the mapping to
  */
-bool omplStateToRobotState(const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+bool omplStateToRobotState(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                            const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                            motion_planning_msgs::RobotState &robot_state);
 
@@ -238,7 +238,7 @@ bool omplStateToRobotState(const ompl::base::State &ompl_state,
  * @param mapping The mapping to use for this conversion
  * @param joint_state The joint state message to create the mapping to
 */
-bool omplRealVectorStateToJointState(const ompl::base::RealVectorStateManifold::StateType &ompl_state,
+bool omplRealVectorStateToJointState(const ompl::base::RealVectorStateSpace::StateType &ompl_state,
                                      const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                                      sensor_msgs::JointState &joint_state);
 
@@ -252,7 +252,7 @@ bool omplRealVectorStateToJointState(const ompl::base::RealVectorStateManifold::
 */
 bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
                            const ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
-                           ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+                           ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                            const bool &fail_if_match_not_found = true);
 
 /**
@@ -276,7 +276,7 @@ bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
  * @param ompl_state The ompl state to create the mapping from
 */
 bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
-                           ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_scoped_state,
+                           ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                            const bool &fail_if_match_not_found = true);
 
 
@@ -290,56 +290,56 @@ bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
 */
 bool jointStateToRealVectorState(const sensor_msgs::JointState &joint_state,
                                  const ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
-                                 ompl::base::RealVectorStateManifold::StateType &real_vector_state,
+                                 ompl::base::RealVectorStateSpace::StateType &real_vector_state,
                                  const bool &fail_if_match_not_found = true);
 
 /**
- * @brief Convert a SE3StateManifold::StateType to a pose message
- * @param pose - an object of type SE3StateManifold::StateType
+ * @brief Convert a SE3StateSpace::StateType to a pose message
+ * @param pose - an object of type SE3StateSpace::StateType
  * @param pose_msg - the resultant pose message
  */
-void SE3ManifoldToPoseMsg(const ompl::base::SE3StateManifold::StateType &pose,
+void SE3StateSpaceToPoseMsg(const ompl::base::SE3StateSpace::StateType &pose,
                           geometry_msgs::Pose &pose_msg);
 
 /**
- * @brief Convert a SO3StateManifold::StateType to a quaternion message
- * @param pose - an object of type SO3StateManifold::StateType
+ * @brief Convert a SO3StateSpace::StateType to a quaternion message
+ * @param pose - an object of type SO3StateSpace::StateType
  * @param quaternion_msg - the resultant quaternion message
  */
-void SO3ManifoldToQuaternionMsg(const ompl::base::SO3StateManifold::StateType &quaternion,
+void SO3StateSpaceToQuaternionMsg(const ompl::base::SO3StateSpace::StateType &quaternion,
                                 geometry_msgs::Quaternion &quaternion_msg);
 
 /**
- * @brief Convert a SO3StateManifold::StateType to a pose message
- * @param pose - an object of type SO3StateManifold::StateType
+ * @brief Convert a SO3StateSpace::StateType to a pose message
+ * @param pose - an object of type SO3StateSpace::StateType
  * @param pose_msg - the resultant pose message
  */
-void SO3ManifoldToPoseMsg(const ompl::base::SO3StateManifold::StateType &quaternion,
+void SO3StateSpaceToPoseMsg(const ompl::base::SO3StateSpace::StateType &quaternion,
                           geometry_msgs::Pose &pose_msg);
 
 /**
- * @brief Convert a SE2StateManifold::StateType to a pose message
- * @param pose - an object of type SE2StateManifold::StateType
+ * @brief Convert a SE2StateSpace::StateType to a pose message
+ * @param pose - an object of type SE2StateSpace::StateType
  * @param pose_msg - the resultant pose message
  */
-void SE2ManifoldToPoseMsg(const ompl::base::SE2StateManifold::StateType &pose,
+void SE2StateSpaceToPoseMsg(const ompl::base::SE2StateSpace::StateType &pose,
                           geometry_msgs::Pose &pose_msg);
 
 /**
- * @brief Convert a pose message to a SE3StateManifold::StateType
+ * @brief Convert a pose message to a SE3StateSpace::StateType
  * @param pose_msg - the input pose message
- * @param pose - the resultant object of type SE3StateManifold::StateType
+ * @param pose - the resultant object of type SE3StateSpace::StateType
  */
-void poseMsgToSE3Manifold(const geometry_msgs::Pose &pose_msg,
-                          ompl::base::SE3StateManifold::StateType &pose);
+void poseMsgToSE3StateSpace(const geometry_msgs::Pose &pose_msg,
+                          ompl::base::SE3StateSpace::StateType &pose);
 
 /**
- * @brief Convert a quaternion message to a SO3StateManifold::StateType
+ * @brief Convert a quaternion message to a SO3StateSpace::StateType
  * @param pose_msg - the resultant quaternion message
- * @param pose - an object of type SO3StateManifold::StateType
+ * @param pose - an object of type SO3StateSpace::StateType
  */
-void quaternionMsgToSO3Manifold(const geometry_msgs::Quaternion &quaternion_msg,
-                                ompl::base::SO3StateManifold::StateType &quaternion);
+void quaternionMsgToSO3StateSpace(const geometry_msgs::Quaternion &quaternion_msg,
+                                ompl::base::SO3StateSpace::StateType &quaternion);
 
 
 /**
@@ -349,7 +349,7 @@ void quaternionMsgToSO3Manifold(const geometry_msgs::Quaternion &quaternion_msg,
  * @param mapping The resultant mapping
  */
 bool getJointStateGroupToOmplStateMapping(planning_models::KinematicState::JointStateGroup* joint_state_group, 
-                                          const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+                                          const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                           ompl_ros_interface::KinematicStateToOmplStateMapping &mapping);
 
 
@@ -359,7 +359,7 @@ bool getJointStateGroupToOmplStateMapping(planning_models::KinematicState::Joint
  * @param joint_state_group The kinematic state to create the mapping to
  * @param mapping The resultant mapping
  */
-bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                           planning_models::KinematicState::JointStateGroup* joint_state_group,
                                           ompl_ros_interface::OmplStateToKinematicStateMapping &mapping);
 
@@ -371,7 +371,7 @@ bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::ba
  */
 bool kinematicStateGroupToOmplState(const planning_models::KinematicState::JointStateGroup* joint_state_group, 
                                     const ompl_ros_interface::KinematicStateToOmplStateMapping &mapping,
-                                    ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state);
+                                    ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state);
 
 /**
  * @brief Convert an ompl scoped state to a kinematic state given the appropriate mapping
@@ -379,7 +379,7 @@ bool kinematicStateGroupToOmplState(const planning_models::KinematicState::Joint
  * @param mapping The given mapping
  * @param joint_state_group The kinematic state to convert to
  */
-bool omplStateToKinematicStateGroup(const ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_state,
+bool omplStateToKinematicStateGroup(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                     const ompl_ros_interface::OmplStateToKinematicStateMapping &mapping,
                                     planning_models::KinematicState::JointStateGroup* joint_state_group);
 
@@ -405,12 +405,12 @@ bool jointStateGroupToRobotTrajectory(planning_models::KinematicState::JointStat
 /**
  * @brief Convert an ompl path to a RobotTrajectory message
  * @param path The ompl path 
- * @param state_manifold The state manifold corresponding to the path
+ * @param state_space The state space corresponding to the path
  * @param robot_trajectory The RobotTrajectory message to convert the path to
  * @return false if any error occured
  */
 bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path,
-                                        const ompl::base::StateManifoldPtr &state_manifold,
+                                        const ompl::base::StateSpacePtr &state_space,
                                         motion_planning_msgs::RobotTrajectory &robot_trajectory);
 
 /**
@@ -425,24 +425,24 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
                                         motion_planning_msgs::RobotTrajectory &robot_trajectory);
 
 /**
- * @brief Get the mapping from an ompl state manifold to a RobotTrajectory message
- * @param state_manifold The state manifold 
+ * @brief Get the mapping from an ompl state space to a RobotTrajectory message
+ * @param state_space The state space 
  * @param robot_trajectory The RobotTrajectory message to find the mapping for
- * @param mapping The mapping from the state_manifold to the robot trajectory
+ * @param mapping The mapping from the state_space to the robot trajectory
  * @return false if any error occured
  */
-bool getOmplStateToRobotTrajectoryMapping(const ompl::base::StateManifoldPtr &state_manifold,
+bool getOmplStateToRobotTrajectoryMapping(const ompl::base::StateSpacePtr &state_space,
                                           const motion_planning_msgs::RobotTrajectory &robot_trajectory, 
                                           ompl_ros_interface::OmplStateToRobotStateMapping &mapping);
 
 /**
- * @brief Get the mapping from an ompl state manifold to a JointTrajectory message
- * @param state_manifold The state manifold 
+ * @brief Get the mapping from an ompl state space to a JointTrajectory message
+ * @param state_space The state space 
  * @param joint_trajectory The JointTrajectory message to find the mapping for
- * @param mapping The mapping from the state_manifold to the robot trajectory
+ * @param mapping The mapping from the state_space to the robot trajectory
  * @return false if any error occured
  */
-bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateManifoldPtr &state_manifold,
+bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state_space,
                                           const trajectory_msgs::JointTrajectory &joint_trajectory,
                                           ompl_ros_interface::OmplStateToRobotStateMapping &mapping);
 
@@ -453,7 +453,7 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateManifoldPtr &st
  * @return false if any error occured
  */
 bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointConstraint> &joint_constraints,
-                                 ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_scoped_state);
+                                 ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state);
 
 /**
  * @brief Convert a set of joint constraints to an ompl scoped state
@@ -462,7 +462,7 @@ bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointCo
  * @return false if any error occured
  */
 bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointConstraint> &joint_constraints,
-                                 ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_scoped_state);
+                                 ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state);
 
 /**
  * @brief Convert a set of constraints to an ompl scoped state
@@ -472,7 +472,7 @@ bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointCo
  * @return false if any error occured
  */
 bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints,
-                            ompl::base::ScopedState<ompl::base::CompoundStateManifold> &ompl_scoped_state,
+                            ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                             const bool &fail_if_match_not_found = true);
 
 /**
@@ -498,15 +498,15 @@ bool getRobotStateToJointModelGroupMapping(const motion_planning_msgs::RobotStat
                                            ompl_ros_interface::RobotStateToKinematicStateMapping &mapping);
 
 /**
- * @brief Add a state to the ompl state manifold
+ * @brief Add a state to the ompl state space
  * @param kinematic_model - the kinematic model to use for getting properties of the particular joint
  * @param joint_name - The joint name to add
- * @param ompl_state_manifold - The state manifold to add joints to
+ * @param ompl_state_space - The state space to add joints to
  * @return false if any error occured
  */
-bool addToOmplStateManifold(const planning_models::KinematicModel* kinematic_model, 
-                            const std::string &joint_name,
-                            ompl::base::StateManifoldPtr &ompl_state_manifold);
+bool addToOmplStateSpace(const planning_models::KinematicModel* kinematic_model, 
+                         const std::string &joint_name,
+                         ompl::base::StateSpacePtr &ompl_state_space);
 
 }
 #endif

@@ -38,14 +38,14 @@
 
 namespace ompl_ros_interface
 {
-bool OmplRosIKSampleableRegion::initialize(const ompl::base::StateManifoldPtr &state_manifold,
+bool OmplRosIKSampleableRegion::initialize(const ompl::base::StateSpacePtr &state_space,
                                            const std::string &kinematics_solver_name,
                                            const std::string &group_name,
                                            const std::string &end_effector_name,
                                            const planning_environment::CollisionModelsInterface* cmi)
 {
   collision_models_interface_ = cmi;
-  state_manifold_ = state_manifold;
+  state_space_ = state_space;
   group_name_ = group_name;
   end_effector_name_ = end_effector_name;
   if(!kinematics_loader_.isClassAvailable(kinematics_solver_name))
@@ -69,7 +69,7 @@ bool OmplRosIKSampleableRegion::initialize(const ompl::base::StateManifoldPtr &s
     ROS_ERROR("Could not initialize kinematics solver for group %s",group_name.c_str());
     return false;
   }
-  //  scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateManifold>(state_manifold_));
+  //  scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateSpace>(state_space_));
   seed_state_.joint_state.name = kinematics_solver_->getJointNames();
   seed_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
   solution_state_.joint_state.name = kinematics_solver_->getJointNames();
@@ -141,7 +141,7 @@ void OmplRosIKSampleableRegion::sampleGoals(const unsigned int &number_goals,
   motion_planning_msgs::RobotState seed_state,solution_state;
   seed_state = seed_state_;
   solution_state = solution_state_; 
-  ompl::base::ScopedState<ompl::base::CompoundStateManifold> scoped_state(state_manifold_);
+  ompl::base::ScopedState<ompl::base::CompoundStateSpace> scoped_state(state_space_);
   unsigned int ik_poses_counter = 0;
   for(unsigned int i=0; i < number_goals; i++)
   {    

@@ -103,6 +103,7 @@ bool OmplRosJointStateValidityChecker::isStateValid(const ompl::base::State *omp
     error_code_.val = error_code_.COLLISION_CONSTRAINTS_VIOLATED;        
     return false;
   }
+  ROS_DEBUG("State is ok");
   return true;
 }
 
