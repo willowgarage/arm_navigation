@@ -1092,7 +1092,7 @@ void PlanningDescriptionConfigurationWizard::outputOMPLGroupYAML()
       emitter << YAML::Key << "physical_group" << YAML::Value << it->first;
       emitter << YAML::Key << "planner_type" << YAML::Value << "RPYIKTaskSpacePlanner";
       
-      emitter << YAML::Key << "state_spaces" << YAML::Value << YAML::BeginSeq;
+      emitter << YAML::Key << "manifolds" << YAML::Value << YAML::BeginSeq;
       emitter << "x" << "y" << "z" << "roll" << "pitch" << "yaw" << YAML::EndSeq;
       
       emitter << YAML::Key << "x" << YAML::Value << YAML::BeginMap;
@@ -2014,7 +2014,7 @@ void PlanningDescriptionConfigurationWizard::generateOccasionallyInCollisionTabl
     percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     QCheckBox* enableBox = new QCheckBox(occasionally_collision_table_);
-    enableBox->setChecked(true);
+    enableBox->setChecked(false);
     connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(occasionallyCollisionTableChanged()));
 
     occasionally_collision_table_->setItem((int)i, 0, linkA);
@@ -2097,7 +2097,7 @@ void PlanningDescriptionConfigurationWizard::generateOftenInCollisionTable()
     percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     QCheckBox* enableBox = new QCheckBox(often_collision_table_);
-    enableBox->setChecked(true);
+    enableBox->setChecked(false);
     connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(oftenCollisionTableChanged()));
 
     often_collision_table_->setItem((int)i, 0, linkA);
@@ -2195,7 +2195,7 @@ void PlanningDescriptionConfigurationWizard::generateDefaultInCollisionTable()
     linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     QCheckBox* enableBox = new QCheckBox(default_collision_table_);
-    enableBox->setChecked(true);
+    enableBox->setChecked(false);
     connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(defaultCollisionTableChanged()));
 
     default_collision_table_->setItem((int)i, 0, linkA);
@@ -2797,6 +2797,8 @@ void PlanningDescriptionConfigurationWizard::initSetupGroupsPage()
 
   QGroupBox* selectGroupsBox = new QGroupBox(setup_groups_page_);
   selectGroupsBox->setTitle("Current Groups");
+
+
   current_group_table_ = new QTableWidget(selectGroupsBox);
   QVBoxLayout* groupBoxLayout = new QVBoxLayout(selectGroupsBox);
   groupBoxLayout->addWidget(current_group_table_);
@@ -2848,9 +2850,20 @@ void PlanningDescriptionConfigurationWizard::initKinematicChainsPage()
     " Select a base link (the first link in the chain) and a tip link."
     " They must be connected by a direct line of joints.");
 
+  QImage* image = new QImage();
+  if(!image->load("./resources/chains.png"))
+  {
+    ROS_ERROR("FAILED TO LOAD ./resources/chains.png");
+  }
+  ROS_INFO("Loaded Image with %d bytes.", image->byteCount());
+
+  QLabel* imageLabel = new QLabel(kinematic_chains_page_);
+  imageLabel->setPixmap(QPixmap::fromImage(*image));
+  imageLabel->setAlignment(Qt::AlignTop);
+  layout->addWidget(imageLabel, 0, 0, 0, 1);
   QGroupBox* treeBox = new QGroupBox(kinematic_chains_page_);
   treeBox->setTitle("Links");
-  layout->addWidget(treeBox, 0, 0, 1, 1);
+  layout->addWidget(treeBox, 0, 1, 1, 1);
 
   QVBoxLayout* treeLayout = new QVBoxLayout(treeBox);
   link_tree_ = new QTreeWidget(treeBox);
@@ -2886,7 +2899,7 @@ void PlanningDescriptionConfigurationWizard::initKinematicChainsPage()
 
   connect(acceptButton, SIGNAL(clicked()), this, SLOT(acceptChainClicked()));
 
-  layout->addWidget(chainBox, 0, 1, 1, 1);
+  layout->addWidget(chainBox, 1, 1, 1, 2);
 
   //addPage(kinematic_chains_page_);
   setPage(KinematicChainsPage, kinematic_chains_page_);
@@ -2906,8 +2919,10 @@ void PlanningDescriptionConfigurationWizard::createJointCollectionTables()
   selected_joint_table_->setColumnWidth(0, 300);
   QStringList headerLabels;
   headerLabels.append("Joint");
+  QStringList headerLabels2;
+  headerLabels2.append("Selected Joints");
   joint_table_->setHorizontalHeaderLabels(headerLabels);
-  selected_joint_table_->setHorizontalHeaderLabels(headerLabels);
+  selected_joint_table_->setHorizontalHeaderLabels(headerLabels2);
   for(size_t i = 1; i < jmv.size(); i++)
   {
     QTableWidgetItem* item = new QTableWidgetItem(jmv[i]->getName().c_str());
@@ -2925,17 +2940,30 @@ void PlanningDescriptionConfigurationWizard::initJointCollectionsPage()
 
   joint_collections_page_->setSubTitle("Select an arbitrary group of joints to form a planning group.");
 
+  QImage* image = new QImage();
+  if(!image->load("./resources/groups.png"))
+  {
+    ROS_ERROR("FAILED TO LOAD ./resources/groups.png");
+  }
+  ROS_INFO("Loaded Image with %d bytes.", image->byteCount());
+
+  QLabel* imageLabel = new QLabel(kinematic_chains_page_);
+  imageLabel->setPixmap(QPixmap::fromImage(*image));
+  imageLabel->setAlignment(Qt::AlignTop);
+  layout->addWidget(imageLabel, 0, 1, 1, 1);
+
   QGroupBox* jointBox = new QGroupBox(joint_collections_page_);
   jointBox->setTitle("Joints");
+  jointBox->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
   QVBoxLayout* jointLayout = new QVBoxLayout(jointBox);
   joint_table_ = new QTableWidget(jointBox);
   jointLayout->addWidget(joint_table_);
   jointBox->setLayout(jointLayout);
-  layout->addWidget(jointBox, 0, 0, 1, 1);
+  layout->addWidget(jointBox, 0, 0, 3, 1);
 
   QPushButton* selectButton = new QPushButton(jointBox);
-  selectButton->setText("Select");
+  selectButton->setText("v Select v");
   jointLayout->addWidget(selectButton);
   selectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
@@ -2943,15 +2971,15 @@ void PlanningDescriptionConfigurationWizard::initJointCollectionsPage()
   connect(selectButton, SIGNAL(clicked()), this, SLOT(selectJointButtonClicked()));
 
   QGroupBox* selectedBox = new QGroupBox(joint_collections_page_);
-  selectedBox->setTitle("Selected Joints");
+  selectedBox->setTitle("Joint Group");
 
   QVBoxLayout* selectedLayout = new QVBoxLayout(selectedBox);
-  selected_joint_table_ = new QTableWidget(selectedBox);
-  selectedLayout->addWidget(selected_joint_table_);
+  selected_joint_table_ = new QTableWidget(jointBox);
+  jointLayout->addWidget(selected_joint_table_);
 
-  QPushButton* deselectButton = new QPushButton(selectedBox);
-  deselectButton->setText("Deselect");
-  selectedLayout->addWidget(deselectButton);
+  QPushButton* deselectButton = new QPushButton(jointBox);
+  deselectButton->setText("^ Deselect ^");
+  jointLayout->addWidget(deselectButton);
   deselectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
   connect(deselectButton, SIGNAL(clicked()), this, SLOT(deselectJointButtonClicked()));
@@ -2966,7 +2994,7 @@ void PlanningDescriptionConfigurationWizard::initJointCollectionsPage()
   acceptButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
   selectedLayout->addWidget(acceptButton);
   selectedBox->setLayout(selectedLayout);
-  layout->addWidget(selectedBox, 0, 1, 1, 1);
+  layout->addWidget(selectedBox, 1, 1, 1, 1);
 
   connect(acceptButton, SIGNAL(clicked()), this, SLOT(acceptGroupClicked()));
 
@@ -2983,10 +3011,10 @@ void PlanningDescriptionConfigurationWizard::initSelectDofPage()
   select_dof_page_ = new QWizardPage(this);
   select_dof_page_->setTitle("DOF Sampling");
   QVBoxLayout* layout = new QVBoxLayout(select_dof_page_);
-  select_dof_page_->setSubTitle(
-                                "Select degrees of freedom to sample for collisions. The wizard will run your robot through "
-                                  "a set of subsamples of these joints and check each pair of links for collisions. Unselected joints will remain "
-                                  "in their default positions during these tests.");
+  select_dof_page_->setSubTitle("Select degrees of freedom to sample for collisions. The wizard will run your robot"
+                                " through a set of subsamples of these joints and check each pair of links for"
+                                " collisions. Unselected joints will remain in their default positions"
+                                " during these tests.");
 
   dof_selection_table_ = new QTableWidget(select_dof_page_);
   layout->addWidget(dof_selection_table_);
@@ -3100,8 +3128,8 @@ void PlanningDescriptionConfigurationWizard::initDefaultInCollisionPage()
   default_collision_page_->setTitle("Links Default In Collision");
 
   QVBoxLayout* layout = new QVBoxLayout(default_collision_page_);
-  default_collision_page_->setSubTitle("The following links are in collision in the default robot state. n"
-    "By default, collisions will be enabled for them.  Select items to visualize collisions in rviz.");
+  default_collision_page_->setSubTitle("The following links are in collision in the default robot state. "
+    "By default, collisions will be disabled for them.  Select items to visualize collisions in rviz.");
 
   QPushButton* generateButton = new QPushButton(default_collision_page_);
   generateButton->setText("Generate List (May take a minute)");
@@ -3133,7 +3161,7 @@ void PlanningDescriptionConfigurationWizard::initOftenInCollisionPage()
 
   QVBoxLayout* layout = new QVBoxLayout(often_in_collision_page_);
   often_in_collision_page_->setSubTitle("The following links are often in collision over the sample space. "
-    " By default, collisions will be enabled for them. Select items to visualize collisions in rviz.");
+    " By default, collisions will be disabled for them. Select items to visualize collisions in rviz.");
 
   QPushButton* generateButton = new QPushButton(often_in_collision_page_);
   generateButton->setText("Generate List (May take a minute)");
@@ -3167,8 +3195,7 @@ void PlanningDescriptionConfigurationWizard::initOccasionallyInCollisionPage()
 
   occasionally_in_collision_page_->setSubTitle(
                                                "The following links are occasionally (or never) in collision over the sample space. "
-                                                 "By default, collisions will be disabled for those which never collide,"
-                                                 " and enabled for those which only occasionally collide. Select a pair to visualize in rviz.");
+                                                 "By default, collisions will be disabled. Select a pair to visualize in rviz.");
 
   QPushButton* generateButton = new QPushButton(occasionally_in_collision_page_);
   generateButton->setText("Generate List (May take a minute)");
@@ -3199,8 +3226,7 @@ void PlanningDescriptionConfigurationWizard::initOutputFilesPage()
   output_files_page_->setTitle("Output Files");
   QVBoxLayout* layout = new QVBoxLayout(output_files_page_);
 
-  output_files_page_->setSubTitle(
-                                  "Done! The wizard will auto-generate a stack called <your_robot_name>_arm_navigation "
+  output_files_page_->setSubTitle("Done! The wizard will auto-generate a stack called <your_robot_name>_arm_navigation "
                                     "in the selected folder when you click the generate button below.");
 
   package_path_field_ = new QLineEdit(output_files_page_);
