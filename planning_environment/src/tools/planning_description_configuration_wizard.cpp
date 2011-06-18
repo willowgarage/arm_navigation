@@ -2014,7 +2014,7 @@ void PlanningDescriptionConfigurationWizard::generateOccasionallyInCollisionTabl
     percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     QCheckBox* enableBox = new QCheckBox(occasionally_collision_table_);
-    enableBox->setChecked(false);
+    enableBox->setChecked(true);
     connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(occasionallyCollisionTableChanged()));
 
     occasionally_collision_table_->setItem((int)i, 0, linkA);
@@ -2390,7 +2390,7 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   ops_gen_->generateOccasionallyAndNeverInCollisionPairs(in_collision, not_in_collision, percentages,
                                                          in_collision_joint_values);
   disable_map_[CollisionOperationsGenerator::NEVER] = not_in_collision;
-
+  ops_gen_->disablePairCollisionChecking(not_in_collision);
   progress_ = 90;
   emit changeProgress(90);
   emit changeLabel("Writing Files....");

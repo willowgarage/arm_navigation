@@ -109,7 +109,7 @@ public:
     switch(safety)
     {
       case VerySafe:
-        establish_always_num_ = 50000;
+        establish_always_num_ = 500000;
         establish_often_num_ = 150000;
         establish_often_percentage_ = 0.75;
         establish_occasional_num_ = 500000;
@@ -117,7 +117,7 @@ public:
         break;
 
       case Safe:
-        establish_always_num_ = 1000;
+        establish_always_num_ = 10000;
         establish_often_num_ = 5000;
         establish_often_percentage_ = 0.66;
         establish_occasional_num_ = 10000;
@@ -125,7 +125,7 @@ public:
         break;
 
       case Normal:
-        establish_always_num_ = 100;
+        establish_always_num_ = 1000;
         establish_often_num_ = 500;
         establish_often_percentage_ = 0.5;
         establish_occasional_num_ = 1000;
@@ -133,7 +133,7 @@ public:
         break;
 
       case Fast:
-        establish_always_num_ = 50;
+        establish_always_num_ = 500;
         establish_often_num_ = 100;
         establish_often_percentage_ = 0.33;
         establish_occasional_num_ = 100;
@@ -141,7 +141,7 @@ public:
         break;
 
       case VeryFast:
-        establish_always_num_ = 10;
+        establish_always_num_ = 100;
         establish_often_num_ = 10;
         establish_often_percentage_ = 0.33;
         establish_occasional_num_ = 10;
