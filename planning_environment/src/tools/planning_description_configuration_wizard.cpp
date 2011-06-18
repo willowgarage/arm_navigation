@@ -43,6 +43,7 @@ using namespace planning_models;
 using namespace visualization_msgs;
 using namespace collision_space;
 
+
 PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(const string& urdf_package,
                                                                                const string& urdf_path, QWidget* parent) :
   QWizard(parent), inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package),
@@ -1922,6 +1923,7 @@ void PlanningDescriptionConfigurationWizard::defaultCollisionTableChanged()
 void PlanningDescriptionConfigurationWizard::occasionallyCollisionTableChanged()
 {
   vector<pair<string, string> >& disableVector = disable_map_[CollisionOperationsGenerator::OCCASIONALLY];
+  vector<pair<string, string> >& disableVectorNever = disable_map_[CollisionOperationsGenerator::NEVER];
   for(int i = 0; i < occasionally_collision_table_->rowCount(); i++)
   {
     QCheckBox* box = dynamic_cast<QCheckBox*> (occasionally_collision_table_->cellWidget(i, 3));
@@ -1929,6 +1931,7 @@ void PlanningDescriptionConfigurationWizard::occasionallyCollisionTableChanged()
     {
       bool alreadyDisabled = false;
       vector<pair<string, string> >::iterator pos = disableVector.end();
+      vector<pair<string, string> >::iterator posNever = disableVectorNever.end();
       pair<string, string> linkPair;
       linkPair.first = occasionally_collision_table_->item(i, 0)->text().toStdString();
       linkPair.second = occasionally_collision_table_->item(i, 1)->text().toStdString();
@@ -1942,6 +1945,19 @@ void PlanningDescriptionConfigurationWizard::occasionallyCollisionTableChanged()
         }
       }
 
+      if(pos == disableVector.end())
+      {
+        for(vector<pair<string, string> >::iterator it = disableVectorNever.begin(); it != disableVectorNever.end(); it++)
+        {
+          if((*it) == linkPair)
+          {
+            alreadyDisabled = true;
+            posNever = it;
+            break;
+          }
+        }
+      }
+
       if(box->isChecked())
       {
         if(alreadyDisabled)
@@ -1950,6 +1966,11 @@ void PlanningDescriptionConfigurationWizard::occasionallyCollisionTableChanged()
           {
             disableVector.erase(pos);
           }
+
+          if(posNever != disableVectorNever.end())
+          {
+            disableVectorNever.erase(pos);
+          }
           ops_gen_->enablePairCollisionChecking(linkPair);
         }
       }
@@ -1957,7 +1978,14 @@ void PlanningDescriptionConfigurationWizard::occasionallyCollisionTableChanged()
       {
         if(!alreadyDisabled)
         {
-          disableVector.push_back(linkPair);
+          if(i < (int)occasionally_collision_pairs_.size())
+          {
+            disableVector.push_back(linkPair);
+          }
+          else
+          {
+            disableVectorNever.push_back(linkPair);
+          }
           ops_gen_->disablePairCollisionChecking(linkPair);
         }
       }
