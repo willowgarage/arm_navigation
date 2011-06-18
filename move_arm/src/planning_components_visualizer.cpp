@@ -504,7 +504,30 @@ class PlanningComponentsVisualizer
 
       convertKinematicStateToRobotState(*robot_state_, ros::Time::now(), cm_->getWorldFrameId(),
                                         planning_scene_req.planning_scene_diff.robot_state);
+
+
+      KinematicState* startState = NULL;
+      KinematicState* endState = NULL;
+      map<string, double> startStateValues;
+      map<string, double> endStateValues;
+
+      if(current_group_name_ != "")
+      {
+        startState = group_map_[current_group_name_].getState(StartPosition);
+        endState = group_map_[current_group_name_].getState(EndPosition);
+
+        if(startState != NULL)
+        {
+          startState->getKinematicStateValues(startStateValues);
+        }
+        if(endState != NULL)
+        {
+          endState->getKinematicStateValues(endStateValues);
+        }
+      }
+
       deleteKinematicStates();
+
 
       if(robot_state_ != NULL)
       {
@@ -528,8 +551,27 @@ class PlanningComponentsVisualizer
         lock_.unlock();
         return;
       }
-      lock_.unlock();
 
+      if(current_group_name_ != "")
+      {
+        ROS_INFO("Resetting state...");
+        group_map_[current_group_name_].setState(StartPosition, new KinematicState(robot_state_->getKinematicModel()));
+        group_map_[current_group_name_].setState(EndPosition, new KinematicState(robot_state_->getKinematicModel()));
+        startState = group_map_[current_group_name_].getState(StartPosition);
+        endState = group_map_[current_group_name_].getState(EndPosition);
+
+        if(startState != NULL)
+        {
+          startState->setKinematicState(startStateValues);
+        }
+
+        if(endState != NULL)
+        {
+          ROS_INFO("Resetting end state.");
+          endState->setKinematicState(endStateValues);
+        }
+      }
+      lock_.unlock();
       ROS_INFO("Planning scene sent.");
     }
 
@@ -1068,17 +1110,25 @@ class PlanningComponentsVisualizer
         ROS_INFO("Something wrong with planner client");
         return false;
       }
-      StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_["planner"];
-      if(plan_res.error_code.val != plan_res.error_code.SUCCESS)
+
+      if(gc.state_trajectory_display_map_.find("planner") != gc.state_trajectory_display_map_.end())
       {
-        disp.trajectory_error_code_ = plan_res.error_code;
-        ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
-        gc.state_trajectory_display_map_["planner"].reset();
+        StateTrajectoryDisplay& disp = gc.state_trajectory_display_map_["planner"];
+        if(plan_res.error_code.val != plan_res.error_code.SUCCESS)
+        {
+          disp.trajectory_error_code_ = plan_res.error_code;
+          ROS_INFO_STREAM("Bad planning error code " << plan_res.error_code.val);
+          gc.state_trajectory_display_map_["planner"].reset();
+          return false;
+        }
+        last_motion_plan_request_ = motion_plan_request;
+        playTrajectory(gc, "planner", plan_res.trajectory.joint_trajectory);
+        return true;
+      }
+      else
+      {
         return false;
       }
-      last_motion_plan_request_ = motion_plan_request;
-      playTrajectory(gc, "planner", plan_res.trajectory.joint_trajectory);
-      return true;
     }
 
     void randomlyPerturb(PlanningComponentsVisualizer::GroupCollection& gc)
@@ -1497,8 +1547,6 @@ class PlanningComponentsVisualizer
     {
       GroupCollection& gc = group_map_[current_group_name_];
       sendPlanningScene();
-      group_map_[current_group_name_].setState(EndPosition, new KinematicState(*robot_state_));
-      group_map_[current_group_name_].setState(StartPosition, new KinematicState(*robot_state_));
       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false);
 
       btTransform cur = toBulletTransform(last_ee_poses_[current_group_name_]);
