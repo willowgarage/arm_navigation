@@ -1,0 +1,7 @@
+<library path="lib/libcollision_proximity_planner_lib">
+  <class name="collision_proximity_planner/CollisionProximityPlannerPlugin" type="collision_proximity_planner::CollisionProximityPlannerPlugin" base_class_type="motion_planning_state_refinement::MotionPlanningStateRefinement">
+    <description>
+      A class that takes an invalid state and returns a valid one (if possible).
+    </description>
+  </class>
+</library>

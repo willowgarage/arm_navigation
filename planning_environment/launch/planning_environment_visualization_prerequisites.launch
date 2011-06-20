@@ -1,0 +1,11 @@
+<launch>
+  <param name="/use_sim_time" value="true" />
+
+  <node pkg="planning_environment" name="wall_clock_server" type="fake_time.py" />
+
+  <node pkg="planning_environment" type="environment_server" output="screen" name="environment_server">      
+    <param name="use_monitor" type="bool" value="false"/>
+  </node>
+
+  <node pkg="planning_environment" type="planning_scene_validity_server" output="screen" name="planning_scene_validity_server"/>      
+</launch>

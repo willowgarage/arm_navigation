@@ -1,17 +1,24 @@
 <stack>
-  <description brief="trajectory_filters">
-  This stack contains a set of filters to work with joint trajectories. It also contains a trajectory filter server which is a ROS node that exposes a ROS service interface to a chain of filters. 
+  <description brief="motion plannig packages from ros-pkg">
+   This stack contains motion planners and supporting infrastructure.
   </description>
-  <author>Maintained by Sachin Chitta</author>
+  <author>Sachin Chitta sachinc@willowgarage.com</author>
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/trajectory_filters</url>
-  <depend stack="common" /> <!-- filters -->
-  <depend stack="common_msgs" /> <!-- trajectory_msgs -->
-  <depend stack="geometry" /> <!-- tf, angles -->
-  <depend stack="motion_planning_common" /> <!-- planning_environment, motion_planning_msgs -->
-  <depend stack="robot_model" /> <!-- urdf -->
+  <url>http://ros.org/wiki/motion_planning_common</url>
+  <depend stack="common" /> <!-- actionlib, filters -->
+  <depend stack="common_msgs" /> <!-- geometry_msgs, actionlib_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
+  <depend stack="geometry" /> <!-- tf, bullet, angles -->
+  <depend stack="image_common" /> <!-- image_transport -->
+  <depend stack="kinematics" /> <!-- kinematics_msgs -->
+  <depend stack="octomap_mapping" /> <!-- octomap, octomap_ros -->
+  <depend stack="perception_pcl" /> <!-- pcl, pcl_ros -->
+  <depend stack="physics_ode" /> <!-- opende -->
+  <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- roscpp -->
+  <depend stack="ros_comm" /> <!-- rosconsole, std_srvs, roscpp, message_filters, std_msgs, rosbag -->
+  <depend stack="trajectory_filters" /> <!-- spline_smoother -->
+  <depend stack="vision_opencv" /> <!-- image_geometry -->
+  <depend stack="visualization" /> <!-- rviz -->
 
 </stack>
