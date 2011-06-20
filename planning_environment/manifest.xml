@@ -1,0 +1,41 @@
+<package>
+  <description brief="planning_environment">
+
+    Define the robot model and collision environment based on ROS
+    parameters. 
+
+  </description>
+  <author>Ioan Sucan</author>
+  <license>BSD</license>
+  <review status="API Reviewed" notes=""/>
+  
+  <depend package="roscpp" />
+  <depend package="rosconsole" />
+  <depend package="rosbag" />
+  <depend package="tf" />
+  <depend package="std_srvs" />
+  <depend package="message_filters" />
+  <depend package="angles" />
+  <depend package="sensor_msgs" />
+  <depend package="motion_planning_msgs" />
+  <depend package="mapping_msgs" />
+  <depend package="visualization_msgs" />
+  <depend package="geometric_shapes" />
+  <depend package="geometric_shapes_msgs" />
+  <depend package="planning_models" />
+  <depend package="collision_space" />
+  <depend package="planning_environment_msgs" />
+  <depend package="pcl_ros" />
+  <depend package="robot_self_filter" />
+  <depend package="yaml_cpp" />
+
+  <url>http://ros.org/wiki/planning_environment</url>
+
+  <export>
+    <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lplanning_environment" />
+  </export>
+
+  <platform os="ubuntu" version="9.04"/>
+  <platform os="ubuntu" version="9.10"/>
+  <platform os="ubuntu" version="10.04"/>
+</package>

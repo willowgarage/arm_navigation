@@ -1,0 +1,4 @@
+
+MakeStaticCollisionMapActionGoal action_goal
+MakeStaticCollisionMapActionResult action_result
+MakeStaticCollisionMapActionFeedback action_feedback

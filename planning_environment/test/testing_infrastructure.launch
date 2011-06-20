@@ -1,0 +1,21 @@
+<launch>
+
+  <param name="/use_sim_time" value="true" />
+
+  <param name="/robot_description" textfile="$(find planning_models)/test_urdf/robot.xml" />
+
+  <!-- send parameters for multidof -->
+  <rosparam command="load" ns="robot_description_planning" file="$(find planning_environment)/test/config/pr2_planning_description.yaml" />
+
+  <!-- startup fake clock serer -->
+  <node pkg="planning_environment" name="wall_clock_server" type="fake_time.py" />
+
+  <!-- publishing default state as joint state -->
+  <node pkg="planning_environment" name="default_joint_state_publisher" type="default_joint_state_publisher" />
+
+  <node pkg="robot_state_publisher" type="state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="50.0" />
+    <param name="tf_prefix" type="string" value="" />
+  </node>
+  
+</launch>

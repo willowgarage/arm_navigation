@@ -1,0 +1,8 @@
+#Full planning scene
+PlanningScene planning_scene
+---
+bool ok
+---
+bool client_processing
+bool ready
+
