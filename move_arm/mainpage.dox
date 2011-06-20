@@ -1,0 +1,34 @@
+/**
+\mainpage
+\htmlinclude manifest.html
+
+@section summary Summary
+
+\b The move_arm package provides an implementation of a action (see the actionlib package) that, given a goal in the world, will attempt to reach it with a robot arm. The move_arm node links together a planner, trajectory monitor and trajectory controller to acheive its goal. It supports any planner that provides a GetMotionPlan interface and any controller that provides services for setting, querying and canceling trajectories. The node is designed to be modular and so uses ROS services for planning, control and IK and does minimal computation within the node itself.
+
+Also, see the documentation for the <a href="../../planning_environment/html">planning_environment</a> package. 
+
+
+\section rosapi ROS API
+
+List of nodes:
+- \b move_arm : the actual robot action
+
+
+<hr>
+
+All these nodes take standard ROS arguments. The interface to the node is through ROS parameters, services and topic. A more detailed description of the interface can be found in the <a href="http://www.ros.org/wiki/move_arm">move_arm package documentation</a>.
+
+\subsection running Running 
+
+In order to run, 'move_arm' needs a robot description (together with
+its planning and collision description) to be loaded. In addition to
+this, the 'planning_environment' should be receiving both state and
+map information constantly, so that the environment is considered
+known.  A node that can perform motion planning needs to be running
+and a controller for the arm need to be running as well.  Running a
+node that can perform inverse kinematics is optional.  
+
+Example launch files that start all the necessary components for navigation for the PR2 robot can be found in the 
+ <a href="http://www.ros.org/wiki/pr2_arm_navigation/html">pr2_arm_navigation</a> and <a href="http://www.ros.org/wiki/pr2_3dnav/html">pr2_3dnav</a> packages.  
+*/
