@@ -1,0 +1,9 @@
+service_type: FilterJointTrajectoryWithConstraints
+filter_chain:
+  - 
+    name: unnormalize_trajectory
+    type: UnNormalizeFilterJointTrajectoryWithConstraints
+  -
+    name: parabolic_blend_short_cutter_smoother
+    type: ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints
+    params: {discretization: 0.01, num_iterations: 100}

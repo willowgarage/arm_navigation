@@ -1,19 +1,19 @@
 <stack>
-  <description brief="motion plannig packages from ros-pkg">
-   This stack contains motion planners and supporting infrastructure.
+  <description brief="arm_navigation">
+    The arm navigation stack contains the action/behavior used to execute collision free motion planning and control for a robot arm manipulator. Included in this stack are the messages required for an action interface that can be used to specify and abort goals for the move_arm action. An implementation for arm navigation on the PR2 robot can be found in the pr2_arm_navigation stack. 
   </description>
-  <author>Sachin Chitta sachinc@willowgarage.com</author>
+  <author>Maintained by Sachin Chitta</author>
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/motion_planning_common</url>
+  <url>http://ros.org/wiki/arm_navigation</url>
   <depend stack="common" /> <!-- actionlib, filters -->
-  <depend stack="common_msgs" /> <!-- geometry_msgs, actionlib_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
-  <depend stack="geometry" /> <!-- tf, bullet, angles -->
-  <depend stack="perception_pcl" /> <!-- pcl -->
-  <depend stack="physics_ode" /> <!-- opende -->
-  <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever -->
+  <depend stack="common_msgs" /> <!-- actionlib_msgs, trajectory_msgs, geometry_msgs, visualization_msgs -->
+  <depend stack="geometry" /> <!-- tf, tf_conversions -->
+  <depend stack="joystick_drivers" /> <!-- joy -->
+  <depend stack="kinematics" /> <!-- kinematics_msgs -->
+  <depend stack="motion_planning_common" /> <!-- planning_environment_msgs, planning_environment, planning_models, geometric_shapes_msgs, mapping_msgs, geometric_shapes, motion_planning_msgs -->
+  <depend stack="pr2_controllers" /> <!-- pr2_controllers_msgs -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- rosconsole, std_srvs, roscpp, message_filters, std_msgs, actionlib, trajectory_msgs, sensor_msgs, geometry_msgs, pcl, visualization_msgs, tf, actionlib_msgs -->
-  <depend stack="visualization" /> <!-- rviz -->
+  <depend stack="ros_comm" /> <!-- rosconsole, motion_planning_msgs, planning_environment_msgs, roscpp, joy, actionlib, trajectory_msgs, std_msgs, geometric_shapes_msgs, kinematics_msgs, visualization_msgs, tf, geometry_msgs, mapping_msgs, actionlib_msgs, pr2_controllers_msgs -->
 
 </stack>
