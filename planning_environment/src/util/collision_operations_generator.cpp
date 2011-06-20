@@ -135,6 +135,9 @@ void CollisionOperationsGenerator::generateOccasionallyAndNeverInCollisionPairs(
   ROS_INFO_STREAM("Second in collision size " << second_in_collision_pairs.size());
 
   collision_percentages.clear();
+  unsigned int diff_pairs = 0;
+  std::map<std::string, std::map<std::string, bool> > already_occasionally;
+  std::map<std::string, std::map<std::string, bool> > already_never;
   for(std::map<std::string, std::map<std::string, double> >::iterator it = first_percentage_num.begin();
       it != first_percentage_num.end();
       it++) {
@@ -145,8 +148,15 @@ void CollisionOperationsGenerator::generateOccasionallyAndNeverInCollisionPairs(
       bool second_never = (second_percentage_num[it->first][it2->first] == 0);
       
       if(first_never && second_never) {
+        if(already_never[it->first][it2->first] ||
+           already_never[it2->first][it->first]) {
+          continue;
+        }
+        already_never[it->first][it2->first] = true;
+        already_never[it2->first][it->first] = true;
         never_in_collision_pairs.push_back(StringPair(it->first, it2->first));
       } else if(second_never) {
+        diff_pairs++;
         occasionally_in_collision_pairs.push_back(StringPair(it->first, it2->first));
         collision_percentages.push_back(first_percentage_num[it->first][it2->first]);
         for(unsigned int i = 0; i < first_in_collision_pairs.size(); i++) {
@@ -156,6 +166,22 @@ void CollisionOperationsGenerator::generateOccasionallyAndNeverInCollisionPairs(
           }
         }
       } else if(first_never){
+        diff_pairs++;
+        occasionally_in_collision_pairs.push_back(StringPair(it->first, it2->first));
+        collision_percentages.push_back(second_percentage_num[it->first][it2->first]);
+        for(unsigned int i = 0; i < second_in_collision_pairs.size(); i++) {
+          if((second_in_collision_pairs[i].first == it->first && second_in_collision_pairs[i].second == it2->first) ||
+             (second_in_collision_pairs[i].first == it2->first && second_in_collision_pairs[i].second == it->first)) {
+            in_collision_joint_values.push_back(second_in_collision_joint_values[i]);
+          }
+        }
+      } else {
+        if(already_occasionally[it->first][it2->first] ||
+           already_occasionally[it2->first][it->first]) {
+          continue;
+        }
+        already_occasionally[it->first][it2->first] = true;
+        already_occasionally[it2->first][it->first] = true;
         occasionally_in_collision_pairs.push_back(StringPair(it->first, it2->first));
         collision_percentages.push_back(second_percentage_num[it->first][it2->first]);
         for(unsigned int i = 0; i < second_in_collision_pairs.size(); i++) {
@@ -167,7 +193,7 @@ void CollisionOperationsGenerator::generateOccasionallyAndNeverInCollisionPairs(
       }
     }
   }
-  ROS_INFO_STREAM("Diff pairs num " << occasionally_in_collision_pairs.size());
+  ROS_INFO_STREAM("Diff pairs num " << diff_pairs);
 }
   
 void CollisionOperationsGenerator::enableAllCollisions() {

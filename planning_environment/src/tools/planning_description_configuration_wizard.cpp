@@ -2230,7 +2230,7 @@ void PlanningDescriptionConfigurationWizard::generateDefaultInCollisionTable()
     default_collision_table_->setItem((int)i, 1, linkB);
     default_collision_table_->setCellWidget((int)i, 2, enableBox);
   }
-  oftenCollisionTableChanged();
+  defaultCollisionTableChanged();
 
   lock_.unlock();
 }
@@ -2403,6 +2403,7 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   vector<CollisionOperationsGenerator::StringPair> often_in_collision;
   vector<double> percentages;
   ops_gen_->generateOftenInCollisionPairs(often_in_collision, percentages, in_collision_joint_values);
+  ops_gen_->disablePairCollisionChecking(often_in_collision);
   disable_map_[CollisionOperationsGenerator::OFTEN] = often_in_collision;
 
   progress_ = 60;
