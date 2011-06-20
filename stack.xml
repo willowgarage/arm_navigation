@@ -1,17 +1,19 @@
 <stack>
-  <description brief="trajectory_filters">
-  This stack contains a set of filters to work with joint trajectories. It also contains a trajectory filter server which is a ROS node that exposes a ROS service interface to a chain of filters. 
+  <description brief="arm_navigation">
+    The arm navigation stack contains the action/behavior used to execute collision free motion planning and control for a robot arm manipulator. Included in this stack are the messages required for an action interface that can be used to specify and abort goals for the move_arm action. An implementation for arm navigation on the PR2 robot can be found in the pr2_arm_navigation stack. 
   </description>
   <author>Maintained by Sachin Chitta</author>
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/trajectory_filters</url>
-  <depend stack="common" /> <!-- filters -->
-  <depend stack="common_msgs" /> <!-- trajectory_msgs -->
-  <depend stack="geometry" /> <!-- tf, angles -->
-  <depend stack="motion_planning_common" /> <!-- planning_environment, motion_planning_msgs -->
-  <depend stack="robot_model" /> <!-- urdf -->
+  <url>http://ros.org/wiki/arm_navigation</url>
+  <depend stack="common" /> <!-- actionlib, filters -->
+  <depend stack="common_msgs" /> <!-- actionlib_msgs, trajectory_msgs, geometry_msgs, visualization_msgs -->
+  <depend stack="geometry" /> <!-- tf, tf_conversions -->
+  <depend stack="joystick_drivers" /> <!-- joy -->
+  <depend stack="kinematics" /> <!-- kinematics_msgs -->
+  <depend stack="motion_planning_common" /> <!-- planning_environment_msgs, planning_environment, planning_models, geometric_shapes_msgs, mapping_msgs, geometric_shapes, motion_planning_msgs -->
+  <depend stack="pr2_controllers" /> <!-- pr2_controllers_msgs -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- tf, trajectory_msgs, roscpp, motion_planning_msgs -->
+  <depend stack="ros_comm" /> <!-- rosconsole, motion_planning_msgs, planning_environment_msgs, roscpp, joy, actionlib, trajectory_msgs, std_msgs, geometric_shapes_msgs, kinematics_msgs, visualization_msgs, tf, geometry_msgs, mapping_msgs, actionlib_msgs, pr2_controllers_msgs -->
 
 </stack>
