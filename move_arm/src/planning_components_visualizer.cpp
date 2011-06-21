@@ -730,6 +730,9 @@ class PlanningComponentsVisualizer
         KinematicModel::RevoluteJointModel* revoluteJoint = dynamic_cast<KinematicModel::RevoluteJointModel*> (model);
         KinematicModel::PrismaticJointModel* prismaticJoint =
             dynamic_cast<KinematicModel::PrismaticJointModel*> (model);
+
+        joint_clicked_map_[jointName + "_joint_control"] = false;
+
         if(model->getParentLinkModel() != NULL)
         {
           string parentLinkName = model->getParentLinkModel()->getName();
@@ -739,6 +742,9 @@ class PlanningComponentsVisualizer
                   gc.getState(ik_control_type_)->getLinkState(parentLinkName)->getGlobalLinkTransform()
                       * (gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLinkName)->getJointOriginTransform()
                           * (gc.getState(ik_control_type_)->getJointState(jointName)->getVariableTransform()));
+
+          joint_prev_transform_map_[jointName + "joint_control"] = transform;
+
           const shapes::Shape* linkShape = model->getChildLinkModel()->getLinkShape();
           const shapes::Mesh* meshShape = dynamic_cast<const shapes::Mesh*> (linkShape);
 
@@ -799,6 +805,8 @@ class PlanningComponentsVisualizer
     /////
     void setJointState(GroupCollection& gc, std::string& jointName, btTransform value)
     {
+
+
       KinematicState* currentState = gc.getState(ik_control_type_);
       string parentLink =
           gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getParentLinkModel()->getName();
@@ -813,22 +821,24 @@ class PlanningComponentsVisualizer
       KinematicState::LinkState* linkState = currentState->getLinkState(parentLink);
       btTransform transformedValue;
 
+
       if(isPrismatic)
       {
         value.setRotation(jointState->getVariableTransform().getRotation());
-        transformedValue = linkState->getGlobalLinkTransform().inverse() *
-            gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLink)->getJointOriginTransform().inverse()
-                * value;
+        transformedValue =currentState->getLinkState(childLink)->getLinkModel()->getJointOriginTransform().inverse() * linkState->getGlobalLinkTransform().inverse() * value;
       }
       else if(isRotational)
       {
-        transformedValue = linkState->getGlobalLinkTransform().inverse() *
-            gc.getState(ik_control_type_)->getKinematicModel()->getLinkModel(childLink)->getJointOriginTransform().inverse()
-                * value;
+            transformedValue =currentState->getLinkState(childLink)->getLinkModel()->getJointOriginTransform().inverse() * linkState->getGlobalLinkTransform().inverse() * value;
+
       }
+
+      //transformedValue = btTransform(btQuaternion(dynamic_cast<const KinematicModel::RevoluteJointModel*>(jointModel)->axis_, value.getRotation().getAngle()), transformedValue.getOrigin());
 
       btTransform oldState = jointState->getVariableTransform();
       jointState->setJointStateValues(transformedValue);
+
+
 
       map<string, double> stateMap;
       if(currentState->isJointWithinBounds(jointName))
@@ -1746,6 +1756,7 @@ class PlanningComponentsVisualizer
                 ik_control_type_ = StartPosition;
                 selectMarker(selectable_markers_[feedback->marker_name + "_selectable"],
                              gc.start_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+                createSelectableJointMarkers(gc);
                 menu_handler_map_["End Effector"].reApply(*interactive_marker_server_);
               }
               else if(handle == end_position_handle_)
@@ -1754,6 +1765,7 @@ class PlanningComponentsVisualizer
                 ik_control_type_ = EndPosition;
                 selectMarker(selectable_markers_[feedback->marker_name + "_selectable"],
                              gc.end_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+                createSelectableJointMarkers(gc);
                 menu_handler_map_["End Effector"].reApply(*interactive_marker_server_);
               }
 
@@ -1824,8 +1836,22 @@ class PlanningComponentsVisualizer
             collision_poles_[feedback->marker_name].poses[0] = feedback->pose;
             refreshEnvironment();
           }
+          else if(feedback->marker_name.rfind("_joint_control") != string::npos)
+            {
+              joint_clicked_map_[feedback->marker_name] = false;
+            }
           break;
 
+        case InteractiveMarkerFeedback::MOUSE_DOWN:
+          if(feedback->marker_name.rfind("_joint_control") != string::npos)
+          {
+            if(!joint_clicked_map_[feedback->marker_name])
+            {
+              joint_clicked_map_[feedback->marker_name] = true;
+              joint_prev_transform_map_[feedback->marker_name] = toBulletTransform(feedback->pose);
+            }
+          }
+          break;
         case InteractiveMarkerFeedback::POSE_UPDATE:
           if(is_ik_control_active_ && isGroupName(feedback->marker_name))
           {
@@ -2333,6 +2359,9 @@ class PlanningComponentsVisualizer
 
     bool is_ik_control_active_;
     bool is_joint_control_active_;
+
+    map<string, bool> joint_clicked_map_;
+    map<string, btTransform> joint_prev_transform_map_;
 
 };
 
