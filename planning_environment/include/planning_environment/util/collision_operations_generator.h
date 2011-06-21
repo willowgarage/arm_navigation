@@ -57,7 +57,8 @@ public:
     DEFAULT,
     OFTEN,
     OCCASIONALLY,
-    NEVER
+    NEVER,
+    ADJACENT
   };
 
   enum SamplingSafety

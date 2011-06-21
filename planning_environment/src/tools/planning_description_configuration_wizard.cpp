@@ -1571,6 +1571,12 @@ void PlanningDescriptionConfigurationWizard::oftenTogglePushed()
   oftenCollisionTableChanged();
 }
 
+void PlanningDescriptionConfigurationWizard::adjacentTogglePushed()
+{
+  toggleTable(adjacent_link_table_, 2);
+  adjacentTableChanged();
+}
+
 void PlanningDescriptionConfigurationWizard::occasionallyTogglePushed()
 {
   toggleTable(occasionally_collision_table_);
@@ -1991,6 +1997,149 @@ void PlanningDescriptionConfigurationWizard::occasionallyCollisionTableChanged()
       }
     }
   }
+}
+
+vector<CollisionOperationsGenerator::StringPair> PlanningDescriptionConfigurationWizard::getAdjacentLinks()
+{
+  vector<CollisionOperationsGenerator::StringPair> toReturn;
+  const planning_models::KinematicModel* model = robot_state_->getKinematicModel();
+  const planning_models::KinematicModel::LinkModel* link = model->getRoot()->getChildLinkModel();
+  accumulateAdjacentLinksRecursive(link, toReturn);
+  return toReturn;
+}
+
+void PlanningDescriptionConfigurationWizard::accumulateAdjacentLinksRecursive(const KinematicModel::LinkModel* parent,
+                             vector<CollisionOperationsGenerator::StringPair>& adjacencies)
+{
+  vector<KinematicModel::JointModel*> joints = parent->getChildJointModels();
+
+  for(size_t i = 0; i < joints.size(); i++)
+  {
+    const KinematicModel::JointModel* joint = joints[i];
+    CollisionOperationsGenerator::StringPair pair;
+    pair.first = parent->getName();
+    pair.second = joint->getChildLinkModel()->getName();
+    adjacencies.push_back(pair);
+    accumulateAdjacentLinksRecursive(joint->getChildLinkModel(), adjacencies);
+  }
+}
+
+void PlanningDescriptionConfigurationWizard::generateAdjacentLinkTable()
+{
+  vector<CollisionOperationsGenerator::StringPair> adjacent_link_pairs_ = getAdjacentLinks();
+
+  adjacent_link_table_->clear();
+  adjacent_link_table_->setRowCount((int)(adjacent_link_pairs_.size()));
+  adjacent_link_table_->setColumnCount(3);
+
+  adjacent_link_table_->setColumnWidth(0, 300);
+  adjacent_link_table_->setColumnWidth(1, 300);
+  adjacent_link_table_->setColumnWidth(3, 300);
+
+  QStringList titleList;
+  titleList.append("Link A");
+  titleList.append("Link B");
+  titleList.append("Enable?");
+
+  adjacent_link_table_->setHorizontalHeaderLabels(titleList);
+
+  if(adjacent_link_pairs_.size() == 0)
+  {
+    adjacent_link_table_->setRowCount(1);
+    QTableWidgetItem* noCollide = new QTableWidgetItem("No Adjacent Links");
+    adjacent_link_table_->setItem(0, 0, noCollide);
+  }
+
+  ROS_INFO("%lu adjacent link pairs.", adjacent_link_pairs_.size());
+
+  for(size_t i = 0; i < adjacent_link_pairs_.size(); i++)
+  {
+    QTableWidgetItem* linkA = new QTableWidgetItem(adjacent_link_pairs_[i].first.c_str());
+    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    QTableWidgetItem* linkB = new QTableWidgetItem(adjacent_link_pairs_[i].second.c_str());
+    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    QCheckBox* enableBox = new QCheckBox(adjacent_link_table_);
+    enableBox->setChecked(false);
+    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(adjacentTableChanged()));
+
+    adjacent_link_table_->setItem((int)i, 0, linkA);
+    adjacent_link_table_->setItem((int)i, 1, linkB);
+    adjacent_link_table_->setCellWidget((int)i, 2, enableBox);
+  }
+
+  adjacentTableChanged();
+
+}
+
+void PlanningDescriptionConfigurationWizard::adjacentTableChanged()
+{
+  vector<pair<string, string> >& disableVector = disable_map_[CollisionOperationsGenerator::ADJACENT];
+  for(int i = 0; i < adjacent_link_table_->rowCount(); i++)
+  {
+    QCheckBox* box = dynamic_cast<QCheckBox*> (adjacent_link_table_->cellWidget(i, 2));
+    if(box != NULL)
+    {
+      bool alreadyDisabled = false;
+      vector<pair<string, string> >::iterator pos;
+      pair<string, string> linkPair;
+      linkPair.first = adjacent_link_table_->item(i, 0)->text().toStdString();
+      linkPair.second = adjacent_link_table_->item(i, 1)->text().toStdString();
+      for(vector<pair<string, string> >::iterator it = disableVector.begin(); it != disableVector.end(); it++)
+      {
+        if((*it) == linkPair)
+        {
+          alreadyDisabled = true;
+          pos = it;
+          break;
+        }
+      }
+
+      if(box->isChecked())
+      {
+        if(alreadyDisabled)
+        {
+          disableVector.erase(pos);
+          ops_gen_->enablePairCollisionChecking(linkPair);
+        }
+      }
+      else
+      {
+        if(!alreadyDisabled)
+        {
+          disableVector.push_back(linkPair);
+          ops_gen_->disablePairCollisionChecking(linkPair);
+        }
+      }
+    }
+  }
+}
+
+void PlanningDescriptionConfigurationWizard::initAdjacentLinkPage()
+{
+  adjacent_link_page_ = new QWizardPage(this);
+  adjacent_link_page_->setTitle("Adjacent Links");
+
+  QVBoxLayout* layout = new QVBoxLayout(adjacent_link_page_);
+  adjacent_link_page_->setSubTitle("The following link pairs have been determined to be adjacent.\n "
+      "By default, collisions are disabled for them.");
+
+  adjacent_link_table_ = new QTableWidget(adjacent_link_page_);
+  layout->addWidget(adjacent_link_table_);
+
+  QPushButton* toggleSelected = new QPushButton(adjacent_link_page_);
+  toggleSelected->setText("Toggle Selected");
+  layout->addWidget(toggleSelected);
+  connect(toggleSelected, SIGNAL(clicked()), this, SLOT(adjacentTogglePushed()));
+  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
+  generateAdjacentLinkTable();
+
+  //addPage(adjacent_link_page_);
+  setPage(AdjacentLinkPage, adjacent_link_page_);
+  adjacent_link_page_->setLayout(layout);
+
 }
 
 void PlanningDescriptionConfigurationWizard::generateOccasionallyInCollisionTable()
@@ -2475,6 +2624,9 @@ int PlanningDescriptionConfigurationWizard::nextId() const
       return SetupGroupsPage;
 
     case SelectDOFPage:
+      return AdjacentLinkPage;
+
+    case AdjacentLinkPage:
       return AlwaysInCollisionPage;
 
     case AlwaysInCollisionPage:
@@ -2531,6 +2683,7 @@ void PlanningDescriptionConfigurationWizard::verySafeButtonToggled(bool checkSta
     ops_gen_->setSafety(CollisionOperationsGenerator::VerySafe);
   }
 }
+
 void PlanningDescriptionConfigurationWizard::safeButtonToggled(bool checkState)
 {
   if(checkState)
@@ -2538,6 +2691,7 @@ void PlanningDescriptionConfigurationWizard::safeButtonToggled(bool checkState)
     ops_gen_->setSafety(CollisionOperationsGenerator::Safe);
   }
 }
+
 void PlanningDescriptionConfigurationWizard::normalButtonToggled(bool checkState)
 {
   if(checkState)
@@ -2545,6 +2699,7 @@ void PlanningDescriptionConfigurationWizard::normalButtonToggled(bool checkState
     ops_gen_->setSafety(CollisionOperationsGenerator::Normal);
   }
 }
+
 void PlanningDescriptionConfigurationWizard::fastButtonToggled(bool checkState)
 {
   if(checkState)
@@ -2552,6 +2707,7 @@ void PlanningDescriptionConfigurationWizard::fastButtonToggled(bool checkState)
     ops_gen_->setSafety(CollisionOperationsGenerator::Fast);
   }
 }
+
 void PlanningDescriptionConfigurationWizard::veryFastButtonToggled(bool checkState)
 {
   if(checkState)
@@ -2626,6 +2782,7 @@ void PlanningDescriptionConfigurationWizard::setupQtPages()
   initKinematicChainsPage();
   initJointCollectionsPage();
   initSelectDofPage();
+  initAdjacentLinkPage();
   initAlwaysInCollisionPage();
   initDefaultInCollisionPage();
   initOftenInCollisionPage();

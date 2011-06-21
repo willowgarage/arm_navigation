@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'planning_description_configuration_wizard.h'
 **
-** Created: Thu Jun 16 10:16:16 2011
+** Created: Mon Jun 20 13:19:29 2011
 **      by: The Qt Meta Object Compiler version 62 (Qt 4.6.2)
 **
 ** WARNING! All changes made in this file will be lost!
@@ -23,7 +23,7 @@ static const uint qt_meta_data_PlanningDescriptionConfigurationWizard[] = {
        4,       // revision
        0,       // classname
        0,    0, // classinfo
-      41,   14, // methods
+      44,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -49,31 +49,34 @@ static const uint qt_meta_data_PlanningDescriptionConfigurationWizard[] = {
      439,   39,   39,   39, 0x0a,
      461,   39,   39,   39, 0x0a,
      481,   39,   39,   39, 0x0a,
-     508,   39,   39,   39, 0x0a,
-     526,   39,   39,   39, 0x0a,
-     553,   39,   39,   39, 0x0a,
-     582,   39,   39,   39, 0x0a,
-     609,   39,   39,   39, 0x0a,
-     630,   39,   39,   39, 0x0a,
-     651,   39,   39,   39, 0x0a,
-     671,   39,   39,   39, 0x0a,
-     690,   39,   39,   39, 0x0a,
-     708,   39,   39,   39, 0x0a,
-     728,   39,   39,   39, 0x0a,
-     750,   39,   39,   39, 0x0a,
-     770,   39,   39,   39, 0x0a,
-     797,   39,   39,   39, 0x0a,
-     824,   39,   39,   39, 0x0a,
-     853,   39,   39,   39, 0x0a,
-     884,   39,   39,   39, 0x0a,
-     920,   39,   39,   39, 0x0a,
-     959,   39,   39,   39, 0x0a,
-     991,   39,   39,   39, 0x0a,
-    1024,   39,   39,   39, 0x0a,
-    1063, 1058,   39,   39, 0x0a,
-    1085,   39,   39,   39, 0x0a,
+     504,   39,   39,   39, 0x0a,
+     531,   39,   39,   39, 0x0a,
+     549,   39,   39,   39, 0x0a,
+     576,   39,   39,   39, 0x0a,
+     605,   39,   39,   39, 0x0a,
+     632,   39,   39,   39, 0x0a,
+     653,   39,   39,   39, 0x0a,
+     674,   39,   39,   39, 0x0a,
+     694,   39,   39,   39, 0x0a,
+     713,   39,   39,   39, 0x0a,
+     731,   39,   39,   39, 0x0a,
+     751,   39,   39,   39, 0x0a,
+     773,   39,   39,   39, 0x0a,
+     793,   39,   39,   39, 0x0a,
+     816,   39,   39,   39, 0x0a,
+     843,   39,   39,   39, 0x0a,
+     870,   39,   39,   39, 0x0a,
+     899,   39,   39,   39, 0x0a,
+     930,   39,   39,   39, 0x0a,
+     966,   39,   39,   39, 0x0a,
+    1005,   39,   39,   39, 0x0a,
+    1037,   39,   39,   39, 0x0a,
+    1065,   39,   39,   39, 0x0a,
     1098,   39,   39,   39, 0x0a,
-    1114,   39,   39,   39, 0x0a,
+    1137, 1132,   39,   39, 0x0a,
+    1159,   39,   39,   39, 0x0a,
+    1172,   39,   39,   39, 0x0a,
+    1188,   39,   39,   39, 0x0a,
 
        0        // eod
 };
@@ -94,6 +97,7 @@ static const char qt_meta_stringdata_PlanningDescriptionConfigurationWizard[] = 
     "toggleTable(QTableWidget*,int)\0"
     "toggleTable(QTableWidget*)\0"
     "defaultTogglePushed()\0oftenTogglePushed()\0"
+    "adjacentTogglePushed()\0"
     "occasionallyTogglePushed()\0dofTogglePushed()\0"
     "selectJointButtonClicked()\0"
     "deselectJointButtonClicked()\0"
@@ -102,6 +106,7 @@ static const char qt_meta_stringdata_PlanningDescriptionConfigurationWizard[] = 
     "baseLinkTreeClick()\0tipLinkTreeClick()\0"
     "validateDoneBox()\0groupTableClicked()\0"
     "defaultTableClicked()\0oftenTableClicked()\0"
+    "adjacentTableChanged()\0"
     "occasionallyTableClicked()\0"
     "dofSelectionTableChanged()\0"
     "oftenCollisionTableChanged()\0"
@@ -109,6 +114,7 @@ static const char qt_meta_stringdata_PlanningDescriptionConfigurationWizard[] = 
     "occasionallyCollisionTableChanged()\0"
     "generateOccasionallyInCollisionTable()\0"
     "generateOftenInCollisionTable()\0"
+    "generateAdjacentLinkTable()\0"
     "generateAlwaysInCollisionTable()\0"
     "generateDefaultInCollisionTable()\0"
     "file\0fileSelected(QString)\0writeFiles()\0"
@@ -160,35 +166,38 @@ int PlanningDescriptionConfigurationWizard::qt_metacall(QMetaObject::Call _c, in
         case 12: toggleTable((*reinterpret_cast< QTableWidget*(*)>(_a[1]))); break;
         case 13: defaultTogglePushed(); break;
         case 14: oftenTogglePushed(); break;
-        case 15: occasionallyTogglePushed(); break;
-        case 16: dofTogglePushed(); break;
-        case 17: selectJointButtonClicked(); break;
-        case 18: deselectJointButtonClicked(); break;
-        case 19: deleteGroupButtonClicked(); break;
-        case 20: acceptChainClicked(); break;
-        case 21: acceptGroupClicked(); break;
-        case 22: baseLinkTreeClick(); break;
-        case 23: tipLinkTreeClick(); break;
-        case 24: validateDoneBox(); break;
-        case 25: groupTableClicked(); break;
-        case 26: defaultTableClicked(); break;
-        case 27: oftenTableClicked(); break;
-        case 28: occasionallyTableClicked(); break;
-        case 29: dofSelectionTableChanged(); break;
-        case 30: oftenCollisionTableChanged(); break;
-        case 31: defaultCollisionTableChanged(); break;
-        case 32: occasionallyCollisionTableChanged(); break;
-        case 33: generateOccasionallyInCollisionTable(); break;
-        case 34: generateOftenInCollisionTable(); break;
-        case 35: generateAlwaysInCollisionTable(); break;
-        case 36: generateDefaultInCollisionTable(); break;
-        case 37: fileSelected((*reinterpret_cast< const QString(*)>(_a[1]))); break;
-        case 38: writeFiles(); break;
-        case 39: autoConfigure(); break;
-        case 40: update(); break;
+        case 15: adjacentTogglePushed(); break;
+        case 16: occasionallyTogglePushed(); break;
+        case 17: dofTogglePushed(); break;
+        case 18: selectJointButtonClicked(); break;
+        case 19: deselectJointButtonClicked(); break;
+        case 20: deleteGroupButtonClicked(); break;
+        case 21: acceptChainClicked(); break;
+        case 22: acceptGroupClicked(); break;
+        case 23: baseLinkTreeClick(); break;
+        case 24: tipLinkTreeClick(); break;
+        case 25: validateDoneBox(); break;
+        case 26: groupTableClicked(); break;
+        case 27: defaultTableClicked(); break;
+        case 28: oftenTableClicked(); break;
+        case 29: adjacentTableChanged(); break;
+        case 30: occasionallyTableClicked(); break;
+        case 31: dofSelectionTableChanged(); break;
+        case 32: oftenCollisionTableChanged(); break;
+        case 33: defaultCollisionTableChanged(); break;
+        case 34: occasionallyCollisionTableChanged(); break;
+        case 35: generateOccasionallyInCollisionTable(); break;
+        case 36: generateOftenInCollisionTable(); break;
+        case 37: generateAdjacentLinkTable(); break;
+        case 38: generateAlwaysInCollisionTable(); break;
+        case 39: generateDefaultInCollisionTable(); break;
+        case 40: fileSelected((*reinterpret_cast< const QString(*)>(_a[1]))); break;
+        case 41: writeFiles(); break;
+        case 42: autoConfigure(); break;
+        case 43: update(); break;
         default: ;
         }
-        _id -= 41;
+        _id -= 44;
     }
     return _id;
 }

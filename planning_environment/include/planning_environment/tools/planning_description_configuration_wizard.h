@@ -51,8 +51,17 @@ class PlanningDescriptionConfigurationWizard: public QWizard
 
     enum WizardPage
     {
-      StartPage, SetupGroupsPage, KinematicChainsPage, JointCollectionsPage, SelectDOFPage, AlwaysInCollisionPage,
-      OftenInCollisionPage, OccasionallyInCollisionPage, OutputFilesPage, DefaultInCollisionPage
+      StartPage,
+      SetupGroupsPage,
+      KinematicChainsPage,
+      JointCollectionsPage,
+      SelectDOFPage,
+      AdjacentLinkPage,
+      AlwaysInCollisionPage,
+      OftenInCollisionPage,
+      OccasionallyInCollisionPage,
+      OutputFilesPage,
+      DefaultInCollisionPage
     };
 
     PlanningDescriptionConfigurationWizard(const std::string& urdf_package, const std::string& urdf_path,
@@ -121,6 +130,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     void toggleTable(QTableWidget* table, int column = 3);
     void defaultTogglePushed();
     void oftenTogglePushed();
+    void adjacentTogglePushed();
     void occasionallyTogglePushed();
     void dofTogglePushed();
     void selectJointButtonClicked();
@@ -134,6 +144,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     void groupTableClicked();
     void defaultTableClicked();
     void oftenTableClicked();
+    void adjacentTableChanged();
     void occasionallyTableClicked();
     void dofSelectionTableChanged();
     void oftenCollisionTableChanged();
@@ -141,6 +152,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     void occasionallyCollisionTableChanged();
     void generateOccasionallyInCollisionTable();
     void generateOftenInCollisionTable();
+    void generateAdjacentLinkTable();
     void generateAlwaysInCollisionTable();
     void generateDefaultInCollisionTable();
     void fileSelected(const QString& file);
@@ -164,6 +176,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     void initSelectDofPage();
     void createDofPageTable();
     void initAlwaysInCollisionPage();
+    void initAdjacentLinkPage();
     void initDefaultInCollisionPage();
     void initOftenInCollisionPage();
     void initOccasionallyInCollisionPage();
@@ -175,6 +188,9 @@ class PlanningDescriptionConfigurationWizard: public QWizard
                                const std::string& parentName);
 
 
+    std::vector<planning_environment::CollisionOperationsGenerator::StringPair> getAdjacentLinks();
+    void accumulateAdjacentLinksRecursive(const planning_models::KinematicModel::LinkModel* parent,
+                                 std::vector<planning_environment::CollisionOperationsGenerator::StringPair>& adjacencies);
     bool inited_;
 
     ros::NodeHandle nh_;
@@ -212,6 +228,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     QWizardPage* kinematic_chains_page_;
     QWizardPage* joint_collections_page_;
     QWizardPage* select_dof_page_;
+    QWizardPage* adjacent_link_page_;
     QWizardPage* always_in_collision_page_;
     QWizardPage* default_collision_page_;
     QWizardPage* often_in_collision_page_;
@@ -228,6 +245,7 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     QLineEdit* tip_link_field_;
     QLineEdit* joint_group_name_field_;
     QTableWidget* dof_selection_table_;
+    QTableWidget* adjacent_link_table_;
     QTableWidget* always_collision_table_;
     QTableWidget* default_collision_table_;
     QTableWidget* often_collision_table_;
