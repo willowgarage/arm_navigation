@@ -54,7 +54,6 @@
 #include <motion_planning_msgs/convert_messages.h>
 #include <interactive_markers/interactive_marker_server.h>
 #include <interactive_markers/menu_handler.h>
-#include <move_arm/move_arm_warehouse_reader.h>
 #include <sensor_msgs/JointState.h>
 
 using namespace std;

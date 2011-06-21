@@ -1,24 +1,21 @@
 <stack>
-  <description brief="motion plannig packages from ros-pkg">
-   This stack contains motion planners and supporting infrastructure.
+  <description brief="Arm Navigation">
+   This stack contains packages that permit collision-free arm navigation
   </description>
-  <author>Sachin Chitta sachinc@willowgarage.com</author>
+  <author>E. Gil JOnes gjones@willowgarage.com</author>
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/armnavigation</url>
   <depend stack="common" /> <!-- actionlib, yaml_cpp, filters, pluginlib -->
   <depend stack="common_msgs" /> <!-- geometry_msgs, actionlib_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
-  <depend stack="eigen" /> <!-- eigen -->
+  <depend stack="control" /> <!-- control_msgs -->
   <depend stack="geometry" /> <!-- tf, tf_conversions, bullet, angles -->
-  <depend stack="image_common" /> <!-- image_transport -->
   <depend stack="orocos_kinematics_dynamics" /> <!-- kdl -->
   <depend stack="perception_pcl" /> <!-- pcl, pcl_ros -->
   <depend stack="physics_ode" /> <!-- opende -->
-  <depend stack="pr2_controllers" /> <!-- pr2_controllers_msgs -->
   <depend stack="robot_model" /> <!-- assimp, urdf, resource_retriever, kdl_parser -->
   <depend stack="ros" />
-  <depend stack="ros_comm" /> <!-- rosconsole, std_srvs, roscpp, message_filters, std_msgs, rospy, rosbag -->
-  <depend stack="vision_opencv" /> <!-- image_geometry -->
+  <depend stack="ros_comm" /> <!-- rosconsole, std_srvs, roscpp, message_filters, std_msgs, rosbag -->
   <depend stack="visualization" /> <!-- interactive_markers, rviz -->
 
 </stack>
