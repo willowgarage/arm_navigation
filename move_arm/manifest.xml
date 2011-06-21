@@ -31,7 +31,7 @@ The move_arm package provides an implementation of a action (see the <a href="ht
   <depend package="interactive_markers"/>
 
   <export>
-    <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lmove_arm_logging"/>
+    <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/include"/>
   </export>  
   
   <platform os="ubuntu" version="9.04"/>
