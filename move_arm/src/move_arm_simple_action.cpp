@@ -631,6 +631,9 @@ private:
   bool createPlan(motion_planning_msgs::GetMotionPlan::Request &req,  
                   motion_planning_msgs::GetMotionPlan::Response &res)
   {
+    while(!ros::service::waitForService(move_arm_parameters_.planner_service_name, ros::Duration(1.0))) {
+      ROS_INFO_STREAM("Waiting for requested service " << move_arm_parameters_.planner_service_name);
+    }
     ros::ServiceClient planning_client = root_handle_.serviceClient<motion_planning_msgs::GetMotionPlan>(move_arm_parameters_.planner_service_name);
     move_arm_stats_.planner_service_name = move_arm_parameters_.planner_service_name;
     ROS_DEBUG("Issuing request for motion plan");		    
