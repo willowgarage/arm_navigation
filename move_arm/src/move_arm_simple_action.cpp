@@ -243,12 +243,12 @@ private:
     std::string link_name = req.motion_plan_request.goal_constraints.position_constraints[0].link_name;
     sensor_msgs::JointState solution;		
     
-    ROS_INFO("IK request");
-    ROS_INFO("link_name   : %s",link_name.c_str());
-    ROS_INFO("frame_id    : %s",tpose.header.frame_id.c_str());
-    ROS_INFO("position    : (%f,%f,%f)",tpose.pose.position.x,tpose.pose.position.y,tpose.pose.position.z);
-    ROS_INFO("orientation : (%f,%f,%f,%f)",tpose.pose.orientation.x,tpose.pose.orientation.y,tpose.pose.orientation.z,tpose.pose.orientation.w);
-    ROS_INFO(" ");
+    ROS_DEBUG("IK request");
+    ROS_DEBUG("link_name   : %s",link_name.c_str());
+    ROS_DEBUG("frame_id    : %s",tpose.header.frame_id.c_str());
+    ROS_DEBUG("position    : (%f,%f,%f)",tpose.pose.position.x,tpose.pose.position.y,tpose.pose.position.z);
+    ROS_DEBUG("orientation : (%f,%f,%f,%f)",tpose.pose.orientation.x,tpose.pose.orientation.y,tpose.pose.orientation.z,tpose.pose.orientation.w);
+    ROS_DEBUG(" ");
     if (computeIK(tpose, 
                   link_name, 
                   solution))
@@ -586,7 +586,7 @@ private:
     }
     // processing and checking goal
     if (!move_arm_parameters_.disable_ik && isPoseGoal(req)) {
-      ROS_INFO("Planning to a pose goal");
+      ROS_DEBUG("Planning to a pose goal");
       if(!convertPoseGoalToJointGoal(req)) {
 	ROS_INFO("Setting aborted because ik failed");
 	action_server_->setAborted(move_arm_action_result_);
@@ -645,7 +645,7 @@ private:
         ROS_WARN("Motion planner was unable to plan a path to goal");
         return false;
       }
-      ROS_INFO("Motion planning succeeded");
+      ROS_DEBUG("Motion planning succeeded");
       return true;
     }
     else
@@ -697,9 +697,9 @@ private:
     control_msgs::FollowJointTrajectoryGoal goal;  
     goal.trajectory = current_trajectory;
 
-    ROS_INFO("Sending trajectory with %d points and timestamp: %f",(int)goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
+    ROS_DEBUG("Sending trajectory with %d points and timestamp: %f",(int)goal.trajectory.points.size(),goal.trajectory.header.stamp.toSec());
     for(unsigned int i=0; i < goal.trajectory.joint_names.size(); i++)
-      ROS_INFO("Joint: %d name: %s",i,goal.trajectory.joint_names[i].c_str());
+      ROS_DEBUG("Joint: %d name: %s",i,goal.trajectory.joint_names[i].c_str());
 
     /*    for(unsigned int i = 0; i < goal.trajectory.points.size(); i++)
       {
@@ -954,7 +954,7 @@ private:
 	    visualizePlan(current_trajectory_);
 	    //          printTrajectory(current_trajectory_);
 	    state_ = START_CONTROL;
-	    ROS_INFO("Done planning. Transitioning to control");
+	    ROS_DEBUG("Done planning. Transitioning to control");
 	  }
         }
         else if(action_server_->isActive())
@@ -1072,7 +1072,7 @@ private:
             if(controller_error_code.val == controller_error_code.TRAJECTORY_CONTROLLER_FAILED) {
               ROS_INFO("Trajectory controller failed but we seem to be at goal");
             } else {
-              ROS_INFO("Reached goal");
+              ROS_DEBUG("Reached goal");
             }
             return true;
           }
@@ -1155,7 +1155,7 @@ private:
           move_arm_action_result_.error_code.val = 0;
           const move_arm_msgs::MoveArmGoalConstPtr& new_goal = action_server_->acceptNewGoal();
           moveArmGoalToPlannerRequest(new_goal,req);
-          ROS_INFO("Received new goal, will preempt previous goal");
+          ROS_DEBUG("Received new goal, will preempt previous goal");
           if(!getAndSetPlanningScene(new_goal->planning_scene_diff)) {
             ROS_INFO("Problem setting planning scene");
             move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
@@ -1178,7 +1178,7 @@ private:
         }
         else               //if we've been preempted explicitly we need to shut things down
         {
-          ROS_INFO("The move arm action was preempted by the action client. Preempting this goal.");
+          ROS_DEBUG("The move arm action was preempted by the action client. Preempting this goal.");
           revertPlanningScene();
           resetStateMachine();
           action_server_->setPreempted();
@@ -1302,7 +1302,7 @@ private:
                                                             collision_models_->getWorldFrameId(),
                                                             d_path.robot_state);
     display_joint_goal_publisher_.publish(d_path);
-    ROS_INFO("Displaying move arm joint goal.");
+    ROS_DEBUG("Displaying move arm joint goal.");
   }
   void visualizeJointGoal(const trajectory_msgs::JointTrajectory &trajectory)
   {

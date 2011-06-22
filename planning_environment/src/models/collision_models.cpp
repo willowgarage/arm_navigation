@@ -1197,6 +1197,7 @@ void planning_environment::CollisionModels::getLastCollisionMap(mapping_msgs::Co
 
 void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const
 {
+  bodiesLock();
   ode_collision_model_->lock();
   cmap.header.frame_id = getWorldFrameId();
   cmap.header.stamp = ros::Time::now();
@@ -1225,6 +1226,7 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mappin
     }
   }
   ode_collision_model_->unlock();
+  bodiesUnlock();
 }
 
 void planning_environment::CollisionModels::revertAllowedCollisionToDefault() {
