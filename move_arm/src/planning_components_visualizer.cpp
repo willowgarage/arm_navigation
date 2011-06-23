@@ -1607,7 +1607,7 @@ class PlanningComponentsVisualizer
             if(is_ik_control_active_
                 && isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
             {
-              menu_handler_map_["End Effector Selection"].getHandle(feedback->command, handle);
+              handle = feedback->menu_entry_id;
 
               unsigned int cmd = 0;
               for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
@@ -1625,7 +1625,7 @@ class PlanningComponentsVisualizer
             }
             else if(feedback->marker_name.rfind("pole_") != string::npos)
             {
-              menu_handler_map_["Collision Object Selection"].getHandle(feedback->command, handle);
+              handle = feedback->menu_entry_id;
 
               if(menu_entry_maps_["Collision Object Selection"][handle] == "Select")
               {
@@ -1643,8 +1643,7 @@ class PlanningComponentsVisualizer
           }
           else if(feedback->marker_name == "top_level")
           {
-            menu_handler_map_["Top Level"].getHandle(feedback->command, handle);
-
+            handle = feedback->menu_entry_id;
             if(handle == ik_control_handle_)
             {
               MenuHandler::CheckState currentState;
@@ -1737,7 +1736,7 @@ class PlanningComponentsVisualizer
           }
           else if(is_ik_control_active_ && isGroupName(feedback->marker_name))
           {
-            menu_handler_map_["End Effector"].getHandle(feedback->command, handle);
+            handle = feedback->menu_entry_id;
             MenuHandler::CheckState checkState;
 
             if(handle == start_position_handle_ || handle == end_position_handle_)
@@ -1809,7 +1808,7 @@ class PlanningComponentsVisualizer
           }
           else if(feedback->marker_name.rfind("pole_") != string::npos)
           {
-            menu_handler_map_["Collision Object"].getHandle(feedback->command, handle);
+            handle = feedback->menu_entry_id;
 
             stringstream controlName;
             controlName << feedback->marker_name;

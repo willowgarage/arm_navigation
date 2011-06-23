@@ -173,7 +173,7 @@ bool OmplRosJointPlanner::setJointGoal(motion_planning_msgs::GetMotionPlan::Requ
     if(request.motion_plan_request.goal_constraints.joint_constraints.size() < dimension)
     {
       response.error_code.val = response.error_code.PLANNING_FAILED;
-      ROS_ERROR("Joint space goal specification did not specify goal for all joints in group");	
+      ROS_ERROR_STREAM("Joint space goal specification did not specify goal for all joints in group expected " << dimension <<" but got " << request.motion_plan_request.goal_constraints.joint_constraints.size() );	
       return false;
     }
     else
