@@ -32,6 +32,7 @@
 #include <planning_environment/tools/planning_description_configuration_wizard.h>
 #include <qt4/QtGui/qapplication.h>
 #include <qt4/QtGui/qradiobutton.h>
+#include <boost/thread.hpp>
 
 //in 100 hz ticks
 WINDOW* left_win;
