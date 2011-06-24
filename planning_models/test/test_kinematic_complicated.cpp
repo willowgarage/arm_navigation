@@ -70,7 +70,7 @@ protected:
 TEST_F(LoadPlanningModelsPr2, InitOK) 
 {
   ASSERT_TRUE(urdf_ok_) << full_path_;
-  ASSERT_EQ(urdf_model_.getName(),"pr2");
+  ASSERT_EQ(urdf_model_.getName(),"pr2_test");
 }
 
 TEST_F(LoadPlanningModelsPr2, MultidofInit)
