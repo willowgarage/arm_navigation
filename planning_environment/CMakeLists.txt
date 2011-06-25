@@ -20,7 +20,8 @@ rosbuild_add_library(planning_environment src/models/robot_models.cpp
 					 src/util/construct_object.cpp
 					 src/util/collision_operations_generator.cpp
 					 src/models/model_utils.cpp
-					 src/monitors/monitor_utils.cpp)
+					 src/monitors/monitor_utils.cpp
+				         src/monitors/joint_state_monitor.cpp)
 
 rosbuild_add_openmp_flags(planning_environment)
 rosbuild_link_boost(planning_environment thread)
