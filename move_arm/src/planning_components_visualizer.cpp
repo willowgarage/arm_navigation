@@ -1569,6 +1569,8 @@ class PlanningComponentsVisualizer
     /////
     void processInteractiveFeedback(const InteractiveMarkerFeedbackConstPtr &feedback)
     {
+      ROS_INFO_STREAM("Got feedback");
+
       GroupCollection& gc = group_map_[current_group_name_];
       switch (feedback->event_type)
       {
@@ -1957,28 +1959,36 @@ class PlanningComponentsVisualizer
       control.interaction_mode = InteractiveMarkerControl::BUTTON;
       control.always_visible = true;
 
+      ROS_INFO_STREAM("Making selectable marker " << selectable_marker.name_); 
+
       switch (type)
       {
         case PlanningComponentsVisualizer::EndEffectorControl:
           control.markers.push_back(makeMarkerBox(marker, 0.5f));
           marker.controls.push_back(control);
           interactive_marker_server_->insert(marker);
-          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+          ROS_WARN_STREAM("Calling set callback");
           menu_handler_map_["End Effector Selection"].apply(*interactive_marker_server_, marker.name);
+          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+
           break;
         case PlanningComponentsVisualizer::CollisionObject:
           control.markers.push_back(makeMarkerCylinder(marker, 1.0f));
           marker.controls.push_back(control);
           interactive_marker_server_->insert(marker);
-          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+          ROS_WARN_STREAM("Calling set callback");
           menu_handler_map_["Collision Object Selection"].apply(*interactive_marker_server_, marker.name);
+          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+
           break;
         case PlanningComponentsVisualizer::JointControl:
           control.markers.push_back(makeMarkerBox(marker, 0.5f));
           marker.controls.push_back(control);
           interactive_marker_server_->insert(marker);
-          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+          ROS_WARN_STREAM("Calling set callback");
+
           menu_handler_map_["Joint Selection"].apply(*interactive_marker_server_, marker.name);
+          interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
           break;
       }
 
@@ -2209,7 +2219,6 @@ class PlanningComponentsVisualizer
       marker.controls.push_back(control);
 
       interactive_marker_server_->insert(marker);
-      interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
 
       control.interaction_mode = InteractiveMarkerControl::MENU;
       //control.markers.push_back(makeMarkerSphere(marker));
@@ -2224,6 +2233,7 @@ class PlanningComponentsVisualizer
         menu_handler_map_["Collision Object"].apply(*interactive_marker_server_, marker.name);
       }
 
+      interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
     }
 
     bool doesGroupHaveGoodIKSolution(const string& group) const

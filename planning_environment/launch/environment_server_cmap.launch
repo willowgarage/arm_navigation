@@ -1,6 +1,0 @@
-<launch>
-  <node pkg="planning_environment" type="environment_server" output="screen" name="environment_server">
-  	<param name="use_collision_map" value="true"/>
-  </node>
-  
-</launch>

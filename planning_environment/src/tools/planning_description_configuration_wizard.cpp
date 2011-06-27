@@ -1269,6 +1269,52 @@ void PlanningDescriptionConfigurationWizard::outputKinematicsLaunchFiles()
   doc.SaveFile(dir_name_ + "/launch/constraint_aware_kinematics.launch");
 }
 
+void PlanningDescriptionConfigurationWizard::outputMoveGroupLaunchFiles()
+{
+  TiXmlDocument doc;
+  TiXmlElement* launch_root = new TiXmlElement("launch");
+  doc.LinkEndChild(launch_root);
+
+  const map<string, KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
+
+  for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin(); it
+      != group_config_map.end(); it++)
+  {
+    TiXmlElement *inc = new TiXmlElement("include");
+    launch_root->LinkEndChild(inc);
+    inc->SetAttribute("file", "$(find " + dir_name_ + ")/launch/move_"+it->first+".launch");
+
+    TiXmlDocument group_doc;
+    TiXmlElement* group_launch_root = new TiXmlElement("launch");
+    group_doc.LinkEndChild(group_launch_root);
+    
+    TiXmlElement *node = new TiXmlElement("node");
+    group_launch_root->LinkEndChild(node);
+    node->SetAttribute("pkg", "move_arm");
+    node->SetAttribute("type", "move_arm_simple_action");
+    node->SetAttribute("name", getRobotName() + "_move_" + it->first);
+    
+    TiXmlElement *group_param = new TiXmlElement("param");
+    node->LinkEndChild(group_param);
+    group_param->SetAttribute("name", "group");
+    group_param->SetAttribute("type", "string");
+    group_param->SetAttribute("value", it->first);
+
+    TiXmlElement *remap1 = new TiXmlElement("remap");
+    node->LinkEndChild(remap1);
+    remap1->SetAttribute("from", "arm_ik");
+    remap1->SetAttribute("to", getRobotName()+"_"+it->first+"_kinematics/get_constraint_aware_ik");
+
+    TiXmlElement *base_param = new TiXmlElement("param");
+    node->LinkEndChild(base_param);
+    base_param->SetAttribute("name", "controller_action_name");
+    base_param->SetAttribute("type", "string");
+    base_param->SetAttribute("value", it->first+"_controller/follow_joint_trajectory");   
+    group_doc.SaveFile(dir_name_ + "/launch/move_"+it->first+".launch");
+  }
+  doc.SaveFile(dir_name_ + "/launch/move_groups.launch");
+}
+
 void PlanningDescriptionConfigurationWizard::outputPlanningComponentVisualizerLaunchFile()
 {
   //now doing planning components .vcg file
@@ -1344,6 +1390,49 @@ void PlanningDescriptionConfigurationWizard::outputPlanningComponentVisualizerLa
   state_publisher->SetAttribute("name", "rob_st_pub");
 
   doc.SaveFile(dir_name_ + "/launch/planning_components_visualizer.launch");
+}
+
+void PlanningDescriptionConfigurationWizard::outputArmNavigationLaunchFile()
+{
+  TiXmlDocument doc;
+  TiXmlElement* launch_root = new TiXmlElement("launch");
+  doc.LinkEndChild(launch_root);
+
+  TiXmlElement *inc = new TiXmlElement("include");
+  launch_root->LinkEndChild(inc);
+  inc->SetAttribute("file", "$(find " + dir_name_ + ")/launch/" + launch_outfile_name_);
+
+  TiXmlElement *inc_env = new TiXmlElement("include");
+  launch_root->LinkEndChild(inc_env);
+  inc_env->SetAttribute("file", "$(find planning_environment)/launch/environment_server.launch");
+
+  TiXmlElement *arg1 = new TiXmlElement("arg");
+  inc_env->LinkEndChild(arg1);
+  arg1->SetAttribute("name", "use_monitor");
+  arg1->SetAttribute("value", "true");
+
+  TiXmlElement *arg2 = new TiXmlElement("arg");
+  inc_env->LinkEndChild(arg2);
+  arg2->SetAttribute("name", "use_collision_map");
+  arg2->SetAttribute("value", "false");
+
+  TiXmlElement *kin = new TiXmlElement("include");
+  launch_root->LinkEndChild(kin);
+  kin->SetAttribute("file", "$(find " + dir_name_ + ")/launch/constraint_aware_kinematics.launch");
+
+  TiXmlElement *ompl = new TiXmlElement("include");
+  launch_root->LinkEndChild(ompl);
+  ompl->SetAttribute("file", "$(find " + dir_name_ + ")/launch/ompl_planning.launch");
+
+  TiXmlElement *fil = new TiXmlElement("include");
+  launch_root->LinkEndChild(fil);
+  fil->SetAttribute("file", "$(find " + dir_name_ + ")/launch/trajectory_filter_server.launch");
+
+  TiXmlElement *incgr = new TiXmlElement("include");
+  launch_root->LinkEndChild(incgr);
+  incgr->SetAttribute("file", "$(find " + dir_name_ + ")/launch/move_groups.launch");
+
+  doc.SaveFile(dir_name_ + "/launch/"+getRobotName()+"_arm_navigation.launch");
 }
 
 void PlanningDescriptionConfigurationWizard::updateCollisionsInCurrentState()
@@ -2475,6 +2564,8 @@ void PlanningDescriptionConfigurationWizard::writeFiles()
     progress_bar_->setValue(65);
     outputPlanningEnvironmentLaunch();
     progress_bar_->setValue(75);
+    outputMoveGroupLaunchFiles();
+    outputArmNavigationLaunchFile();
     outputPlanningComponentVisualizerLaunchFile();
     progress_bar_->setValue(100);
 
@@ -2581,6 +2672,8 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   outputKinematicsLaunchFiles();
   outputTrajectoryFilterLaunch();
   outputPlanningEnvironmentLaunch();
+  outputMoveGroupLaunchFiles();
+  outputArmNavigationLaunchFile();
   outputPlanningComponentVisualizerLaunchFile();
   progress_ = 100;
   emit changeProgress(100);

@@ -102,7 +102,9 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     void outputTrajectoryFilterLaunch();
     void outputPlanningEnvironmentLaunch();
     void outputKinematicsLaunchFiles();
+    void outputMoveGroupLaunchFiles();
     void outputPlanningComponentVisualizerLaunchFile();
+    void outputArmNavigationLaunchFile();
     void updateCollisionsInCurrentState();
     void sendMarkers();
     void sendTransforms();

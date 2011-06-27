@@ -123,14 +123,13 @@ typedef struct{
 } MoveArmParameters;
   
 static const std::string ARM_IK_NAME = "arm_ik";
-static const std::string ARM_FK_NAME = "arm_fk";
-static const std::string TRAJECTORY_FILTER = "filter_trajectory";
+static const std::string TRAJECTORY_FILTER = "/trajectory_filter_server/filter_trajectory_with_constraints";
 static const std::string DISPLAY_PATH_PUB_TOPIC  = "display_path";
 static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
 
 //bunch of statics for remapping purposes
 
-static const std::string GET_PLANNING_SCENE_NAME = "get_planning_scene";
+static const std::string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
 static const std::string LOG_PLANNING_SCENE_NAME = "/environment_server/log_planning_scene";
 static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
 static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
@@ -158,17 +157,17 @@ public:
 
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
-    filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>("filter_trajectory");      
+    filter_trajectory_client_ = root_handle_.serviceClient<motion_planning_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER);      
     vis_marker_publisher_ = root_handle_.advertise<visualization_msgs::Marker>("move_" + group_name+"_markers", 128);
     vis_marker_array_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("move_" + group_name+"_markers_array", 128);
-    get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("get_robot_state");      
+    get_state_client_ = root_handle_.serviceClient<planning_environment_msgs::GetRobotState>("/environment_server/get_robot_state");      
 
-    get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
-    
     //    ros::service::waitForService(ARM_IK_NAME);
     arm_ik_initialized_ = false;
     ros::service::waitForService(GET_PLANNING_SCENE_NAME);
-    ros::service::waitForService("filter_trajectory");
+    get_planning_scene_client_ = root_handle_.serviceClient<planning_environment_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
+    
+    ros::service::waitForService(TRAJECTORY_FILTER);
 
     action_server_.reset(new actionlib::SimpleActionServer<move_arm_msgs::MoveArmAction>(root_handle_, "move_" + group_name, boost::bind(&MoveArm::execute, this, _1), false));
     action_server_->start();
@@ -176,7 +175,6 @@ public:
     display_path_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_PATH_PUB_TOPIC, 1, true);
     display_joint_goal_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>(DISPLAY_JOINT_GOAL_PUB_TOPIC, 1, true);
     stats_publisher_ = private_handle_.advertise<move_arm_msgs::MoveArmStatistics>("statistics",1,true);
-    //        fk_client_ = root_handle_.serviceClient<kinematics_msgs::FKService>(ARM_FK_NAME);
   }	
   virtual ~MoveArm()
   {
@@ -253,9 +251,6 @@ private:
                   link_name, 
                   solution))
     {
-      /*if(!checkIK(tpose,link_name,solution))
-        ROS_ERROR("IK solution does not get to desired pose");
-      */
       std::map<std::string, double> joint_values;
       for (unsigned int i = 0 ; i < solution.name.size() ; ++i)
       {
@@ -327,43 +322,6 @@ private:
     else
     {
       ROS_ERROR("IK service failed");
-      return false;
-    }	    
-    return true;
-  }
-
-  bool checkIK(const geometry_msgs::PoseStamped &pose_stamped_msg,  
-               const std::string &link_name, 
-               sensor_msgs::JointState &solution)
-  {
-    kinematics_msgs::GetPositionFK::Request request;
-    kinematics_msgs::GetPositionFK::Response response;
-	    
-    request.robot_state.joint_state.name = group_joint_names_;	    
-    request.fk_link_names.resize(1);
-    request.fk_link_names[0] = link_name;
-    request.robot_state.joint_state.position = solution.position;	    
-    request.header = pose_stamped_msg.header;
-    if (fk_client_.call(request, response))
-    {
-      if(response.error_code.val != response.error_code.SUCCESS)
-        return false;
-      ROS_DEBUG("Obtained FK solution");
-      ROS_DEBUG("FK Pose:");
-      ROS_DEBUG("Position : (%f,%f,%f)",
-                response.pose_stamped[0].pose.position.x,
-                response.pose_stamped[0].pose.position.y,
-                response.pose_stamped[0].pose.position.z);
-      ROS_DEBUG("Rotation : (%f,%f,%f,%f)",
-                response.pose_stamped[0].pose.orientation.x,
-                response.pose_stamped[0].pose.orientation.y,
-                response.pose_stamped[0].pose.orientation.z,
-                response.pose_stamped[0].pose.orientation.w);
-      ROS_DEBUG(" ");
-    }
-    else
-    {
-      ROS_ERROR("FK service failed");
       return false;
     }	    
     return true;
@@ -1443,7 +1401,6 @@ private:
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
   ros::ServiceClient filter_trajectory_client_;
-  ros::ServiceClient fk_client_;
   ros::ServiceClient get_state_client_;
   ros::ServiceClient get_planning_scene_client_;
   MoveArmParameters move_arm_parameters_;
