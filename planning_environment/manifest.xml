@@ -30,6 +30,8 @@
   <depend package="yaml_cpp" />
   <depend package="rviz" />
 
+  <rosdep name="qt4" />
+
   <url>http://ros.org/wiki/planning_environment</url>
 
   <export>
