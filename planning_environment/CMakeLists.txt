@@ -77,7 +77,6 @@ include_directories(${QT_INCLUDE_DIR})
 rosbuild_add_executable(planning_description_configuration_wizard ${sources} ${headers} ${moc_sources})
 target_link_libraries(planning_description_configuration_wizard planning_environment)
 rosbuild_link_boost(planning_description_configuration_wizard thread)
-target_link_libraries(planning_description_configuration_wizard ncurses)
 target_link_libraries(planning_description_configuration_wizard ${QT_LIBRARIES})
 
 #rosbuild_add_executable(display_planner_collision_model src/tools/display_planner_collision_model.cpp) 

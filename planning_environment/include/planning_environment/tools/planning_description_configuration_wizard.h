@@ -30,7 +30,6 @@
 #include <qt4/QtGui/qcheckbox.h>
 #include <qt4/QtGui/qdialog.h>
 #include <qt4/QtGui/qfiledialog.h>
-#include <ncurses.h>
 #include <tinyxml/tinyxml.h>
 #include <qt4/Qt/qthread.h>
 #include <qt4/QtGui/qprogressbar.h>
@@ -71,8 +70,6 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     bool setupWithWorldFixedFrame(const std::string& world_fixed_frame, const std::string& joint_type);
     void emitWorldJointYAML();
     void outputConfigAndLaunchRviz();
-    void setupGroups();
-    void setupGroupKinematicChain(const std::string& new_group_name);
     bool addGroup(std::string new_group_name, std::string base, std::string tip);
     void popupNotOkayWarning();
     void popupOkayWarning();
@@ -81,21 +78,10 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     void popupFileFailure(const char* reason);
     void popupFileSuccess();
     void updateGroupTable();
-    void setupGroupJointCollection(const std::string& new_group_name);
     void emitGroupYAML();
     void outputJointLimitsYAML();
-    void setJointsForCollisionSampling();
     visualization_msgs::Marker
         transformEnvironmentModelContactInfoMarker(const collision_space::EnvironmentModel::Contact& c);
-    void considerAlwaysAndDefaultInCollisionMarkers();
-    void considerOftenInCollisionPairs();
-    void considerOccasionallyInCollisionPairs();
-    void
-        considerInCollisionPairs(
-                                 std::vector<planning_environment::CollisionOperationsGenerator::StringPair>& in_collision_pairs,
-                                 std::vector<double>& percentages,
-                                 std::vector<planning_environment::CollisionOperationsGenerator::CollidingJointValues>& in_collision_joint_values,
-                                 const std_msgs::ColorRGBA& color);
     void outputPlanningDescriptionYAML();
     void outputOMPLGroupYAML();
     void outputOMPLLaunchFile();
