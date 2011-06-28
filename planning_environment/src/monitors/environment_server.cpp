@@ -40,7 +40,6 @@
 #include <planning_environment_msgs/GetRobotState.h>
 #include <planning_environment_msgs/GetStateValidity.h>
 #include <planning_environment_msgs/GetPlanningScene.h>
-#include <planning_environment_msgs/LogPlanningScene.h>
 #include <ros/package.h>
 #include <std_srvs/Empty.h>
 #include <planning_environment_msgs/SetPlanningSceneAction.h>
@@ -83,7 +82,6 @@ public:
     register_planning_scene_service_ = root_handle_.advertiseService("register_planning_scene", &EnvironmentServer::registerPlanningScene, this);
     get_robot_state_service_ = private_handle_.advertiseService("get_robot_state", &EnvironmentServer::getRobotState, this);
     get_planning_scene_service_ = private_handle_.advertiseService("get_planning_scene", &EnvironmentServer::getPlanningScene, this);
-    log_planning_scene_service_ = private_handle_.advertiseService("log_planning_scene", &EnvironmentServer::logPlanningScene, this);
 
     ROS_INFO("Environment server started");
   }
@@ -162,25 +160,6 @@ private:
     return true;
   }
 
-  bool logPlanningScene(planning_environment_msgs::LogPlanningScene::Request &req, 
-                        planning_environment_msgs::LogPlanningScene::Response &res) 
-  {
-    planning_environment_msgs::PlanningScene full_planning_scene;
-    planning_monitor_->getCompletePlanningScene(req.planning_scene_diff,
-                                                req.operations,
-                                                full_planning_scene);
-    std::string filename = req.filename;
-    if(!req.package_name.empty()) {
-      filename = ros::package::getPath(req.package_name)+"/"+req.filename;
-    }
-    try {
-      collision_models_->writePlanningSceneBag(filename, full_planning_scene);
-    } catch(...) {
-      ROS_INFO_STREAM("Problem writing bag to " << filename);
-    }
-    return true;
-  }
-
 private:
 	
   ros::NodeHandle root_handle_, private_handle_;
@@ -193,7 +172,6 @@ private:
 
   ros::ServiceServer get_robot_state_service_;
   ros::ServiceServer get_planning_scene_service_;
-  ros::ServiceServer log_planning_scene_service_;
 
   ros::ServiceServer register_planning_scene_service_;
   std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;

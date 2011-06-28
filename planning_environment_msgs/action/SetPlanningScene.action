@@ -1,3 +1,6 @@
+# THIS MESSAGE IS FOR INTERNAL COMMUNICATION BETWEEN
+# PLANNING ENVIRONMENT COMPONENTS ONLY
+
 #Full planning scene
 PlanningScene planning_scene
 ---

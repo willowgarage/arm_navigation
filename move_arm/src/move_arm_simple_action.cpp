@@ -72,7 +72,6 @@
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/model_utils.h>
 #include <planning_environment_msgs/GetPlanningScene.h>
-#include <planning_environment_msgs/LogPlanningScene.h>
 
 #include <planning_environment_msgs/GetRobotState.h>
 
@@ -130,7 +129,6 @@ static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
 //bunch of statics for remapping purposes
 
 static const std::string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
-static const std::string LOG_PLANNING_SCENE_NAME = "/environment_server/log_planning_scene";
 static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
 static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
   
