@@ -1,6 +1,0 @@
-# The motion plan request
-string group_name
-string head_monitor_link
-motion_planning_msgs/MotionPlanRequest motion_plan_request
----
----

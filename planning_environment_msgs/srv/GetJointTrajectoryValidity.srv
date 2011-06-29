@@ -26,15 +26,6 @@ bool check_joint_limits
 # as the first check on the points in the trajectory fails
 bool check_full_trajectory
 
-# OPTIONAL specification of a set of collision operations 
-# Each operation (body1, body2, operation) defines whether
-# it is ok for two bodies to collide with each other
-motion_planning_msgs/OrderedCollisionOperations ordered_collision_operations
-
-# OPTIONAL specification of regions in space where contact between links on the robot
-# and the world is allowed.
-motion_planning_msgs/AllowedContactSpecification[] allowed_contacts
-
 # OPTIONAL specification of a set of path constraints imposed on the robot, 
 # e.g. joint or pose constraints. These constraints will be tested only if
 # check_path_constraints = true
@@ -44,10 +35,6 @@ motion_planning_msgs/Constraints path_constraints
 # e.g. joint or pose constraints. These constraints will be tested only if 
 # check_goal_constraints = true
 motion_planning_msgs/Constraints goal_constraints
-
-# OPTIONAL specifies a set of links and paddings to change from the default
-# specified in the yaml file
-motion_planning_msgs/LinkPadding[] link_padding
 
 ---
 

@@ -17,10 +17,6 @@ bool check_joint_limits
 # OPTIONAL group name used to disable collisions for other links
 string group_name
 
-# OPTIONAL specification of regions in space where contact between links on the robot
-# and the world is allowed.
-motion_planning_msgs/AllowedContactSpecification[] allowed_contacts
-
 # OPTIONAL specification of a set of path constraints imposed on the robot, 
 # e.g. joint or pose constraints. These constraints will be tested only if
 # check_path_constraints = true
