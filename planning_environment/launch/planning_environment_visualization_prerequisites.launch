@@ -3,7 +3,7 @@
 
   <node pkg="planning_environment" name="wall_clock_server" type="fake_time.py" />
 
-  <include file="$(planning_environment)/launch/environment_server.launch" >
+  <include file="$(find planning_environment)/launch/environment_server.launch" >
     <arg name="use_monitor" value="false"/>
     <arg name="use_collision_map" value="false"/>
   </include>
