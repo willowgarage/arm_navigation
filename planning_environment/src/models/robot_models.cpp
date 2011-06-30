@@ -76,7 +76,7 @@ void planning_environment::RobotModels::loadRobotFromParamServer(void)
       bool hasMulti = loadMultiDofConfigsFromParamServer(multi_dof_configs);
       loadGroupConfigsFromParamServer(multi_dof_configs, group_configs);
       if(hasMulti) {
-        kmodel_ = new planning_models::KinematicModel::KinematicModel(*urdf_, group_configs, multi_dof_configs);
+        kmodel_ = new planning_models::KinematicModel(*urdf_, group_configs, multi_dof_configs);
       } else {
         ROS_WARN("Can't do anything without a root transform");
       }
