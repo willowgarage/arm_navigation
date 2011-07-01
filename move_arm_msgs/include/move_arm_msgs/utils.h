@@ -31,6 +31,9 @@
  *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
+#ifndef MOVE_ARM_MSGS_UTILS_
+#define MOVE_ARM_MSGS_UTILS_
+
 #include <ros/ros.h>
 //#include <tf/tf.h>
 //#include <tf/transform_datatypes.h>
@@ -54,3 +57,5 @@ namespace move_arm_msgs
     move_arm_goal.motion_plan_request.goal_constraints.orientation_constraints.push_back(orientation_constraint);
   }
 }
+
+#endif
