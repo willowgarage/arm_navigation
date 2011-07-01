@@ -80,9 +80,9 @@ bool OmplRos::initialize(const std::string &param_server_prefix)
     return false;
   }
 
-  if(!node_handle_.hasParam("default_planner_config"))
+  if(!node_handle_.hasParam("default_planner_id"))
   {
-    ROS_ERROR("No default planner configuration defined. A default planner must be defined from among the configured planners");
+    ROS_ERROR("No default planner configuration defined under 'default_planner_id'. A default planner must be defined from among the configured planners");
     return false;
   }
 

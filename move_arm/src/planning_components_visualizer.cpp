@@ -55,7 +55,7 @@
 #include <interactive_markers/interactive_marker_server.h>
 #include <interactive_markers/menu_handler.h>
 #include <sensor_msgs/JointState.h>
-o
+
 using namespace std;
 using namespace motion_planning_msgs;
 using namespace interactive_markers;
@@ -2429,7 +2429,7 @@ void quit(int sig)
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "planning_components_visualizer", ros::init_options::NoSigintHandler);
-o
+
   boost::thread spin_thread(boost::bind(&spin_function));
   boost::thread update_thread(boost::bind(&update_function));
   pcv = new PlanningComponentsVisualizer();
