@@ -55,7 +55,7 @@
 #include <interactive_markers/interactive_marker_server.h>
 #include <interactive_markers/menu_handler.h>
 #include <sensor_msgs/JointState.h>
-
+o
 using namespace std;
 using namespace motion_planning_msgs;
 using namespace interactive_markers;
@@ -84,6 +84,7 @@ static const string TRAJECTORY_FILTER_SERVICE_NAME = "/trajectory_filter_server/
 typedef map<MenuHandler::EntryHandle, string> MenuEntryMap;
 typedef map<string, MenuEntryMap> MenuMap;
 typedef map<string, MenuHandler> MenuHandlerMap;
+
 
 class PlanningComponentsVisualizer
 {
@@ -352,6 +353,7 @@ class PlanningComponentsVisualizer
       registerMenuEntry(menu_handler_map_["End Effector Selection"], menu_entry_maps_["End Effector Selection"],
                         "Select");
 
+
       // Create collision object menus
       registerMenuEntry(menu_handler_map_["Collision Object Selection"],
                         menu_entry_maps_["Collision Object Selection"], "Select");
@@ -371,7 +373,6 @@ class PlanningComponentsVisualizer
       menu_handler_map_["Top Level"].setCheckState(ik_control_handle_, MenuHandler::CHECKED);
       menu_handler_map_["Top Level"].setCheckState(joint_control_handle_, MenuHandler::UNCHECKED);
       menu_handler_map_["Top Level"].setCheckState(collision_aware_handle_, MenuHandler::CHECKED);
-
 
       is_ik_control_active_ = true;
       is_joint_control_active_ = false;
@@ -847,7 +848,7 @@ class PlanningComponentsVisualizer
         currentState->setKinematicState(stateMap);
         robot_state_->setKinematicState(stateMap);
         // Send state to robot model.
-        publishJointStates(gc);
+        updateJointStates(gc);
 
         createSelectableJointMarkers(gc);
 
@@ -1034,7 +1035,7 @@ class PlanningComponentsVisualizer
         }
       }
 
-      publishJointStates(gc);
+      updateJointStates(gc);
 
       return true;
     }
@@ -1044,7 +1045,7 @@ class PlanningComponentsVisualizer
     /// @brief Sends the joint states of the given group collection to the robot state publisher.
     /// @param gc the group collection to publish the states for.
     /////
-    void publishJointStates(GroupCollection& gc)
+    void updateJointStates(GroupCollection& gc)
     {
       sensor_msgs::JointState msg;
       msg.header.frame_id =  cm_->getWorldFrameId();
@@ -1071,8 +1072,18 @@ class PlanningComponentsVisualizer
           msg.position.push_back(0.0f);
         }
       }
-      joint_state_publisher_.publish(msg);
+      joint_state_lock_.lock();
+      last_joint_state_msg_ = msg;
+      joint_state_lock_.unlock();
+
     }
+  void publishJointStates() {
+    joint_state_lock_.lock();
+    last_joint_state_msg_.header.frame_id =  cm_->getWorldFrameId();
+    last_joint_state_msg_.header.stamp = ros::Time::now();
+    joint_state_publisher_.publish(last_joint_state_msg_);
+    joint_state_lock_.unlock();
+  }
 
     bool planToEndEffectorState(PlanningComponentsVisualizer::GroupCollection& gc)
     {
@@ -1096,7 +1107,7 @@ class PlanningComponentsVisualizer
         motion_plan_request.goal_constraints.position_constraints.resize(1);
         motion_plan_request.goal_constraints.orientation_constraints.resize(1);    
         geometry_msgs::PoseStamped end_effector_wrist_pose;
-        tf::poseTFToMsg(gc.getState(StartPosition)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(),
+        tf::poseTFToMsg(gc.getState(EndPosition)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(),
                         end_effector_wrist_pose.pose);
         end_effector_wrist_pose.header.frame_id = cm_->getWorldFrameId();
         motion_planning_msgs::poseStampedToPositionOrientationConstraints(end_effector_wrist_pose,
@@ -1569,8 +1580,6 @@ class PlanningComponentsVisualizer
     /////
     void processInteractiveFeedback(const InteractiveMarkerFeedbackConstPtr &feedback)
     {
-      ROS_INFO_STREAM("Got feedback");
-
       GroupCollection& gc = group_map_[current_group_name_];
       switch (feedback->event_type)
       {
@@ -1770,12 +1779,12 @@ class PlanningComponentsVisualizer
                 menu_handler_map_["End Effector"].reApply(*interactive_marker_server_);
               }
 
-              publishJointStates(gc);
+              updateJointStates(gc);
 
             } 
             else if(handle == constrain_rp_handle_) {
               menu_handler_map_["End Effector"].getCheckState(handle, checkState);
-              if(checkState != MenuHandler::CHECKED)
+              if(checkState == MenuHandler::UNCHECKED)
               {
                 menu_handler_map_["End Effector"].setCheckState(handle, MenuHandler::CHECKED);
                 constrain_rp_ = true;
@@ -1959,36 +1968,28 @@ class PlanningComponentsVisualizer
       control.interaction_mode = InteractiveMarkerControl::BUTTON;
       control.always_visible = true;
 
-      ROS_INFO_STREAM("Making selectable marker " << selectable_marker.name_); 
-
       switch (type)
       {
         case PlanningComponentsVisualizer::EndEffectorControl:
           control.markers.push_back(makeMarkerBox(marker, 0.5f));
           marker.controls.push_back(control);
           interactive_marker_server_->insert(marker);
-          ROS_WARN_STREAM("Calling set callback");
-          menu_handler_map_["End Effector Selection"].apply(*interactive_marker_server_, marker.name);
           interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
-
+          menu_handler_map_["End Effector Selection"].apply(*interactive_marker_server_, marker.name);
           break;
         case PlanningComponentsVisualizer::CollisionObject:
           control.markers.push_back(makeMarkerCylinder(marker, 1.0f));
           marker.controls.push_back(control);
           interactive_marker_server_->insert(marker);
-          ROS_WARN_STREAM("Calling set callback");
-          menu_handler_map_["Collision Object Selection"].apply(*interactive_marker_server_, marker.name);
           interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
-
+          menu_handler_map_["Collision Object Selection"].apply(*interactive_marker_server_, marker.name);
           break;
         case PlanningComponentsVisualizer::JointControl:
           control.markers.push_back(makeMarkerBox(marker, 0.5f));
           marker.controls.push_back(control);
           interactive_marker_server_->insert(marker);
-          ROS_WARN_STREAM("Calling set callback");
-
-          menu_handler_map_["Joint Selection"].apply(*interactive_marker_server_, marker.name);
           interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
+          menu_handler_map_["Joint Selection"].apply(*interactive_marker_server_, marker.name);
           break;
       }
 
@@ -2226,11 +2227,11 @@ class PlanningComponentsVisualizer
 
       if(!pole)
       {
-        menu_handler_map_["End Effector"].apply(*interactive_marker_server_, marker.name);
+       menu_handler_map_["End Effector"].apply(*interactive_marker_server_, marker.name);
       }
       else
       {
-        menu_handler_map_["Collision Object"].apply(*interactive_marker_server_, marker.name);
+       menu_handler_map_["Collision Object"].apply(*interactive_marker_server_, marker.name);
       }
 
       interactive_marker_server_->setCallback(marker.name, process_function_ptr_);
@@ -2313,6 +2314,10 @@ class PlanningComponentsVisualizer
     }
 
     IKControlType ik_control_type_;
+
+
+  boost::recursive_mutex joint_state_lock_;
+  sensor_msgs::JointState last_joint_state_msg_;
 
     boost::recursive_mutex lock_;
     boost::shared_ptr<InteractiveMarkerServer> interactive_marker_server_;
@@ -2403,6 +2408,7 @@ void update_function()
       }
       else
       {
+        pcv->publishJointStates();
         counter++;
       }
     }
@@ -2423,7 +2429,7 @@ void quit(int sig)
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "planning_components_visualizer", ros::init_options::NoSigintHandler);
-
+o
   boost::thread spin_thread(boost::bind(&spin_function));
   boost::thread update_thread(boost::bind(&update_function));
   pcv = new PlanningComponentsVisualizer();
@@ -2434,7 +2440,7 @@ int main(int argc, char** argv)
   {
     pcv->selectPlanningGroup(i);
     pcv->solveIKForEndEffectorPose((*pcv->getPlanningGroup(i)));
-    pcv->publishJointStates((*pcv->getPlanningGroup(i)));
+    pcv->updateJointStates((*pcv->getPlanningGroup(i)));
   }
 
   ros::waitForShutdown();
