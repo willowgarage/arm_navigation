@@ -1091,18 +1091,19 @@ class PlanningComponentsVisualizer
       motion_plan_request.group_name = gc.name_;
       motion_plan_request.num_planning_attempts = 1;
       motion_plan_request.allowed_planning_time = PLANNING_DURATION;
-      const KinematicState::JointStateGroup* jsg = gc.getState(EndPosition)->getJointStateGroup(gc.name_);
-      motion_plan_request.goal_constraints.joint_constraints.resize(jsg->getJointNames().size());
-      vector<double> joint_values;
-      jsg->getKinematicStateValues(joint_values);
-      for(unsigned int i = 0; i < jsg->getJointNames().size(); i++)
-      {
-        motion_plan_request.goal_constraints.joint_constraints[i].joint_name = jsg->getJointNames()[i];
-        motion_plan_request.goal_constraints.joint_constraints[i].position = joint_values[i];
-        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.01;
-        motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.01;
-      }
-      if(constrain_rp_) {
+      if(!constrain_rp_) {
+        const KinematicState::JointStateGroup* jsg = gc.getState(EndPosition)->getJointStateGroup(gc.name_);
+        motion_plan_request.goal_constraints.joint_constraints.resize(jsg->getJointNames().size());
+        vector<double> joint_values;
+        jsg->getKinematicStateValues(joint_values);
+        for(unsigned int i = 0; i < jsg->getJointNames().size(); i++)
+        {
+          motion_plan_request.goal_constraints.joint_constraints[i].joint_name = jsg->getJointNames()[i];
+          motion_plan_request.goal_constraints.joint_constraints[i].position = joint_values[i];
+          motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.01;
+          motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.01;
+        }
+      } else {
         motion_plan_request.group_name += "_cartesian";
         motion_plan_request.goal_constraints.position_constraints.resize(1);
         motion_plan_request.goal_constraints.orientation_constraints.resize(1);    

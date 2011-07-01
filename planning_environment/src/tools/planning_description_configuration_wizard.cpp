@@ -601,6 +601,12 @@ void PlanningDescriptionConfigurationWizard::outputOMPLLaunchFile()
   node->SetAttribute("type", "ompl_ros");
   node->SetAttribute("name", "ompl_planning");
 
+  TiXmlElement *p = new TiXmlElement("param");
+  node->LinkEndChild(p);
+  p->SetAttribute("name", "default_planner_id");
+  p->SetAttribute("type", "string");
+  p->SetAttribute("value", "SBLkConfig1");
+
   TiXmlElement *rp = new TiXmlElement("rosparam");
   node->LinkEndChild(rp);
   rp->SetAttribute("command", "load");

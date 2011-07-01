@@ -106,7 +106,7 @@ bool OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State &omp
 
   if(kinematics_solver_->searchPositionIK(pose,
                                           seed_state_.joint_state.position,
-                                          0.0,
+                                          1.0,
                                           solution_state_.joint_state.position,
                                           error_code))
   {
