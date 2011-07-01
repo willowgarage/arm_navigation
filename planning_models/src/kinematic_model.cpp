@@ -387,7 +387,7 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
 	  }
 	else
 	  {
-	    j->setVariableBounds(j->name_, urdf_joint->limits->upper, urdf_joint->limits->lower);
+	    j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
 	  }
 	j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
 	result = j;
