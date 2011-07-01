@@ -110,42 +110,42 @@ public:
     switch(safety)
     {
       case VerySafe:
-        establish_always_num_ = 500000;
-        establish_often_num_ = 150000;
-        establish_often_percentage_ = 0.75;
-        establish_occasional_num_ = 500000;
+        establish_always_num_ = 5000;
+        establish_often_num_ = 15000;
+        establish_often_percentage_ = 0.5;
+        establish_occasional_num_ = 1000000;
         performance_testing_num_ = 5000;
         break;
 
       case Safe:
         establish_always_num_ = 10000;
         establish_often_num_ = 5000;
-        establish_often_percentage_ = 0.66;
-        establish_occasional_num_ = 10000;
+        establish_often_percentage_ = 0.5;
+        establish_occasional_num_ = 100000;
         performance_testing_num_ = 1000;
         break;
 
       case Normal:
         establish_always_num_ = 1000;
-        establish_often_num_ = 500;
+        establish_often_num_ = 1000;
         establish_often_percentage_ = 0.5;
-        establish_occasional_num_ = 1000;
+        establish_occasional_num_ = 20000;
         performance_testing_num_ = 1000;
         break;
 
       case Fast:
-        establish_always_num_ = 500;
-        establish_often_num_ = 100;
-        establish_often_percentage_ = 0.33;
-        establish_occasional_num_ = 100;
+        establish_always_num_ = 100;
+        establish_often_num_ = 500;
+        establish_often_percentage_ = 0.5;
+        establish_occasional_num_ = 1000;
         performance_testing_num_ = 100;
         break;
 
       case VeryFast:
         establish_always_num_ = 100;
-        establish_often_num_ = 10;
-        establish_often_percentage_ = 0.33;
-        establish_occasional_num_ = 10;
+        establish_often_num_ = 100;
+        establish_often_percentage_ = 0.5;
+        establish_occasional_num_ = 500;
         performance_testing_num_ = 10;
         break;
     }

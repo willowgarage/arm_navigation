@@ -1361,10 +1361,7 @@ void PlanningDescriptionConfigurationWizard::dofSelectionTableChanged()
       {
         cdof_map[it->first] = checkBox->isChecked();
       }
-      else
-      {
-        xind++;
-      }
+      xind++;
     }
   }
   ops_gen_->generateSamplingStructures(cdof_map);
@@ -1891,7 +1888,7 @@ void PlanningDescriptionConfigurationWizard::generateDefaultInCollisionTable()
     default_collision_table_->setItem(0, 0, noCollide);
   }
 
-  ROS_INFO("%lu links often in collision.", default_collision_pairs_.size());
+  ROS_INFO("%lu links default in collision.", default_collision_pairs_.size());
 
   for(size_t i = 0; i < default_collision_pairs_.size(); i++)
   {
@@ -2446,26 +2443,27 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
 
 
   QGroupBox* safetyGroupBox = new QGroupBox(descBox);
-   safetyGroupBox->setTitle("Select Safety");
+   safetyGroupBox->setTitle("Select Self-collision Sampling Density");
 
    QVBoxLayout* safetyGroupBoxLayout = new QVBoxLayout(safetyGroupBox);
    QLabel* safetyGroupBoxDesc = new QLabel(safetyGroupBox);
-   safetyGroupBoxDesc->setText("Defines the sampling density used to determine whether"
-                               "\ncertain robot poses are in collision. Safer settings"
-                               "\nwill sample longer, while faster settings are more"
-                               "\nlikely to be inaccurate.");
+   safetyGroupBoxDesc->setText("Parameterizes the number of joint space samples used to "
+                               "\ndetermine whether certain robot poses are in collision."
+                               "\nDenser setting swill sample longer, while sparser settings" 
+                               "\nare more likely to give efficient collision checking that "
+                               "\nmay not detect rare self-collisions.");
 
    safetyGroupBoxLayout->addWidget(safetyGroupBoxDesc);
 
    QRadioButton* verySafeButton = new QRadioButton(safetyGroupBox);
-   verySafeButton->setText("Very Safe");
+   verySafeButton->setText("Very Dense");
    safetyGroupBoxLayout->addWidget(verySafeButton);
    verySafeButton->setChecked(true);
 
    connect(verySafeButton, SIGNAL(toggled(bool)), this, SLOT(verySafeButtonToggled(bool)));
 
    QRadioButton* safeButton = new QRadioButton(safetyGroupBox);
-   safeButton->setText("Safe");
+   safeButton->setText("Dense");
    safetyGroupBoxLayout->addWidget(safeButton);
 
    connect(safeButton, SIGNAL(toggled(bool)), this, SLOT(safeButtonToggled(bool)));
@@ -2478,13 +2476,13 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
    connect(normalButton, SIGNAL(toggled(bool)), this, SLOT(normalButtonToggled(bool)));
 
    QRadioButton* fastButton = new QRadioButton(safetyGroupBox);
-   fastButton->setText("Fast");
+   fastButton->setText("Sparse");
    safetyGroupBoxLayout->addWidget(fastButton);
 
    connect(fastButton, SIGNAL(toggled(bool)), this, SLOT(fastButtonToggled(bool)));
 
    QRadioButton* veryFastButton = new QRadioButton(safetyGroupBox);
-   veryFastButton->setText("Very Fast");
+   veryFastButton->setText("Very Sparse");
    safetyGroupBoxLayout->addWidget(veryFastButton);
 
    connect(veryFastButton, SIGNAL(toggled(bool)), this, SLOT(veryFastButtonToggled(bool)));

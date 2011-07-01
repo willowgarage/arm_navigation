@@ -193,6 +193,8 @@ void CollisionOperationsGenerator::generateOccasionallyAndNeverInCollisionPairs(
       }
     }
   }
+  ROS_INFO_STREAM("Occasionally pairs num " << occasionally_in_collision_pairs.size());
+  ROS_INFO_STREAM("Never pairs num " << never_in_collision_pairs.size());
   ROS_INFO_STREAM("Diff pairs num " << diff_pairs);
 }
   
@@ -243,7 +245,7 @@ void CollisionOperationsGenerator::generateSamplingStructures(const std::map<std
         }
       }
       if(it->second.first > it->second.second) {
-        ROS_WARN_STREAM("Lower bound for DOF " << it->first << " is greater than upper bound");
+        ROS_WARN_STREAM("Lower bound for DOF " << it->first << " is greater than upper bound " << it->second.first << " " << it->second.second);
       } else if(it->second.first == -DBL_MAX) {
         ROS_WARN_STREAM("Some non-root DOF " << it->first << " has negative inf lower bound");
       } 
