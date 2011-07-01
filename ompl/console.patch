@@ -14,7 +14,7 @@ Index: src/ompl/util/src/Console.cpp
  #include <cstdio>
  #include <cstdarg>
  
--static ompl::msg::OutputHandlerSTD _defaultOutputHandler;
+-static ompl::msg::OutputHandlerSTD DEFAULT_OUTPUT_HANDLER;
 +namespace ompl
 +{
 +  
@@ -42,7 +42,7 @@ Index: src/ompl/util/src/Console.cpp
 +    }
 +}	
 +
-+static ompl::msg::OutputHandlerROS _defaultOutputHandler;
- static ompl::msg::OutputHandler   *OUTPUT_HANDLER = static_cast<ompl::msg::OutputHandler*>(&_defaultOutputHandler);
++static ompl::msg::OutputHandlerROS DEFAULT_OUTPUT_HANDLER;
+ static ompl::msg::OutputHandler   *OUTPUT_HANDLER = static_cast<ompl::msg::OutputHandler*>(&DEFAULT_OUTPUT_HANDLER);
  static ompl::msg::OutputHandler   *PREVIOUS_OH = OUTPUT_HANDLER;
- static boost::mutex                _lock; // it is likely the outputhandler does some I/O, so we serialize it
+ static boost::mutex                LOCK; // it is likely the outputhandler does some I/O, so we serialize it
