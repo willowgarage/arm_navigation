@@ -56,7 +56,7 @@ void OmplRos::run(void)
     return;
   if (collision_models_interface_->loadedModels())
   {
-    node_handle_.param<std::string>("default_planner_id",default_planner_id_,"SBLkConfig1");
+    node_handle_.param<std::string>("default_planner_config",default_planner_config_,"SBLkConfig1");
     plan_path_service_ = node_handle_.advertiseService("plan_kinematic_path", &OmplRos::computePlan, this);
     node_handle_.param<bool>("publish_diagnostics", publish_diagnostics_,false);
     if(publish_diagnostics_)
@@ -80,6 +80,22 @@ bool OmplRos::initialize(const std::string &param_server_prefix)
     return false;
   }
 
+  if(!node_handle_.hasParam("default_planner_config"))
+  {
+    ROS_ERROR("No default planner configuration defined. A default planner must be defined from among the configured planners");
+    return false;
+  }
+
+  node_handle_.param<std::string>("default_planner_id",default_planner_config_,"SBLkConfig1");
+  for(unsigned int i=0; i < group_names.size(); i++)
+  {
+    std::string location = default_planner_config_ + "[" + group_names[i] + "]";
+    if(planner_map_.find(location) == planner_map_.end())
+    {
+      ROS_ERROR("The default planner configuration %s has not been defined for group %s. The default planner must be configured for every group in your ompl_planning.yaml file", default_planner_config_.c_str(), group_names[i].c_str());
+      return false;
+    }
+  }
 
   return true;
 };
@@ -206,7 +222,7 @@ bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
   std::string location;
   std::string planner_id;
   if(request.motion_plan_request.planner_id == "")
-    planner_id = default_planner_id_;
+    planner_id = default_planner_config_;
   else
     planner_id = request.motion_plan_request.planner_id; 
   location = planner_id + "[" +request.motion_plan_request.group_name + "]";

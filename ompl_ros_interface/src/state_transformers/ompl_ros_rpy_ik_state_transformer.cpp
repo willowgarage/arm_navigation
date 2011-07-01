@@ -41,6 +41,7 @@ namespace ompl_ros_interface
 
 bool OmplRosRPYIKStateTransformer::initialize()
 {
+  srand ( time(NULL) ); // initialize random seed
   seed_state_.joint_state.name = kinematics_solver_->getJointNames();
   seed_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
   //  motion_planning_msgs::printJointState(seed_state_.joint_state);
@@ -88,6 +89,8 @@ bool OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State &omp
 {
   geometry_msgs::Pose pose;
   omplStateToPose(ompl_state,pose);
+  generateRandomState(seed_state_);
+
   (*scoped_state_) = ompl_state;
   ompl_ros_interface::omplStateToRobotState(*scoped_state_,ompl_state_to_robot_state_mapping_,seed_state_);
   int error_code;
@@ -135,7 +138,7 @@ void OmplRosRPYIKStateTransformer::omplStateToPose(const ompl::base::State &ompl
 }
 
 
-motion_planning_msgs::RobotState  OmplRosRPYIKStateTransformer::getDefaultState()
+motion_planning_msgs::RobotState OmplRosRPYIKStateTransformer::getDefaultState()
 {
   motion_planning_msgs::RobotState robot_state;
   if(kinematics_solver_)
@@ -149,5 +152,24 @@ motion_planning_msgs::RobotState  OmplRosRPYIKStateTransformer::getDefaultState(
   }
   return robot_state;
 }
+
+void OmplRosRPYIKStateTransformer::generateRandomState(motion_planning_msgs::RobotState &robot_state)
+{
+  std::vector<const planning_models::KinematicModel::JointModel*> joint_models = physical_joint_model_group_->getJointModels();
+  for(unsigned int i=0; i < robot_state.joint_state.name.size(); i++)
+  {
+    std::pair<double,double> bounds;
+    joint_models[i]->getVariableBounds(robot_state.joint_state.name[i],bounds);
+    robot_state.joint_state.position[i] = generateRandomNumber(bounds.first,bounds.second);    
+  }
+}
+
+double OmplRosRPYIKStateTransformer::generateRandomNumber(const double &min, const double &max)
+{
+  int rand_num = rand()%100+1;
+  double result = min + (double)((max-min)*rand_num)/101.0;
+  return result;
+}
+
 
 }

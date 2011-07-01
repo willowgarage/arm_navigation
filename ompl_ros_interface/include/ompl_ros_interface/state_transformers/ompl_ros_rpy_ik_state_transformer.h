@@ -98,6 +98,10 @@ private:
   void omplStateToPose(const ompl::base::State &ompl_state,
                        geometry_msgs::Pose &pose);
 
+  double generateRandomNumber(const double &min, const double &max);
+  void generateRandomState(motion_planning_msgs::RobotState &robot_state);
+
+
 };
 }
 

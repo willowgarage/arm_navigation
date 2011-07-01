@@ -109,7 +109,7 @@ private:
   ros::ServiceServer                     plan_path_service_;
   planning_environment::CollisionModelsInterface *collision_models_interface_;
   ros::NodeHandle                        node_handle_;
-  std::string default_planner_id_;
+  std::string default_planner_config_;
   bool publish_diagnostics_;
   ros::Publisher diagnostic_publisher_;
 
