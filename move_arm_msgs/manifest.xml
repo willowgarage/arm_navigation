@@ -14,7 +14,7 @@
   <depend package="trajectory_msgs"/>
   
   <export>
-    <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/include"/>
+    <cpp cflags="-I${prefix}/include"/>
   </export>
 
   <platform os="ubuntu" version="9.04"/>

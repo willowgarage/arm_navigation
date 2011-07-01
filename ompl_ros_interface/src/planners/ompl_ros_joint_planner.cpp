@@ -73,7 +73,7 @@ bool OmplRosJointPlanner::initializePlanningStateSpace(ompl::base::StateSpacePtr
 }
 
 bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Request &request,
-                                          motion_planning_msgs::GetMotionPlan::Response &response)
+                                         motion_planning_msgs::GetMotionPlan::Response &response)
 {
   if(request.motion_plan_request.group_name != group_name_)
   {
@@ -97,6 +97,16 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
       response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_LINK_NAME;
       ROS_ERROR("Cartesian goals for link %s are the only ones that can be processed", end_effector_name_.c_str());
       return false;      
+    }
+  }
+  if(!request.motion_plan_request.goal_constraints.position_constraints.empty()
+     && !request.motion_plan_request.goal_constraints.orientation_constraints.empty())
+  {
+    if(request.motion_plan_request.goal_constraints.position_constraints.size() != request.motion_plan_request.goal_constraints.orientation_constraints.size())
+    {
+      ROS_ERROR("Can only deal with requests that have the same number of position and orientation constraints");
+      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_GOAL_POSITION_CONSTRAINTS;
+      return false;
     }
   }
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
@@ -127,7 +137,7 @@ bool OmplRosJointPlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &
   }
   else 
   {
-    ROS_ERROR("Cannot handle request");
+    ROS_ERROR("Cannot handle request since its not a joint goal or fully specified pose goal (with position and orientation constraints");
     return false;
   }
 }

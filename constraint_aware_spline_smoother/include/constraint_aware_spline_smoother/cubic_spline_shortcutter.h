@@ -72,7 +72,7 @@ private:
   double discretization_;
   bool setupCollisionEnvironment();
   planning_environment::CollisionModelsInterface *collision_models_interface_;
-  ros::NodeHandle node_handle_;
+  //  ros::NodeHandle node_handle_;
   int getRandomInt(int min,int max) const;
   double getRandomTimeStamp(double min,double max) const;
   void discretizeTrajectory(const spline_smoother::SplineTrajectory &spline, 
@@ -682,7 +682,8 @@ template <typename T>
 bool CubicSplineShortCutter<T>::setupCollisionEnvironment()
 {
   bool use_collision_map;
-  node_handle_.param<bool>("use_collision_map", use_collision_map, true);
+  ros::NodeHandle node_handle("~");
+  node_handle.param<bool>("use_collision_map", use_collision_map, true);
 
   // monitor robot
   collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
