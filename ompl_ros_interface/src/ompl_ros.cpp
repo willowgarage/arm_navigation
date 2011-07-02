@@ -56,7 +56,6 @@ void OmplRos::run(void)
     return;
   if (collision_models_interface_->loadedModels())
   {
-    node_handle_.param<std::string>("default_planner_config",default_planner_config_,"SBLkConfig1");
     plan_path_service_ = node_handle_.advertiseService("plan_kinematic_path", &OmplRos::computePlan, this);
     node_handle_.param<bool>("publish_diagnostics", publish_diagnostics_,false);
     if(publish_diagnostics_)
@@ -80,13 +79,13 @@ bool OmplRos::initialize(const std::string &param_server_prefix)
     return false;
   }
 
-  if(!node_handle_.hasParam("default_planner_id"))
+  if(!node_handle_.hasParam("default_planner_config"))
   {
-    ROS_ERROR("No default planner configuration defined under 'default_planner_id'. A default planner must be defined from among the configured planners");
+    ROS_ERROR("No default planner configuration defined under 'default_planner_config'. A default planner must be defined from among the configured planners");
     return false;
   }
 
-  node_handle_.param<std::string>("default_planner_id",default_planner_config_,"SBLkConfig1");
+  node_handle_.param<std::string>("default_planner_config",default_planner_config_,"SBLkConfig1");
   for(unsigned int i=0; i < group_names.size(); i++)
   {
     std::string location = default_planner_config_ + "[" + group_names[i] + "]";

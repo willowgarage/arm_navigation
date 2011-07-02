@@ -140,6 +140,10 @@ bool OmplRosPlanningGroup::initializePlanner()
     return initializeKPIECEPlanner();
   else if(planner_type == "kinematic::LBKPIECE")
     return initializeLBKPIECEPlanner();
+  else if(planner_type == "kinematic::RRTStar")
+    return initializeRRTStarPlanner();
+  else if(planner_type == "kinematic::BKPIECE")
+    return initializeBKPIECEPlanner();
 	else
   {
     ROS_WARN("Unknown planner type: %s", planner_type.c_str());
@@ -155,6 +159,38 @@ bool OmplRosPlanningGroup::initializeRRTPlanner()
   {
     new_planner->setGoalBias(planner_config_->getParamDouble("goal_bias",new_planner->getGoalBias()));
     ROS_DEBUG("RRTPlanner::Goal bias is set to %g", new_planner->getGoalBias());
+  }  
+  if (planner_config_->hasParam("range"))
+  {
+    new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
+    ROS_DEBUG("RRTPlanner::Range is set to %g", new_planner->getRange());
+  }  
+  return true;
+}
+
+bool OmplRosPlanningGroup::initializeRRTStarPlanner()
+{
+  ompl_planner_.reset(new ompl::geometric::RRTstar(planner_->getSpaceInformation()));
+  ompl::geometric::RRTstar* new_planner = dynamic_cast<ompl::geometric::RRTstar*>(ompl_planner_.get());
+  if (planner_config_->hasParam("goal_bias"))
+  {
+    new_planner->setGoalBias(planner_config_->getParamDouble("goal_bias",new_planner->getGoalBias()));
+    ROS_DEBUG("RRTStarPlanner::Goal bias is set to %g", new_planner->getGoalBias());
+  }  
+  if (planner_config_->hasParam("range"))
+  {
+    new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
+    ROS_DEBUG("RRTStarPlanner::Range is set to %g", new_planner->getRange());
+  }  
+  if (planner_config_->hasParam("ball_radius_constant"))
+  {
+    new_planner->setBallRadiusConstant(planner_config_->getParamDouble("ball_radius_constant",new_planner->getBallRadiusConstant()));
+    ROS_DEBUG("RRTStarPlanner::Ball radius constant is set to %g", new_planner->getBallRadiusConstant());
+  }  
+  if (planner_config_->hasParam("max_ball_radius"))
+  {
+    new_planner->setMaxBallRadius(planner_config_->getParamDouble("max_ball_radius",new_planner->getMaxBallRadius()));
+    ROS_DEBUG("RRTStarPlanner::Ball radius constant is set to %g", new_planner->getMaxBallRadius());
   }  
   return true;
 }
@@ -270,6 +306,45 @@ bool OmplRosPlanningGroup::initializeKPIECEPlanner()
     new_planner->setGoalBias(planner_config_->getParamDouble("goal_bias",new_planner->getGoalBias()));
     ROS_DEBUG("KPIECEPlanner::Goal bias is set to %g", new_planner->getGoalBias());
   }  
+  if (planner_config_->hasParam("min_valid_path_fraction"))
+  {
+    new_planner->setMinValidPathFraction(planner_config_->getParamDouble("min_valid_path_fraction",new_planner->getMinValidPathFraction()));
+    ROS_DEBUG("KPIECEPlanner::Min valid path fraction is set to %g", new_planner->getMinValidPathFraction());
+  }  
+  if (planner_config_->hasParam("good_cell_score_factor") && planner_config_->hasParam("bad_cell_score_factor"))
+  {
+    new_planner->setCellScoreFactor(planner_config_->getParamDouble("cell_score_factor",new_planner->getBorderFraction()),
+                                    planner_config_->getParamDouble("good_cell_score_factor",new_planner->getBorderFraction()));
+    ROS_DEBUG("KPIECEPlanner::Border score factor is set to (good,bad):(%g,%g)", new_planner->getGoodCellScoreFactor(),new_planner->getBadCellScoreFactor());
+  }  
+  return true;
+}
+
+bool OmplRosPlanningGroup::initializeBKPIECEPlanner()
+{
+  ompl_planner_.reset(new ompl::geometric::BKPIECE1(planner_->getSpaceInformation()));
+  ompl::geometric::BKPIECE1* new_planner = dynamic_cast<ompl::geometric::BKPIECE1*>(ompl_planner_.get());
+  if (planner_config_->hasParam("range"))
+  {
+    new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
+    ROS_DEBUG("BKPIECEPlanner::Range is set to %g", new_planner->getRange());
+  }  
+  if (planner_config_->hasParam("border_fraction"))
+  {
+    new_planner->setBorderFraction(planner_config_->getParamDouble("border_fraction",new_planner->getBorderFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Range is set to %g", new_planner->getBorderFraction());
+  }  
+  if (planner_config_->hasParam("good_cell_score_factor") && planner_config_->hasParam("bad_cell_score_factor"))
+  {
+    new_planner->setCellScoreFactor(planner_config_->getParamDouble("cell_score_factor",new_planner->getBorderFraction()),
+                                    planner_config_->getParamDouble("good_cell_score_factor",new_planner->getBorderFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Border score factor is set to (good,bad):(%g,%g)", new_planner->getGoodCellScoreFactor(),new_planner->getBadCellScoreFactor());
+  }  
+  if (planner_config_->hasParam("min_valid_path_fraction"))
+  {
+    new_planner->setMinValidPathFraction(planner_config_->getParamDouble("min_valid_path_fraction",new_planner->getMinValidPathFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Min valid path fraction is set to %g", new_planner->getMinValidPathFraction());
+  }  
   return true;
 }
 
@@ -281,6 +356,16 @@ bool OmplRosPlanningGroup::initializeLBKPIECEPlanner()
   {
     new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
     ROS_DEBUG("LBKPIECEPlanner::Range is set to %g", new_planner->getRange());
+  }  
+  if (planner_config_->hasParam("border_fraction"))
+  {
+    new_planner->setBorderFraction(planner_config_->getParamDouble("border_fraction",new_planner->getBorderFraction()));
+    ROS_DEBUG("LBKPIECEPlanner::Border fraction is set to %g", new_planner->getBorderFraction());
+  }  
+  if (planner_config_->hasParam("min_valid_path_fraction"))
+  {
+    new_planner->setMinValidPathFraction(planner_config_->getParamDouble("min_valid_path_fraction",new_planner->getMinValidPathFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Min valid path fraction is set to %g", new_planner->getMinValidPathFraction());
   }  
   return true;
 }
