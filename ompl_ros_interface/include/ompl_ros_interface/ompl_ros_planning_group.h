@@ -66,7 +66,9 @@
 #include <ompl/geometric/planners/sbl/SBL.h>
 #include <ompl/geometric/planners/sbl/pSBL.h>
 #include <ompl/geometric/planners/kpiece/KPIECE1.h>
+#include <ompl/geometric/planners/kpiece/BKPIECE1.h>
 #include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
+#include <ompl/contrib/rrt_star/RRTstar.h>
 
 namespace ompl_ros_interface
 {
@@ -214,6 +216,8 @@ namespace ompl_ros_interface
     bool initializeLazyRRTPlanner();
     bool initializeLBKPIECEPlanner();
     bool initializeRRTConnectPlanner();
+    bool initializeRRTStarPlanner();
+    bool initializeBKPIECEPlanner();
 
 
     bool configureStateValidityChecker(motion_planning_msgs::GetMotionPlan::Request &request,
