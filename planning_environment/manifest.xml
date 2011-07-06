@@ -31,6 +31,7 @@
   <depend package="rviz" />
 
   <rosdep name="qt4" />
+  <rosdep name="tinyxml" />
 
   <url>http://ros.org/wiki/planning_environment</url>
 

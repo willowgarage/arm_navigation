@@ -30,7 +30,7 @@
 #include <qt4/QtGui/qcheckbox.h>
 #include <qt4/QtGui/qdialog.h>
 #include <qt4/QtGui/qfiledialog.h>
-#include <tinyxml/tinyxml.h>
+#include <tinyxml.h>
 #include <qt4/Qt/qthread.h>
 #include <qt4/QtGui/qprogressbar.h>
 
