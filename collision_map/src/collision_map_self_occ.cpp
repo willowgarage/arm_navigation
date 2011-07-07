@@ -52,10 +52,6 @@
 #include <collision_environment_msgs/MakeStaticCollisionMapAction.h>
 #include <actionlib/server/simple_action_server.h>
 
-#include <collision_environment_msgs/SetCloudSettings.h>
-#include <collision_environment_msgs/GetCloudSettings.h>
-
-
 struct CloudInfo 
 {
   CloudInfo(): cloud_name_(""), frame_subsample_(1.0),
@@ -235,10 +231,6 @@ public:
 
     action_server_.reset(new actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", 
                                                                                                                     boost::bind(&CollisionMapperOcc::makeStaticCollisionMap, this, _1)));
-    set_settings_server_ = root_handle_.advertiseService<collision_environment_msgs::SetCloudSettings::Request,collision_environment_msgs::SetCloudSettings::Response>("set_collision_map_cloud_settings", boost::bind(&CollisionMapperOcc::setCloudSettings, this, _1, _2));
-
-    get_settings_server_ = root_handle_.advertiseService<collision_environment_msgs::GetCloudSettings::Request,collision_environment_msgs::GetCloudSettings::Response>("get_collision_map_cloud_settings", boost::bind(&CollisionMapperOcc::getCloudSettings, this, _1, _2));
-
   }
   
   ~CollisionMapperOcc(void)
@@ -325,117 +317,7 @@ private:
     double real_minX, real_minY, real_minZ;
     double real_maxX, real_maxY, real_maxZ;
   };
-
-  bool getCloudSettings(collision_environment_msgs::GetCloudSettings::Request  &req, collision_environment_msgs::GetCloudSettings::Response &res )
-  {
-    if(cloud_source_map_.find(req.cloud_name) != cloud_source_map_.end())
-    {
-      CloudInfo settings =  cloud_source_map_[req.cloud_name];
-
-      res.settings.cloud_name = settings.cloud_name_;
-
-      res.settings.dynamic_publish = (settings.dynamic_publish_) ? int(res.settings.INCLUDE) : int(res.settings.EXCLUDE);
-      res.settings.static_publish = (settings.static_publish_) ? int(res.settings.INCLUDE) : int(res.settings.EXCLUDE);
-
-      res.value = res.SUCCESS;
-
-    }
-    else
-    {
-      res.value = res.NAME_NONEXISTANT;
-    }
-
-    return true;
-  }
 			
-
-  bool setCloudSettings(collision_environment_msgs::SetCloudSettings::Request  &req, collision_environment_msgs::SetCloudSettings::Response &res )
-  {
-    if(cloud_source_map_.find(req.settings.cloud_name) != cloud_source_map_.end())
-    {
-      CloudInfo settings =  cloud_source_map_[req.settings.cloud_name];
-
-      if(req.settings.dynamic_publish)
-      {
-        if(req.settings.dynamic_publish == req.settings.INCLUDE)
-        {
-          settings.dynamic_publish_ = true;
-        }
-        else
-        {	
-          settings.dynamic_publish_ = false;
-        }
-      }
-
-      if(req.settings.static_publish)
-      {
-        if(req.settings.static_publish == req.settings.INCLUDE)
-        {
-          settings.static_publish_ = true;
-        }
-        else
-        {	
-          settings.static_publish_ = false;
-        }        
-      }
-
-
-      if(!settings.dynamic_publish_)
-      {
-        std::map<std::string, std::list<StampedCMap*> >::iterator it = currentMaps_.find(settings.cloud_name_+"_dynamic");
-        if(it != currentMaps_.end()) 
-        {
-          for(std::list<StampedCMap*>::iterator itbuff = it->second.begin(); itbuff != it->second.end(); itbuff++)
-          {
-            delete (*itbuff);
-          }
-
-          it->second.clear();
-
-        }
-      }
-
-      if(!settings.static_publish_)
-      {
-        std::map<std::string, std::list<StampedCMap*> >::iterator it = currentMaps_.find(settings.cloud_name_+"_static");
-        if(it != currentMaps_.end()) 
-        {
-          for(std::list<StampedCMap*>::iterator itbuff = it->second.begin(); itbuff != it->second.end(); itbuff++)
-          {
-            delete (*itbuff);
-          }
-
-          it->second.clear();
-
-        }
-      }
-
-      cloud_source_map_[req.settings.cloud_name] = settings;
-
-      res.value = res.SUCCESS;
-
-      ROS_DEBUG_STREAM("Changed settings for " << req.settings.cloud_name);
-      ROS_DEBUG_STREAM("  Publish dynamic: " << ((settings.dynamic_publish_) ? "true" : "false"));
-      ROS_DEBUG_STREAM("  Publish static: " << ((settings.static_publish_) ? "true" : "false"));
-      ROS_DEBUG_STREAM("Other settings: ");
-      ROS_DEBUG_STREAM("  Frame subsample: " << settings.frame_subsample_);
-      ROS_DEBUG_STREAM("  Point subsample: " << settings.point_subsample_);
-      ROS_DEBUG_STREAM("  Dynamic buffer size: " << settings.dynamic_buffer_size_);
-      ROS_DEBUG_STREAM("  Dynamic buffer duration: " << settings.dynamic_buffer_duration_);
-      ROS_DEBUG_STREAM("  Static buffer size: " << settings.static_buffer_size_);
-      ROS_DEBUG_STREAM("  Static buffer duration: " << settings.static_buffer_duration_);
-
-    }
-
-    else
-    {
-      res.value = res.NAME_NONEXISTANT;
-    }
-
-    return true;
-  }
-
-    
   void cloudIncrementalCallback(const sensor_msgs::PointCloudConstPtr &cloud)
   {
     if (!mapProcessing_.try_lock())

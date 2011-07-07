@@ -3,3 +3,5 @@ string cloud_source
 
 #The number of clouds to compose the stable map
 int32 number_of_clouds
+---
+---
