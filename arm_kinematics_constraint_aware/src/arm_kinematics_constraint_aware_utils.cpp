@@ -284,7 +284,7 @@ namespace arm_kinematics_constraint_aware
     return false;   
   }
 
-  bool checkRobotState(motion_planning_msgs::RobotState &robot_state,
+  bool checkRobotState(arm_navigation_msgs::RobotState &robot_state,
                      const kinematics_msgs::KinematicSolverInfo &chain_info)
   {
     if((int) robot_state.joint_state.position.size() != (int) robot_state.joint_state.name.size())
@@ -551,7 +551,7 @@ namespace arm_kinematics_constraint_aware
           hasLimits = 0;
         }
         chain_info.joint_names.push_back(joint->name);
-        motion_planning_msgs::JointLimits limits;
+        arm_navigation_msgs::JointLimits limits;
         limits.joint_name = joint->name;
         limits.has_position_limits = hasLimits;
         limits.min_position = lower;
@@ -570,9 +570,9 @@ namespace arm_kinematics_constraint_aware
     return true;
   }
 
-  motion_planning_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code)
+  arm_navigation_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code)
   {
-    motion_planning_msgs::ArmNavigationErrorCodes error_code;
+    arm_navigation_msgs::ArmNavigationErrorCodes error_code;
 
     if(kinematics_error_code == kinematics::SUCCESS)
       error_code.val = error_code.SUCCESS;

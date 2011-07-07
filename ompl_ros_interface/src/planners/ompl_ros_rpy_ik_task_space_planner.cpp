@@ -61,9 +61,9 @@ bool OmplRosRPYIKTaskSpacePlanner::initializeStateValidityChecker(ompl_ros_inter
   return true;
 }
 
-motion_planning_msgs::RobotTrajectory OmplRosRPYIKTaskSpacePlanner::getSolutionPath()
+arm_navigation_msgs::RobotTrajectory OmplRosRPYIKTaskSpacePlanner::getSolutionPath()
 {
-  motion_planning_msgs::RobotTrajectory robot_trajectory;
+  arm_navigation_msgs::RobotTrajectory robot_trajectory;
   
   ompl::geometric::PathGeometric path = planner_->getSolutionPath();
   path.interpolate();
@@ -71,9 +71,9 @@ motion_planning_msgs::RobotTrajectory OmplRosRPYIKTaskSpacePlanner::getSolutionP
   ROS_DEBUG("Path has %d waypoints",(int)path.states.size());
   for(unsigned int i=0; i < num_points; i++)
   {
-    motion_planning_msgs::RobotState robot_state;
+    arm_navigation_msgs::RobotState robot_state;
     trajectory_msgs::JointTrajectoryPoint joint_trajectory_point;
-    motion_planning_msgs::MultiDOFJointTrajectoryPoint multi_dof_joint_trajectory_point;
+    arm_navigation_msgs::MultiDOFJointTrajectoryPoint multi_dof_joint_trajectory_point;
 
     if(!state_transformer_->inverseTransform(*(path.states[i]),
                                              robot_state))
@@ -95,8 +95,8 @@ motion_planning_msgs::RobotTrajectory OmplRosRPYIKTaskSpacePlanner::getSolutionP
       robot_trajectory.multi_dof_joint_trajectory.frame_ids = robot_state.multi_dof_joint_state.frame_ids;
       robot_trajectory.multi_dof_joint_trajectory.child_frame_ids = robot_state.multi_dof_joint_state.child_frame_ids;
     }
-    //    motion_planning_msgs::printJointState(robot_state.joint_state);
-    motion_planning_msgs::robotStateToRobotTrajectoryPoint(robot_state,
+    //    arm_navigation_msgs::printJointState(robot_state.joint_state);
+    arm_navigation_msgs::robotStateToRobotTrajectoryPoint(robot_state,
                                                            joint_trajectory_point,
                                                            multi_dof_joint_trajectory_point);
     if(!robot_state.joint_state.name.empty())
@@ -107,19 +107,19 @@ motion_planning_msgs::RobotTrajectory OmplRosRPYIKTaskSpacePlanner::getSolutionP
   return robot_trajectory;
 }
 
-bool OmplRosRPYIKTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                                            motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosRPYIKTaskSpacePlanner::setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                            arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   //Use the path constraints to set component bounds first
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
   state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector")->as<ompl::base::RealVectorStateSpace>()->setBounds(*original_real_vector_bounds_);
-  motion_planning_msgs::Constraints tmp_constraints = request.motion_plan_request.path_constraints;
+  arm_navigation_msgs::Constraints tmp_constraints = request.motion_plan_request.path_constraints;
   collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                         tmp_constraints,
                                                                         state_transformer_->getFrame());
 
-  motion_planning_msgs::PositionConstraint position_constraint;
-  motion_planning_msgs::OrientationConstraint orientation_constraint;
+  arm_navigation_msgs::PositionConstraint position_constraint;
+  arm_navigation_msgs::OrientationConstraint orientation_constraint;
   if(!getEndEffectorConstraints(tmp_constraints,position_constraint,orientation_constraint,false))
   {
     ROS_ERROR("Could not get end effector constraints for setting start state");
@@ -145,7 +145,7 @@ bool OmplRosRPYIKTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan:
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> start(state_space_);
   
   //everything should be in the current planning state
-  motion_planning_msgs::RobotState cur_state;
+  arm_navigation_msgs::RobotState cur_state;
   planning_environment::convertKinematicStateToRobotState(*collision_models_interface_->getPlanningSceneState(),
                                                           ros::Time::now(),
                                                           collision_models_interface_->getWorldFrameId(),
@@ -175,12 +175,12 @@ bool OmplRosRPYIKTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan:
 }
 
 
-bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
+bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints, 
                                                           ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal)
 {
   // Transform the constraints
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  motion_planning_msgs::Constraints tmp_constraints = constraints;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  arm_navigation_msgs::Constraints tmp_constraints = constraints;
   collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                         tmp_constraints,
                                                                         state_transformer_->getFrame());
@@ -189,13 +189,13 @@ bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const motion_planning_
     return false;
 
   // Set RPY, position constraints
-  motion_planning_msgs::PositionConstraint position_constraint;
-  motion_planning_msgs::OrientationConstraint orientation_constraint;
+  arm_navigation_msgs::PositionConstraint position_constraint;
+  arm_navigation_msgs::OrientationConstraint orientation_constraint;
   if(!getEndEffectorConstraints(tmp_constraints,position_constraint,orientation_constraint,true)) {
     ROS_WARN("Goal constraints probably don't have a position and orientation constraint");
     return false;
   }
-  geometry_msgs::PoseStamped desired_pose = motion_planning_msgs::poseConstraintsToPoseStamped(position_constraint,
+  geometry_msgs::PoseStamped desired_pose = arm_navigation_msgs::poseConstraintsToPoseStamped(position_constraint,
                                                                                                orientation_constraint);
 
   btQuaternion orientation;
@@ -223,7 +223,7 @@ bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const motion_planning_
   return true;
 }
 
-bool OmplRosRPYIKTaskSpacePlanner::positionConstraintToOmplStateBounds(const motion_planning_msgs::PositionConstraint &position_constraint,
+bool OmplRosRPYIKTaskSpacePlanner::positionConstraintToOmplStateBounds(const arm_navigation_msgs::PositionConstraint &position_constraint,
                                                                        ompl::base::StateSpacePtr &goal)
 {
   int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
@@ -244,7 +244,7 @@ bool OmplRosRPYIKTaskSpacePlanner::positionConstraintToOmplStateBounds(const mot
   return true;
 }
 
-bool OmplRosRPYIKTaskSpacePlanner::orientationConstraintToOmplStateBounds(const motion_planning_msgs::OrientationConstraint &orientation_constraint,
+bool OmplRosRPYIKTaskSpacePlanner::orientationConstraintToOmplStateBounds(const arm_navigation_msgs::OrientationConstraint &orientation_constraint,
                                                                           ompl::base::StateSpacePtr &goal)
 {
   int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
@@ -302,9 +302,9 @@ bool OmplRosRPYIKTaskSpacePlanner::orientationConstraintToOmplStateBounds(const 
 }
 
 
-bool OmplRosRPYIKTaskSpacePlanner::getEndEffectorConstraints(const motion_planning_msgs::Constraints &constraints,
-                                                             motion_planning_msgs::PositionConstraint &position_constraint,
-                                                             motion_planning_msgs::OrientationConstraint &orientation_constraint,
+bool OmplRosRPYIKTaskSpacePlanner::getEndEffectorConstraints(const arm_navigation_msgs::Constraints &constraints,
+                                                             arm_navigation_msgs::PositionConstraint &position_constraint,
+                                                             arm_navigation_msgs::OrientationConstraint &orientation_constraint,
 const bool &need_both_constraints)
 {
   int position_index = -1;
@@ -421,7 +421,7 @@ bool OmplRosRPYIKTaskSpacePlanner::checkAndCorrectForWrapAround(double &angle,
   return false;
 }
 
-geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(const motion_planning_msgs::RobotState &robot_state)
+geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(const arm_navigation_msgs::RobotState &robot_state)
 {
   // 1. First check if the request contains a start state for the end effector pose
   // 2. Otherwise set the start pose to the current pose

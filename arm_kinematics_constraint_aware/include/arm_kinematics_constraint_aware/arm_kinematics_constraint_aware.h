@@ -46,9 +46,9 @@
 #include <kinematics_msgs/GetKinematicSolverInfo.h>
 #include <kinematics_msgs/GetPositionFK.h>
 
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <motion_planning_msgs/DisplayTrajectory.h>
-#include <motion_planning_msgs/LinkPadding.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/DisplayTrajectory.h>
+#include <arm_navigation_msgs/LinkPadding.h>
 
 // MISC
 #include <planning_environment/models/collision_models_interface.h>
@@ -137,12 +137,12 @@ private:
   ros::Publisher display_trajectory_publisher_;
   bool visualize_solution_;
   kinematics_msgs::PositionIKRequest ik_request_;
-  motion_planning_msgs::Constraints constraints_;
+  arm_navigation_msgs::Constraints constraints_;
 
   void advertiseBaseKinematicsServices();
   void advertiseConstraintIKService();
 
-  bool isReady(motion_planning_msgs::ArmNavigationErrorCodes &error_code);
+  bool isReady(arm_navigation_msgs::ArmNavigationErrorCodes &error_code);
   void sendEndEffectorPose(const planning_models::KinematicState* state, bool valid);
 
   kinematics_msgs::KinematicSolverInfo chain_info_;

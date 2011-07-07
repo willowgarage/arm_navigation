@@ -41,7 +41,7 @@ namespace ompl_ros_interface
 
 bool OmplRosTaskSpaceValidityChecker::isValid(const ompl::base::State *ompl_state) const
 {
-  motion_planning_msgs::RobotState robot_state_msg;
+  arm_navigation_msgs::RobotState robot_state_msg;
   if(!state_transformer_->inverseTransform(*ompl_state,
                                            robot_state_msg))
     return false;
@@ -74,7 +74,7 @@ bool OmplRosTaskSpaceValidityChecker::isValid(const ompl::base::State *ompl_stat
 
 bool OmplRosTaskSpaceValidityChecker::isStateValid(const ompl::base::State *ompl_state) 
 {
-  motion_planning_msgs::RobotState robot_state_msg;
+  arm_navigation_msgs::RobotState robot_state_msg;
   if(!state_transformer_->inverseTransform(*ompl_state,
                                            robot_state_msg))
   {
@@ -136,7 +136,7 @@ bool OmplRosTaskSpaceValidityChecker::setStateTransformer(boost::shared_ptr<ompl
 
 void OmplRosTaskSpaceValidityChecker::configureOnRequest(planning_models::KinematicState *kinematic_state,
                                                          planning_models::KinematicState::JointStateGroup *joint_state_group,
-                                                         const motion_planning_msgs::GetMotionPlan::Request &request)
+                                                         const arm_navigation_msgs::GetMotionPlan::Request &request)
 {
   kinematic_state_ = kinematic_state;
   joint_state_group_ = joint_state_group;
@@ -145,8 +145,8 @@ void OmplRosTaskSpaceValidityChecker::configureOnRequest(planning_models::Kinema
   path_constraint_evaluator_set_.clear();
 
   //Get the valid set of constraints that correspond to constraints on the physical joints and links of the robot
-  motion_planning_msgs::Constraints goal_constraints = getPhysicalConstraints(request.motion_plan_request.goal_constraints);
-  motion_planning_msgs::Constraints path_constraints = getPhysicalConstraints(request.motion_plan_request.path_constraints);
+  arm_navigation_msgs::Constraints goal_constraints = getPhysicalConstraints(request.motion_plan_request.goal_constraints);
+  arm_navigation_msgs::Constraints path_constraints = getPhysicalConstraints(request.motion_plan_request.path_constraints);
 
   goal_constraint_evaluator_set_.add(goal_constraints.joint_constraints);
   goal_constraint_evaluator_set_.add(goal_constraints.position_constraints);
@@ -158,7 +158,7 @@ void OmplRosTaskSpaceValidityChecker::configureOnRequest(planning_models::Kinema
   path_constraint_evaluator_set_.add(path_constraints.orientation_constraints);
   path_constraint_evaluator_set_.add(path_constraints.visibility_constraints);
 
-  motion_planning_msgs::RobotState default_state = state_transformer_->getDefaultState();
+  arm_navigation_msgs::RobotState default_state = state_transformer_->getDefaultState();
   if(!getRobotStateToJointModelGroupMapping(default_state,joint_state_group_->getJointModelGroup(),robot_state_to_joint_state_group_mapping_))
     return;
 }

@@ -41,8 +41,8 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <mapping_msgs/OrientedBoundingBox.h>
-#include <mapping_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/OrientedBoundingBox.h>
+#include <arm_navigation_msgs/CollisionMap.h>
 
 #include <message_filters/subscriber.h>
 #include <tf/message_filter.h>
@@ -128,8 +128,8 @@ protected:
   void subscribe();
   void unsubscribe();
   void clear();
-  void incomingMessage(const mapping_msgs::CollisionMap::ConstPtr& message);
-  void processMessage(const mapping_msgs::CollisionMap::ConstPtr& message);
+  void incomingMessage(const arm_navigation_msgs::CollisionMap::ConstPtr& message);
+  void processMessage(const arm_navigation_msgs::CollisionMap::ConstPtr& message);
 
   // overrides from Display
   virtual void onEnable();
@@ -146,9 +146,9 @@ protected:
   Ogre::ManualObject* manual_object_;
   ogre_tools::PointCloud* cloud_;
 
-  mapping_msgs::CollisionMap::ConstPtr current_message_;
-  message_filters::Subscriber<mapping_msgs::CollisionMap> sub_;
-  tf::MessageFilter<mapping_msgs::CollisionMap> tf_filter_;
+  arm_navigation_msgs::CollisionMap::ConstPtr current_message_;
+  message_filters::Subscriber<arm_navigation_msgs::CollisionMap> sub_;
+  tf::MessageFilter<arm_navigation_msgs::CollisionMap> tf_filter_;
 
   rviz::ColorPropertyWPtr color_property_;
   rviz::ROSTopicStringPropertyWPtr topic_property_;

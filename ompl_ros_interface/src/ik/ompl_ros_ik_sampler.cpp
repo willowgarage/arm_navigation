@@ -75,7 +75,7 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
   scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateSpace>(state_space_));
   seed_state_.joint_state.name = kinematics_solver_->getJointNames();
   seed_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
-  //  motion_planning_msgs::printJointState(seed_state_.joint_state);
+  //  arm_navigation_msgs::printJointState(seed_state_.joint_state);
   solution_state_.joint_state.name = kinematics_solver_->getJointNames();
   solution_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
   if(!ompl_ros_interface::getRobotStateToOmplStateMapping(seed_state_,*scoped_state_,robot_state_to_ompl_state_mapping_))
@@ -98,15 +98,15 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
   return true;
 }  
 
-bool OmplRosIKSampler::configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                                          motion_planning_msgs::GetMotionPlan::Response &response,
+bool OmplRosIKSampler::configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                                          arm_navigation_msgs::GetMotionPlan::Response &response,
                                           const unsigned int &max_sample_count)
 {
   ik_poses_counter_ = 0;
   max_sample_count_ = max_sample_count;
   num_samples_ = 0;
   ik_poses_.clear();
-  motion_planning_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
+  arm_navigation_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
 
   if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                             goal_constraints,
@@ -115,7 +115,7 @@ bool OmplRosIKSampler::configureOnRequest(const motion_planning_msgs::GetMotionP
     return false;
   }
   
-  if(!motion_planning_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
+  if(!arm_navigation_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
   {
     ROS_ERROR("Could not get poses from constraints");
     return false;
@@ -142,7 +142,7 @@ bool OmplRosIKSampler::configureOnRequest(const motion_planning_msgs::GetMotionP
 
 bool OmplRosIKSampler::sampleGoal(const ompl::base::GoalLazySamples *gls, ompl::base::State *state)
 {
-  motion_planning_msgs::RobotState seed_state,solution_state;
+  arm_navigation_msgs::RobotState seed_state,solution_state;
   seed_state = seed_state_;
   solution_state = solution_state_; 
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> scoped_state(state_space_);
@@ -158,7 +158,7 @@ bool OmplRosIKSampler::sampleGoal(const ompl::base::GoalLazySamples *gls, ompl::
                                        solution_state.joint_state.position,
 				       error_code))
   {
-    // motion_planning_msgs::printJointState(solution_state.joint_state);
+    // arm_navigation_msgs::printJointState(solution_state.joint_state);
     ompl_ros_interface::robotStateToOmplState(solution_state,
                                               robot_state_to_ompl_state_mapping_,
                                               state);    

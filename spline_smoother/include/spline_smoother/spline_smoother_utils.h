@@ -38,9 +38,9 @@
 #ifndef SPLINE_SMOOTHER_UTILS_H_
 #define SPLINE_SMOOTHER_UTILS_H_
 
-#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
+#include <arm_navigation_msgs/JointTrajectoryWithLimits.h>
 #include <trajectory_msgs/JointTrajectory.h>
-#include <motion_planning_msgs/JointLimits.h>
+#include <arm_navigation_msgs/JointLimits.h>
 #include <spline_smoother/LSPBTrajectoryMsg.h>
 #include <spline_smoother/SplineTrajectory.h>
 #include <angles/angles.h>
@@ -166,7 +166,7 @@ bool checkTrajectoryConsistency(T& waypoint_traj)
   \param to The end position of the joint
   \param limit A set of position, velocity and acceleration limits for this particular joint
 */
-inline double jointDiff(const double &from, const double &to, const motion_planning_msgs::JointLimits &limit)
+inline double jointDiff(const double &from, const double &to, const arm_navigation_msgs::JointLimits &limit)
 {
   if(!limit.has_position_limits)
   {

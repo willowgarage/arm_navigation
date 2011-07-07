@@ -44,11 +44,11 @@ bool OmplRosRPYIKStateTransformer::initialize()
   srand ( time(NULL) ); // initialize random seed
   seed_state_.joint_state.name = kinematics_solver_->getJointNames();
   seed_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
-  //  motion_planning_msgs::printJointState(seed_state_.joint_state);
+  //  arm_navigation_msgs::printJointState(seed_state_.joint_state);
 
   solution_state_.joint_state.name = kinematics_solver_->getJointNames();
   solution_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
-  //  motion_planning_msgs::printJointState(solution_state_.joint_state);
+  //  arm_navigation_msgs::printJointState(solution_state_.joint_state);
 
   real_vector_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
 
@@ -77,15 +77,15 @@ bool OmplRosRPYIKStateTransformer::initialize()
   return true;
 }
 
-bool OmplRosRPYIKStateTransformer::configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                                                      motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosRPYIKStateTransformer::configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                                                      arm_navigation_msgs::GetMotionPlan::Response &response)
 {  
 
   return true;
 }
 
 bool OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State &ompl_state,
-                                                    motion_planning_msgs::RobotState &robot_state)
+                                                    arm_navigation_msgs::RobotState &robot_state)
 {
   geometry_msgs::Pose pose;
   omplStateToPose(ompl_state,pose);
@@ -116,7 +116,7 @@ bool OmplRosRPYIKStateTransformer::inverseTransform(const ompl::base::State &omp
   return false;
 }
 
-bool OmplRosRPYIKStateTransformer::forwardTransform(const motion_planning_msgs::RobotState &joint_state,
+bool OmplRosRPYIKStateTransformer::forwardTransform(const arm_navigation_msgs::RobotState &joint_state,
                                                     ompl::base::State &ompl_state)
 {
   return true;
@@ -138,9 +138,9 @@ void OmplRosRPYIKStateTransformer::omplStateToPose(const ompl::base::State &ompl
 }
 
 
-motion_planning_msgs::RobotState OmplRosRPYIKStateTransformer::getDefaultState()
+arm_navigation_msgs::RobotState OmplRosRPYIKStateTransformer::getDefaultState()
 {
-  motion_planning_msgs::RobotState robot_state;
+  arm_navigation_msgs::RobotState robot_state;
   if(kinematics_solver_)
   {
     robot_state.joint_state.name = kinematics_solver_->getJointNames();
@@ -153,7 +153,7 @@ motion_planning_msgs::RobotState OmplRosRPYIKStateTransformer::getDefaultState()
   return robot_state;
 }
 
-void OmplRosRPYIKStateTransformer::generateRandomState(motion_planning_msgs::RobotState &robot_state)
+void OmplRosRPYIKStateTransformer::generateRandomState(arm_navigation_msgs::RobotState &robot_state)
 {
   std::vector<const planning_models::KinematicModel::JointModel*> joint_models = physical_joint_model_group_->getJointModels();
   for(unsigned int i=0; i < robot_state.joint_state.name.size(); i++)

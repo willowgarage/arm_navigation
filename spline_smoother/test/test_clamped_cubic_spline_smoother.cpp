@@ -44,10 +44,10 @@ using namespace spline_smoother;
 
 TEST(TestClampedCubicSplineSmoother, TestZeroPositionsSmall)
 {
-  int length = ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS - 2;
+  int length = ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS - 2;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
-  motion_planning_msgs::JointTrajectoryWithLimits wpt_out;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt_out;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(1);
   wpt.trajectory.joint_names[0] = std::string("test");
@@ -62,7 +62,7 @@ TEST(TestClampedCubicSplineSmoother, TestZeroPositionsSmall)
     wpt.trajectory.points[i].time_from_start = ros::Duration(i);
   }
 
-  ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits> ccss;
+  ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits> ccss;
   ccss.smooth(wpt, wpt_out);
 
   // verify that velocities are 0:
@@ -74,10 +74,10 @@ TEST(TestClampedCubicSplineSmoother, TestZeroPositionsSmall)
 
 TEST(TestClampedCubicSplineSmoother, TestStraightLineSmall)
 {
-  int length = ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS-2;
+  int length = ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS-2;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
-  motion_planning_msgs::JointTrajectoryWithLimits wpt_out;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt_out;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(1);
   wpt.trajectory.joint_names[0] = std::string("test");
@@ -92,7 +92,7 @@ TEST(TestClampedCubicSplineSmoother, TestStraightLineSmall)
     wpt.trajectory.points[i].time_from_start = ros::Duration(i);
   }
 
-  ClampedCubicSplineSmoother<motion_planning_msgs::JointTrajectoryWithLimits> ccss;
+  ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits> ccss;
   ccss.smooth(wpt, wpt_out);
 
   // verify that velocities are still 1:

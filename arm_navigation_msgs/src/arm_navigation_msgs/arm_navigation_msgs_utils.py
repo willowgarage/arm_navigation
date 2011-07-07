@@ -3,7 +3,7 @@
 PKG = 'planning_environment'
 
 import roslib; roslib.load_manifest(PKG)
-from motion_planning_msgs.msg import CollisionOperation
+from arm_navigation_msgs.msg import CollisionOperation
 
 # This function returns a bunch of ordered collision operations
 # to disable collisions with all the links not in exclude

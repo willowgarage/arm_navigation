@@ -39,8 +39,8 @@
 
 #include <ros/ros.h>
 #include <filters/filter_chain.h>
-#include <motion_planning_msgs/FilterJointTrajectory.h>
-#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
+#include <arm_navigation_msgs/FilterJointTrajectory.h>
+#include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <urdf/model.h>
 
 namespace trajectory_filter_server
@@ -58,26 +58,26 @@ public:
   bool init();
 
 private:
-  bool filter(motion_planning_msgs::FilterJointTrajectory::Request &req, 
-              motion_planning_msgs::FilterJointTrajectory::Response &resp);
+  bool filter(arm_navigation_msgs::FilterJointTrajectory::Request &req, 
+              arm_navigation_msgs::FilterJointTrajectory::Response &resp);
 
-  bool filterConstraints(motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request &req, 
-                         motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response &resp);
+  bool filterConstraints(arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request &req, 
+                         arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Response &resp);
 
   //  void jointTrajectoryToJointTrajectoryWithLimits(const trajectory_msgs::JointTrajectory& joint_traj, 
-  //motion_planning_msgs::JointTrajectoryWithLimits& waypoint_traj);
+  //arm_navigation_msgs::JointTrajectoryWithLimits& waypoint_traj);
 
   void getLimits(const trajectory_msgs::JointTrajectory& trajectory, 
-                 std::vector<motion_planning_msgs::JointLimits>& limits_out);
+                 std::vector<arm_navigation_msgs::JointLimits>& limits_out);
 
   ros::NodeHandle private_handle_, root_handle_;
   ros::ServiceServer filter_service_, filter_constraints_service_;
-  std::map<std::string, motion_planning_msgs::JointLimits> joint_limits_;
+  std::map<std::string, arm_navigation_msgs::JointLimits> joint_limits_;
 
   int service_type_;
 
-  filters::FilterChain<motion_planning_msgs::FilterJointTrajectory::Request> filter_chain_;
-  filters::FilterChain<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request> filter_constraints_chain_;
+  filters::FilterChain<arm_navigation_msgs::FilterJointTrajectory::Request> filter_chain_;
+  filters::FilterChain<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request> filter_constraints_chain_;
 
   urdf::Model urdf_model_;
 

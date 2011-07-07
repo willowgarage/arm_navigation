@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,15 +55,15 @@ TEST(MoveArm, goToJointGoal)
 {
   ros::NodeHandle nh;
   ros::NodeHandle private_handle("~");
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_right_arm(nh, "move_right_arm");
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_left_arm(nh, "move_left_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_right_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_left_arm(nh, "move_left_arm");
   boost::thread spin_thread(&spinThread);
 
   move_right_arm.waitForServer();
   move_left_arm.waitForServer();
   ROS_INFO("Connected to servers");
   
-  move_arm_msgs::MoveArmGoal goalRight;
+  arm_navigation_msgs::MoveArmGoal goalRight;
   std::vector<std::string> right_names(7);
   right_names[0] = "r_shoulder_pan_joint";
   right_names[1] = "r_shoulder_lift_joint";
@@ -73,7 +73,7 @@ TEST(MoveArm, goToJointGoal)
   right_names[5] = "r_wrist_flex_joint";
   right_names[6] = "r_wrist_roll_joint";
 
-  move_arm_msgs::MoveArmGoal goalLeft;
+  arm_navigation_msgs::MoveArmGoal goalLeft;
   std::vector<std::string> left_names(7);
   left_names[0] = "l_shoulder_pan_joint";
   left_names[1] = "l_shoulder_lift_joint";

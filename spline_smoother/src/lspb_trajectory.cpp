@@ -45,7 +45,7 @@ namespace spline_smoother
 
   double LSPBTrajectory::calculateMinimumTime(const trajectory_msgs::JointTrajectoryPoint &start, 
                                               const trajectory_msgs::JointTrajectoryPoint &end, 
-                                              const std::vector<motion_planning_msgs::JointLimits> &limits)
+                                              const std::vector<arm_navigation_msgs::JointLimits> &limits)
   {
     double minJointTime(MAX_ALLOWABLE_TIME);
     double segmentTime(0);
@@ -86,7 +86,7 @@ namespace spline_smoother
                                         const double &q1, 
                                         const double &v0, 
                                         const double &v1, 
-                                        const motion_planning_msgs::JointLimits &limit)
+                                        const arm_navigation_msgs::JointLimits &limit)
   {
     double vmax = limit.max_velocity;
     double amax = limit.max_acceleration;
@@ -134,7 +134,7 @@ namespace spline_smoother
   }
 */
   bool LSPBTrajectory::parameterize(const trajectory_msgs::JointTrajectory& trajectory_in,
-                                    const std::vector<motion_planning_msgs::JointLimits>& limits,
+                                    const std::vector<arm_navigation_msgs::JointLimits>& limits,
                                     spline_smoother::LSPBTrajectoryMsg& spline)
   {
     int num_traj = trajectory_in.points.size();

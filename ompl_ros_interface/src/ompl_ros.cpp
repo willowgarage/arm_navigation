@@ -215,8 +215,8 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
   return true;
 };
 
-bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request, 
-                          motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRos::computePlan(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                          arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   std::string location;
   std::string planner_id;
@@ -228,7 +228,7 @@ bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
   if(planner_map_.find(location) == planner_map_.end())
   {
     ROS_ERROR("Could not find requested planner %s", location.c_str());
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_PLANNER_ID;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_PLANNER_ID;
     return true;
   }
   else
@@ -239,7 +239,7 @@ bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
   if(publish_diagnostics_)
   {
     ompl_ros_interface::OmplPlannerDiagnostics msg;
-    if(response.error_code.val != motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS) {
+    if(response.error_code.val != arm_navigation_msgs::ArmNavigationErrorCodes::SUCCESS) {
       msg.summary = "Planning Failed";
       std::string filename = "planning_failure_";
       std::string str = boost::lexical_cast<std::string>(ros::Time::now().toSec());
@@ -255,8 +255,8 @@ bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
 
     msg.group = request.motion_plan_request.group_name;
     msg.planner = planner_id;
-    msg.result =  motion_planning_msgs::armNavigationErrorCodeToString(response.error_code);
-    if(response.error_code.val == motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS)
+    msg.result =  arm_navigation_msgs::armNavigationErrorCodeToString(response.error_code);
+    if(response.error_code.val == arm_navigation_msgs::ArmNavigationErrorCodes::SUCCESS)
     {
       msg.planning_time = response.planning_time.toSec();
       msg.trajectory_size = response.trajectory.joint_trajectory.points.size();

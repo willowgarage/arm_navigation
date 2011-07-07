@@ -40,7 +40,7 @@ namespace ompl_ros_interface
 {    
 void OmplRosStateValidityChecker::configureOnRequest(planning_models::KinematicState *kinematic_state,
                                                      planning_models::KinematicState::JointStateGroup *joint_state_group,
-                                                     const motion_planning_msgs::GetMotionPlan::Request &request)
+                                                     const arm_navigation_msgs::GetMotionPlan::Request &request)
 {
   kinematic_state_ = kinematic_state;
   joint_state_group_ = joint_state_group;
@@ -49,8 +49,8 @@ void OmplRosStateValidityChecker::configureOnRequest(planning_models::KinematicS
   path_constraint_evaluator_set_.clear();
 
   //Get the valid set of constraints that correspond to constraints on the physical joints and links of the robot
-  motion_planning_msgs::Constraints goal_constraints = getPhysicalConstraints(request.motion_plan_request.goal_constraints);
-  motion_planning_msgs::Constraints path_constraints = getPhysicalConstraints(request.motion_plan_request.path_constraints);
+  arm_navigation_msgs::Constraints goal_constraints = getPhysicalConstraints(request.motion_plan_request.goal_constraints);
+  arm_navigation_msgs::Constraints path_constraints = getPhysicalConstraints(request.motion_plan_request.path_constraints);
 
   goal_constraint_evaluator_set_.add(goal_constraints.joint_constraints);
   goal_constraint_evaluator_set_.add(goal_constraints.position_constraints);
@@ -63,9 +63,9 @@ void OmplRosStateValidityChecker::configureOnRequest(planning_models::KinematicS
   path_constraint_evaluator_set_.add(path_constraints.visibility_constraints);
 }
 
-motion_planning_msgs::Constraints OmplRosStateValidityChecker::getPhysicalConstraints(const motion_planning_msgs::Constraints &constraints)
+arm_navigation_msgs::Constraints OmplRosStateValidityChecker::getPhysicalConstraints(const arm_navigation_msgs::Constraints &constraints)
 {
-  motion_planning_msgs::Constraints result_constraints;
+  arm_navigation_msgs::Constraints result_constraints;
   for(unsigned int i=0; i < constraints.joint_constraints.size(); i++)
     if(collision_models_interface_->getKinematicModel()->hasJointModel(constraints.joint_constraints[i].joint_name))
       result_constraints.joint_constraints.push_back(constraints.joint_constraints[i]);

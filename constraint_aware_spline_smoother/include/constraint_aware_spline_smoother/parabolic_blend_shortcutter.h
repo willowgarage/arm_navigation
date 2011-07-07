@@ -43,9 +43,9 @@
 #include <spline_smoother/cubic_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
 #include <planning_environment/models/model_utils.h>
-#include <motion_planning_msgs/RobotState.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <motion_planning_msgs/LinkPadding.h>
+#include <arm_navigation_msgs/RobotState.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/LinkPadding.h>
 
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 
@@ -64,8 +64,8 @@ public:
   virtual bool SegmentFeasible(const Vector& a,const Vector& b);
   bool setInitial(const trajectory_msgs::JointTrajectory &trajectory,
                   const std::string& group_name, 
-                  const motion_planning_msgs::RobotState& start_state, 
-                  const motion_planning_msgs::Constraints &path_constraints);
+                  const arm_navigation_msgs::RobotState& start_state, 
+                  const arm_navigation_msgs::Constraints &path_constraints);
   void resetRequest();
   bool isActive();
   void initialize();
@@ -78,7 +78,7 @@ private:
   planning_environment::CollisionModelsInterface *collision_models_interface_;
   void discretizeTrajectory(const trajectory_msgs::JointTrajectory &trajectory, 
                             trajectory_msgs::JointTrajectory &trajectory_out);
-  motion_planning_msgs::Constraints path_constraints_;
+  arm_navigation_msgs::Constraints path_constraints_;
 };
 
 FeasibilityChecker::FeasibilityChecker() : FeasibilityCheckerBase(), node_handle_("~")
@@ -107,12 +107,12 @@ void FeasibilityChecker::initialize()
 
 bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &trajectory,
                                     const std::string& group_name, 
-                                    const motion_planning_msgs::RobotState &start_state,
-                                    const motion_planning_msgs::Constraints &path_constraints)
+                                    const arm_navigation_msgs::RobotState &start_state,
+                                    const arm_navigation_msgs::Constraints &path_constraints)
 {
   std::vector<std::string> child_links;
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  motion_planning_msgs::OrderedCollisionOperations operations;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  arm_navigation_msgs::OrderedCollisionOperations operations;
 
   joint_names_ = trajectory.joint_names;
 
@@ -180,8 +180,8 @@ void FeasibilityChecker::discretizeTrajectory(const trajectory_msgs::JointTrajec
 
 bool FeasibilityChecker::ConfigFeasible(const Vector& x)
 {
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
 
   trajectory_msgs::JointTrajectory joint_traj;
   joint_traj.joint_names = joint_names_;
@@ -189,7 +189,7 @@ bool FeasibilityChecker::ConfigFeasible(const Vector& x)
   joint_traj.points.resize(1);
   joint_traj.points[0].positions = x;
 
-  motion_planning_msgs::Constraints empty_goal_constraints;
+  arm_navigation_msgs::Constraints empty_goal_constraints;
   
   return(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
                                                              joint_traj,
@@ -202,8 +202,8 @@ bool FeasibilityChecker::ConfigFeasible(const Vector& x)
 
 bool FeasibilityChecker::SegmentFeasible(const Vector& a,const Vector& b)
 {
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
  
   trajectory_msgs::JointTrajectory joint_traj_in, joint_traj;
   joint_traj_in.joint_names = joint_names_;
@@ -214,7 +214,7 @@ bool FeasibilityChecker::SegmentFeasible(const Vector& a,const Vector& b)
   joint_traj.joint_names = joint_traj_in.joint_names;
   discretizeTrajectory(joint_traj_in,joint_traj);
 
-  motion_planning_msgs::Constraints empty_goal_constraints;
+  arm_navigation_msgs::Constraints empty_goal_constraints;
   return(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
                                                              joint_traj,
                                                              empty_goal_constraints,

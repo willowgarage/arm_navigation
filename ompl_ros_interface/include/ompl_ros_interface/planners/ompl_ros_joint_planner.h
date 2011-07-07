@@ -63,20 +63,20 @@ namespace ompl_ros_interface
     /**
      * @brief Returns whether the motion planning request is valid
      */
-    virtual bool isRequestValid(motion_planning_msgs::GetMotionPlan::Request &request,
-                                motion_planning_msgs::GetMotionPlan::Response &response);
+    virtual bool isRequestValid(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                arm_navigation_msgs::GetMotionPlan::Response &response);
 
     /**
      * @brief Set the start state(s)
      */
-    virtual bool setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                          motion_planning_msgs::GetMotionPlan::Response &response);
+    virtual bool setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                          arm_navigation_msgs::GetMotionPlan::Response &response);
 
     /**
      * @brief Set the goal state(s)
      */
-    virtual bool setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                         motion_planning_msgs::GetMotionPlan::Response &response);
+    virtual bool setGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                         arm_navigation_msgs::GetMotionPlan::Response &response);
 
     /**
      * @brief Initialize the state validity checker
@@ -91,12 +91,12 @@ namespace ompl_ros_interface
     /**
       @brief Returns the solution path
      */
-    virtual motion_planning_msgs::RobotTrajectory getSolutionPath();
+    virtual arm_navigation_msgs::RobotTrajectory getSolutionPath();
 
   private:
 
     //Mappings in between ompl state and robot state, these are used for efficiency
-    motion_planning_msgs::RobotState robot_state_; //message representation of the state that this class is planning for
+    arm_navigation_msgs::RobotState robot_state_; //message representation of the state that this class is planning for
     ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;
     ompl_ros_interface::RobotStateToOmplStateMapping robot_state_to_ompl_state_mapping_;
 
@@ -104,11 +104,11 @@ namespace ompl_ros_interface
     ompl_ros_interface::OmplStateToKinematicStateMapping ompl_state_to_kinematic_state_mapping_;
     ompl_ros_interface::KinematicStateToOmplStateMapping kinematic_state_to_ompl_state_mapping_;
 
-    bool setPoseGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                     motion_planning_msgs::GetMotionPlan::Response &response);
+    bool setPoseGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                     arm_navigation_msgs::GetMotionPlan::Response &response);
     
-    bool setJointGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                      motion_planning_msgs::GetMotionPlan::Response &response);
+    bool setJointGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                      arm_navigation_msgs::GetMotionPlan::Response &response);
     
     std::string kinematics_solver_name_;
 

@@ -72,18 +72,18 @@ public:
    * @brief Configure the transformer when a request is received. This is typically a one time configuration 
    * for each planning request.
    */ 
-  virtual bool configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                                  motion_planning_msgs::GetMotionPlan::Response &response) = 0;
+  virtual bool configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                                  arm_navigation_msgs::GetMotionPlan::Response &response) = 0;
 
   /* @brief Compute the inverse transform (from planning state to physical state)
    */ 
   virtual bool inverseTransform(const ompl::base::State &ompl_state,
-                                motion_planning_msgs::RobotState &robot_state) = 0;
+                                arm_navigation_msgs::RobotState &robot_state) = 0;
 
   /**
    * @brief Compute the forward transform (from physical state to planning state)
    */ 
-  virtual bool forwardTransform(const motion_planning_msgs::RobotState &robot_state,
+  virtual bool forwardTransform(const arm_navigation_msgs::RobotState &robot_state,
                                 ompl::base::State &ompl_state) = 0;
 
   /** 
@@ -100,7 +100,7 @@ public:
   /** 
    * @brief Get a default physical state
   */ 
-  virtual  motion_planning_msgs::RobotState getDefaultState() = 0;
+  virtual  arm_navigation_msgs::RobotState getDefaultState() = 0;
 
 protected:
   kinematics::KinematicsBase* kinematics_solver_;

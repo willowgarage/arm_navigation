@@ -39,25 +39,25 @@
 #include <ros/ros.h>
 
 #include <planning_environment/models/collision_models.h>
-#include <planning_environment_msgs/PlanningScene.h>
-#include <planning_environment_msgs/GetPlanningScene.h>
+#include <arm_navigation_msgs/PlanningScene.h>
+#include <arm_navigation_msgs/GetPlanningScene.h>
 #include <planning_environment/models/model_utils.h>
 #include <rosgraph_msgs/Clock.h>
 #include <tf/transform_broadcaster.h>
 #include <kinematics_msgs/GetConstraintAwarePositionIK.h>
 #include <kinematics_msgs/GetPositionIK.h>
 #include <actionlib/client/simple_action_client.h>
-#include <motion_planning_msgs/GetMotionPlan.h>
-#include <planning_environment_msgs/GetStateValidity.h>
+#include <arm_navigation_msgs/GetMotionPlan.h>
+#include <arm_navigation_msgs/GetStateValidity.h>
 #include <trajectory_msgs/JointTrajectory.h>
-#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
-#include <motion_planning_msgs/convert_messages.h>
+#include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
+#include <arm_navigation_msgs/convert_messages.h>
 #include <interactive_markers/interactive_marker_server.h>
 #include <interactive_markers/menu_handler.h>
 #include <sensor_msgs/JointState.h>
 
 using namespace std;
-using namespace motion_planning_msgs;
+using namespace arm_navigation_msgs;
 using namespace interactive_markers;
 using namespace visualization_msgs;
 using namespace planning_environment;
@@ -264,7 +264,7 @@ class PlanningComponentsVisualizer
       }
 
       get_planning_scene_client_
-          = nh_.serviceClient<planning_environment_msgs::GetPlanningScene> (GET_PLANNING_SCENE_NAME);
+          = nh_.serviceClient<arm_navigation_msgs::GetPlanningScene> (GET_PLANNING_SCENE_NAME);
 
       while(!ros::service::waitForService(PLANNER_SERVICE_NAME, ros::Duration(1.0)))
       {
@@ -434,8 +434,8 @@ class PlanningComponentsVisualizer
     void removeCollisionPoleByName(string id)
     {
       ROS_INFO("Removing collision pole %s", id.c_str());
-      mapping_msgs::CollisionObject& cylinder_object = collision_poles_[id];
-      cylinder_object.operation.operation = mapping_msgs::CollisionObjectOperation::REMOVE;
+      arm_navigation_msgs::CollisionObject& cylinder_object = collision_poles_[id];
+      cylinder_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::REMOVE;
     }
 
     /////
@@ -447,12 +447,12 @@ class PlanningComponentsVisualizer
     {
       ROS_INFO("Creating collision pole %d", num);
 
-      mapping_msgs::CollisionObject cylinder_object;
-      cylinder_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+      arm_navigation_msgs::CollisionObject cylinder_object;
+      cylinder_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
       cylinder_object.header.stamp = ros::Time::now();
       cylinder_object.header.frame_id = "/" + cm_->getWorldFrameId();
-      geometric_shapes_msgs::Shape object;
-      object.type = geometric_shapes_msgs::Shape::CYLINDER;
+      arm_navigation_msgs::Shape object;
+      object.type = arm_navigation_msgs::Shape::CYLINDER;
       object.dimensions.resize(2);
       object.dimensions[0] = .1;
       object.dimensions[1] = 2.0;
@@ -473,19 +473,19 @@ class PlanningComponentsVisualizer
       ROS_INFO("Sending Planning Scene....");
 
       lock_.lock();
-      planning_environment_msgs::GetPlanningScene::Request planning_scene_req;
-      planning_environment_msgs::GetPlanningScene::Response planning_scene_res;
+      arm_navigation_msgs::GetPlanningScene::Request planning_scene_req;
+      arm_navigation_msgs::GetPlanningScene::Response planning_scene_res;
 
       vector<string> removals;
       // Handle additions and removals of planning scene objects.
-      for(map<string, mapping_msgs::CollisionObject>::const_iterator it = collision_poles_.begin(); it
+      for(map<string, arm_navigation_msgs::CollisionObject>::const_iterator it = collision_poles_.begin(); it
           != collision_poles_.end(); it++)
       {
         string name = it->first;
-        mapping_msgs::CollisionObject object = it->second;
+        arm_navigation_msgs::CollisionObject object = it->second;
 
         // Add or remove objects.
-        if(object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE)
+        if(object.operation.operation != arm_navigation_msgs::CollisionObjectOperation::REMOVE)
         {
           ROS_INFO("Adding Collision Pole %s", object.id.c_str());
           planning_scene_req.planning_scene_diff.collision_objects.push_back(object);
@@ -895,8 +895,8 @@ class PlanningComponentsVisualizer
 
   void determinePitchRollConstraintsGivenState(const PlanningComponentsVisualizer::GroupCollection& gc,
                                                const planning_models::KinematicState& state,
-                                               motion_planning_msgs::OrientationConstraint& goal_constraint,
-                                               motion_planning_msgs::OrientationConstraint& path_constraint) const
+                                               arm_navigation_msgs::OrientationConstraint& goal_constraint,
+                                               arm_navigation_msgs::OrientationConstraint& path_constraint) const
   {
     btTransform cur = state.getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
     //btScalar roll, pitch, yaw;
@@ -956,15 +956,15 @@ class PlanningComponentsVisualizer
           {
             other_state = EndPosition;
           }
-          motion_planning_msgs::Constraints goal_constraints;
+          arm_navigation_msgs::Constraints goal_constraints;
           goal_constraints.orientation_constraints.resize(1);
-          motion_planning_msgs::Constraints path_constraints;
+          arm_navigation_msgs::Constraints path_constraints;
           path_constraints.orientation_constraints.resize(1);
           determinePitchRollConstraintsGivenState(gc,
                                                   *gc.getState(other_state),
                                                   goal_constraints.orientation_constraints[0],
                                                   path_constraints.orientation_constraints[0]);
-          motion_planning_msgs::ArmNavigationErrorCodes err;
+          arm_navigation_msgs::ArmNavigationErrorCodes err;
           if(!cm_->isKinematicStateValid(*gc.getState(ik_control_type_),
                                          std::vector<std::string>(),
                                          err,
@@ -1111,7 +1111,7 @@ class PlanningComponentsVisualizer
         tf::poseTFToMsg(gc.getState(EndPosition)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(),
                         end_effector_wrist_pose.pose);
         end_effector_wrist_pose.header.frame_id = cm_->getWorldFrameId();
-        motion_planning_msgs::poseStampedToPositionOrientationConstraints(end_effector_wrist_pose,
+        arm_navigation_msgs::poseStampedToPositionOrientationConstraints(end_effector_wrist_pose,
                                                                           gc.ik_link_name_,
                                                                           motion_plan_request.goal_constraints.position_constraints[0],
                                                                           motion_plan_request.goal_constraints.orientation_constraints[0]);
@@ -2333,7 +2333,7 @@ class PlanningComponentsVisualizer
     map<string, GroupCollection> group_map_;
 
     /// Map of collision pole names to messages sent to ROS.
-    map<string, mapping_msgs::CollisionObject> collision_poles_;
+    map<string, arm_navigation_msgs::CollisionObject> collision_poles_;
 
     /// Maps end effector link names to their previously recorded poses.
     map<string, Pose> last_ee_poses_;

@@ -182,8 +182,8 @@ bool OmplRosTaskSpacePlanner::getSpaceFromParamServer(const ros::NodeHandle &nod
   return true;
 }
 
-bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Request &request,
-                                             motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosTaskSpacePlanner::isRequestValid(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                             arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   if(request.motion_plan_request.group_name != group_name_)
   {
@@ -206,15 +206,15 @@ bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan
   }
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
   {
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
     ROS_ERROR("Request does not specify correct allowed planning time %f",request.motion_plan_request.allowed_planning_time.toSec());
     return false;
   }
   return true;
 }
 
-bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                                      motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosTaskSpacePlanner::setGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                      arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> goal(state_space_);
   ompl::base::GoalPtr goal_states(new ompl::base::GoalStates(planner_->getSpaceInformation()));
@@ -234,7 +234,7 @@ bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Reque
       response.error_code.val = response.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
     else if(response.error_code.val == response.error_code.COLLISION_CONSTRAINTS_VIOLATED)
       response.error_code.val = response.error_code.GOAL_IN_COLLISION;
-    ROS_ERROR("Goal state is invalid. Reason: %s",motion_planning_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
+    ROS_ERROR("Goal state is invalid. Reason: %s",arm_navigation_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
     return false;
   }  
   planner_->setGoal(goal_states);    
@@ -242,17 +242,17 @@ bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Reque
   return true;
 }
 
-bool OmplRosTaskSpacePlanner::constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
+bool OmplRosTaskSpacePlanner::constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints, 
                                                      ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal)
 {
   return ompl_ros_interface::constraintsToOmplState(constraints,goal);
 }
 
-bool OmplRosTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                                       motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosTaskSpacePlanner::setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                       arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> start(state_space_);
-  motion_planning_msgs::RobotState cur_state;
+  arm_navigation_msgs::RobotState cur_state;
   planning_environment::convertKinematicStateToRobotState(*collision_models_interface_->getPlanningSceneState(),
                                                           ros::Time::now(),
                                                           collision_models_interface_->getWorldFrameId(),

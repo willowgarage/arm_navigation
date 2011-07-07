@@ -100,11 +100,11 @@ public:
    */ 
   virtual void configureOnRequest(planning_models::KinematicState *kinematic_state,
                                   planning_models::KinematicState::JointStateGroup *joint_state_group,
-                                  const motion_planning_msgs::GetMotionPlan::Request &request);
+                                  const arm_navigation_msgs::GetMotionPlan::Request &request);
 
 protected:	
 
-  motion_planning_msgs::RobotState robot_state_msg_;
+  arm_navigation_msgs::RobotState robot_state_msg_;
   std::string parent_frame_;
   virtual bool initialize();
   boost::shared_ptr<ompl_ros_interface::OmplRosStateTransformer> state_transformer_;

@@ -37,7 +37,7 @@
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
 #include <sensor_msgs/PointCloud.h>
-#include <mapping_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/CollisionMap.h>
 #include <tf/transform_listener.h>
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
@@ -49,7 +49,7 @@
 #include <set>
 #include <iterator>
 #include <cstdlib>
-#include <collision_environment_msgs/MakeStaticCollisionMapAction.h>
+#include <arm_navigation_msgs/MakeStaticCollisionMapAction.h>
 #include <actionlib/server/simple_action_server.h>
 
 struct CloudInfo 
@@ -132,9 +132,9 @@ public:
     //self_filter_ = new filters::SelfFilter<sensor_msgs::PointCloud>(priv);
 
     // advertise our topics: full map and updates
-    cmapPublisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_occ", 1, true);
-    cmapUpdPublisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_occ_update", 1);
-    static_map_publisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_occ_static", 1);
+    cmapPublisher_ = root_handle_.advertise<arm_navigation_msgs::CollisionMap>("collision_map_occ", 1, true);
+    cmapUpdPublisher_ = root_handle_.advertise<arm_navigation_msgs::CollisionMap>("collision_map_occ_update", 1);
+    static_map_publisher_ = root_handle_.advertise<arm_navigation_msgs::CollisionMap>("collision_map_occ_static", 1);
         
     if(!priv.hasParam("cloud_sources")) {
       ROS_WARN("No links specified for self filtering.");
@@ -204,7 +204,7 @@ public:
             mn_cloud_tf_fil_vector_.back()->registerCallback(boost::bind(&CollisionMapperOcc::cloudCallback, this, _1, cps.cloud_name_));
             // if (publishOcclusion_) {
             //   std::string name = std::string("collision_map_occ_occlusion_")+cps.cloud_name_;
-            //   occPublisherMap_[cps.cloud_name_] = root_handle_.advertise<mapping_msgs::CollisionMap>(name, 1);
+            //   occPublisherMap_[cps.cloud_name_] = root_handle_.advertise<arm_navigation_msgs::CollisionMap>(name, 1);
             // }
             static_map_published_[cps.cloud_name_] = false;
             ROS_INFO_STREAM("Source name " << cps.cloud_name_);
@@ -229,7 +229,7 @@ public:
     //mnCloudIncremental_->setTargetFrame(frames);
     resetService_ = priv.advertiseService("reset", &CollisionMapperOcc::reset, this);
 
-    action_server_.reset(new actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", 
+    action_server_.reset(new actionlib::SimpleActionServer<arm_navigation_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", 
                                                                                                                     boost::bind(&CollisionMapperOcc::makeStaticCollisionMap, this, _1)));
   }
   
@@ -755,7 +755,7 @@ private:
                            const ros::Time &stamp,
                            ros::Publisher &pub) const
   {
-    mapping_msgs::CollisionMap cmap;
+    arm_navigation_msgs::CollisionMap cmap;
     cmap.header.frame_id = frame_id;
     cmap.header.stamp = stamp;
     const unsigned int ms = map.size();
@@ -763,7 +763,7 @@ private:
     for (CMap::const_iterator it = map.begin() ; it != map.end() ; ++it)
     {
       const CollisionPoint &cp = *it;
-      mapping_msgs::OrientedBoundingBox box;
+      arm_navigation_msgs::OrientedBoundingBox box;
       box.extents.x = box.extents.y = box.extents.z = bi_.resolution;
       box.axis.x = box.axis.y = 0.0; box.axis.z = 1.0;
       box.angle = 0.0;
@@ -777,7 +777,7 @@ private:
     ROS_DEBUG("Published collision map with %u boxes", ms);
   }
 
-  void makeStaticCollisionMap(const collision_environment_msgs::MakeStaticCollisionMapGoalConstPtr& goal) {
+  void makeStaticCollisionMap(const arm_navigation_msgs::MakeStaticCollisionMapGoalConstPtr& goal) {
     
     if(cloud_source_map_.find(goal->cloud_source) == cloud_source_map_.end())
     {
@@ -794,7 +794,7 @@ private:
       return;
     }
 
-    static_map_goal_ = new collision_environment_msgs::MakeStaticCollisionMapGoal(*goal);
+    static_map_goal_ = new arm_navigation_msgs::MakeStaticCollisionMapGoal(*goal);
     cloud_count_ = 0;
     making_static_collision_map_ = true;
     disregard_first_message_ = true;
@@ -851,7 +851,7 @@ private:
   ros::ServiceServer                            resetService_;
   bool                                          publishOcclusion_;
     
-  collision_environment_msgs::MakeStaticCollisionMapGoal *static_map_goal_;
+  arm_navigation_msgs::MakeStaticCollisionMapGoal *static_map_goal_;
   bool making_static_collision_map_;
   bool publish_over_dynamic_map_;
   bool disregard_first_message_;
@@ -867,7 +867,7 @@ private:
 
   std::map<std::string,CloudInfo> cloud_source_map_;
   std::map<std::string,bool> static_map_published_;
-  boost::shared_ptr<actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction> > action_server_;	
+  boost::shared_ptr<actionlib::SimpleActionServer<arm_navigation_msgs::MakeStaticCollisionMapAction> > action_server_;	
   
   ros::ServiceServer get_settings_server_;
   ros::ServiceServer set_settings_server_;

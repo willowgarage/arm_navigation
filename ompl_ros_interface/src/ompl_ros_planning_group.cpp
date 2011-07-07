@@ -370,8 +370,8 @@ bool OmplRosPlanningGroup::initializeLBKPIECEPlanner()
   return true;
 }
 
-bool OmplRosPlanningGroup::transformConstraints(motion_planning_msgs::GetMotionPlan::Request &request, 
-                                                motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosPlanningGroup::transformConstraints(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                                                arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                             request.motion_plan_request.goal_constraints))
@@ -390,7 +390,7 @@ bool OmplRosPlanningGroup::transformConstraints(motion_planning_msgs::GetMotionP
 }
 
 bool OmplRosPlanningGroup::omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path, 
-                                                              motion_planning_msgs::RobotTrajectory &robot_trajectory)
+                                                              arm_navigation_msgs::RobotTrajectory &robot_trajectory)
 {
   if(!ompl_ros_interface::jointStateGroupToRobotTrajectory(physical_joint_state_group_,robot_trajectory))
     return false;
@@ -399,8 +399,8 @@ bool OmplRosPlanningGroup::omplPathGeometricToRobotTrajectory(const ompl::geomet
   return true;
 }
 
-bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Request &request, 
-                                       motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosPlanningGroup::computePlan(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                                       arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   planner_->clear();
   planning_models::KinematicState* kinematic_state = collision_models_interface_->getPlanningSceneState();
@@ -417,7 +417,7 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
   if(!physical_joint_state_group_)
   {
     ROS_ERROR("Could not find physical joint state group");
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
     return finish(false);
   }
 
@@ -448,20 +448,20 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
     try
     {
       response.trajectory = getSolutionPath();
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS;
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::SUCCESS;
       return finish(true);
     }
     catch(...)
     {
       ROS_ERROR("Could not find solution");
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
       return finish(false);
     }
   }
   else
   {
     ROS_ERROR("Could not find solution for request");
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
     return finish(false);
   }  
 }
@@ -475,8 +475,8 @@ bool OmplRosPlanningGroup::finish(const bool &result)
   return result;
 }
 
-bool OmplRosPlanningGroup::configureStateValidityChecker(motion_planning_msgs::GetMotionPlan::Request &request,
-                                                         motion_planning_msgs::GetMotionPlan::Response &response,
+bool OmplRosPlanningGroup::configureStateValidityChecker(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                                         arm_navigation_msgs::GetMotionPlan::Response &response,
                                                          planning_models::KinematicState *kinematic_state)
 {
   /* set the pose of the whole robot */
@@ -488,8 +488,8 @@ bool OmplRosPlanningGroup::configureStateValidityChecker(motion_planning_msgs::G
   return true;
 }
 
-bool OmplRosPlanningGroup::setStartAndGoalStates(motion_planning_msgs::GetMotionPlan::Request &request,
-                                                 motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosPlanningGroup::setStartAndGoalStates(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                                 arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   if(!setStart(request,response))
     return false;

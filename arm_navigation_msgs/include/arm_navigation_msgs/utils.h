@@ -34,9 +34,25 @@
 #include <ros/ros.h>
 #include <algorithm>
 #include <arm_navigation_msgs/CollisionOperation.h>
+#include <arm_navigation_msgs/SimplePoseConstraint.h>
+#include <arm_navigation_msgs/convert_messages.h>
+#include <arm_navigation_msgs/MoveArmGoal.h>
 
-namespace planning_environment_msgs
+namespace arm_navigation_msgs
 {
+
+/** @brief Add a goal constraint to the move arm action goal.
+    @param A reference to a simple pose constraint.
+    @param A reference to a move arm goal message. The pose constraint will be added to the goal message as a position and orientation constraint.
+*/
+void addGoalConstraintToMoveArmGoal(const arm_navigation_msgs::SimplePoseConstraint &pose_constraint, arm_navigation_msgs::MoveArmGoal &move_arm_goal)
+{
+  arm_navigation_msgs::PositionConstraint position_constraint;
+  arm_navigation_msgs::OrientationConstraint orientation_constraint;
+  poseConstraintToPositionOrientationConstraints(pose_constraint,position_constraint,orientation_constraint);
+  move_arm_goal.motion_plan_request.goal_constraints.position_constraints.push_back(position_constraint);
+  move_arm_goal.motion_plan_request.goal_constraints.orientation_constraints.push_back(orientation_constraint);
+}
 
 /** @brief Generate ordered collision operates that disable all collisions in a vector of names except
            for a specied vector of names

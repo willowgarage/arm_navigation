@@ -94,8 +94,8 @@ public:
    * @param response - The response to the motion planning request. Use this to fill in any error codes
    * @param max_sample_count - The maximum number of samples that the IK should generate
    */
-  bool configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                          motion_planning_msgs::GetMotionPlan::Response &response,
+  bool configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                          arm_navigation_msgs::GetMotionPlan::Response &response,
                           const unsigned int &max_sample_count = 100);
 
   /**
@@ -123,7 +123,7 @@ private:
   std::string kinematics_solver_name_, group_name_, end_effector_name_;
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
   boost::shared_ptr<ompl::base::ScopedState<ompl::base::CompoundStateSpace> > scoped_state_;
-  motion_planning_msgs::RobotState seed_state_, solution_state_;
+  arm_navigation_msgs::RobotState seed_state_, solution_state_;
 
   ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;
   ompl_ros_interface::RobotStateToOmplStateMapping robot_state_to_ompl_state_mapping_;

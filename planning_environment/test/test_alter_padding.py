@@ -4,17 +4,17 @@ PKG = 'planning_environment'
 
 import roslib; roslib.load_manifest(PKG)
 import rospy
-import planning_environment_msgs.srv
+import arm_navigation_msgs.srv
 import sys
 import unittest
 
 import sensor_msgs.msg
 import mapping_msgs.msg
 from mapping_msgs.msg import CollisionObject
-from motion_planning_msgs.msg import CollisionOperation, ArmNavigationErrorCodes, LinkPadding
-from geometric_shapes_msgs.msg import Shape
+from arm_navigation_msgs.msg import CollisionOperation, ArmNavigationErrorCodes, LinkPadding
+from arm_navigation_msgs.msg import Shape
 from geometry_msgs.msg import Pose, PointStamped
-from planning_environment_msgs.srv import GetRobotState, GetStateValidity, GetRobotStateRequest, GetStateValidityRequest
+from arm_navigation_msgs.srv import GetRobotState, GetStateValidity, GetRobotStateRequest, GetStateValidityRequest
 from tf import TransformListener
 
 default_prefix = "/environment_server"

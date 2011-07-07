@@ -4,7 +4,7 @@ PKG = 'planning_environment'
 
 import roslib; roslib.load_manifest(PKG)
 import rospy
-import planning_environment_msgs.srv
+import arm_navigation_msgs.srv
 import sys
 import unittest
 
@@ -13,8 +13,8 @@ import sensor_msgs.msg
 import mapping_msgs.msg
 from mapping_msgs.msg import CollisionObject
 from mapping_msgs.msg import AttachedCollisionObject
-from motion_planning_msgs.msg import CollisionOperation
-from geometric_shapes_msgs.msg import Shape
+from arm_navigation_msgs.msg import CollisionOperation
+from arm_navigation_msgs.msg import Shape
 from geometry_msgs.msg import Pose
 
 get_collision_objects_service_name = "get_collision_objects"
@@ -32,7 +32,7 @@ class TestCollisionObjects(unittest.TestCase):
         global get_collision_objects_service_name 
         full_name = default_prefix+'/'+get_collision_objects_service_name
         rospy.wait_for_service(full_name)
-        get_collision_objects_service = rospy.ServiceProxy(full_name, planning_environment_msgs.srv.GetCollisionObjects)  
+        get_collision_objects_service = rospy.ServiceProxy(full_name, arm_navigation_msgs.srv.GetCollisionObjects)  
 
         clear_all_att = AttachedCollisionObject()
         clear_all_att.object.header.stamp = rospy.Time.now()
@@ -54,7 +54,7 @@ class TestCollisionObjects(unittest.TestCase):
 
         rospy.sleep(2.)
       
-        get_collision_objects_req = planning_environment_msgs.srv.GetCollisionObjectsRequest()
+        get_collision_objects_req = arm_navigation_msgs.srv.GetCollisionObjectsRequest()
         try:
             get_collision_objects_res = get_collision_objects_service(get_collision_objects_req)
         except rospy.ServiceException, e:
@@ -130,7 +130,7 @@ class TestCollisionObjects(unittest.TestCase):
         
         rospy.sleep(2.)
 
-        get_collision_objects_req = planning_environment_msgs.srv.GetCollisionObjectsRequest()
+        get_collision_objects_req = arm_navigation_msgs.srv.GetCollisionObjectsRequest()
         
         get_collision_objects_res = get_collision_objects_service(get_collision_objects_req)
         
@@ -148,7 +148,7 @@ class TestCollisionObjects(unittest.TestCase):
 
         rospy.sleep(2.)
 
-        get_collision_objects_req = planning_environment_msgs.srv.GetCollisionObjectsRequest()
+        get_collision_objects_req = arm_navigation_msgs.srv.GetCollisionObjectsRequest()
         
         get_collision_objects_res = get_collision_objects_service(get_collision_objects_req)
         
@@ -187,7 +187,7 @@ class TestCollisionObjects(unittest.TestCase):
     
         rospy.sleep(2.)
 
-        get_collision_objects_req = planning_environment_msgs.srv.GetCollisionObjectsRequest()
+        get_collision_objects_req = arm_navigation_msgs.srv.GetCollisionObjectsRequest()
         
         get_collision_objects_res = get_collision_objects_service(get_collision_objects_req)
         
@@ -207,7 +207,7 @@ class TestCollisionObjects(unittest.TestCase):
 
         rospy.sleep(2.)
 
-        get_collision_objects_req = planning_environment_msgs.srv.GetCollisionObjectsRequest()
+        get_collision_objects_req = arm_navigation_msgs.srv.GetCollisionObjectsRequest()
         
         get_collision_objects_res = get_collision_objects_service(get_collision_objects_req)
         
@@ -228,7 +228,7 @@ class TestCollisionObjects(unittest.TestCase):
 
         rospy.sleep(2.)
 
-        get_collision_objects_req = planning_environment_msgs.srv.GetCollisionObjectsRequest()
+        get_collision_objects_req = arm_navigation_msgs.srv.GetCollisionObjectsRequest()
         
         get_collision_objects_res = get_collision_objects_service(get_collision_objects_req)
         

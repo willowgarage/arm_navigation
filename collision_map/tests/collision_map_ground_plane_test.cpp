@@ -43,8 +43,8 @@
 #include <boost/thread.hpp>
 #include <sys/time.h>
 
-#include <mapping_msgs/OrientedBoundingBox.h>
-#include <mapping_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/OrientedBoundingBox.h>
+#include <arm_navigation_msgs/CollisionMap.h>
 
 #include <gtest/gtest.h>
 
@@ -69,8 +69,8 @@ namespace collision_map
       tf::TransformListener tf_;
       std::string collision_map_frame_;
       double min_z_threshold_,max_z_threshold_;
-      tf::MessageFilter<mapping_msgs::CollisionMap>* cloud_notifier_;
-      message_filters::Subscriber<mapping_msgs::CollisionMap>* cloud_subscriber_;
+      tf::MessageFilter<arm_navigation_msgs::CollisionMap>* cloud_notifier_;
+      message_filters::Subscriber<arm_navigation_msgs::CollisionMap>* cloud_subscriber_;
 
       bool done_;
 
@@ -88,13 +88,13 @@ namespace collision_map
 
         private_handle_.param<std::string>("collision_map_frame",collision_map_frame_,COLLISION_MAP_FRAME);
 
-        cloud_subscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(node_,COLLISION_MAP_TOPIC,50);
-        cloud_notifier_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(*cloud_subscriber_,tf_,collision_map_frame_,50);
+        cloud_subscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionMap>(node_,COLLISION_MAP_TOPIC,50);
+        cloud_notifier_ = new tf::MessageFilter<arm_navigation_msgs::CollisionMap>(*cloud_subscriber_,tf_,collision_map_frame_,50);
         cloud_notifier_->registerCallback(boost::bind(&CollisionMapTest::collisionCallback,this,_1));
 
       }
 
-      void collisionCallback(const mapping_msgs::CollisionMapConstPtr& msg)
+      void collisionCallback(const arm_navigation_msgs::CollisionMapConstPtr& msg)
       {        
         num_msgs_++;
         if(num_msgs_ < test_num_msgs_)
@@ -105,7 +105,7 @@ namespace collision_map
         }
         ROS_INFO("Got collision map update %d, Running test.",num_msgs_);
 
-        mapping_msgs::CollisionMap map = *msg;
+        arm_navigation_msgs::CollisionMap map = *msg;
         for(int i=0; i < (int) map.boxes.size(); i++)
         {
           if(map.boxes[i].center.z > max_z_threshold_ || map.boxes[i].center.z < min_z_threshold_)

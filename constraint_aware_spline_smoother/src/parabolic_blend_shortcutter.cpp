@@ -38,6 +38,6 @@
 #include <spline_smoother/spline_smoother_utils.h>
 #include <stdlib.h>
 
-#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
+#include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 
-PLUGINLIB_REGISTER_CLASS(ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints, constraint_aware_spline_smoother::ParabolicBlendShortCutter<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_REGISTER_CLASS(ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints, constraint_aware_spline_smoother::ParabolicBlendShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)

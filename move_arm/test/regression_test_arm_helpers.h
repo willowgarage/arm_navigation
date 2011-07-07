@@ -69,7 +69,7 @@ void setupGoal(const std::vector<std::string> &names, move_arm::MoveArmGoal &goa
     goal.contacts[0].links.push_back("r_gripper_palm_link");
     goal.contacts[0].links.push_back("r_wrist_roll_link");
     goal.contacts[0].depth = 0.04;
-    goal.contacts[0].bound.type = mapping_msgs::Object::SPHERE;
+    goal.contacts[0].bound.type = arm_navigation_msgs::Object::SPHERE;
     goal.contacts[0].bound.dimensions.push_back(0.5);
 
     goal.contacts[0].pose.header.stamp = ros::Time::now();
@@ -131,7 +131,7 @@ void diffConfig(const planning_environment::KinematicModelStateMonitor &km, move
   angle = pose1.getRotation().angle(pose2.getRotation());
 }
 
-// bool checkCurrentStateVersusEffPoseConstraint(const planning_environment::KinematicModelStateMonitor &km, const motion_planning_msgs::PoseConstraint& constraints) {
+// bool checkCurrentStateVersusEffPoseConstraint(const planning_environment::KinematicModelStateMonitor &km, const arm_navigation_msgs::PoseConstraint& constraints) {
   
 //   for (unsigned int i = 0 ; i < constraints.joint_constraint.size() ; ++i)
 //   {
