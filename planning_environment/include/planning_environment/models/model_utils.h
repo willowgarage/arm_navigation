@@ -39,37 +39,37 @@
 
 #include <tf/tf.h>
 #include <planning_models/kinematic_state.h>
-#include <motion_planning_msgs/RobotState.h>
-#include <motion_planning_msgs/Constraints.h>
-#include <motion_planning_msgs/OrderedCollisionOperations.h>
+#include <arm_navigation_msgs/RobotState.h>
+#include <arm_navigation_msgs/Constraints.h>
+#include <arm_navigation_msgs/OrderedCollisionOperations.h>
 
 #include <planning_environment/util/kinematic_state_constraint_evaluator.h>
 #include <geometric_shapes_msgs/Shape.h>
 #include <visualization_msgs/Marker.h>
-#include <motion_planning_msgs/LinkPadding.h>
+#include <arm_navigation_msgs/LinkPadding.h>
 #include <collision_space/environment.h>
-#include <planning_environment_msgs/AllowedCollisionMatrix.h>
+#include <arm_navigation_msgs/AllowedCollisionMatrix.h>
 
 namespace planning_environment {
 
 //returns true if the joint_state_map sets all the joints in the state, 
-bool setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotState &robot_state,
+bool setRobotStateAndComputeTransforms(const arm_navigation_msgs::RobotState &robot_state,
                                        planning_models::KinematicState& state);
 
 void convertKinematicStateToRobotState(const planning_models::KinematicState& kinematic_state,
                                        const ros::Time& timestamp,
                                        const std::string& header_frame,
-                                       motion_planning_msgs::RobotState &robot_state);
+                                       arm_navigation_msgs::RobotState &robot_state);
 
-void applyOrderedCollisionOperationsToMatrix(const motion_planning_msgs::OrderedCollisionOperations &ord,
+void applyOrderedCollisionOperationsToMatrix(const arm_navigation_msgs::OrderedCollisionOperations &ord,
                                              collision_space::EnvironmentModel::AllowedCollisionMatrix& acm);
 
 void convertFromACMToACMMsg(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm,
-                            planning_environment_msgs::AllowedCollisionMatrix& matrix);
+                            arm_navigation_msgs::AllowedCollisionMatrix& matrix);
 
-collision_space::EnvironmentModel::AllowedCollisionMatrix convertFromACMMsgToACM(const planning_environment_msgs::AllowedCollisionMatrix& matrix);
+collision_space::EnvironmentModel::AllowedCollisionMatrix convertFromACMMsgToACM(const arm_navigation_msgs::AllowedCollisionMatrix& matrix);
 
-bool applyOrderedCollisionOperationsListToACM(const motion_planning_msgs::OrderedCollisionOperations& ordered_coll,
+bool applyOrderedCollisionOperationsListToACM(const arm_navigation_msgs::OrderedCollisionOperations& ordered_coll,
                                               const std::vector<std::string>& object_names,
                                               const std::vector<std::string>& att_names,
                                               const planning_models::KinematicModel* model,
@@ -106,7 +106,7 @@ void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &curAllow
 }
 */
 bool doesKinematicStateObeyConstraints(const planning_models::KinematicState& state,
-                                       const motion_planning_msgs::Constraints& constraints,
+                                       const arm_navigation_msgs::Constraints& constraints,
                                        bool verbose = false);
 
 void setMarkerShapeFromShape(const geometric_shapes_msgs::Shape &obj, visualization_msgs::Marker &mk);
@@ -114,6 +114,6 @@ void setMarkerShapeFromShape(const geometric_shapes_msgs::Shape &obj, visualizat
 void setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marker &mk);
 
 void convertFromLinkPaddingMapToLinkPaddingVector(const std::map<std::string, double>& link_padding_map,
-                                                  std::vector<motion_planning_msgs::LinkPadding>& link_padding_vector);
+                                                  std::vector<arm_navigation_msgs::LinkPadding>& link_padding_vector);
 }
 #endif

@@ -93,14 +93,14 @@ void planning_environment::CollisionModels::setupModelFromParamServer(collision_
         ROS_WARN("All collision operations must have two objects and an operation");
         continue;
       }
-      motion_planning_msgs::CollisionOperation collision_operation;
+      arm_navigation_msgs::CollisionOperation collision_operation;
       collision_operation.object1 = std::string(coll_ops[i]["object1"]);
       collision_operation.object2 = std::string(coll_ops[i]["object2"]);
       std::string operation = std::string(coll_ops[i]["operation"]);
       if(operation == "enable") {
-        collision_operation.operation =  motion_planning_msgs::CollisionOperation::ENABLE;
+        collision_operation.operation =  arm_navigation_msgs::CollisionOperation::ENABLE;
       } else if(operation == "disable") {
-        collision_operation.operation =  motion_planning_msgs::CollisionOperation::DISABLE;
+        collision_operation.operation =  arm_navigation_msgs::CollisionOperation::DISABLE;
       } else {
         ROS_WARN_STREAM("Unrecognized collision operation " << operation << ". Must be enable or disable");
         continue;
@@ -148,7 +148,7 @@ void planning_environment::CollisionModels::setupModelFromParamServer(collision_
   //no allowed collisions by default
   collision_space::EnvironmentModel::AllowedCollisionMatrix default_collision_matrix(coll_names,false);
 
-  for(std::vector<motion_planning_msgs::CollisionOperation>::iterator it = default_collision_operations_.begin();
+  for(std::vector<arm_navigation_msgs::CollisionOperation>::iterator it = default_collision_operations_.begin();
       it != default_collision_operations_.end();
       it++) {
     std::vector<std::string> svec1;
@@ -163,7 +163,7 @@ void planning_environment::CollisionModels::setupModelFromParamServer(collision_
     } else {
       svec2.push_back((*it).object2);
     }
-    default_collision_matrix.changeEntry(svec1, svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
+    default_collision_matrix.changeEntry(svec1, svec2, (*it).operation != arm_navigation_msgs::CollisionOperation::ENABLE);
   }
 
   model->lock();
@@ -448,7 +448,7 @@ bool planning_environment::CollisionModels::convertCollisionObjectToNewWorldFram
 }
 
 bool planning_environment::CollisionModels::convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
-                                                                                     motion_planning_msgs::Constraints& constraints,
+                                                                                     arm_navigation_msgs::Constraints& constraints,
                                                                                      const std::string& opt_frame) const {
   std::string trans_frame;
   if(!opt_frame.empty()) {
@@ -1000,12 +1000,12 @@ bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
   return true;
 }
 
-void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding) {
+void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(const std::vector<arm_navigation_msgs::LinkPadding>& link_padding) {
   if(link_padding.empty()) return;
   
   std::map<std::string, double> link_padding_map;
 
-  for(std::vector<motion_planning_msgs::LinkPadding>::const_iterator it = link_padding.begin();
+  for(std::vector<arm_navigation_msgs::LinkPadding>::const_iterator it = link_padding.begin();
       it != link_padding.end();
       it++) {
     std::vector<std::string> svec1;
@@ -1026,12 +1026,12 @@ void planning_environment::CollisionModels::applyLinkPaddingToCollisionSpace(con
   ode_collision_model_->unlock();
 }
 
-void planning_environment::CollisionModels::getCurrentLinkPadding(std::vector<motion_planning_msgs::LinkPadding>& link_padding)
+void planning_environment::CollisionModels::getCurrentLinkPadding(std::vector<arm_navigation_msgs::LinkPadding>& link_padding)
 {
   convertFromLinkPaddingMapToLinkPaddingVector(ode_collision_model_->getCurrentLinkPaddingMap(), link_padding);
 }
 
-bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord, bool print) {
+bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCollisionSpace(const arm_navigation_msgs::OrderedCollisionOperations &ord, bool print) {
 
   ode_collision_model_->lock();
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = ode_collision_model_->getDefaultAllowedCollisionMatrix();;
@@ -1143,7 +1143,7 @@ const collision_space::EnvironmentModel::AllowedCollisionMatrix& planning_enviro
   return ode_collision_model_->getDefaultAllowedCollisionMatrix();
 }
 
-bool planning_environment::CollisionModels::computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& allowed_contact,
+bool planning_environment::CollisionModels::computeAllowedContact(const arm_navigation_msgs::AllowedContactSpecification& allowed_contact,
                                                                   collision_space::EnvironmentModel::AllowedContact& allowedContact) const
 {
   shapes::Shape *shape = constructObject(allowed_contact.shape);
@@ -1396,9 +1396,9 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
 
 bool planning_environment::CollisionModels::isKinematicStateValid(const planning_models::KinematicState& state,
                                                                   const std::vector<std::string>& joint_names,
-                                                                  motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                                                                  const motion_planning_msgs::Constraints goal_constraints,
-                                                                  const motion_planning_msgs::Constraints path_constraints,
+                                                                  arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+                                                                  const arm_navigation_msgs::Constraints goal_constraints,
+                                                                  const arm_navigation_msgs::Constraints path_constraints,
 								  bool verbose)
 {
   if(!state.areJointsWithinBounds(joint_names)) {
@@ -1453,10 +1453,10 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
 
 bool planning_environment::CollisionModels::isJointTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
                                                                    const trajectory_msgs::JointTrajectory &trajectory,
-                                                                   const motion_planning_msgs::Constraints& goal_constraints,
-                                                                   const motion_planning_msgs::Constraints& path_constraints,
-                                                                   motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                                                                   std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                                                                   const arm_navigation_msgs::Constraints& goal_constraints,
+                                                                   const arm_navigation_msgs::Constraints& path_constraints,
+                                                                   arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+                                                                   std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                                                                    const bool evaluate_entire_trajectory)
 {
   if(planning_scene_set_) {
@@ -1479,10 +1479,10 @@ bool planning_environment::CollisionModels::isJointTrajectoryValid(const plannin
 
 bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_models::KinematicState& state,
                                                                    const trajectory_msgs::JointTrajectory &trajectory,
-                                                                   const motion_planning_msgs::Constraints& goal_constraints,
-                                                                   const motion_planning_msgs::Constraints& path_constraints,
-                                                                   motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                                                                   std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                                                                   const arm_navigation_msgs::Constraints& goal_constraints,
+                                                                   const arm_navigation_msgs::Constraints& path_constraints,
+                                                                   arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+                                                                   std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                                                                    const bool evaluate_entire_trajectory)  
 {
   error_code.val = error_code.SUCCESS;
@@ -1558,9 +1558,9 @@ bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_mode
   }
 
   //now we can start checking the actual 
-  motion_planning_msgs::Constraints emp_goal_constraints;
+  arm_navigation_msgs::Constraints emp_goal_constraints;
   for(unsigned int i = 0; i < trajectory.points.size(); i++) {
-    motion_planning_msgs::ArmNavigationErrorCodes suc;
+    arm_navigation_msgs::ArmNavigationErrorCodes suc;
     suc.val = error_code.SUCCESS;
     trajectory_error_codes.push_back(suc);
     for (unsigned int j = 0 ; j < trajectory.points[i].positions.size(); j++)
@@ -1584,11 +1584,11 @@ bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_mode
 }
 
 // bool planning_environment::CollisionModels::isRobotTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
-//                                                                    const motion_planning_msgs::RobotTrajectory& trajectory,
-//                                                                    const motion_planning_msgs::Constraints& goal_constraints,
-//                                                                    const motion_planning_msgs::Constraints& path_constraints,
-//                                                                    motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-//                                                                    std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+//                                                                    const arm_navigation_msgs::RobotTrajectory& trajectory,
+//                                                                    const arm_navigation_msgs::Constraints& goal_constraints,
+//                                                                    const arm_navigation_msgs::Constraints& path_constraints,
+//                                                                    arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+//                                                                    std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
 //                                                                    const bool evaluate_entire_trajectory)
 // {
 //   if(planning_scene_set_) {
@@ -1609,11 +1609,11 @@ bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_mode
 // }
 
 // bool planning_environment::CollisionModels::isRobotTrajectoryValid(planning_models::KinematicState& state,
-//                                                                    const motion_planning_msgs::RobotTrajectory& trajectory,
-//                                                                    const motion_planning_msgs::Constraints& goal_constraints,
-//                                                                    const motion_planning_msgs::Constraints& path_constraints,
-//                                                                    motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-//                                                                    std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+//                                                                    const arm_navigation_msgs::RobotTrajectory& trajectory,
+//                                                                    const arm_navigation_msgs::Constraints& goal_constraints,
+//                                                                    const arm_navigation_msgs::Constraints& path_constraints,
+//                                                                    arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+//                                                                    std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
 //                                                                    const bool evaluate_entire_trajectory)
 // {
 //   //first thing to check - we can either deal with no joint_trajectory points
@@ -2170,7 +2170,7 @@ bool planning_environment::CollisionModels::readPlanningSceneBag(const std::stri
 
 bool planning_environment::CollisionModels::appendMotionPlanRequestToPlanningSceneBag(const std::string& filename,
                                                                                       const std::string& topic_name,
-                                                                                      const motion_planning_msgs::MotionPlanRequest& req)
+                                                                                      const arm_navigation_msgs::MotionPlanRequest& req)
 {
   rosbag::Bag bag;
   try {
@@ -2187,7 +2187,7 @@ bool planning_environment::CollisionModels::appendMotionPlanRequestToPlanningSce
 
 bool planning_environment::CollisionModels::loadMotionPlanRequestsInPlanningSceneBag(const std::string& filename,
                                                                                      const std::string& topic_name,
-                                                                                     std::vector<motion_planning_msgs::MotionPlanRequest>& motion_plan_reqs){
+                                                                                     std::vector<arm_navigation_msgs::MotionPlanRequest>& motion_plan_reqs){
   rosbag::Bag bag;
   try {
     bag.open(filename, rosbag::bagmode::Read);
@@ -2203,7 +2203,7 @@ bool planning_environment::CollisionModels::loadMotionPlanRequestsInPlanningScen
 
   BOOST_FOREACH(rosbag::MessageInstance const m, view)
   {
-    motion_planning_msgs::MotionPlanRequest::ConstPtr mpr = m.instantiate<motion_planning_msgs::MotionPlanRequest>();
+    arm_navigation_msgs::MotionPlanRequest::ConstPtr mpr = m.instantiate<arm_navigation_msgs::MotionPlanRequest>();
     if(mpr != NULL) {
       motion_plan_reqs.push_back(*mpr);
     }

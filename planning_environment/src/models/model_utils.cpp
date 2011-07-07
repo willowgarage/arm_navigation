@@ -37,7 +37,7 @@
 #include <planning_environment/models/model_utils.h>
 
 //returns true if the joint_state_map sets all the joints in the state, 
-bool planning_environment::setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotState &robot_state,
+bool planning_environment::setRobotStateAndComputeTransforms(const arm_navigation_msgs::RobotState &robot_state,
                                                              planning_models::KinematicState& state)
 {
   if(robot_state.joint_state.name.size() != robot_state.joint_state.position.size()) {
@@ -109,7 +109,7 @@ bool planning_environment::setRobotStateAndComputeTransforms(const motion_planni
 void planning_environment::convertKinematicStateToRobotState(const planning_models::KinematicState& kinematic_state,
                                        const ros::Time& timestamp,
                                        const std::string& header_frame,
-                                       motion_planning_msgs::RobotState &robot_state)
+                                       arm_navigation_msgs::RobotState &robot_state)
 {
   robot_state.joint_state.position.clear();
   robot_state.joint_state.name.clear();
@@ -145,11 +145,11 @@ void planning_environment::convertKinematicStateToRobotState(const planning_mode
   return;
 }
 
-void planning_environment::applyOrderedCollisionOperationsToMatrix(const motion_planning_msgs::OrderedCollisionOperations &ord,
+void planning_environment::applyOrderedCollisionOperationsToMatrix(const arm_navigation_msgs::OrderedCollisionOperations &ord,
                                              collision_space::EnvironmentModel::AllowedCollisionMatrix& acm) {
   for(size_t i = 0; i < ord.collision_operations.size(); i++) {
     
-    bool allowed = (ord.collision_operations[i].operation == motion_planning_msgs::CollisionOperation::DISABLE);
+    bool allowed = (ord.collision_operations[i].operation == arm_navigation_msgs::CollisionOperation::DISABLE);
     
     if(ord.collision_operations[i].object1 == ord.collision_operations[i].COLLISION_SET_ALL &&
        ord.collision_operations[i].object2 == ord.collision_operations[i].COLLISION_SET_ALL) {
@@ -227,17 +227,17 @@ collision_space::EnvironmentModel::AllowedCollisionMatrix planning_environment::
   return acm;
 }
 
-bool planning_environment::applyOrderedCollisionOperationsListToACM(const motion_planning_msgs::OrderedCollisionOperations& ordered_coll,
+bool planning_environment::applyOrderedCollisionOperationsListToACM(const arm_navigation_msgs::OrderedCollisionOperations& ordered_coll,
                                                      const std::vector<std::string>& object_names,
                                                      const std::vector<std::string>& att_names,
                                                      const planning_models::KinematicModel* model,
                                                      collision_space::EnvironmentModel::AllowedCollisionMatrix& matrix)
 {
   bool all_ok = true;
-  for(std::vector<motion_planning_msgs::CollisionOperation>::const_iterator it = ordered_coll.collision_operations.begin();
+  for(std::vector<arm_navigation_msgs::CollisionOperation>::const_iterator it = ordered_coll.collision_operations.begin();
       it != ordered_coll.collision_operations.end();
       it++) {
-    bool op = (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE;
+    bool op = (*it).operation != arm_navigation_msgs::CollisionOperation::ENABLE;
     std::vector<std::string> svec1, svec2;
     bool special1 = false;
     bool special2 = false;
@@ -305,7 +305,7 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const motion
         matrix.changeEntry(svec1[j], op);
       }
     } else {
-      bool ok = matrix.changeEntry(svec1, svec2, (*it).operation != motion_planning_msgs::CollisionOperation::ENABLE);
+      bool ok = matrix.changeEntry(svec1, svec2, (*it).operation != arm_navigation_msgs::CollisionOperation::ENABLE);
       if(!ok) {
         ROS_WARN_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
         all_ok = false;
@@ -342,7 +342,7 @@ inline void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &c
 }
 */
 bool planning_environment::doesKinematicStateObeyConstraints(const planning_models::KinematicState& state,
-                                       const motion_planning_msgs::Constraints& constraints,
+                                       const arm_navigation_msgs::Constraints& constraints,
                                        bool verbose) {
   planning_environment::KinematicConstraintEvaluatorSet constraint_evaluator;
   
@@ -469,12 +469,12 @@ void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, vis
 }
 
 void planning_environment::convertFromLinkPaddingMapToLinkPaddingVector(const std::map<std::string, double>& link_padding_map,
-                                                         std::vector<motion_planning_msgs::LinkPadding>& link_padding_vector)
+                                                         std::vector<arm_navigation_msgs::LinkPadding>& link_padding_vector)
 {
   for(std::map<std::string, double>::const_iterator it = link_padding_map.begin();
       it != link_padding_map.end();
       it++) {
-    motion_planning_msgs::LinkPadding lp;
+    arm_navigation_msgs::LinkPadding lp;
     lp.link_name = it->first;
     lp.padding = it->second;
     link_padding_vector.push_back(lp);
