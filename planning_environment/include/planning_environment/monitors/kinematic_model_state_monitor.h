@@ -43,7 +43,7 @@
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
 #include <sensor_msgs/JointState.h>
-#include <motion_planning_msgs/RobotState.h>
+#include <arm_navigation_msgs/RobotState.h>
 #include <boost/bind.hpp>
 #include <vector>
 #include <string>
@@ -141,7 +141,7 @@ public:
   /** \brief Sets the model used for collision/valditity checking to the current state values*/
   void setStateValuesFromCurrentValues(planning_models::KinematicState& state) const;
 
-  bool getCurrentRobotState(motion_planning_msgs::RobotState &robot_state) const;
+  bool getCurrentRobotState(arm_navigation_msgs::RobotState &robot_state) const;
 
   bool setKinematicStateToTime(const ros::Time& time,
                                planning_models::KinematicState& state) const;

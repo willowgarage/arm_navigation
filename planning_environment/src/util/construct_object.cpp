@@ -38,10 +38,10 @@
 #include <geometric_shapes/shape_operations.h>
 #include <ros/console.h>
 
-shapes::Shape* planning_environment::constructObject(const geometric_shapes_msgs::Shape &obj)
+shapes::Shape* planning_environment::constructObject(const arm_navigation_msgs::Shape &obj)
 {
     shapes::Shape *shape = NULL;
-    if (obj.type == geometric_shapes_msgs::Shape::SPHERE)
+    if (obj.type == arm_navigation_msgs::Shape::SPHERE)
     {
 	if (obj.dimensions.size() != 1)
 	    ROS_ERROR("Unexpected number of dimensions in sphere definition");
@@ -49,7 +49,7 @@ shapes::Shape* planning_environment::constructObject(const geometric_shapes_msgs
 	    shape = new shapes::Sphere(obj.dimensions[0]);
     }
     else
-    if (obj.type == geometric_shapes_msgs::Shape::BOX)
+    if (obj.type == arm_navigation_msgs::Shape::BOX)
     {
 	if (obj.dimensions.size() != 3)
 	    ROS_ERROR("Unexpected number of dimensions in box definition");
@@ -57,7 +57,7 @@ shapes::Shape* planning_environment::constructObject(const geometric_shapes_msgs
 	    shape = new shapes::Box(obj.dimensions[0], obj.dimensions[1], obj.dimensions[2]);
     }
     else
-    if (obj.type == geometric_shapes_msgs::Shape::CYLINDER)
+    if (obj.type == arm_navigation_msgs::Shape::CYLINDER)
     {
 	if (obj.dimensions.size() != 2)
 	    ROS_ERROR("Unexpected number of dimensions in cylinder definition");
@@ -65,7 +65,7 @@ shapes::Shape* planning_environment::constructObject(const geometric_shapes_msgs
 	    shape = new shapes::Cylinder(obj.dimensions[0], obj.dimensions[1]);
     }   
     else
-    if (obj.type == geometric_shapes_msgs::Shape::MESH)
+    if (obj.type == arm_navigation_msgs::Shape::MESH)
     {
 	if (obj.dimensions.size() != 0)
 	    ROS_ERROR("Unexpected number of dimensions in mesh definition");
@@ -98,20 +98,20 @@ shapes::Shape* planning_environment::constructObject(const geometric_shapes_msgs
 }
 
 
-bool planning_environment::constructObjectMsg(const shapes::Shape* shape, geometric_shapes_msgs::Shape &obj, double padding)
+bool planning_environment::constructObjectMsg(const shapes::Shape* shape, arm_navigation_msgs::Shape &obj, double padding)
 {
     obj.dimensions.clear();
     obj.vertices.clear();
     obj.triangles.clear();
     if (shape->type == shapes::SPHERE)
     {
-	obj.type = geometric_shapes_msgs::Shape::SPHERE;
+	obj.type = arm_navigation_msgs::Shape::SPHERE;
 	obj.dimensions.push_back(static_cast<const shapes::Sphere*>(shape)->radius+padding);
     }
     else
     if (shape->type == shapes::BOX)
     {
-	obj.type = geometric_shapes_msgs::Shape::BOX;
+	obj.type = arm_navigation_msgs::Shape::BOX;
 	const double* sz = static_cast<const shapes::Box*>(shape)->size;	
 	obj.dimensions.push_back(sz[0]+padding*2.0);
 	obj.dimensions.push_back(sz[1]+padding*2.0);
@@ -120,14 +120,14 @@ bool planning_environment::constructObjectMsg(const shapes::Shape* shape, geomet
     else
     if (shape->type == shapes::CYLINDER)
     {	
-	obj.type = geometric_shapes_msgs::Shape::CYLINDER;
+	obj.type = arm_navigation_msgs::Shape::CYLINDER;
 	obj.dimensions.push_back(static_cast<const shapes::Cylinder*>(shape)->radius+padding);
 	obj.dimensions.push_back(static_cast<const shapes::Cylinder*>(shape)->length+padding*2.0);
     }
     else
     if (shape->type == shapes::MESH)
     {
-      obj.type = geometric_shapes_msgs::Shape::MESH;
+      obj.type = arm_navigation_msgs::Shape::MESH;
 
 	const shapes::Mesh *mesh = static_cast<const shapes::Mesh*>(shape);
 	const unsigned int t3 = mesh->triangleCount * 3;

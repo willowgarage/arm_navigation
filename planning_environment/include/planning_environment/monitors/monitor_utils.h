@@ -40,10 +40,10 @@
 #include <tf/transform_listener.h>
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <geometric_shapes_msgs/Shape.h>
+#include <arm_navigation_msgs/Shape.h>
 #include <geometric_shapes/shape_operations.h>
-#include <mapping_msgs/CollisionObject.h>
-#include <mapping_msgs/AttachedCollisionObject.h>
+#include <arm_navigation_msgs/CollisionObject.h>
+#include <arm_navigation_msgs/AttachedCollisionObject.h>
 #include <planning_environment/models/collision_models.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -57,18 +57,18 @@ bool getLatestIdentityTransform(const std::string& to_frame,
                                 btTransform& pose); 
 
 bool createAndPoseShapes(tf::TransformListener& tf, 
-                         const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
+                         const std::vector<arm_navigation_msgs::Shape>& orig_shapes,
                          const std::vector<geometry_msgs::Pose>& orig_poses,
                          const std_msgs::Header& header, 
                          const std::string& frame_to,
                          std::vector<shapes::Shape*>& conv_shapes,
                          std::vector<btTransform>& conv_poses);
 
-bool processCollisionObjectMsg(const mapping_msgs::CollisionObjectConstPtr &collision_object,
+bool processCollisionObjectMsg(const arm_navigation_msgs::CollisionObjectConstPtr &collision_object,
                                tf::TransformListener& tf,
                                CollisionModels* cm);
 
-bool processAttachedCollisionObjectMsg(const mapping_msgs::AttachedCollisionObjectConstPtr &attached_object,
+bool processAttachedCollisionObjectMsg(const arm_navigation_msgs::AttachedCollisionObjectConstPtr &attached_object,
                                        tf::TransformListener& tf,
                                        CollisionModels* cm);
 

@@ -37,12 +37,12 @@
 
 #include "planning_environment/monitors/planning_monitor.h"
 
-#include <planning_environment_msgs/GetRobotState.h>
-#include <planning_environment_msgs/GetStateValidity.h>
-#include <planning_environment_msgs/GetPlanningScene.h>
+#include <arm_navigation_msgs/GetRobotState.h>
+#include <arm_navigation_msgs/GetStateValidity.h>
+#include <arm_navigation_msgs/GetPlanningScene.h>
 #include <ros/package.h>
 #include <std_srvs/Empty.h>
-#include <planning_environment_msgs/SetPlanningSceneAction.h>
+#include <arm_navigation_msgs/SetPlanningSceneAction.h>
 #include <actionlib/client/simple_action_client.h>
 
 static const std::string SET_PLANNING_SCENE_NAME ="set_planning_scene";
@@ -88,7 +88,7 @@ public:
 	
   virtual ~EnvironmentServer()
   {
-    for(std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
+    for(std::map<std::string, actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
         it != set_planning_scene_clients_.end();
         it++) {
       delete it->second;
@@ -112,7 +112,7 @@ private:
     if(set_planning_scene_clients_.find(callerid) != set_planning_scene_clients_.end()) {
       delete set_planning_scene_clients_[callerid];
     }
-    set_planning_scene_clients_[callerid] = new actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>(callerid+"/"+SET_PLANNING_SCENE_NAME, true);
+    set_planning_scene_clients_[callerid] = new actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction>(callerid+"/"+SET_PLANNING_SCENE_NAME, true);
     while(ros::ok()) {
       if(!set_planning_scene_clients_[callerid]->waitForServer(ros::Duration(1.0))) {
         ROS_INFO_STREAM("Couldn't connect back to action server for " << callerid);
@@ -124,15 +124,15 @@ private:
     return true;
   }
 		
-  bool getRobotState(planning_environment_msgs::GetRobotState::Request &req, 
-                     planning_environment_msgs::GetRobotState::Response &res)
+  bool getRobotState(arm_navigation_msgs::GetRobotState::Request &req, 
+                     arm_navigation_msgs::GetRobotState::Response &res)
   {
     planning_monitor_->getCurrentRobotState(res.robot_state);
     return true;    
   }
 
-  bool getPlanningScene(planning_environment_msgs::GetPlanningScene::Request &req, 
-                        planning_environment_msgs::GetPlanningScene::Response &res) 
+  bool getPlanningScene(arm_navigation_msgs::GetPlanningScene::Request &req, 
+                        arm_navigation_msgs::GetPlanningScene::Response &res) 
   {
     if(use_monitor_) {
       planning_monitor_->getCompletePlanningScene(req.planning_scene_diff,
@@ -142,14 +142,14 @@ private:
       //TODO - need to be able to load planning scenes
       res.planning_scene = req.planning_scene_diff;
     }
-    planning_environment_msgs::SetPlanningSceneGoal planning_scene_goal;
+    arm_navigation_msgs::SetPlanningSceneGoal planning_scene_goal;
     planning_scene_goal.planning_scene = res.planning_scene;
-    for(std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
+    for(std::map<std::string, actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
         it != set_planning_scene_clients_.end();
         it++) {
       it->second->sendGoal(planning_scene_goal);
     }
-    for(std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
+    for(std::map<std::string, actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction>* >::iterator it = set_planning_scene_clients_.begin();
         it != set_planning_scene_clients_.end();
         it++) {
       while(ros::ok() && !it->second->waitForResult(ros::Duration(1.0))) {
@@ -174,7 +174,7 @@ private:
   ros::ServiceServer get_planning_scene_service_;
 
   ros::ServiceServer register_planning_scene_service_;
-  std::map<std::string, actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;
+  std::map<std::string, actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction>* > set_planning_scene_clients_;
 };    
 }
 

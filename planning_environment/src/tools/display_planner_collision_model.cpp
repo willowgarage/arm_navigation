@@ -47,9 +47,9 @@ the robot's collision space, as seen by the planner
 
 #include <visualization_msgs/Marker.h>
 #include <geometric_shapes/shapes.h>
-#include <geometric_shapes_msgs/Shape.h>
-#include <mapping_msgs/CollisionMap.h>
-#include <planning_environment_msgs/GetCollisionObjects.h>
+#include <arm_navigation_msgs/Shape.h>
+#include <arm_navigation_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/GetCollisionObjects.h>
 
 #include <iostream>
 #include <sstream>
@@ -75,7 +75,7 @@ public:
     visualizationMarkerPublisher_ = root_node.advertise<visualization_msgs::Marker>(COLLISION_MARKER_TOPIC+prefix_, 10240);
 
     if(!skip_collision_map_) {
-      collision_map_publisher_ = root_node.advertise<mapping_msgs::CollisionMap>("collision_rebroadcast_"+prefix_, 10240);
+      collision_map_publisher_ = root_node.advertise<arm_navigation_msgs::CollisionMap>("collision_rebroadcast_"+prefix_, 10240);
     }
 
     std::string service_name = prefix_+"/"+GET_OBJECTS_SERVICE_NAME;
@@ -86,7 +86,7 @@ public:
 
     ROS_INFO_STREAM("Connected to " << service_name);
 
-    get_objects_service_client_ = root_node.serviceClient<planning_environment_msgs::GetCollisionObjects>(service_name);
+    get_objects_service_client_ = root_node.serviceClient<arm_navigation_msgs::GetCollisionObjects>(service_name);
 
     object_color_.a = 0.5;
     object_color_.r = 0.1;
@@ -125,8 +125,8 @@ protected:
 
   void publishMapObjects() {
 
-    planning_environment_msgs::GetCollisionObjects::Request req;
-    planning_environment_msgs::GetCollisionObjects::Response res;
+    arm_navigation_msgs::GetCollisionObjects::Request req;
+    arm_navigation_msgs::GetCollisionObjects::Response res;
 
     req.include_points = !skip_collision_map_;
 
@@ -161,7 +161,7 @@ protected:
       current_num[it->first] = 0;
     }
 
-    for(std::vector<mapping_msgs::CollisionObject>::iterator it = res.collision_objects.begin();
+    for(std::vector<arm_navigation_msgs::CollisionObject>::iterator it = res.collision_objects.begin();
         it != res.collision_objects.end();
         it++) {
       current_num[(*it).id] = (*it).shapes.size();
@@ -172,11 +172,11 @@ protected:
     while(it != cur_collision_objects_.end()) {
       //if fewer (including zero, need to delete)
       if(current_num[it->first] < it->second) {
-        mapping_msgs::CollisionObject obj;
+        arm_navigation_msgs::CollisionObject obj;
         obj.header.frame_id = "base_link";
         obj.header.stamp = ros::Time::now();
         std::string id = prefix_+"---"+it->first;
-        obj.operation.operation = mapping_msgs::CollisionObjectOperation::REMOVE;
+        obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::REMOVE;
         publishObjects(obj, id, object_color_, it->second);
         //entirely gone
         if(current_num[it->first] == 0) {
@@ -191,7 +191,7 @@ protected:
       cur_collision_objects_.erase(*ir);
     }
 
-    for(std::vector<mapping_msgs::CollisionObject>::iterator it = res.collision_objects.begin();
+    for(std::vector<arm_navigation_msgs::CollisionObject>::iterator it = res.collision_objects.begin();
         it != res.collision_objects.end();
         it++) {
       cur_collision_objects_[(*it).id] = (*it).shapes.size();
@@ -209,7 +209,7 @@ protected:
       current_num[it->first] = 0;
     }
 
-    for(std::vector<mapping_msgs::AttachedCollisionObject>::iterator it = res.attached_collision_objects.begin();
+    for(std::vector<arm_navigation_msgs::AttachedCollisionObject>::iterator it = res.attached_collision_objects.begin();
         it != res.attached_collision_objects.end();
         it++) {
       std::string id = (*it).link_name+"+"+(*it).object.id;
@@ -221,11 +221,11 @@ protected:
     while(it != cur_attached_objects_.end()) {
       //if fewer (including zero, need to delete)
       if(current_num[it->first] < it->second) {
-        mapping_msgs::CollisionObject obj;
+        arm_navigation_msgs::CollisionObject obj;
         obj.header.frame_id = "base_link";
         obj.header.stamp = ros::Time::now();
         std::string id = prefix_+"---"+it->first;
-        obj.operation.operation = mapping_msgs::CollisionObjectOperation::REMOVE;
+        obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::REMOVE;
         publishObjects(obj, id, attached_color_, it->second);
         //entirely gone
         if(current_num[it->first] == 0) {
@@ -240,7 +240,7 @@ protected:
       cur_attached_objects_.erase(*ir);
     }
 
-    for(std::vector<mapping_msgs::AttachedCollisionObject>::iterator it = res.attached_collision_objects.begin();
+    for(std::vector<arm_navigation_msgs::AttachedCollisionObject>::iterator it = res.attached_collision_objects.begin();
         it != res.attached_collision_objects.end();
         it++) {
       std::string id1 = (*it).link_name+"+"+(*it).object.id;
@@ -250,10 +250,10 @@ protected:
     }
   } 
  
-  void publishObjects(const mapping_msgs::CollisionObject& collisionObject, const std::string id, const std_msgs::ColorRGBA color, unsigned int num = 0) {
+  void publishObjects(const arm_navigation_msgs::CollisionObject& collisionObject, const std::string id, const std_msgs::ColorRGBA color, unsigned int num = 0) {
     visualization_msgs::Marker mk;
 
-    if (collisionObject.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+    if (collisionObject.operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
       for(unsigned int i = 0; i < num; i++) {
         mk.ns = id;
         mk.id = i;
@@ -267,7 +267,7 @@ protected:
       return;
     }
     
-    if (collisionObject.operation.operation == mapping_msgs::CollisionObjectOperation::ADD) {
+    if (collisionObject.operation.operation == arm_navigation_msgs::CollisionObjectOperation::ADD) {
       for(unsigned int i = 0; i < collisionObject.shapes.size(); i++) {
         mk.ns = id;
         mk.id = i;
@@ -284,30 +284,30 @@ protected:
     
 private:
 
-  void setObject(const geometric_shapes_msgs::Shape &obj, visualization_msgs::Marker &mk)
+  void setObject(const arm_navigation_msgs::Shape &obj, visualization_msgs::Marker &mk)
   {
     switch (obj.type)
     {
-    case geometric_shapes_msgs::Shape::SPHERE:
+    case arm_navigation_msgs::Shape::SPHERE:
       mk.type = visualization_msgs::Marker::SPHERE;
       mk.scale.x = mk.scale.y = mk.scale.z = obj.dimensions[0] * 2.0;
       break;
 	    
-    case geometric_shapes_msgs::Shape::BOX:
+    case arm_navigation_msgs::Shape::BOX:
       mk.type = visualization_msgs::Marker::CUBE;
       mk.scale.x = obj.dimensions[0];
       mk.scale.y = obj.dimensions[1];
       mk.scale.z = obj.dimensions[2];
       break;
 
-    case geometric_shapes_msgs::Shape::CYLINDER:
+    case arm_navigation_msgs::Shape::CYLINDER:
       mk.type = visualization_msgs::Marker::CYLINDER;
       mk.scale.x = obj.dimensions[0] * 2.0;
       mk.scale.y = obj.dimensions[0] * 2.0;
       mk.scale.z = obj.dimensions[1];
       break;
 
-    case geometric_shapes_msgs::Shape::MESH:
+    case arm_navigation_msgs::Shape::MESH:
       mk.type = visualization_msgs::Marker::LINE_LIST;
       mk.scale.x = mk.scale.y = mk.scale.z = 0.001;
       {

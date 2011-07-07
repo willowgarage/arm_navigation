@@ -43,7 +43,7 @@ note: remember to remap "collision_map" to the desired collision map to be used 
 **/
 
 #include "planning_environment/monitors/planning_monitor.h"
-#include <mapping_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/CollisionMap.h>
 
 #include <iostream>
 #include <sstream>
@@ -59,7 +59,7 @@ public:
 	collisionModels_ = new planning_environment::CollisionModels("robot_description");
 	if (collisionModels_->loadedModels())
 	{	
-	    collisionMapPublisher_ = nh_.advertise<mapping_msgs::CollisionMap>("collision_map_with_removed_box", 1);
+	    collisionMapPublisher_ = nh_.advertise<arm_navigation_msgs::CollisionMap>("collision_map_with_removed_box", 1);
 	    planningMonitor_ = new planning_environment::PlanningMonitor(collisionModels_, &tf_);
 	    planningMonitor_->setOnAfterMapUpdateCallback(boost::bind(&RemoveObjectExample::afterWorldUpdate, this, _1, _2));
 	}
@@ -75,7 +75,7 @@ public:
 
 protected:
 
-    void afterWorldUpdate(const mapping_msgs::CollisionMapConstPtr &collisionMap, bool clear)
+    void afterWorldUpdate(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap, bool clear)
     {
 	// we do not care about incremental updates, only re-writes of the map
 	if (!clear)
@@ -103,7 +103,7 @@ protected:
 	env->removeCollidingObjects(box, pose);	
 	
 	// forward the updated map
-	mapping_msgs::CollisionMap cmap;
+	arm_navigation_msgs::CollisionMap cmap;
 	planningMonitor_->recoverCollisionMap(env, cmap);
 	collisionMapPublisher_.publish(cmap);
 

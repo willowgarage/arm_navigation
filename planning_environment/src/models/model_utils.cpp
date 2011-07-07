@@ -182,7 +182,7 @@ void planning_environment::applyOrderedCollisionOperationsToMatrix(const arm_nav
 }
 
 void planning_environment::convertFromACMToACMMsg(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm,
-                            planning_environment_msgs::AllowedCollisionMatrix& matrix) {
+                            arm_navigation_msgs::AllowedCollisionMatrix& matrix) {
   if(!acm.getValid()) return;
   matrix.link_names.resize(acm.getSize());
   matrix.entries.resize(acm.getSize());
@@ -204,7 +204,7 @@ void planning_environment::convertFromACMToACMMsg(const collision_space::Environ
   }
 }
 
-collision_space::EnvironmentModel::AllowedCollisionMatrix planning_environment::convertFromACMMsgToACM(const planning_environment_msgs::AllowedCollisionMatrix& matrix)
+collision_space::EnvironmentModel::AllowedCollisionMatrix planning_environment::convertFromACMMsgToACM(const arm_navigation_msgs::AllowedCollisionMatrix& matrix)
 {
   std::map<std::string, unsigned int> indices;
   std::vector<std::vector<bool> > vecs;
@@ -353,30 +353,30 @@ bool planning_environment::doesKinematicStateObeyConstraints(const planning_mode
   return(constraint_evaluator.decide(&state, verbose));
 }
 
-void planning_environment::setMarkerShapeFromShape(const geometric_shapes_msgs::Shape &obj, visualization_msgs::Marker &mk)
+void planning_environment::setMarkerShapeFromShape(const arm_navigation_msgs::Shape &obj, visualization_msgs::Marker &mk)
 {
   switch (obj.type)
   {
-  case geometric_shapes_msgs::Shape::SPHERE:
+  case arm_navigation_msgs::Shape::SPHERE:
     mk.type = visualization_msgs::Marker::SPHERE;
     mk.scale.x = mk.scale.y = mk.scale.z = obj.dimensions[0] * 2.0;
     break;
     
-  case geometric_shapes_msgs::Shape::BOX:
+  case arm_navigation_msgs::Shape::BOX:
     mk.type = visualization_msgs::Marker::CUBE;
     mk.scale.x = obj.dimensions[0];
     mk.scale.y = obj.dimensions[1];
     mk.scale.z = obj.dimensions[2];
     break;
     
-  case geometric_shapes_msgs::Shape::CYLINDER:
+  case arm_navigation_msgs::Shape::CYLINDER:
     mk.type = visualization_msgs::Marker::CYLINDER;
     mk.scale.x = obj.dimensions[0] * 2.0;
     mk.scale.y = obj.dimensions[0] * 2.0;
     mk.scale.z = obj.dimensions[1];
     break;
     
-  case geometric_shapes_msgs::Shape::MESH:
+  case arm_navigation_msgs::Shape::MESH:
     mk.type = visualization_msgs::Marker::LINE_LIST;
     mk.scale.x = mk.scale.y = mk.scale.z = 0.001;
     {

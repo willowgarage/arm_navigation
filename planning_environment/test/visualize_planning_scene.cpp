@@ -36,8 +36,8 @@
 
 #include <ros/ros.h>
 #include <planning_environment/monitors/planning_monitor.h>
-#include <planning_environment_msgs/GetPlanningScene.h>
-#include <planning_environment_msgs/GetRobotState.h>
+#include <arm_navigation_msgs/GetPlanningScene.h>
+#include <arm_navigation_msgs/GetRobotState.h>
 #include <planning_environment/models/model_utils.h>
 #include <ros/package.h>
 
@@ -56,7 +56,7 @@ int main(int argc, char** argv)
 
   planning_environment::CollisionModels cmodel(robot_description_name);
 
-  planning_environment_msgs::PlanningScene planning_scene;
+  arm_navigation_msgs::PlanningScene planning_scene;
 
   cmodel.readPlanningSceneBag(ros::package::getPath("planning_environment")+"/test_table.bag",
                               planning_scene);

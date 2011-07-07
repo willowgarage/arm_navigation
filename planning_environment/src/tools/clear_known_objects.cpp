@@ -49,8 +49,8 @@
 #include <message_filters/subscriber.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <mapping_msgs/AttachedCollisionObject.h>
-#include <mapping_msgs/CollisionObject.h>
+#include <arm_navigation_msgs/AttachedCollisionObject.h>
+#include <arm_navigation_msgs/CollisionObject.h>
 
 class ClearKnownObjects
 {
@@ -68,13 +68,13 @@ public:
       nh_.param<bool>("filter_static_objects", filter_static_objects_, false);
 
       cloudPublisher_ = root_handle_.advertise<sensor_msgs::PointCloud>("cloud_out", 1);	    
-      collisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
-      collisionObjectFilter_ = new tf::MessageFilter<mapping_msgs::CollisionObject>(*collisionObjectSubscriber_, *tf_, cm_->getWorldFrameId(), 1024);
+      collisionObjectSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
+      collisionObjectFilter_ = new tf::MessageFilter<arm_navigation_msgs::CollisionObject>(*collisionObjectSubscriber_, *tf_, cm_->getWorldFrameId(), 1024);
       collisionObjectFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionObjectCallback, this, _1));
       ROS_DEBUG("Listening to object_in_map using message notifier with target frame %s", collisionObjectFilter_->getTargetFramesString().c_str());
       
       //using regular message filter as there's no header
-      attachedCollisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
+      attachedCollisionObjectSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
       attachedCollisionObjectSubscriber_->registerCallback(boost::bind(&CollisionSpaceMonitor::attachObjectCallback, this, _1));    
 
 
@@ -339,9 +339,9 @@ private:
     updateObjects_.unlock();
   }
        
-  void objectUpdateEvent(const mapping_msgs::CollisionObjectConstPtr &collisionObject) {
+  void objectUpdateEvent(const arm_navigation_msgs::CollisionObjectConstPtr &collisionObject) {
     updateObjects_.lock();
-    if (collisionObject->operation.operation == mapping_msgs::CollisionObjectOperation::ADD) {
+    if (collisionObject->operation.operation == arm_navigation_msgs::CollisionObjectOperation::ADD) {
       KnownObject* kb = new KnownObject();
       for(unsigned int i = 0; i < collisionObject->shapes.size(); i++) {
         // add the object to the map
@@ -394,12 +394,12 @@ private:
     updateObjects_.unlock();
   }
 
-  void attachObjectEvent(const mapping_msgs::AttachedCollisionObjectConstPtr& attachedObject) {
+  void attachObjectEvent(const arm_navigation_msgs::AttachedCollisionObjectConstPtr& attachedObject) {
     ROS_INFO_STREAM("Calling attach object for object " << attachedObject->object.id << " operation " << attachedObject->object.operation.operation);
     updateObjects_.lock();
-    if(attachedObject->object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE) {
+    if(attachedObject->object.operation.operation != arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
       //assumes stuff is up to date
-      if(attachedObject->object.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
+      if(attachedObject->object.operation.operation == arm_navigation_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
         if(attached_objects_.find(attachedObject->object.id) == attached_objects_.end()) {
           ROS_WARN_STREAM("No attached body " << attachedObject->object.id << " to detach");
         } else {
@@ -413,7 +413,7 @@ private:
           attached_objects_.erase(attachedObject->object.id);
           ROS_INFO_STREAM("Clear objects adding attached object " << attachedObject->object.id << " back to objects");
         }
-      } else if(attachedObject->object.operation.operation == mapping_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
+      } else if(attachedObject->object.operation.operation == arm_navigation_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
         if(filter_static_objects_) {
           if(collisionObjects_.find(attachedObject->object.id) == collisionObjects_.end()) {
             ROS_WARN_STREAM("No object " << attachedObject->object.id << " to attach");

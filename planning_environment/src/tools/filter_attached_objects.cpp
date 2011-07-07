@@ -50,7 +50,7 @@
 #include <message_filters/subscriber.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <mapping_msgs/AttachedCollisionObject.h>
+#include <arm_navigation_msgs/AttachedCollisionObject.h>
 #include <robot_self_filter/self_mask.h>
 #include <pcl/ros/conversions.h>
 #include <pcl_ros/transforms.h>
@@ -66,10 +66,10 @@ public:
     
     cloud_publisher_ = root_handle_.advertise<sensor_msgs::PointCloud2>("cloud_out", 1);	    
     cloud_publisher_shadow_ = root_handle_.advertise<sensor_msgs::PointCloud2>("cloud_out_shadow", 1);	    
-    attached_collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
+    attached_collision_object_subscriber_ = new message_filters::Subscriber<arm_navigation_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
     attached_collision_object_subscriber_->registerCallback(boost::bind(&FilterAttachedObjects::attachedObjectCallback, this, _1));    
 
-    collision_object_subscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);	
+    collision_object_subscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionObject>(root_handle_, "collision_object", 1024);	
     collision_object_subscriber_->registerCallback(boost::bind(&FilterAttachedObjects::objectCallback, this, _1));    
     
     cloud_subscriber_ = new message_filters::Subscriber<sensor_msgs::PointCloud2>(root_handle_, "cloud_in", 1);
@@ -178,11 +178,11 @@ public:
     }
   }
        
-  void objectCallback(const mapping_msgs::CollisionObjectConstPtr& object) {
+  void objectCallback(const arm_navigation_msgs::CollisionObjectConstPtr& object) {
     planning_environment::processCollisionObjectMsg(object, tf_, cm_);
   }
   
-  void attachedObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr& attached_object) {
+  void attachedObjectCallback(const arm_navigation_msgs::AttachedCollisionObjectConstPtr& attached_object) {
     planning_environment::processAttachedCollisionObjectMsg(attached_object, tf_, cm_);
   }
     
@@ -194,8 +194,8 @@ public:
   message_filters::Subscriber<sensor_msgs::PointCloud2> *cloud_subscriber_;
   tf::MessageFilter<sensor_msgs::PointCloud2> *cloud_filter_;
 
-  message_filters::Subscriber<mapping_msgs::AttachedCollisionObject> *attached_collision_object_subscriber_;
-  message_filters::Subscriber<mapping_msgs::CollisionObject> *collision_object_subscriber_;
+  message_filters::Subscriber<arm_navigation_msgs::AttachedCollisionObject> *attached_collision_object_subscriber_;
+  message_filters::Subscriber<arm_navigation_msgs::CollisionObject> *collision_object_subscriber_;
 
   ros::Publisher cloud_publisher_;    
   ros::Publisher cloud_publisher_shadow_;    

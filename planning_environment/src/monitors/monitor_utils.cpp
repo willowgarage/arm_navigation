@@ -67,7 +67,7 @@ bool planning_environment::getLatestIdentityTransform(const std::string& to_fram
 }
                                                 
 bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
-                                               const std::vector<geometric_shapes_msgs::Shape>& orig_shapes,
+                                               const std::vector<arm_navigation_msgs::Shape>& orig_shapes,
                                                const std::vector<geometry_msgs::Pose>& orig_poses,
                                                const std_msgs::Header& header, 
                                                const std::string& frame_to,
@@ -104,11 +104,11 @@ bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
   return true;
 }
 
-bool planning_environment::processCollisionObjectMsg(const mapping_msgs::CollisionObjectConstPtr &collision_object,
+bool planning_environment::processCollisionObjectMsg(const arm_navigation_msgs::CollisionObjectConstPtr &collision_object,
                                                      tf::TransformListener& tf,
                                                      planning_environment::CollisionModels* cm)
 {
-  if (collision_object->operation.operation == mapping_msgs::CollisionObjectOperation::ADD) {
+  if (collision_object->operation.operation == arm_navigation_msgs::CollisionObjectOperation::ADD) {
     std::vector<shapes::Shape*> shapes;
     std::vector<btTransform> poses;
     bool shapes_ok = createAndPoseShapes(tf,
@@ -147,12 +147,12 @@ bool planning_environment::processCollisionObjectMsg(const mapping_msgs::Collisi
   return true;
 }
 
-bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs::AttachedCollisionObjectConstPtr &attached_object,
+bool planning_environment::processAttachedCollisionObjectMsg(const arm_navigation_msgs::AttachedCollisionObjectConstPtr &attached_object,
                                                              tf::TransformListener& tf,
                                                              planning_environment::CollisionModels* cm)
 {
   if(attached_object->link_name == "all") { //attached_object->REMOVE_ALL_ATTACHED_OBJECTS) {
-    if(attached_object->object.operation.operation != mapping_msgs::CollisionObjectOperation::REMOVE) {
+    if(attached_object->object.operation.operation != arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
       ROS_WARN("Can't perform any action for all attached bodies except remove");
       return false;
     } 
@@ -162,27 +162,27 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
   //if there are no objects in the map, clear everything
   unsigned int n = attached_object->object.shapes.size();
 
-  const mapping_msgs::CollisionObject& obj = attached_object->object;
+  const arm_navigation_msgs::CollisionObject& obj = attached_object->object;
       
   if(n == 0) {
-    if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+    if(obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
       cm->deleteAllAttachedObjects();
       return true;
-    } else if (obj.operation.operation == mapping_msgs::CollisionObjectOperation::ADD){
+    } else if (obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::ADD){
       ROS_INFO("Remove must also be specified to delete all attached bodies");
       return false;
     } 
   } 
   
-  if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT
-     || obj.operation.operation == mapping_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
+  if(obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT
+     || obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
     //getting link pose in the world frame
     btTransform link_pose;
     if(!getLatestIdentityTransform(cm->getWorldFrameId(), attached_object->link_name, tf, link_pose)) {
       ROS_WARN_STREAM("Can't get transform for link " << attached_object->link_name);
       return false;
     }
-    if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
+    if(obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT) {
       cm->convertAttachedObjectToStaticObject(obj.id,
                                               attached_object->link_name,
                                               link_pose);
@@ -192,7 +192,7 @@ bool planning_environment::processAttachedCollisionObjectMsg(const mapping_msgs:
                                               link_pose,
                                               attached_object->touch_links);
     }
-  } else if(obj.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+  } else if(obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
     cm->deleteAttachedObject(obj.id,
                              attached_object->link_name);
   } else {

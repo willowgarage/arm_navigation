@@ -218,7 +218,7 @@ void planning_environment::CollisionModels::loadCollisionFromParamServer()
 ///
 
 planning_models::KinematicState* 
-planning_environment::CollisionModels::setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene) {
+planning_environment::CollisionModels::setPlanningScene(const arm_navigation_msgs::PlanningScene& planning_scene) {
 
   if(planning_scene_set_) {
     ROS_WARN("Must revert before setting planning scene again");
@@ -248,12 +248,12 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
     delete state;
     return NULL;
   }
-  std::vector<mapping_msgs::CollisionObject> conv_objects;
-  std::vector<mapping_msgs::AttachedCollisionObject> conv_att_objects;
+  std::vector<arm_navigation_msgs::CollisionObject> conv_objects;
+  std::vector<arm_navigation_msgs::AttachedCollisionObject> conv_att_objects;
 
   //need to do conversions first so we can delet the planning state
   for(unsigned int i = 0; i < planning_scene.collision_objects.size(); i++) {
-    if(planning_scene.collision_objects[i].operation.operation != mapping_msgs::CollisionObjectOperation::ADD) {
+    if(planning_scene.collision_objects[i].operation.operation != arm_navigation_msgs::CollisionObjectOperation::ADD) {
       ROS_WARN_STREAM("Planning scene shouldn't have collision operations other than add");
       delete state;
       return NULL;
@@ -262,7 +262,7 @@ planning_environment::CollisionModels::setPlanningScene(const planning_environme
     convertCollisionObjectToNewWorldFrame(*state, conv_objects.back());
   }
   for(unsigned int i = 0; i < planning_scene.attached_collision_objects.size(); i++) {
-    if(planning_scene.attached_collision_objects[i].object.operation.operation != mapping_msgs::CollisionObjectOperation::ADD) {
+    if(planning_scene.attached_collision_objects[i].object.operation.operation != arm_navigation_msgs::CollisionObjectOperation::ADD) {
       ROS_WARN_STREAM("Planning scene shouldn't have collision operations other than add");
       delete state;
       return NULL;
@@ -408,7 +408,7 @@ bool planning_environment::CollisionModels::convertPoseGivenWorldTransform(const
 }
 
 bool planning_environment::CollisionModels::convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                                                                          mapping_msgs::AttachedCollisionObject& att_obj) const
+                                                                                          arm_navigation_msgs::AttachedCollisionObject& att_obj) const
 {
   for(unsigned int i = 0; i < att_obj.object.poses.size(); i++) {
     geometry_msgs::PoseStamped ret_pose;    
@@ -428,7 +428,7 @@ bool planning_environment::CollisionModels::convertAttachedCollisionObjectToNewW
 }
 
 bool planning_environment::CollisionModels::convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                                                                  mapping_msgs::CollisionObject& obj) const
+                                                                                  arm_navigation_msgs::CollisionObject& obj) const
 {
   for(unsigned int i = 0; i < obj.poses.size(); i++) {
     geometry_msgs::PoseStamped ret_pose;
@@ -589,7 +589,7 @@ bool planning_environment::CollisionModels::updateAttachedBodyPoses(const planni
   return true;
 }
 
-bool planning_environment::CollisionModels::addStaticObject(const mapping_msgs::CollisionObject& obj)
+bool planning_environment::CollisionModels::addStaticObject(const arm_navigation_msgs::CollisionObject& obj)
 {
   std::vector<shapes::Shape*> shapes;
   std::vector<btTransform> poses;
@@ -662,7 +662,7 @@ void planning_environment::CollisionModels::deleteAllStaticObjects() {
   bodiesUnlock();
 }
 
-void planning_environment::CollisionModels::setCollisionMap(const mapping_msgs::CollisionMap& map, 
+void planning_environment::CollisionModels::setCollisionMap(const arm_navigation_msgs::CollisionMap& map, 
                                                             bool mask_before_insertion) {
   std::vector<shapes::Shape*> shapes(map.boxes.size());
   std::vector<btTransform> poses;
@@ -749,9 +749,9 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
   bodiesUnlock();
 }
 
-bool planning_environment::CollisionModels::addAttachedObject(const mapping_msgs::AttachedCollisionObject& att)
+bool planning_environment::CollisionModels::addAttachedObject(const arm_navigation_msgs::AttachedCollisionObject& att)
 {
-  const mapping_msgs::CollisionObject& obj = att.object;
+  const arm_navigation_msgs::CollisionObject& obj = att.object;
   std::vector<shapes::Shape*> shapes;
   std::vector<btTransform> poses;
   for(unsigned int i = 0; i < obj.shapes.size(); i++) {
@@ -1166,7 +1166,7 @@ bool planning_environment::CollisionModels::computeAllowedContact(const arm_navi
     return false;
 }
 
-void planning_environment::CollisionModels::getLastCollisionMap(mapping_msgs::CollisionMap& cmap) const
+void planning_environment::CollisionModels::getLastCollisionMap(arm_navigation_msgs::CollisionMap& cmap) const
 {
   bodiesLock();
   cmap.header.frame_id = getWorldFrameId();
@@ -1175,7 +1175,7 @@ void planning_environment::CollisionModels::getLastCollisionMap(mapping_msgs::Co
   for(unsigned int i = 0; i < collision_map_shapes_.size(); i++) {
   if (collision_map_shapes_[i]->type == shapes::BOX) {
     const shapes::Box* box = static_cast<const shapes::Box*>(collision_map_shapes_[i]);
-    mapping_msgs::OrientedBoundingBox obb;
+    arm_navigation_msgs::OrientedBoundingBox obb;
     obb.extents.x = box->size[0];
     obb.extents.y = box->size[1];
     obb.extents.z = box->size[2];
@@ -1195,7 +1195,7 @@ void planning_environment::CollisionModels::getLastCollisionMap(mapping_msgs::Co
   bodiesUnlock();
 }
 
-void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const
+void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(arm_navigation_msgs::CollisionMap& cmap) const
 {
   bodiesLock();
   ode_collision_model_->lock();
@@ -1208,7 +1208,7 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(mappin
   for (unsigned int i = 0 ; i < n ; ++i) {
     if (no.shape[i]->type == shapes::BOX) {
       const shapes::Box* box = static_cast<const shapes::Box*>(no.shape[i]);
-      mapping_msgs::OrientedBoundingBox obb;
+      arm_navigation_msgs::OrientedBoundingBox obb;
       obb.extents.x = box->size[0];
       obb.extents.y = box->size[1];
       obb.extents.z = box->size[2];
@@ -1241,13 +1241,13 @@ void planning_environment::CollisionModels::revertCollisionSpacePaddingToDefault
   ode_collision_model_->unlock();
 }
 
-void planning_environment::CollisionModels::getCollisionSpaceAllowedCollisions(planning_environment_msgs::AllowedCollisionMatrix& ret_matrix) const {
+void planning_environment::CollisionModels::getCollisionSpaceAllowedCollisions(arm_navigation_msgs::AllowedCollisionMatrix& ret_matrix) const {
 
   convertFromACMToACMMsg(ode_collision_model_->getCurrentAllowedCollisionMatrix(),
                          ret_matrix);
 }
 
-void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject> &omap) const
+void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(std::vector<arm_navigation_msgs::CollisionObject> &omap) const
 {
   bodiesLock();
   ode_collision_model_->lock();
@@ -1261,13 +1261,13 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(st
     const collision_space::EnvironmentObjects::NamespaceObjects &no = eo->getObjects(ns[i]);
     const unsigned int n = no.shape.size();
 
-    mapping_msgs::CollisionObject o;
+    arm_navigation_msgs::CollisionObject o;
     o.header.frame_id = getWorldFrameId();
     o.header.stamp = ros::Time::now();
     o.id = ns[i];
-    o.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    o.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
     for (unsigned int j = 0 ; j < n ; ++j) {
-      geometric_shapes_msgs::Shape obj;
+      arm_navigation_msgs::Shape obj;
       if (constructObjectMsg(no.shape[j], obj)) {
         geometry_msgs::Pose pose;
         tf::poseTFToMsg(no.shape_pose[j], pose);
@@ -1286,7 +1286,7 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionObjects(st
   bodiesUnlock();
 }
 
-void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject> &avec) const
+void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionObjects(std::vector<arm_navigation_msgs::AttachedCollisionObject> &avec) const
 {
   avec.clear();
 
@@ -1296,13 +1296,13 @@ void planning_environment::CollisionModels::getCollisionSpaceAttachedCollisionOb
   std::vector<const planning_models::KinematicModel::AttachedBodyModel*> att_vec = kmodel_->getAttachedBodyModels();
   for(unsigned int i = 0; i < att_vec.size(); i++) 
   {
-    mapping_msgs::AttachedCollisionObject ao;
+    arm_navigation_msgs::AttachedCollisionObject ao;
     ao.object.header.frame_id = att_vec[i]->getAttachedLinkModel()->getName();
     ao.object.header.stamp = ros::Time::now();
     ao.link_name = att_vec[i]->getAttachedLinkModel()->getName();
     double attached_padd = ode_collision_model_->getCurrentLinkPadding("attached");
     for(unsigned int j = 0; j < att_vec[i]->getShapes().size(); j++) {
-      geometric_shapes_msgs::Shape shape;
+      arm_navigation_msgs::Shape shape;
       constructObjectMsg(att_vec[i]->getShapes()[j], shape, attached_padd);
       geometry_msgs::Pose pose;
       tf::poseTFToMsg(att_vec[i]->getAttachedBodyFixedTransforms()[j], pose);
@@ -1353,7 +1353,7 @@ bool planning_environment::CollisionModels::isKinematicStateInEnvironmentCollisi
 }
 
 void planning_environment::CollisionModels::getAllCollisionsForState(const planning_models::KinematicState& state,
-                                                                     std::vector<planning_environment_msgs::ContactInformation>& contacts,
+                                                                     std::vector<arm_navigation_msgs::ContactInformation>& contacts,
                                                                      unsigned int num_per_pair) 
 {
   ode_collision_model_->lock();
@@ -1367,24 +1367,24 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
   ros::WallTime n2 = ros::WallTime::now();
   ROS_DEBUG_STREAM("Got " << coll_space_contacts.size() << " collisions in " << (n2-n1).toSec());
   for(unsigned int i = 0; i < coll_space_contacts.size(); i++) {
-    planning_environment_msgs::ContactInformation contact_info;
+    arm_navigation_msgs::ContactInformation contact_info;
     contact_info.header.frame_id = getWorldFrameId();
     collision_space::EnvironmentModel::Contact& contact = coll_space_contacts[i];
     contact_info.contact_body_1 = contact.body_name_1;
     contact_info.contact_body_2 = contact.body_name_2;
     if(contact.body_type_1 == collision_space::EnvironmentModel::LINK) {
-      contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+      contact_info.body_type_1 = arm_navigation_msgs::ContactInformation::ROBOT_LINK;
     } else if(contact.body_type_1 == collision_space::EnvironmentModel::ATTACHED) {
-      contact_info.body_type_1 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+      contact_info.body_type_1 = arm_navigation_msgs::ContactInformation::ATTACHED_BODY;
     } else {
-      contact_info.body_type_1 = planning_environment_msgs::ContactInformation::OBJECT;      
+      contact_info.body_type_1 = arm_navigation_msgs::ContactInformation::OBJECT;      
     }
     if(contact.body_type_2 == collision_space::EnvironmentModel::LINK) {
-      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ROBOT_LINK;
+      contact_info.body_type_2 = arm_navigation_msgs::ContactInformation::ROBOT_LINK;
     } else if(contact.body_type_2 == collision_space::EnvironmentModel::ATTACHED) {
-      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::ATTACHED_BODY;
+      contact_info.body_type_2 = arm_navigation_msgs::ContactInformation::ATTACHED_BODY;
     } else {
-      contact_info.body_type_2 = planning_environment_msgs::ContactInformation::OBJECT;      
+      contact_info.body_type_2 = arm_navigation_msgs::ContactInformation::OBJECT;      
     }
     contact_info.position.x = contact.pos.x();
     contact_info.position.y = contact.pos.y();
@@ -1435,7 +1435,7 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
   if(isKinematicStateInCollision(state)) {
     error_code.val = error_code.COLLISION_CONSTRAINTS_VIOLATED;    
     if(verbose) {
-      std::vector<planning_environment_msgs::ContactInformation> contacts;
+      std::vector<arm_navigation_msgs::ContactInformation> contacts;
       getAllCollisionsForState(state, contacts,1);
       if(contacts.size() == 0) {
         ROS_WARN_STREAM("Collision reported but no contacts");
@@ -1451,7 +1451,7 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
   return true;
 }
 
-bool planning_environment::CollisionModels::isJointTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+bool planning_environment::CollisionModels::isJointTrajectoryValid(const arm_navigation_msgs::PlanningScene& planning_scene,
                                                                    const trajectory_msgs::JointTrajectory &trajectory,
                                                                    const arm_navigation_msgs::Constraints& goal_constraints,
                                                                    const arm_navigation_msgs::Constraints& path_constraints,
@@ -1583,7 +1583,7 @@ bool planning_environment::CollisionModels::isJointTrajectoryValid(planning_mode
   return(error_code.val == error_code.SUCCESS);
 }
 
-// bool planning_environment::CollisionModels::isRobotTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+// bool planning_environment::CollisionModels::isRobotTrajectoryValid(const arm_navigation_msgs::PlanningScene& planning_scene,
 //                                                                    const arm_navigation_msgs::RobotTrajectory& trajectory,
 //                                                                    const arm_navigation_msgs::Constraints& goal_constraints,
 //                                                                    const arm_navigation_msgs::Constraints& path_constraints,
@@ -1693,7 +1693,7 @@ void planning_environment::CollisionModels::getAllCollisionPointMarkers(const pl
                                                                         const std_msgs::ColorRGBA& color,
                                                                         const ros::Duration& lifetime)
 {
-  std::vector<planning_environment_msgs::ContactInformation> coll_info_vec;
+  std::vector<arm_navigation_msgs::ContactInformation> coll_info_vec;
   getAllCollisionsForState(state,coll_info_vec,1);
 
   std::map<std::string, unsigned> ns_counts;
@@ -1739,7 +1739,7 @@ void planning_environment::CollisionModels::getStaticCollisionObjectMarkers(visu
                                                                             const std_msgs::ColorRGBA& color,
                                                                             const ros::Duration& lifetime) const
 {
-  std::vector<mapping_msgs::CollisionObject> static_objects;
+  std::vector<arm_navigation_msgs::CollisionObject> static_objects;
   getCollisionSpaceCollisionObjects(static_objects);
   
   for(unsigned int i = 0; i < static_objects.size(); i++) {
@@ -1775,7 +1775,7 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(co
                                                                               const ros::Duration& lifetime)
 {
   ode_collision_model_->lock();
-  std::vector<mapping_msgs::AttachedCollisionObject> attached_objects;
+  std::vector<arm_navigation_msgs::AttachedCollisionObject> attached_objects;
   getCollisionSpaceAttachedCollisionObjects(attached_objects);
 
   ode_collision_model_->updateRobotModel(&state);
@@ -1822,7 +1822,7 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(co
 }
 
 void planning_environment::CollisionModels::getPlanningSceneGivenState(const planning_models::KinematicState& state,
-                                                                       planning_environment_msgs::PlanningScene& planning_scene)
+                                                                       arm_navigation_msgs::PlanningScene& planning_scene)
 {
   convertKinematicStateToRobotState(state, ros::Time::now(), getWorldFrameId(), planning_scene.robot_state);
   convertFromACMToACMMsg(getCurrentAllowedCollisionMatrix(), planning_scene.allowed_collision_matrix);
@@ -2126,7 +2126,7 @@ void planning_environment::CollisionModels::getGroupAndUpdatedJointMarkersGivenS
 
 
 void planning_environment::CollisionModels::writePlanningSceneBag(const std::string& filename,
-                                                                  const planning_environment_msgs::PlanningScene& planning_scene) const
+                                                                  const arm_navigation_msgs::PlanningScene& planning_scene) const
 {
   rosbag::Bag bag;
   bag.open(filename, rosbag::bagmode::Write);
@@ -2137,7 +2137,7 @@ void planning_environment::CollisionModels::writePlanningSceneBag(const std::str
 }
 
 bool planning_environment::CollisionModels::readPlanningSceneBag(const std::string& filename,
-                                                                 planning_environment_msgs::PlanningScene& planning_scene) const
+                                                                 arm_navigation_msgs::PlanningScene& planning_scene) const
 {
   rosbag::Bag bag;
   try {
@@ -2155,7 +2155,7 @@ bool planning_environment::CollisionModels::readPlanningSceneBag(const std::stri
   bool has_one = false;
   BOOST_FOREACH(rosbag::MessageInstance const m, view)
   {
-    planning_environment_msgs::PlanningScene::ConstPtr ps = m.instantiate<planning_environment_msgs::PlanningScene>();
+    arm_navigation_msgs::PlanningScene::ConstPtr ps = m.instantiate<arm_navigation_msgs::PlanningScene>();
     if(ps != NULL) {
       planning_scene = *ps;
       has_one = true;

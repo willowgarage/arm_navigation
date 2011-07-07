@@ -41,7 +41,7 @@
 #include <tf/tf.h>
 #include <collision_space/environment.h>
 #include <arm_navigation_msgs/PlanningScene.h>
-#include <geometric_shapes_msgs/Shape.h>
+#include <arm_navigation_msgs/Shape.h>
 #include <geometric_shapes/bodies.h>
 #include <trajectory_msgs/JointTrajectory.h>
 #include <arm_navigation_msgs/Constraints.h>
@@ -86,10 +86,10 @@ public:
   // Planning scene and state based transform functions
   //
   bool convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                                     mapping_msgs::AttachedCollisionObject& att_obj) const;
+                                                     arm_navigation_msgs::AttachedCollisionObject& att_obj) const;
   
   bool convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                             mapping_msgs::CollisionObject& obj) const;
+                                             arm_navigation_msgs::CollisionObject& obj) const;
   
   bool convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
                                                 arm_navigation_msgs::Constraints& constraints,
@@ -123,7 +123,7 @@ public:
   bool updateAttachedBodyPoses(const planning_models::KinematicState& state);
 
   //this function will fail if the header is not in the world frame
-  bool addStaticObject(const mapping_msgs::CollisionObject& obj);
+  bool addStaticObject(const arm_navigation_msgs::CollisionObject& obj);
 
   void addStaticObject(const std::string& name,
                        std::vector<shapes::Shape*>& shapes,
@@ -135,7 +135,7 @@ public:
   void deleteAllStaticObjects();
 
   //this function will fail if the header is not in the world frame
-  void setCollisionMap(const mapping_msgs::CollisionMap& map,
+  void setCollisionMap(const arm_navigation_msgs::CollisionMap& map,
                        bool mask_before_insertion=true);
 
   void setCollisionMap(std::vector<shapes::Shape*>& shapes,
@@ -148,7 +148,7 @@ public:
                                 std::vector<btTransform>& poses);
   
   //this function will fail if the header is not in the world frame
-  bool addAttachedObject(const mapping_msgs::AttachedCollisionObject& att);
+  bool addAttachedObject(const arm_navigation_msgs::AttachedCollisionObject& att);
 
   //fails if the link_name is not a valid link
   bool addAttachedObject(const std::string& object_name,
@@ -206,15 +206,15 @@ public:
 
   const collision_space::EnvironmentModel::AllowedCollisionMatrix& getDefaultAllowedCollisionMatrix() const;
 
-  void getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const;
+  void getCollisionSpaceCollisionMap(arm_navigation_msgs::CollisionMap& cmap) const;
 
-  void getLastCollisionMap(mapping_msgs::CollisionMap& cmap) const;
+  void getLastCollisionMap(arm_navigation_msgs::CollisionMap& cmap) const;
   
   void getCollisionSpaceAllowedCollisions(arm_navigation_msgs::AllowedCollisionMatrix& matrix) const;
 
-  void getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject>& omap) const;
+  void getCollisionSpaceCollisionObjects(std::vector<arm_navigation_msgs::CollisionObject>& omap) const;
 
-  void getCollisionSpaceAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject>& avec) const;
+  void getCollisionSpaceAttachedCollisionObjects(std::vector<arm_navigation_msgs::AttachedCollisionObject>& avec) const;
 
   //
   // Functions for checking collisions and validity

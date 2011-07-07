@@ -44,7 +44,7 @@
 #include <arm_navigation_msgs/OrderedCollisionOperations.h>
 
 #include <planning_environment/util/kinematic_state_constraint_evaluator.h>
-#include <geometric_shapes_msgs/Shape.h>
+#include <arm_navigation_msgs/Shape.h>
 #include <visualization_msgs/Marker.h>
 #include <arm_navigation_msgs/LinkPadding.h>
 #include <collision_space/environment.h>
@@ -109,7 +109,7 @@ bool doesKinematicStateObeyConstraints(const planning_models::KinematicState& st
                                        const arm_navigation_msgs::Constraints& constraints,
                                        bool verbose = false);
 
-void setMarkerShapeFromShape(const geometric_shapes_msgs::Shape &obj, visualization_msgs::Marker &mk);
+void setMarkerShapeFromShape(const arm_navigation_msgs::Shape &obj, visualization_msgs::Marker &mk);
 
 void setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marker &mk);
 

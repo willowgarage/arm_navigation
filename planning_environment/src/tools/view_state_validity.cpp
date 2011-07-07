@@ -76,15 +76,15 @@ public:
 
 protected:
 
-  void afterWorldUpdate(const mapping_msgs::CollisionMapConstPtr &collisionMap, bool clear)
+  void afterWorldUpdate(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap, bool clear)
   {
     last_ = -1;
   }
     
   void stateUpdate(void)
   {	
-    motion_planning_msgs::ArmNavigationErrorCodes error_code;
-    motion_planning_msgs::RobotState empty_state;
+    arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+    arm_navigation_msgs::RobotState empty_state;
     bool valid = planningMonitor_->isStateValid(empty_state, planning_environment::PlanningMonitor::COLLISION_TEST,false,error_code);
     std_msgs::Byte msg;
     msg.data = valid ? 1 : 0;

@@ -60,7 +60,7 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
   }
   
   //need to create action server before we request
-  action_server_ = new actionlib::SimpleActionServer<planning_environment_msgs::SetPlanningSceneAction>(priv_nh_, "set_planning_scene",
+  action_server_ = new actionlib::SimpleActionServer<arm_navigation_msgs::SetPlanningSceneAction>(priv_nh_, "set_planning_scene",
                                                                                                         boost::bind(&CollisionModelsInterface::setPlanningSceneCallback, this, _1), false);
   action_server_->start();
 
@@ -83,10 +83,10 @@ planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
   }
 }
 
-void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(const planning_environment_msgs::SetPlanningSceneGoalConstPtr& scene)
+void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(const arm_navigation_msgs::SetPlanningSceneGoalConstPtr& scene)
 {
   bodiesLock();
-  planning_environment_msgs::SetPlanningSceneResult res;
+  arm_navigation_msgs::SetPlanningSceneResult res;
   res.ok = true;
 
   ROS_DEBUG("Setting planning scene");
@@ -108,7 +108,7 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
     return;
   }
   last_planning_scene_ = scene->planning_scene;
-  planning_environment_msgs::SetPlanningSceneFeedback feedback;
+  arm_navigation_msgs::SetPlanningSceneFeedback feedback;
   feedback.client_processing = true;
   feedback.ready = false;
   action_server_->publishFeedback(feedback);
@@ -124,7 +124,7 @@ void planning_environment::CollisionModelsInterface::setPlanningSceneCallback(co
   bodiesUnlock();
 }
 
-bool planning_environment::CollisionModelsInterface::setPlanningSceneWithCallbacks(const planning_environment_msgs::PlanningScene& planning_scene)
+bool planning_environment::CollisionModelsInterface::setPlanningSceneWithCallbacks(const arm_navigation_msgs::PlanningScene& planning_scene)
 {
   if(planning_scene_set_) {
     revertPlanningScene(planning_scene_state_);

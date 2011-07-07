@@ -39,9 +39,9 @@
 
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/monitors/kinematic_model_state_monitor.h>
-#include <mapping_msgs/CollisionMap.h>
-#include <mapping_msgs/CollisionObject.h>
-#include <mapping_msgs/AttachedCollisionObject.h>
+#include <arm_navigation_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/CollisionObject.h>
+#include <arm_navigation_msgs/AttachedCollisionObject.h>
 #include <boost/thread/mutex.hpp>
 #include <std_srvs/Empty.h>
 
@@ -133,17 +133,17 @@ public:
 protected:
   
   void setupCSM(void);
-  void updateCollisionSpace(const mapping_msgs::CollisionMapConstPtr &collisionMap, bool clear);
-  void collisionMapAsSpheres(const mapping_msgs::CollisionMapConstPtr &collisionMap,
+  void updateCollisionSpace(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap, bool clear);
+  void collisionMapAsSpheres(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap,
                              std::vector<shapes::Shape*> &spheres, std::vector<btTransform> &poses);
-  void collisionMapAsBoxes(const mapping_msgs::CollisionMap &collisionMap,
+  void collisionMapAsBoxes(const arm_navigation_msgs::CollisionMap &collisionMap,
                            std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses);
-  void collisionMapAsBoxes(const mapping_msgs::CollisionMapConstPtr &collisionMap,
+  void collisionMapAsBoxes(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap,
                            std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses);
-  void collisionMapCallback(const mapping_msgs::CollisionMapConstPtr &collisionMap);
-  void collisionMapUpdateCallback(const mapping_msgs::CollisionMapConstPtr &collisionMap);
-  void collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collisionObject);
-  virtual bool attachObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr &attachedObject);
+  void collisionMapCallback(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap);
+  void collisionMapUpdateCallback(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap);
+  void collisionObjectCallback(const arm_navigation_msgs::CollisionObjectConstPtr &collisionObject);
+  virtual bool attachObjectCallback(const arm_navigation_msgs::AttachedCollisionObjectConstPtr &attachedObject);
 
   CollisionModels *cm_;
   double pointcloud_padd_;
@@ -153,14 +153,14 @@ protected:
   bool have_map_;
   ros::Time last_map_update_;	
 	
-  message_filters::Subscriber<mapping_msgs::CollisionMap> *collisionMapSubscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionMap> *collisionMapFilter_;
-  message_filters::Subscriber<mapping_msgs::CollisionMap> *collisionMapUpdateSubscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionMap> *collisionMapUpdateFilter_;
-  message_filters::Subscriber<mapping_msgs::CollisionObject> *collisionObjectSubscriber_;
-  tf::MessageFilter<mapping_msgs::CollisionObject> *collisionObjectFilter_;
+  message_filters::Subscriber<arm_navigation_msgs::CollisionMap> *collisionMapSubscriber_;
+  tf::MessageFilter<arm_navigation_msgs::CollisionMap> *collisionMapFilter_;
+  message_filters::Subscriber<arm_navigation_msgs::CollisionMap> *collisionMapUpdateSubscriber_;
+  tf::MessageFilter<arm_navigation_msgs::CollisionMap> *collisionMapUpdateFilter_;
+  message_filters::Subscriber<arm_navigation_msgs::CollisionObject> *collisionObjectSubscriber_;
+  tf::MessageFilter<arm_navigation_msgs::CollisionObject> *collisionObjectFilter_;
 
-  message_filters::Subscriber<mapping_msgs::AttachedCollisionObject> *attachedCollisionObjectSubscriber_;
+  message_filters::Subscriber<arm_navigation_msgs::AttachedCollisionObject> *attachedCollisionObjectSubscriber_;
 
   bool use_collision_map_;
 

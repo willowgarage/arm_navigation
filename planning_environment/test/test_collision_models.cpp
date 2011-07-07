@@ -67,9 +67,9 @@ protected:
     static_object_1_.header.stamp = ros::Time::now();
     static_object_1_.header.frame_id = "odom_combined";
     static_object_1_.id = "object_1";
-    static_object_1_.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    static_object_1_.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
     static_object_1_.shapes.resize(1);
-    static_object_1_.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+    static_object_1_.shapes[0].type = arm_navigation_msgs::Shape::CYLINDER;
     static_object_1_.shapes[0].dimensions.resize(2);
     static_object_1_.shapes[0].dimensions[0] = .1;
     static_object_1_.shapes[0].dimensions[1] = 1.5;
@@ -82,14 +82,14 @@ protected:
     static_object_2_.header.stamp = ros::Time::now();
     static_object_2_.header.frame_id = "odom_combined";
     static_object_2_.id = "object_2";
-    static_object_2_.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    static_object_2_.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
     static_object_2_.shapes.resize(2);
-    static_object_2_.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+    static_object_2_.shapes[0].type = arm_navigation_msgs::Shape::BOX;
     static_object_2_.shapes[0].dimensions.resize(3);
     static_object_2_.shapes[0].dimensions[0] = 1.0;
     static_object_2_.shapes[0].dimensions[1] = 1.0;
     static_object_2_.shapes[0].dimensions[2] = .05;
-    static_object_2_.shapes[1].type = geometric_shapes_msgs::Shape::BOX;
+    static_object_2_.shapes[1].type = arm_navigation_msgs::Shape::BOX;
     static_object_2_.shapes[1].dimensions.resize(3);
     static_object_2_.shapes[1].dimensions[0] = 1.0;
     static_object_2_.shapes[1].dimensions[1] = 1.0;
@@ -113,9 +113,9 @@ protected:
     static_object_3_.header.stamp = ros::Time::now();
     static_object_3_.header.frame_id = "odom_combined";
     static_object_3_.id = "object_3";
-    static_object_3_.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    static_object_3_.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
     static_object_3_.shapes.resize(1);
-    static_object_3_.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+    static_object_3_.shapes[0].type = arm_navigation_msgs::Shape::BOX;
     static_object_3_.shapes[0].dimensions.resize(3);
     static_object_3_.shapes[0].dimensions[0] = 1.0;
     static_object_3_.shapes[0].dimensions[1] = 1.0;
@@ -133,9 +133,9 @@ protected:
     att_object_1_.object.header.frame_id = "odom_combined";
     att_object_1_.link_name = "r_gripper_r_finger_tip_link";
     att_object_1_.object.id = "object_4";
-    att_object_1_.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    att_object_1_.object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
     att_object_1_.object.shapes.resize(1);
-    att_object_1_.object.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+    att_object_1_.object.shapes[0].type = arm_navigation_msgs::Shape::BOX;
     att_object_1_.object.shapes[0].dimensions.resize(3);
     att_object_1_.object.shapes[0].dimensions[0] = 1.0;
     att_object_1_.object.shapes[0].dimensions[1] = 1.0;
@@ -153,11 +153,11 @@ protected:
   
 protected:
 
-  mapping_msgs::CollisionObject static_object_1_;
-  mapping_msgs::CollisionObject static_object_2_;
-  mapping_msgs::CollisionObject static_object_3_;
+  arm_navigation_msgs::CollisionObject static_object_1_;
+  arm_navigation_msgs::CollisionObject static_object_2_;
+  arm_navigation_msgs::CollisionObject static_object_3_;
 
-  mapping_msgs::AttachedCollisionObject att_object_1_;
+  arm_navigation_msgs::AttachedCollisionObject att_object_1_;
 
   ros::NodeHandle nh_;
   std::string full_path_;
@@ -175,12 +175,12 @@ TEST_F(TestCollisionModels, NotInCollisionByDefault)
 
   EXPECT_FALSE(cm.isKinematicStateInCollision(state));
   
-  std::vector<planning_environment_msgs::ContactInformation> contacts;
+  std::vector<arm_navigation_msgs::ContactInformation> contacts;
   cm.getAllCollisionsForState(state, contacts,1);
   
   EXPECT_EQ(contacts.size(),0);
 
-  motion_planning_msgs::OrderedCollisionOperations ord;
+  arm_navigation_msgs::OrderedCollisionOperations ord;
   ord.collision_operations.resize(1);
   ord.collision_operations[0].object1 = ord.collision_operations[0].COLLISION_SET_ALL;
   ord.collision_operations[0].object2 = ord.collision_operations[0].COLLISION_SET_ALL;
@@ -206,7 +206,7 @@ TEST_F(TestCollisionModels, TestModelUtils)
   
   state.setKinematicStateToDefault();
 
-  motion_planning_msgs::RobotState rs;
+  arm_navigation_msgs::RobotState rs;
   planning_environment::convertKinematicStateToRobotState(state,
                                                           ros::Time::now(),
                                                           cm.getWorldFrameId(),
@@ -247,10 +247,10 @@ TEST_F(TestCollisionModels,TestCollisionObjects)
   cm.addStaticObject(static_object_2_);
   cm.addStaticObject(static_object_3_);
   
-  std::vector<mapping_msgs::CollisionObject> space_objs;
+  std::vector<arm_navigation_msgs::CollisionObject> space_objs;
   cm.getCollisionSpaceCollisionObjects(space_objs);
 
-  std::vector<mapping_msgs::AttachedCollisionObject> space_atts;
+  std::vector<arm_navigation_msgs::AttachedCollisionObject> space_atts;
   cm.getCollisionSpaceAttachedCollisionObjects(space_atts);
 
   ASSERT_EQ(space_objs.size(),2);
@@ -322,7 +322,7 @@ TEST_F(TestCollisionModels,TestAlterLinkPadding)
   //with 0.01 padding, shouldn't be in collision
   EXPECT_FALSE(cm.isKinematicStateInCollision(state));
   
-  std::vector<motion_planning_msgs::LinkPadding> padd_vec;
+  std::vector<arm_navigation_msgs::LinkPadding> padd_vec;
   padd_vec.resize(3);
   padd_vec[0].link_name = "r_gripper_palm_link";
   padd_vec[0].padding = .1;
@@ -338,7 +338,7 @@ TEST_F(TestCollisionModels,TestAlterLinkPadding)
   EXPECT_FALSE(cm.isKinematicStateInSelfCollision(state));
   EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(state));
 
-  std::vector<planning_environment_msgs::ContactInformation> contacts;
+  std::vector<arm_navigation_msgs::ContactInformation> contacts;
   cm.getAllCollisionsForState(state, contacts,1);
   
   EXPECT_GE(contacts.size(),1);
@@ -346,10 +346,10 @@ TEST_F(TestCollisionModels,TestAlterLinkPadding)
   for(unsigned int i = 0; i < contacts.size(); i++) {
     EXPECT_TRUE(contacts[i].contact_body_1 == "object_1" || contacts[i].contact_body_2 == "object_1") << contacts[i].contact_body_1 << " " << contacts[i].contact_body_2;
     EXPECT_TRUE(contacts[i].contact_body_1 != "object_1" || contacts[i].contact_body_2 != "object_1");
-    EXPECT_TRUE(contacts[i].body_type_1 == planning_environment_msgs::ContactInformation::ROBOT_LINK ||
-                contacts[i].body_type_2 == planning_environment_msgs::ContactInformation::ROBOT_LINK);    
-    EXPECT_TRUE(contacts[i].body_type_1 == planning_environment_msgs::ContactInformation::OBJECT ||
-                contacts[i].body_type_2 == planning_environment_msgs::ContactInformation::OBJECT);
+    EXPECT_TRUE(contacts[i].body_type_1 == arm_navigation_msgs::ContactInformation::ROBOT_LINK ||
+                contacts[i].body_type_2 == arm_navigation_msgs::ContactInformation::ROBOT_LINK);    
+    EXPECT_TRUE(contacts[i].body_type_1 == arm_navigation_msgs::ContactInformation::OBJECT ||
+                contacts[i].body_type_2 == arm_navigation_msgs::ContactInformation::OBJECT);
   }
   
   cm.revertCollisionSpacePaddingToDefault();
@@ -373,7 +373,7 @@ TEST_F(TestCollisionModels,TestAllowedCollisions)
   ASSERT_TRUE(check_acm.getAllowedCollision("r_gripper_palm_link","l_gripper_palm_link", allowed));
   EXPECT_FALSE(allowed);
 
-  motion_planning_msgs::OrderedCollisionOperations ord;
+  arm_navigation_msgs::OrderedCollisionOperations ord;
   ord.collision_operations.resize(1);
   ord.collision_operations[0].object1 = "r_gripper_palm_link";
   ord.collision_operations[0].object2 = "l_gripper_palm_link";
@@ -465,14 +465,14 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
 {
   planning_environment::CollisionModels cm("robot_description");
 
-  mapping_msgs::CollisionObject table;
+  arm_navigation_msgs::CollisionObject table;
   
   table.header.stamp = ros::Time::now();
   table.header.frame_id = "odom_combined";
   table.id = "wall";
-  table.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  table.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   table.shapes.resize(1);
-  table.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  table.shapes[0].type = arm_navigation_msgs::Shape::BOX;
   table.shapes[0].dimensions.resize(3);
   table.shapes[0].dimensions[0] = 0.05;
   table.shapes[0].dimensions[1] = 4.0;
@@ -485,15 +485,15 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
 
   cm.addStaticObject(table);
 
-  mapping_msgs::AttachedCollisionObject pole;
+  arm_navigation_msgs::AttachedCollisionObject pole;
 
   pole.object.header.stamp = ros::Time::now();
   pole.object.header.frame_id = "r_gripper_r_finger_tip_link";
   pole.link_name = "r_gripper_r_finger_tip_link";
   pole.object.id = "pole";
-  pole.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  pole.object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   pole.object.shapes.resize(1);
-  pole.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  pole.object.shapes[0].type = arm_navigation_msgs::Shape::CYLINDER;
   pole.object.shapes[0].dimensions.resize(2);
   pole.object.shapes[0].dimensions[0] = .05;
   pole.object.shapes[0].dimensions[1] = .4;
@@ -523,7 +523,7 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
 
     EXPECT_TRUE(cm.isKinematicStateInCollision(state));
 
-    std::vector<planning_environment_msgs::ContactInformation> contacts;
+    std::vector<arm_navigation_msgs::ContactInformation> contacts;
     cm.getAllCollisionsForState(state, contacts,1);
     
     EXPECT_GE(contacts.size(),1);    
@@ -537,16 +537,16 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
     for(unsigned int i = 0; i < contacts.size(); i++) {
       std::string other_body_name;
       char other_body_type;
-      if(contacts[i].body_type_1 == planning_environment_msgs::ContactInformation::ATTACHED_BODY) {
+      if(contacts[i].body_type_1 == arm_navigation_msgs::ContactInformation::ATTACHED_BODY) {
         other_body_name = contacts[i].contact_body_2;
         other_body_type = contacts[i].body_type_2;
-      } else if(contacts[i].body_type_2 == planning_environment_msgs::ContactInformation::ATTACHED_BODY) {
+      } else if(contacts[i].body_type_2 == arm_navigation_msgs::ContactInformation::ATTACHED_BODY) {
         other_body_name = contacts[i].contact_body_1;
         other_body_type = contacts[i].body_type_1;
       } else {
         ASSERT_TRUE(false) << "Collision other than with attached object " << contacts[i].contact_body_1 << " and " << contacts[i].contact_body_2;
       }
-      if(other_body_type == planning_environment_msgs::ContactInformation::ROBOT_LINK) {
+      if(other_body_type == arm_navigation_msgs::ContactInformation::ROBOT_LINK) {
         EXPECT_FALSE(touch_links_map.find(other_body_name) == touch_links_map.end()) << contacts[i].contact_body_1 << " and " << contacts[i].contact_body_2;
         touch_links_map[other_body_name] = true;
       } else {
@@ -591,7 +591,7 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   kin_state.setKinematicState(jm);
   ASSERT_FALSE(cm.isKinematicStateInCollision(kin_state));
   
-  motion_planning_msgs::Constraints goal_constraints;
+  arm_navigation_msgs::Constraints goal_constraints;
   goal_constraints.joint_constraints.resize(1);
   goal_constraints.joint_constraints[0].joint_name = "r_shoulder_pan_joint";
   goal_constraints.joint_constraints[0].position = -2.0;
@@ -599,7 +599,7 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   goal_constraints.joint_constraints[0].tolerance_above = 0.1;
 
   //empty path_constraints
-  motion_planning_msgs::Constraints path_constraints;
+  arm_navigation_msgs::Constraints path_constraints;
 
   //just testing goal constraints
   trajectory_msgs::JointTrajectory trajectory;
@@ -608,8 +608,8 @@ TEST_F(TestCollisionModels, TestTrajectoryValidity)
   trajectory.points[0].positions.resize(1);
   trajectory.points[0].positions[0] = -2.0;
   
-  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
+  std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
   ASSERT_TRUE(cm.isJointTrajectoryValid(kin_state, trajectory, goal_constraints, path_constraints,
                                         error_code, trajectory_error_codes, false)) << error_code.val;
   EXPECT_EQ(error_code.val, error_code.SUCCESS);
@@ -654,7 +654,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForObjects)
   planning_models::KinematicState kin_state(cm.getKinematicModel());
   kin_state.setKinematicStateToDefault();
 
-  motion_planning_msgs::RobotState robot_state;
+  arm_navigation_msgs::RobotState robot_state;
 
   planning_environment::convertKinematicStateToRobotState(kin_state,
                                                           ros::Time::now(),
@@ -666,13 +666,13 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForObjects)
 
   planning_environment::setRobotStateAndComputeTransforms(robot_state, kin_state);
 
-  mapping_msgs::CollisionObject obj1;
+  arm_navigation_msgs::CollisionObject obj1;
   obj1.header.stamp = ros::Time::now();
   obj1.header.frame_id = "base_footprint";
   obj1.id = "obj1";
-  obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  obj1.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   obj1.shapes.resize(1);
-  obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  obj1.shapes[0].type = arm_navigation_msgs::Shape::BOX;
   obj1.shapes[0].dimensions.resize(3);
   obj1.shapes[0].dimensions[0] = .1;
   obj1.shapes[0].dimensions[1] = .1;
@@ -683,7 +683,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForObjects)
   obj1.poses[0].position.z = 0;
   obj1.poses[0].orientation.w = 1.0;
 
-  mapping_msgs::AttachedCollisionObject att_obj;
+  arm_navigation_msgs::AttachedCollisionObject att_obj;
   att_obj.object = obj1;
   att_obj.object.header.stamp = ros::Time::now();
   att_obj.object.header.frame_id = "r_gripper_r_finger_tip_link";
@@ -698,7 +698,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForObjects)
   att_obj.touch_links.push_back("r_forearm_link");
   att_obj.touch_links.push_back("r_gripper_motor_accelerometer_link");
   att_obj.object.id = "obj2";
-  att_obj.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  att_obj.object.shapes[0].type = arm_navigation_msgs::Shape::CYLINDER;
   att_obj.object.shapes[0].dimensions.resize(2);
   att_obj.object.shapes[0].dimensions[0] = .025;
   att_obj.object.shapes[0].dimensions[1] = .5;
@@ -743,7 +743,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForConstraints)
   planning_models::KinematicState kin_state(cm.getKinematicModel());
   kin_state.setKinematicStateToDefault();
 
-  motion_planning_msgs::RobotState robot_state;
+  arm_navigation_msgs::RobotState robot_state;
 
   robot_state.multi_dof_joint_state.stamp = ros::Time::now();
   robot_state.multi_dof_joint_state.joint_names.push_back("base_joint");
@@ -755,8 +755,8 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForConstraints)
 
   planning_environment::setRobotStateAndComputeTransforms(robot_state, kin_state);
 
-  motion_planning_msgs::Constraints goal_constraints;
-  motion_planning_msgs::PositionConstraint pos;
+  arm_navigation_msgs::Constraints goal_constraints;
+  arm_navigation_msgs::PositionConstraint pos;
   pos.header.frame_id = "base_footprint";
   pos.header.stamp = ros::Time::now();
   pos.link_name = "r_wrist_roll_link";

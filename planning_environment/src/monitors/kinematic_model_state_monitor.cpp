@@ -255,7 +255,7 @@ void planning_environment::KinematicModelStateMonitor::setStateValuesFromCurrent
 }
 
 
-bool planning_environment::KinematicModelStateMonitor::getCurrentRobotState(motion_planning_msgs::RobotState& robot_state) const
+bool planning_environment::KinematicModelStateMonitor::getCurrentRobotState(arm_navigation_msgs::RobotState& robot_state) const
 {
   planning_models::KinematicState state(kmodel_);
   setStateValuesFromCurrentValues(state);

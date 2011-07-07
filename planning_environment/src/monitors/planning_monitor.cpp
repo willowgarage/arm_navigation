@@ -37,16 +37,16 @@
 #include "planning_environment/monitors/planning_monitor.h"
 //#include "planning_environment/util/kinematic_state_constraint_evaluator.h"
 #include <boost/scoped_ptr.hpp>
-//#include <motion_planning_msgs/DisplayTrajectory.h>
+//#include <arm_navigation_msgs/DisplayTrajectory.h>
 #include "planning_environment/models/model_utils.h"
 
 void planning_environment::PlanningMonitor::loadParams(void)
 {
 }
 
-bool planning_environment::PlanningMonitor::getCompletePlanningScene(const planning_environment_msgs::PlanningScene& planning_diff,
-                                                                     const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
-                                                                     planning_environment_msgs::PlanningScene& planning_scene) const{
+bool planning_environment::PlanningMonitor::getCompletePlanningScene(const arm_navigation_msgs::PlanningScene& planning_diff,
+                                                                     const arm_navigation_msgs::OrderedCollisionOperations& ordered_collision_operations,
+                                                                     arm_navigation_msgs::PlanningScene& planning_scene) const{
   {
     //indenting because we only need the state in here
     //creating state    
@@ -100,7 +100,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
   for(unsigned int i = 0; i < planning_diff.collision_objects.size(); i++) {
     std::string object_name = planning_diff.collision_objects[i].id;
     if(object_name == "all") {
-      if(planning_diff.collision_objects[i].operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+      if(planning_diff.collision_objects[i].operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
         for(unsigned int j = 0; j < planning_scene.collision_objects.size(); i++) {
           acm.removeEntry(planning_scene.collision_objects[j].id);
         }
@@ -112,7 +112,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
       }
     }
     bool already_have = false;
-    std::vector<mapping_msgs::CollisionObject>::iterator it = planning_scene.collision_objects.begin();
+    std::vector<arm_navigation_msgs::CollisionObject>::iterator it = planning_scene.collision_objects.begin();
     while(it != planning_scene.collision_objects.end()) {
       if((*it).id == object_name) {
         already_have = true;
@@ -120,7 +120,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
       }
       it++;
     }
-    if(planning_diff.collision_objects[i].operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+    if(planning_diff.collision_objects[i].operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
       if(!already_have) {
         ROS_WARN_STREAM("Diff remove specified for object " << object_name << " which we don't seem to have");
         continue;
@@ -143,12 +143,12 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
   for(unsigned int i = 0; i < planning_diff.attached_collision_objects.size(); i++) {
     std::string link_name = planning_diff.attached_collision_objects[i].link_name;
     std::string object_name = planning_diff.attached_collision_objects[i].object.id;
-    if(planning_diff.attached_collision_objects[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT ||
-       planning_diff.attached_collision_objects[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
+    if(planning_diff.attached_collision_objects[i].object.operation.operation == arm_navigation_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT ||
+       planning_diff.attached_collision_objects[i].object.operation.operation == arm_navigation_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
       ROS_WARN_STREAM("Object replacement not supported during diff");
     }
     if(link_name == "all") {
-      if(planning_diff.attached_collision_objects[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+      if(planning_diff.attached_collision_objects[i].object.operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
         for(unsigned int j = 0; j < planning_scene.attached_collision_objects.size(); i++) {
           acm.removeEntry(planning_scene.attached_collision_objects[j].object.id);
         }
@@ -160,8 +160,8 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
       }
     } else {
       if(object_name == "all") {
-        if(planning_diff.attached_collision_objects[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
-          std::vector<mapping_msgs::AttachedCollisionObject>::iterator it = planning_scene.attached_collision_objects.begin();
+        if(planning_diff.attached_collision_objects[i].object.operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
+          std::vector<arm_navigation_msgs::AttachedCollisionObject>::iterator it = planning_scene.attached_collision_objects.begin();
           while(it != planning_scene.attached_collision_objects.end()) {
             if((*it).link_name == link_name) {
               acm.removeEntry((*it).object.id);
@@ -177,7 +177,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
         continue;
       }
       bool already_have = false;
-      std::vector<mapping_msgs::AttachedCollisionObject>::iterator it = planning_scene.attached_collision_objects.begin();
+      std::vector<arm_navigation_msgs::AttachedCollisionObject>::iterator it = planning_scene.attached_collision_objects.begin();
       while(it != planning_scene.attached_collision_objects.end()) {
         if((*it).link_name == link_name) {
           if((*it).object.id == object_name) {
@@ -187,7 +187,7 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const plann
         }
         it++;
       }
-      if(planning_diff.attached_collision_objects[i].object.operation.operation == mapping_msgs::CollisionObjectOperation::REMOVE) {
+      if(planning_diff.attached_collision_objects[i].object.operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
         if(!already_have) {
           ROS_WARN_STREAM("Diff remove specified for object " << object_name << " which we don't seem to have");	  
           return false;
