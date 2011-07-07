@@ -12,6 +12,7 @@
   <depend package="geometry_msgs"/>
   <depend package="planning_environment_msgs"/>
   <depend package="trajectory_msgs"/>
+  <depend package="kinematics_msgs"/>
   
   <export>
     <cpp cflags="-I${prefix}/include"/>

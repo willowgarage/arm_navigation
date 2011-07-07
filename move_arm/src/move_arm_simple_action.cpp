@@ -57,7 +57,6 @@
 #include <geometric_shapes_msgs/Shape.h>
 #include <motion_planning_msgs/DisplayTrajectory.h>
 #include <motion_planning_msgs/GetMotionPlan.h>
-#include <motion_planning_msgs/ConvertToJointConstraint.h>
 #include <motion_planning_msgs/convert_messages.h>
 #include <motion_planning_msgs/ArmNavigationErrorCodes.h>
 
