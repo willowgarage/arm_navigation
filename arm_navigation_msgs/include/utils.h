@@ -33,7 +33,7 @@
  *********************************************************************/
 #include <ros/ros.h>
 #include <algorithm>
-#include <motion_planning_msgs/CollisionOperation.h>
+#include <arm_navigation_msgs/CollisionOperation.h>
 
 namespace planning_environment_msgs
 {
@@ -47,13 +47,13 @@ namespace planning_environment_msgs
 
 inline void generateDisableAllowedCollisionsWithExclusions(const std::vector<std::string>& all_names,
                                                            const std::vector<std::string>& exclude_names,
-                                                           std::vector<motion_planning_msgs::CollisionOperation>& collision_operations) 
+                                                           std::vector<arm_navigation_msgs::CollisionOperation>& collision_operations) 
 {
   for(std::vector<std::string>::const_iterator it = all_names.begin();
       it != all_names.end();
       it++) {
     if(std::find(exclude_names.begin(), exclude_names.end(), *it) == exclude_names.end()) {
-      motion_planning_msgs::CollisionOperation coll;
+      arm_navigation_msgs::CollisionOperation coll;
       coll.object1 = *it;
       coll.object2 = coll.COLLISION_SET_OBJECTS;
       coll.operation = coll.DISABLE;

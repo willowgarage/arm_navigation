@@ -2,7 +2,7 @@
 string name
 
 # The shape of the region in the environment
-geometric_shapes_msgs/Shape shape
+arm_navigation_msgs/Shape shape
 
 # The pose of the space defining the region
 geometry_msgs/PoseStamped pose_stamped

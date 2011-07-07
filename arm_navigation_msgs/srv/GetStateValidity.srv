@@ -1,6 +1,6 @@
 # Checks whether the specified state is a valid state
 # The input state message
-motion_planning_msgs/RobotState robot_state
+arm_navigation_msgs/RobotState robot_state
 
 # Collision checks will be performed if this flag is true
 bool check_collisions
@@ -20,19 +20,19 @@ string group_name
 # OPTIONAL specification of a set of path constraints imposed on the robot, 
 # e.g. joint or pose constraints. These constraints will be tested only if
 # check_path_constraints = true
-motion_planning_msgs/Constraints path_constraints
+arm_navigation_msgs/Constraints path_constraints
 
 # OPTIONAL specification of a set of goal constraints imposed on the robot, 
 # e.g. joint or pose constraints. These constraints will be tested only if 
 # check_goal_constraints = true
-motion_planning_msgs/Constraints goal_constraints
+arm_navigation_msgs/Constraints goal_constraints
 
 ---
 
 # Integer error code corresponding to the first check that was violated
 # The message contains both the returned error code value and a set 
 # of possible error codes
-motion_planning_msgs/ArmNavigationErrorCodes error_code
+arm_navigation_msgs/ArmNavigationErrorCodes error_code
 
 # Contact information
-planning_environment_msgs/ContactInformation[] contacts
+arm_navigation_msgs/ContactInformation[] contacts

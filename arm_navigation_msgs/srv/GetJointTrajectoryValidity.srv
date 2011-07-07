@@ -7,7 +7,7 @@ trajectory_msgs/JointTrajectory trajectory
 # for the same joint in the state message.
 # Any joint not contained in either the path or state message will be assumed to be at 
 # the current position of the joint. 
-motion_planning_msgs/RobotState robot_state
+arm_navigation_msgs/RobotState robot_state
 
 # Collision checks will be performed if this flag is true
 bool check_collisions
@@ -29,23 +29,23 @@ bool check_full_trajectory
 # OPTIONAL specification of a set of path constraints imposed on the robot, 
 # e.g. joint or pose constraints. These constraints will be tested only if
 # check_path_constraints = true
-motion_planning_msgs/Constraints path_constraints
+arm_navigation_msgs/Constraints path_constraints
 
 # OPTIONAL specification of a set of goal constraints imposed on the robot, 
 # e.g. joint or pose constraints. These constraints will be tested only if 
 # check_goal_constraints = true
-motion_planning_msgs/Constraints goal_constraints
+arm_navigation_msgs/Constraints goal_constraints
 
 ---
 
 # Integer error code corresponding to the first check that was violated
 # The message contains both the returned error code value and a set 
 # of possible error codes
-motion_planning_msgs/ArmNavigationErrorCodes error_code
+arm_navigation_msgs/ArmNavigationErrorCodes error_code
 
 # A vector of error flags for all points in the trajectory
 # Each error flag indicates which checks failed for the corresponding
 # point in the trajectory
-motion_planning_msgs/ArmNavigationErrorCodes[] trajectory_error_codes
+arm_navigation_msgs/ArmNavigationErrorCodes[] trajectory_error_codes
 
-planning_environment_msgs/ContactInformation[] contacts
+arm_navigation_msgs/ContactInformation[] contacts

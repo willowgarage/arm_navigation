@@ -37,67 +37,21 @@
 #include <ros/ros.h>
 #include <tf/tf.h>
 
-#include <motion_planning_msgs/RobotTrajectory.h>
-#include <motion_planning_msgs/RobotState.h>
+#include <arm_navigation_msgs/RobotTrajectory.h>
+#include <arm_navigation_msgs/RobotState.h>
 
-#include <motion_planning_msgs/JointConstraint.h>
+#include <arm_navigation_msgs/JointConstraint.h>
 #include <trajectory_msgs/JointTrajectory.h>
-#include <motion_planning_msgs/JointPath.h>
 #include <sensor_msgs/JointState.h>
 
-#include <motion_planning_msgs/OrientationConstraint.h>
-#include <motion_planning_msgs/SimplePoseConstraint.h>
-#include <motion_planning_msgs/PositionConstraint.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <motion_planning_msgs/GetMotionPlan.h>
+#include <arm_navigation_msgs/OrientationConstraint.h>
+#include <arm_navigation_msgs/SimplePoseConstraint.h>
+#include <arm_navigation_msgs/PositionConstraint.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/GetMotionPlan.h>
 
-namespace motion_planning_msgs
+namespace arm_navigation_msgs
 {
-
-  /**
-     @brief Convert a joint path message to a joint trajectory message
-     @param A reference to the input joint path message
-     @return The joint trajectory message that incorporates the joint path information with zero segment durations, velocities and accelerations.
-   */
-inline  trajectory_msgs::JointTrajectory jointPathToJointTrajectory(const motion_planning_msgs::JointPath &path)
-  {
-    trajectory_msgs::JointTrajectory trajectory;
-    trajectory.header = path.header;
-    trajectory.joint_names = path.joint_names;
-    trajectory.points.resize(path.points.size());
-    for(unsigned int i=0; i< path.points.size(); i++)
-      trajectory.points[i].positions = path.points[i].positions;
-    return trajectory;
-  }
-
-  /**
-     @brief Convert a joint trajectory message to a joint path message (this conversion will cause loss of velocity and acceleration information)
-     @param The input trajectory
-     @return The joint path that contains only the position information from the joint trajectory.
-   */
-inline  motion_planning_msgs::JointPath jointTrajectoryToJointPath(const trajectory_msgs::JointTrajectory &trajectory)
-  {
-    motion_planning_msgs::JointPath path;   
-    path.header = trajectory.header;
-    path.joint_names = trajectory.joint_names;
-    path.points.resize(trajectory.points.size());
-    for(unsigned int i=0; i< trajectory.points.size(); i++)
-      path.points[i].positions = trajectory.points[i].positions;
-    return path;
-  }
-
-  /**
-     @brief Convert a joint state to a joint path point message
-     @param The input joint state message
-     @return The output joint path point message
-  */
-inline  motion_planning_msgs::JointPathPoint jointStateToJointPathPoint(const sensor_msgs::JointState &state)
-  {
-    motion_planning_msgs::JointPathPoint point;
-    point.positions = state.position;
-    return point;
-  }
-
   /**
      @brief Convert a joint state to a joint trajectory point message
      @param The input joint state message
@@ -115,9 +69,9 @@ inline trajectory_msgs::JointTrajectoryPoint jointStateToJointTrajectoryPoint(co
      @param The input multi-dof state
      @return The output multi-dof joint trajectory point .
   */
-inline motion_planning_msgs::MultiDOFJointTrajectoryPoint multiDOFJointStateToMultiDOFJointTrajectoryPoint(const motion_planning_msgs::MultiDOFJointState &state)
+inline arm_navigation_msgs::MultiDOFJointTrajectoryPoint multiDOFJointStateToMultiDOFJointTrajectoryPoint(const arm_navigation_msgs::MultiDOFJointState &state)
   {
-    motion_planning_msgs::MultiDOFJointTrajectoryPoint point;
+    arm_navigation_msgs::MultiDOFJointTrajectoryPoint point;
     point.poses = state.poses;
     point.time_from_start = ros::Duration(0.0);
     return point;
@@ -128,9 +82,9 @@ inline motion_planning_msgs::MultiDOFJointTrajectoryPoint multiDOFJointStateToMu
      @param The input robot state
      @return The output robot trajectory point
   */
-inline void robotStateToRobotTrajectoryPoint(const motion_planning_msgs::RobotState &state,
+inline void robotStateToRobotTrajectoryPoint(const arm_navigation_msgs::RobotState &state,
                                              trajectory_msgs::JointTrajectoryPoint &point,
-                                             motion_planning_msgs::MultiDOFJointTrajectoryPoint &multi_dof_point)
+                                             arm_navigation_msgs::MultiDOFJointTrajectoryPoint &multi_dof_point)
   {
     point = jointStateToJointTrajectoryPoint(state.joint_state);
     multi_dof_point = multiDOFJointStateToMultiDOFJointTrajectoryPoint(state.multi_dof_joint_state);
@@ -142,7 +96,7 @@ inline void robotStateToRobotTrajectoryPoint(const motion_planning_msgs::RobotSt
      @param The input vector of joint constraints
      @return The nominal joint positions from the joint constraints are encoded into the joint state message.
    */
-inline  sensor_msgs::JointState jointConstraintsToJointState(const std::vector<motion_planning_msgs::JointConstraint> &constraints)
+inline  sensor_msgs::JointState jointConstraintsToJointState(const std::vector<arm_navigation_msgs::JointConstraint> &constraints)
   {
     sensor_msgs::JointState state;
     state.name.resize(constraints.size());
@@ -160,25 +114,7 @@ inline  sensor_msgs::JointState jointConstraintsToJointState(const std::vector<m
      @param The input vector of joint constraints
      @return The nominal joint positions from the joint constraints are encoded into the joint state message.
    */
-inline  motion_planning_msgs::JointPath jointConstraintsToJointPath(const std::vector<motion_planning_msgs::JointConstraint> &constraints)
-  {
-    motion_planning_msgs::JointPath path;
-    if(constraints.empty())
-      return path;
-    sensor_msgs::JointState state = jointConstraintsToJointState(constraints);
-    motion_planning_msgs::JointPathPoint point = jointStateToJointPathPoint(state);
-    //    path.header = constraints[0].header;
-    path.points.push_back(point);
-    path.joint_names = state.name;
-    return path;
-  }
-
-  /**
-     @brief Extract joint position information from a set of joint constraints into a joint state message
-     @param The input vector of joint constraints
-     @return The nominal joint positions from the joint constraints are encoded into the joint state message.
-   */
-inline  trajectory_msgs::JointTrajectory jointConstraintsToJointTrajectory(const std::vector<motion_planning_msgs::JointConstraint> &constraints)
+inline  trajectory_msgs::JointTrajectory jointConstraintsToJointTrajectory(const std::vector<arm_navigation_msgs::JointConstraint> &constraints)
   {
     trajectory_msgs::JointTrajectory path;
     if(constraints.empty())
@@ -197,7 +133,7 @@ inline  trajectory_msgs::JointTrajectory jointConstraintsToJointTrajectory(const
      @param The input orientation constraint
      @return The nominal position and orientation from the constraints are encoded into the output pose message
    */
-inline  geometry_msgs::PoseStamped poseConstraintsToPoseStamped(const motion_planning_msgs::PositionConstraint &position_constraint, const motion_planning_msgs::OrientationConstraint &orientation_constraint)
+inline  geometry_msgs::PoseStamped poseConstraintsToPoseStamped(const arm_navigation_msgs::PositionConstraint &position_constraint, const arm_navigation_msgs::OrientationConstraint &orientation_constraint)
   {
     geometry_msgs::PoseStamped pose_stamped;
     btQuaternion tmp_quat;
@@ -229,12 +165,12 @@ inline  sensor_msgs::JointState createJointState(std::vector<std::string> joint_
      @param The output position constraint
      @return The output orientation constraint
    */
-inline  void poseConstraintToPositionOrientationConstraints(const motion_planning_msgs::SimplePoseConstraint &pose_constraint, motion_planning_msgs::PositionConstraint &position_constraint, motion_planning_msgs::OrientationConstraint &orientation_constraint)
+inline  void poseConstraintToPositionOrientationConstraints(const arm_navigation_msgs::SimplePoseConstraint &pose_constraint, arm_navigation_msgs::PositionConstraint &position_constraint, arm_navigation_msgs::OrientationConstraint &orientation_constraint)
   {
     position_constraint.header = pose_constraint.header;
     position_constraint.link_name = pose_constraint.link_name;
     position_constraint.position = pose_constraint.pose.position;
-    position_constraint.constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
+    position_constraint.constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
     position_constraint.constraint_region_shape.dimensions.push_back(2*pose_constraint.absolute_position_tolerance.x);
     position_constraint.constraint_region_shape.dimensions.push_back(2*pose_constraint.absolute_position_tolerance.y);
     position_constraint.constraint_region_shape.dimensions.push_back(2*pose_constraint.absolute_position_tolerance.z);
@@ -267,8 +203,8 @@ inline  void poseConstraintToPositionOrientationConstraints(const motion_plannin
      @return The output orientation constraint
    */
 inline  void poseStampedToPositionOrientationConstraints(const geometry_msgs::PoseStamped &pose_stamped, const std::string &link_name, 
-                                                         motion_planning_msgs::PositionConstraint &position_constraint, 
-                                                         motion_planning_msgs::OrientationConstraint &orientation_constraint, 
+                                                         arm_navigation_msgs::PositionConstraint &position_constraint, 
+                                                         arm_navigation_msgs::OrientationConstraint &orientation_constraint, 
                                                          double region_box_dimension=.01,
                                                          double absolute_rpy_tolerance=.01)
   {
@@ -276,7 +212,7 @@ inline  void poseStampedToPositionOrientationConstraints(const geometry_msgs::Po
     position_constraint.link_name = link_name;
     position_constraint.position = pose_stamped.pose.position;
     position_constraint.weight = 1.0;
-    position_constraint.constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
+    position_constraint.constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
     position_constraint.constraint_region_shape.dimensions.push_back(region_box_dimension);
     position_constraint.constraint_region_shape.dimensions.push_back(region_box_dimension);
     position_constraint.constraint_region_shape.dimensions.push_back(region_box_dimension);
@@ -315,7 +251,7 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
      @param error_code The input error code
      @return The resultant string message
    */
- inline std::string armNavigationErrorCodeToString(const motion_planning_msgs::ArmNavigationErrorCodes &error_code)
+ inline std::string armNavigationErrorCodeToString(const arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
  {
    std::string result;
    if(error_code.val == error_code.PLANNING_FAILED)
@@ -403,7 +339,7 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
      @param The input orientation constraint
      @return The nominal position and orientation from the constraints are encoded into the output pose message
    */
-  inline  bool constraintsToPoseStampedVector(const motion_planning_msgs::Constraints &constraints,
+  inline  bool constraintsToPoseStampedVector(const arm_navigation_msgs::Constraints &constraints,
                                               std::vector<geometry_msgs::PoseStamped> &poses)
   {
     if(constraints.position_constraints.size() != constraints.orientation_constraints.size())
@@ -427,10 +363,10 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
      @param The input orientation constraint
      @return The nominal position and orientation from the constraints are encoded into the output pose message
    */
-  inline motion_planning_msgs::MultiDOFJointState poseConstraintsToMultiDOFJointState(const std::vector<motion_planning_msgs::PositionConstraint> &position_constraints, 
-                                                                                      const std::vector<motion_planning_msgs::OrientationConstraint> &orientation_constraints)
+  inline arm_navigation_msgs::MultiDOFJointState poseConstraintsToMultiDOFJointState(const std::vector<arm_navigation_msgs::PositionConstraint> &position_constraints, 
+                                                                                      const std::vector<arm_navigation_msgs::OrientationConstraint> &orientation_constraints)
   {
-    motion_planning_msgs::MultiDOFJointState multi_dof_joint_state;
+    arm_navigation_msgs::MultiDOFJointState multi_dof_joint_state;
     if(position_constraints.size() != orientation_constraints.size())
       return multi_dof_joint_state;
     for(unsigned int i=0; i < position_constraints.size(); i++)

@@ -13,7 +13,7 @@ float32 padding
 CollisionObjectOperation operation
 
 #the shapes associated with the object
-geometric_shapes_msgs/Shape[] shapes
+arm_navigation_msgs/Shape[] shapes
 
 #the poses associated with the shapes - will be transformed using the header
 geometry_msgs/Pose[] poses

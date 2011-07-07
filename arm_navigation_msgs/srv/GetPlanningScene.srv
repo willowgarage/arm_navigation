@@ -3,7 +3,7 @@
 PlanningScene planning_scene_diff
 
 # Diff uses ordered collision operations instead of allowed_collision_matrix
-motion_planning_msgs/OrderedCollisionOperations operations
+arm_navigation_msgs/OrderedCollisionOperations operations
 ---
 # This includes the current planning scene and any changes applied from the 
 # diff

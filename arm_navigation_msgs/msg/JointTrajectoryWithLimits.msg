@@ -3,4 +3,4 @@ trajectory_msgs/JointTrajectory trajectory
 
 # A vector of JointLimit messages.
 # Each message contains the limits for a specific joint
-motion_planning_msgs/JointLimits[] limits
+arm_navigation_msgs/JointLimits[] limits

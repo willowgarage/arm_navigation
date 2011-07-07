@@ -2,19 +2,19 @@
 # planner and the output it provides
 
 # Parameters for the workspace that the planner should work inside
-motion_planning_msgs/WorkspaceParameters workspace_parameters
+arm_navigation_msgs/WorkspaceParameters workspace_parameters
 
 # Starting state updates. If certain joints should be considered
 # at positions other than the current ones, these positions should
 # be set here
-motion_planning_msgs/RobotState start_state
+arm_navigation_msgs/RobotState start_state
 
 # The goal state for the model to plan for. The goal is achieved
 # if all constraints are satisfied
-motion_planning_msgs/Constraints goal_constraints
+arm_navigation_msgs/Constraints goal_constraints
 
 # No state at any point along the path in the produced motion plan will violate these constraints
-motion_planning_msgs/Constraints path_constraints
+arm_navigation_msgs/Constraints path_constraints
 
 # The name of the motion planner to use. If no name is specified,
 # a default motion planner will be used
