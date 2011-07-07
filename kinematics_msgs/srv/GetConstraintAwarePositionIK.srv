@@ -2,10 +2,10 @@
 # The inverse kinematics request
 kinematics_msgs/PositionIKRequest ik_request
 # A set of constraints that the IK must obey
-motion_planning_msgs/Constraints constraints
+arm_navigation_msgs/Constraints constraints
 # Maximum allowed time for IK calculation
 duration timeout
 ---
 # The returned solution 
-motion_planning_msgs/RobotState solution
-motion_planning_msgs/ArmNavigationErrorCodes error_code
+arm_navigation_msgs/RobotState solution
+arm_navigation_msgs/ArmNavigationErrorCodes error_code

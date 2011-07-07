@@ -4,10 +4,10 @@
 string planner_service_name
 
 # A planning scene diff
-planning_environment_msgs/PlanningScene planning_scene_diff
+PlanningScene planning_scene_diff
 
 # A motion planning request
-motion_planning_msgs/MotionPlanRequest motion_plan_request
+MotionPlanRequest motion_plan_request
 
 # OPTIONAL flag
 # Setting this flag to true will allow move_arm to accept plans that do not go all the way to the goal
@@ -28,9 +28,9 @@ bool disable_ik
 bool disable_collision_monitoring
 ---
 # An error code reflecting what went wrong
-motion_planning_msgs/ArmNavigationErrorCodes error_code
+ArmNavigationErrorCodes error_code
 
-planning_environment_msgs/ContactInformation[] contacts
+ContactInformation[] contacts
 ---
 # The internal state that the move arm action currently is in
 string state
