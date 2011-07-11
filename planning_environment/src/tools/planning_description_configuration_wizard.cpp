@@ -603,7 +603,7 @@ void PlanningDescriptionConfigurationWizard::outputOMPLLaunchFile()
 
   TiXmlElement *p = new TiXmlElement("param");
   node->LinkEndChild(p);
-  p->SetAttribute("name", "default_planner_id");
+  p->SetAttribute("name", "default_planner_config");
   p->SetAttribute("type", "string");
   p->SetAttribute("value", "SBLkConfig1");
 

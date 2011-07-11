@@ -70,7 +70,7 @@
 
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/model_utils.h>
-#include <arm_navigation_msgs/GetPlanningScene.h>
+#include <arm_navigation_msgs/SetPlanningSceneDiff.h>
 
 #include <arm_navigation_msgs/GetRobotState.h>
 
@@ -127,7 +127,7 @@ static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
 
 //bunch of statics for remapping purposes
 
-static const std::string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
+static const std::string SET_PLANNING_SCENE_DIFF_NAME = "/environment_server/set_planning_scene_diff";
 static const double MIN_TRAJECTORY_MONITORING_FREQUENCY = 1.0;
 static const double MAX_TRAJECTORY_MONITORING_FREQUENCY = 100.0;
   
@@ -161,8 +161,8 @@ public:
 
     //    ros::service::waitForService(ARM_IK_NAME);
     arm_ik_initialized_ = false;
-    ros::service::waitForService(GET_PLANNING_SCENE_NAME);
-    get_planning_scene_client_ = root_handle_.serviceClient<arm_navigation_msgs::GetPlanningScene>(GET_PLANNING_SCENE_NAME);
+    ros::service::waitForService(SET_PLANNING_SCENE_DIFF_NAME);
+    set_planning_scene_diff_client_ = root_handle_.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_NAME);
     
     ros::service::waitForService(TRAJECTORY_FILTER);
 
@@ -1166,14 +1166,14 @@ private:
   }
 
   bool getAndSetPlanningScene(const arm_navigation_msgs::PlanningScene& planning_diff) {
-    arm_navigation_msgs::GetPlanningScene::Request planning_scene_req;
-    arm_navigation_msgs::GetPlanningScene::Response planning_scene_res;
+    arm_navigation_msgs::SetPlanningSceneDiff::Request planning_scene_req;
+    arm_navigation_msgs::SetPlanningSceneDiff::Response planning_scene_res;
 
     revertPlanningScene();
 
     planning_scene_req.planning_scene_diff = planning_diff;
 
-    if(!get_planning_scene_client_.call(planning_scene_req, planning_scene_res)) {
+    if(!set_planning_scene_diff_client_.call(planning_scene_req, planning_scene_res)) {
       ROS_WARN("Can't get planning scene");
       return false;
     }
@@ -1372,8 +1372,8 @@ private:
 
   planning_environment::CollisionModels* collision_models_;
 
-  arm_navigation_msgs::GetPlanningScene::Request get_planning_scene_req_;
-  arm_navigation_msgs::GetPlanningScene::Response get_planning_scene_res_;
+  arm_navigation_msgs::SetPlanningSceneDiff::Request set_planning_scene_diff_req_;
+  arm_navigation_msgs::SetPlanningSceneDiff::Response set_planning_scene_diff_res_;
   arm_navigation_msgs::PlanningScene current_planning_scene_;
   planning_models::KinematicState* planning_scene_state_;
 
@@ -1399,7 +1399,7 @@ private:
   ros::Publisher vis_marker_array_publisher_;
   ros::ServiceClient filter_trajectory_client_;
   ros::ServiceClient get_state_client_;
-  ros::ServiceClient get_planning_scene_client_;
+  ros::ServiceClient set_planning_scene_diff_client_;
   MoveArmParameters move_arm_parameters_;
 
   ControllerStatus controller_status_;

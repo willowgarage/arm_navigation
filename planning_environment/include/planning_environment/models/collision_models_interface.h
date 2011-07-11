@@ -38,7 +38,7 @@
 #define PLANNING_ENVIRONMENT_MODELS_COLLISION_MODELS_INTERFACE_
 
 #include "planning_environment/models/collision_models.h"
-#include <arm_navigation_msgs/SetPlanningSceneAction.h>
+#include <arm_navigation_msgs/SyncPlanningSceneAction.h>
 #include <actionlib/server/simple_action_server.h>
 
 namespace planning_environment
@@ -58,7 +58,7 @@ public:
 
   virtual ~CollisionModelsInterface(void);
  
-  void setPlanningSceneCallback(const arm_navigation_msgs::SetPlanningSceneGoalConstPtr& scene);
+  void syncPlanningSceneCallback(const arm_navigation_msgs::SyncPlanningSceneGoalConstPtr& scene);
 
   bool setPlanningSceneWithCallbacks(const arm_navigation_msgs::PlanningScene& scene);
   
@@ -95,7 +95,7 @@ protected:
   boost::function<void(void)> revert_planning_scene_callback_;
   ros::ServiceClient env_server_register_client_;
 
-  actionlib::SimpleActionServer<arm_navigation_msgs::SetPlanningSceneAction> *action_server_;
+  actionlib::SimpleActionServer<arm_navigation_msgs::SyncPlanningSceneAction> *action_server_;
 };
     
 	
