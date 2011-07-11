@@ -125,10 +125,10 @@ bool ArmKinematicsConstraintAware::isReady(arm_navigation_msgs::ArmNavigationErr
     return false;
   }
   if(!collision_models_interface_->isPlanningSceneSet()) {
-    ROS_INFO("Planning scene not set");
+    ROS_WARN("Planning scene not set");
     error_code.val = error_code.COLLISION_CHECKING_UNAVAILABLE;
     return false;
-  }    
+  } 
   error_code.val = error_code.SUCCESS;
   return true;
 }
@@ -354,11 +354,8 @@ void ArmKinematicsConstraintAware::printStringVec(const std::string &prefix, con
 bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK::Request &request, 
                                                  kinematics_msgs::GetPositionIK::Response &response)
 {
-  if(!active_)
-  {
-    ROS_ERROR("IK service not active");
+  if(!isReady(response.error_code))
     return true;
-  }
 
   if(!checkIKService(request,response,chain_info_))
     return true;

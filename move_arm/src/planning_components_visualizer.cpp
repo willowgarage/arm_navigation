@@ -40,7 +40,7 @@
 
 #include <planning_environment/models/collision_models.h>
 #include <arm_navigation_msgs/PlanningScene.h>
-#include <arm_navigation_msgs/GetPlanningScene.h>
+#include <arm_navigation_msgs/SetPlanningSceneDiff.h>
 #include <planning_environment/models/model_utils.h>
 #include <rosgraph_msgs/Clock.h>
 #include <tf/transform_broadcaster.h>
@@ -77,7 +77,7 @@ static const double BASE_ROT_SPEED = .15;
 static const double HAND_TRANS_SPEED = .05;
 static const double HAND_ROT_SPEED = .15;
 
-static const string GET_PLANNING_SCENE_NAME = "/environment_server/get_planning_scene";
+static const string SET_PLANNING_SCENE_DIFF_NAME = "/environment_server/set_planning_scene_diff";
 static const string PLANNER_SERVICE_NAME = "/ompl_planning/plan_kinematic_path";
 static const string TRAJECTORY_FILTER_SERVICE_NAME = "/trajectory_filter_server/filter_trajectory_with_constraints";
 
@@ -258,13 +258,13 @@ class PlanningComponentsVisualizer
 
       process_function_ptr_ = boost::bind(&PlanningComponentsVisualizer::processInteractiveFeedback, this, _1);
 
-      while(!ros::service::waitForService(GET_PLANNING_SCENE_NAME, ros::Duration(1.0)))
+      while(!ros::service::waitForService(SET_PLANNING_SCENE_DIFF_NAME, ros::Duration(1.0)))
       {
-        ROS_INFO_STREAM("Waiting for planning scene service " << GET_PLANNING_SCENE_NAME);
+        ROS_INFO_STREAM("Waiting for planning scene service " << SET_PLANNING_SCENE_DIFF_NAME);
       }
 
-      get_planning_scene_client_
-          = nh_.serviceClient<arm_navigation_msgs::GetPlanningScene> (GET_PLANNING_SCENE_NAME);
+      set_planning_scene_diff_client_
+          = nh_.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff> (SET_PLANNING_SCENE_DIFF_NAME);
 
       while(!ros::service::waitForService(PLANNER_SERVICE_NAME, ros::Duration(1.0)))
       {
@@ -473,8 +473,8 @@ class PlanningComponentsVisualizer
       ROS_INFO("Sending Planning Scene....");
 
       lock_.lock();
-      arm_navigation_msgs::GetPlanningScene::Request planning_scene_req;
-      arm_navigation_msgs::GetPlanningScene::Response planning_scene_res;
+      arm_navigation_msgs::SetPlanningSceneDiff::Request planning_scene_req;
+      arm_navigation_msgs::SetPlanningSceneDiff::Response planning_scene_res;
 
       vector<string> removals;
       // Handle additions and removals of planning scene objects.
@@ -536,7 +536,7 @@ class PlanningComponentsVisualizer
         robot_state_ = NULL;
       }
 
-      if(!get_planning_scene_client_.call(planning_scene_req, planning_scene_res))
+      if(!set_planning_scene_diff_client_.call(planning_scene_req, planning_scene_res))
       {
         ROS_WARN("Can't get planning scene");
         lock_.unlock();
@@ -2364,7 +2364,7 @@ class PlanningComponentsVisualizer
     ros::Publisher joint_state_publisher_;
     ros::Publisher vis_marker_array_publisher_;
     ros::Publisher vis_marker_publisher_;
-    ros::ServiceClient get_planning_scene_client_;
+    ros::ServiceClient set_planning_scene_diff_client_;
     ros::ServiceClient planner_service_client_;
     ros::ServiceClient trajectory_filter_service_client_;
 
