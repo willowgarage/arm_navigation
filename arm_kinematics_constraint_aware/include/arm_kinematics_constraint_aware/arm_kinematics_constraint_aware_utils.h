@@ -40,7 +40,7 @@
 
 // System
 #include <vector>
-#include <Eigen/Array>
+#include <Eigen/Core>
 
 // KDL
 #include <kdl/frames.hpp>
@@ -115,7 +115,7 @@ namespace arm_kinematics_constraint_aware
   bool checkLinkName(const std::string &link_name, 
                      const kinematics_msgs::KinematicSolverInfo &chain_info);
  
-  bool checkRobotState(motion_planning_msgs::RobotState &robot_state,
+  bool checkRobotState(arm_navigation_msgs::RobotState &robot_state,
                        const kinematics_msgs::KinematicSolverInfo &chain_info);
 
   bool checkFKService(kinematics_msgs::GetPositionFK::Request &request, 
@@ -159,7 +159,7 @@ namespace arm_kinematics_constraint_aware
 
   bool getChainInfo(const std::string &name, kinematics_msgs::KinematicSolverInfo &chain_info);
 
-  motion_planning_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code);
+  arm_navigation_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code);
 
 }
 
