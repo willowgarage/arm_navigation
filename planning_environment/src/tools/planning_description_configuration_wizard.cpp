@@ -47,7 +47,7 @@ PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(c
 {
   progress_ = 0;
   package_directory_ = "";
-  string full_urdf_path = ros::package::getPath(urdf_package_) + urdf_path_;
+  string full_urdf_path = ros::package::getPath(urdf_package_)+"/"+urdf_path_;
 
   ROS_INFO_STREAM("full path name is " << full_urdf_path);
 
