@@ -36,31 +36,16 @@
 
 #include <ros/time.h>
 #include <gtest/gtest.h>
-#include <arm_navigation_msgs/GetPlanningScene.h>
+#include <arm_navigation_msgs/SetPlanningSceneDiff.h>
 #include <arm_navigation_msgs/GetMotionPlan.h>
-#include <arm_navigation_msgs/SetPlanningSceneAction.h>
 #include <planning_environment/models/model_utils.h>
 #include <planning_environment/models/collision_models_interface.h>
 #include <actionlib/client/simple_action_client.h>
 
-static const std::string GET_PLANNING_SCENE_SERVICE="/environment_server/get_planning_scene";
-static const std::string SET_PLANNING_SCENE_NAME="/ompl_planning/set_planning_scene";
+static const std::string SET_PLANNING_SCENE_DIFF_SERVICE="/environment_server/set_planning_scene_diff";
 static const std::string PLANNER_SERVICE_NAME="/ompl_planning/plan_kinematic_path";
 
 class OmplPlanningTest : public testing::Test {
-public: 
-
-  void actionFeedbackCallback(const arm_navigation_msgs::SetPlanningSceneFeedbackConstPtr& feedback) {
-    ready_ = true;  
-  }
-
-  void actionDoneCallback(const actionlib::SimpleClientGoalState& state,
-                          const arm_navigation_msgs::SetPlanningSceneResultConstPtr& result)
-  {
-    EXPECT_TRUE(state == actionlib::SimpleClientGoalState::PREEMPTED);
-    done_ = true;
-  }
-
 protected:
 
   virtual void SetUp() {
@@ -70,15 +55,11 @@ protected:
 
     cm_ = new planning_environment::CollisionModels("robot_description");
 
-    ros::service::waitForService(GET_PLANNING_SCENE_SERVICE);
+    ros::service::waitForService(SET_PLANNING_SCENE_DIFF_SERVICE);
     ros::service::waitForService(PLANNER_SERVICE_NAME);
 
-    get_planning_scene_client_ = nh_.serviceClient<arm_navigation_msgs::GetPlanningScene>(GET_PLANNING_SCENE_SERVICE);
+    set_planning_scene_diff_client_ = nh_.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_SERVICE);
     planning_service_client_ = nh_.serviceClient<arm_navigation_msgs::GetMotionPlan>(PLANNER_SERVICE_NAME);
-
-    set_planning_scene_action_ = new actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction>(SET_PLANNING_SCENE_NAME, true);
-
-    set_planning_scene_action_->waitForServer();
 
     mplan_req.motion_plan_request.group_name = "right_arm";
     mplan_req.motion_plan_request.num_planning_attempts = 1;
@@ -95,20 +76,10 @@ protected:
 
   virtual void TearDown() {
     delete cm_;
-    delete set_planning_scene_action_;
   }
 
   void GetAndSetPlanningScene() {
-    ASSERT_TRUE(get_planning_scene_client_.call(get_req, get_res));
-
-    arm_navigation_msgs::SetPlanningSceneGoal planning_scene_goal;
-    planning_scene_goal.planning_scene = get_res.planning_scene;
-
-    //set_planning_scene_action_->sendGoal(planning_scene_goal, boost::bind(&OmplPlanningTest::actionDoneCallback, this, _1, _2), NULL, boost::bind(&OmplPlanningTest::actionFeedbackCallback, this, _1));
-
-    actionlib::SimpleClientGoalState gs = set_planning_scene_action_->sendGoalAndWait(planning_scene_goal);
-    
-    EXPECT_TRUE(gs == actionlib::SimpleClientGoalState::SUCCEEDED);
+    ASSERT_TRUE(set_planning_scene_diff_client_.call(get_req, get_res));
   }
       
 protected:
@@ -119,15 +90,12 @@ protected:
 
   planning_environment::CollisionModels* cm_;
 
-  arm_navigation_msgs::GetPlanningScene::Request get_req;
-  arm_navigation_msgs::GetPlanningScene::Response get_res;
+  arm_navigation_msgs::SetPlanningSceneDiff::Request get_req;
+  arm_navigation_msgs::SetPlanningSceneDiff::Response get_res;
   arm_navigation_msgs::GetMotionPlan::Request mplan_req;
 
-  ros::ServiceClient get_planning_scene_client_;
+  ros::ServiceClient set_planning_scene_diff_client_;
   ros::ServiceClient planning_service_client_;
-
-  actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction>* set_planning_scene_action_;  
-
 };
 
 TEST_F(OmplPlanningTest, TestPole)
