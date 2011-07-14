@@ -39,8 +39,8 @@
 #include <planning_environment/models/collision_models_interface.h>
 #include <planning_environment/models/model_utils.h>
 
-#include <planning_environment_msgs/GetJointTrajectoryValidity.h>
-#include <planning_environment_msgs/GetStateValidity.h>
+#include <arm_navigation_msgs/GetJointTrajectoryValidity.h>
+#include <arm_navigation_msgs/GetStateValidity.h>
 
 namespace planning_environment
 {
@@ -65,14 +65,14 @@ public:
     delete collision_models_interface_;
   }
 
-  bool getTrajectoryValidity(planning_environment_msgs::GetJointTrajectoryValidity::Request &req, 
-                             planning_environment_msgs::GetJointTrajectoryValidity::Response &res) 
+  bool getTrajectoryValidity(arm_navigation_msgs::GetJointTrajectoryValidity::Request &req, 
+                             arm_navigation_msgs::GetJointTrajectoryValidity::Response &res) 
   {
     return true;
   }
 
-  bool getStateValidity(planning_environment_msgs::GetStateValidity::Request &req, 
-                        planning_environment_msgs::GetStateValidity::Response &res) 
+  bool getStateValidity(arm_navigation_msgs::GetStateValidity::Request &req, 
+                        arm_navigation_msgs::GetStateValidity::Response &res) 
   {
     collision_models_interface_->bodiesLock();
     if(!collision_models_interface_->isPlanningSceneSet()) {
@@ -87,11 +87,11 @@ public:
     }
     planning_environment::setRobotStateAndComputeTransforms(req.robot_state,
                                                             *collision_models_interface_->getPlanningSceneState());
-    motion_planning_msgs::Constraints goal_constraints;
+    arm_navigation_msgs::Constraints goal_constraints;
     if(req.check_goal_constraints) {
       goal_constraints = req.goal_constraints;
     }
-    motion_planning_msgs::Constraints path_constraints;
+    arm_navigation_msgs::Constraints path_constraints;
     if(req.check_path_constraints) {
       path_constraints = req.path_constraints;
     }

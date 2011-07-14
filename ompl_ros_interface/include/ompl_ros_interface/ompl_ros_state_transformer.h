@@ -44,8 +44,8 @@
 #include <ompl/base/ScopedState.h>
 #include <ompl/base/State.h>
 
-#include <motion_planning_msgs/convert_messages.h>
-#include <motion_planning_msgs/GetMotionPlan.h>
+#include <arm_navigation_msgs/convert_messages.h>
+#include <arm_navigation_msgs/GetMotionPlan.h>
 
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
@@ -87,8 +87,8 @@ public:
    * @param request The request that the planner gets
    * @param response The response to the planning request
    */ 
-  virtual bool configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                                  motion_planning_msgs::GetMotionPlan::Response &response) = 0;
+  virtual bool configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                                  arm_navigation_msgs::GetMotionPlan::Response &response) = 0;
 
   /**
    * @brief Compute the inverse transform (from planning state to physical state)
@@ -96,14 +96,14 @@ public:
    * @param robot_State - the corresponding physical state
    */ 
   virtual bool inverseTransform(const ompl::base::State &ompl_state,
-                                motion_planning_msgs::RobotState &robot_state) = 0;
+                                arm_navigation_msgs::RobotState &robot_state) = 0;
 
   /**
    * @brief Compute the forward transform (from physical state to planning state)
    * @param robot_State - the physical state
    * @param ompl_state - the corresponding planning state
    */ 
-  virtual bool forwardTransform(const motion_planning_msgs::RobotState &robot_state,
+  virtual bool forwardTransform(const arm_navigation_msgs::RobotState &robot_state,
                                 ompl::base::State &ompl_state) = 0;
 
   /**
@@ -114,7 +114,7 @@ public:
   /**
    * @brief Return a default state
    */ 
-  virtual  motion_planning_msgs::RobotState getDefaultState() = 0;
+  virtual  arm_navigation_msgs::RobotState getDefaultState() = 0;
 
 protected:
   ompl::base::StateSpacePtr state_space_;

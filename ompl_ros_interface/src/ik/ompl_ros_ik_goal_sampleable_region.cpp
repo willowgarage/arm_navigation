@@ -80,13 +80,13 @@ bool OmplRosIKSampleableRegion::initialize(const ompl::base::StateSpacePtr &stat
     return false;
 }  
 
-bool OmplRosIKSampleableRegion::configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                                                   motion_planning_msgs::GetMotionPlan::Response &response,
+bool OmplRosIKSampleableRegion::configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                                                   arm_navigation_msgs::GetMotionPlan::Response &response,
                                                    const unsigned int &max_sample_count)
 {
   max_sample_count_ = max_sample_count;
   ik_poses_.clear();
-  motion_planning_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
+  arm_navigation_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
 
   if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                             goal_constraints,
@@ -94,7 +94,7 @@ bool OmplRosIKSampleableRegion::configureOnRequest(const motion_planning_msgs::G
     response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
   }
-  if(!motion_planning_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
+  if(!arm_navigation_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
   {
     ROS_ERROR("Could not get poses from constraints");
     return false;
@@ -125,7 +125,7 @@ unsigned int OmplRosIKSampleableRegion::maxSampleCount(void) const
 void OmplRosIKSampleableRegion::sampleGoal(ompl::base::State *state) const
 
 {
-  std::vector<motion_planning_msgs::RobotState> sampled_states_vector;
+  std::vector<arm_navigation_msgs::RobotState> sampled_states_vector;
   sampleGoals(1,sampled_states_vector);
   if(!sampled_states_vector.empty())
   {
@@ -136,9 +136,9 @@ void OmplRosIKSampleableRegion::sampleGoal(ompl::base::State *state) const
 }
 
 void OmplRosIKSampleableRegion::sampleGoals(const unsigned int &number_goals,
-                                            std::vector<motion_planning_msgs::RobotState> &sampled_states_vector) const
+                                            std::vector<arm_navigation_msgs::RobotState> &sampled_states_vector) const
 {
-  motion_planning_msgs::RobotState seed_state,solution_state;
+  arm_navigation_msgs::RobotState seed_state,solution_state;
   seed_state = seed_state_;
   solution_state = solution_state_; 
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> scoped_state(state_space_);

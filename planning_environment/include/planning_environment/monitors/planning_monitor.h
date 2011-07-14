@@ -39,9 +39,9 @@
 
 #include "planning_environment/monitors/collision_space_monitor.h"
 #include <trajectory_msgs/JointTrajectory.h>
-#include <motion_planning_msgs/Constraints.h>
-#include <motion_planning_msgs/GetMotionPlan.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/Constraints.h>
+#include <arm_navigation_msgs/GetMotionPlan.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
 #include <iostream>
 
 namespace planning_environment
@@ -64,9 +64,9 @@ public:
   {
   }
 	
-  bool getCompletePlanningScene(const planning_environment_msgs::PlanningScene& planning_diff,
-                                const motion_planning_msgs::OrderedCollisionOperations& ordered_collision_operations,
-                                planning_environment_msgs::PlanningScene& planning_scene) const;
+  bool getCompletePlanningScene(const arm_navigation_msgs::PlanningScene& planning_diff,
+                                const arm_navigation_msgs::OrderedCollisionOperations& ordered_collision_operations,
+                                arm_navigation_msgs::PlanningScene& planning_scene) const;
 
   void getAllFixedFrameTransforms(std::vector<geometry_msgs::TransformStamped>& transform_vec) const;
 

@@ -52,33 +52,33 @@ namespace spline_smoother
     CubicParameterizedTrajectory();
 
     bool parameterize(const trajectory_msgs::JointTrajectory& trajectory_in, 
-                      const std::vector<motion_planning_msgs::JointLimits> &limits,
+                      const std::vector<arm_navigation_msgs::JointLimits> &limits,
                       spline_smoother::SplineTrajectory& spline);
 
     private:
 
     double getDistance(const trajectory_msgs::JointTrajectoryPoint &start, 
                        const trajectory_msgs::JointTrajectoryPoint &end,
-                       const std::vector<motion_planning_msgs::JointLimits> &limits);
+                       const std::vector<arm_navigation_msgs::JointLimits> &limits);
 
     double getVelocityLimit(const trajectory_msgs::JointTrajectoryPoint &start, 
                             const trajectory_msgs::JointTrajectoryPoint &end,
-                            const std::vector<motion_planning_msgs::JointLimits> &limits);
+                            const std::vector<arm_navigation_msgs::JointLimits> &limits);
 
     double getAccelerationLimit(const trajectory_msgs::JointTrajectoryPoint &start, 
                                 const trajectory_msgs::JointTrajectoryPoint &end,
-                                const std::vector<motion_planning_msgs::JointLimits> &limits);
+                                const std::vector<arm_navigation_msgs::JointLimits> &limits);
 
-    bool hasAccelerationLimits(const std::vector<motion_planning_msgs::JointLimits> &limits);
+    bool hasAccelerationLimits(const std::vector<arm_navigation_msgs::JointLimits> &limits);
 
     void getLimit(const trajectory_msgs::JointTrajectoryPoint &start, 
                   const trajectory_msgs::JointTrajectoryPoint &end,
-                  const std::vector<motion_planning_msgs::JointLimits> &limits,
-                  motion_planning_msgs::JointLimits &limit_out);
+                  const std::vector<arm_navigation_msgs::JointLimits> &limits,
+                  arm_navigation_msgs::JointLimits &limit_out);
 
     double jointDiff(const double &start, 
                      const double &end,
-                     const motion_planning_msgs::JointLimits &limit);
+                     const arm_navigation_msgs::JointLimits &limit);
     
     void solveCubicSpline(const double &q0,
                           const double &q1,

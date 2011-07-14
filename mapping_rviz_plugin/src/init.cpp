@@ -30,12 +30,10 @@
 #include "rviz/plugin/type_registry.h"
 
 #include "collision_map_display.h"
-#include "polygonal_map_display.h"
 
 using namespace mapping_rviz_plugin;
 
 extern "C" void rvizPluginInit(rviz::TypeRegistry* reg)
 {
   reg->registerDisplay<CollisionMapDisplay>("mapping_rviz_plugin::CollisionMapDisplay");
-  reg->registerDisplay<PolygonalMapDisplay>("mapping_rviz_plugin::PolygonalMapDisplay");
 }

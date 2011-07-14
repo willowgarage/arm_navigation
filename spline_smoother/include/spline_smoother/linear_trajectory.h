@@ -57,7 +57,7 @@ public:
     \param spline The output spline trajectory. The number of spline segments = number of trajectory points - 1
   */
   bool parameterize(const trajectory_msgs::JointTrajectory& trajectory_in,
-                    const std::vector<motion_planning_msgs::JointLimits> &limits,
+                    const std::vector<arm_navigation_msgs::JointLimits> &limits,
                     spline_smoother::SplineTrajectory& spline);
   
 
@@ -65,7 +65,7 @@ private:
   
   double calculateMinimumTime(const trajectory_msgs::JointTrajectoryPoint &start, 
                               const trajectory_msgs::JointTrajectoryPoint &end, 
-                              const std::vector<motion_planning_msgs::JointLimits> &limits);
+                              const std::vector<arm_navigation_msgs::JointLimits> &limits);
   
   bool apply_limits_;
 };

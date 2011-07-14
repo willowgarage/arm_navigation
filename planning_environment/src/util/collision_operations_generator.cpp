@@ -81,12 +81,12 @@ void CollisionOperationsGenerator::generateDefaultInCollisionPairs(std::vector<C
   state.setKinematicStateToDefault();    
   CollidingJointValues cjv;
   state.getKinematicStateValues(cjv);
-  std::vector<planning_environment_msgs::ContactInformation> contacts;
+  std::vector<arm_navigation_msgs::ContactInformation> contacts;
   cm_->getAllCollisionsForState(state,
                                 contacts);
   
   for(unsigned int i = 0; i < contacts.size(); i++) {
-    planning_environment_msgs::ContactInformation& contact = contacts[i];
+    arm_navigation_msgs::ContactInformation& contact = contacts[i];
     default_in_collision.push_back(StringPair(contact.contact_body_1, contact.contact_body_2));
     in_collision_joint_values.push_back(cjv);
   }
@@ -265,7 +265,7 @@ void CollisionOperationsGenerator::sampleAndCountCollisions(unsigned int num) {
   for(unsigned int i = 0; i < num; i++) {
     generateRandomState(state);
     
-    std::vector<planning_environment_msgs::ContactInformation> contacts;
+    std::vector<arm_navigation_msgs::ContactInformation> contacts;
     cm_->getAllCollisionsForState(state,
                                   contacts);
 
@@ -274,7 +274,7 @@ void CollisionOperationsGenerator::sampleAndCountCollisions(unsigned int num) {
     }
     
     for(unsigned int i = 0; i < contacts.size(); i++) {
-      planning_environment_msgs::ContactInformation& contact = contacts[i];
+      arm_navigation_msgs::ContactInformation& contact = contacts[i];
       if(collision_count_map_.find(contact.contact_body_1) == collision_count_map_.end()) {
         ROS_WARN_STREAM("Problem - have no count for collision body " << contact.contact_body_1);
       }

@@ -45,7 +45,7 @@ namespace spline_smoother
 
   double CubicParameterizedTrajectory::getDistance(const trajectory_msgs::JointTrajectoryPoint &start, 
                                                    const trajectory_msgs::JointTrajectoryPoint &end,
-                                                   const std::vector<motion_planning_msgs::JointLimits> &limits)
+                                                   const std::vector<arm_navigation_msgs::JointLimits> &limits)
   {
     double position = 0.0;
     for(unsigned int i=0; i < start.positions.size(); i++)
@@ -56,7 +56,7 @@ namespace spline_smoother
 
   double CubicParameterizedTrajectory::getVelocityLimit(const trajectory_msgs::JointTrajectoryPoint &start, 
                                                       const trajectory_msgs::JointTrajectoryPoint &end,
-                                                      const std::vector<motion_planning_msgs::JointLimits> &limits)
+                                                      const std::vector<arm_navigation_msgs::JointLimits> &limits)
   {
     double velocity = DBL_MAX;
     for(unsigned int i=0; i < start.positions.size(); i++)
@@ -70,7 +70,7 @@ namespace spline_smoother
 
   double CubicParameterizedTrajectory::getAccelerationLimit(const trajectory_msgs::JointTrajectoryPoint &start, 
                                                             const trajectory_msgs::JointTrajectoryPoint &end,
-                                                            const std::vector<motion_planning_msgs::JointLimits> &limits)
+                                                            const std::vector<arm_navigation_msgs::JointLimits> &limits)
   {
     double acceleration = DBL_MAX;
     for(unsigned int i=0; i < start.positions.size(); i++)
@@ -82,7 +82,7 @@ namespace spline_smoother
     return acceleration;
   }
 
-  bool CubicParameterizedTrajectory::hasAccelerationLimits(const std::vector<motion_planning_msgs::JointLimits> &limits)
+  bool CubicParameterizedTrajectory::hasAccelerationLimits(const std::vector<arm_navigation_msgs::JointLimits> &limits)
   {
     for(unsigned int i=0; i < limits.size(); i++)
       if(!limits[i].has_acceleration_limits)
@@ -92,8 +92,8 @@ namespace spline_smoother
 
   void CubicParameterizedTrajectory::getLimit(const trajectory_msgs::JointTrajectoryPoint &start, 
                                               const trajectory_msgs::JointTrajectoryPoint &end,
-                                              const std::vector<motion_planning_msgs::JointLimits> &limits,
-                                              motion_planning_msgs::JointLimits &limit_out)
+                                              const std::vector<arm_navigation_msgs::JointLimits> &limits,
+                                              arm_navigation_msgs::JointLimits &limit_out)
   {
     limit_out.has_position_limits = true;
     limit_out.min_position = 0;
@@ -112,7 +112,7 @@ namespace spline_smoother
 
   double CubicParameterizedTrajectory::jointDiff(const double &start, 
                                                  const double &end,
-                                                 const motion_planning_msgs::JointLimits &limit)
+                                                 const arm_navigation_msgs::JointLimits &limit)
   {
     if(limit.has_position_limits)
       return end-start;
@@ -136,7 +136,7 @@ namespace spline_smoother
   }
 
   bool CubicParameterizedTrajectory::parameterize(const trajectory_msgs::JointTrajectory& trajectory_in, 
-                                                  const std::vector<motion_planning_msgs::JointLimits> &limits,
+                                                  const std::vector<arm_navigation_msgs::JointLimits> &limits,
                                                   spline_smoother::SplineTrajectory& spline)
   {
     int num_traj = trajectory_in.points.size();
@@ -171,7 +171,7 @@ namespace spline_smoother
       end.positions[0] = 1.0;
 
       // Velocity limits on parameter
-      motion_planning_msgs::JointLimits parameter_limits;
+      arm_navigation_msgs::JointLimits parameter_limits;
       parameter_limits.joint_name = "cubic_parameterization";
       getLimit(trajectory_in.points[i-1],trajectory_in.points[i],limits,parameter_limits);
 
@@ -179,7 +179,7 @@ namespace spline_smoother
       {
         spline_smoother::CubicTrajectory solver;
         spline_smoother::SplineTrajectory spline;
-        motion_planning_msgs::JointTrajectoryWithLimits wpt;
+        arm_navigation_msgs::JointTrajectoryWithLimits wpt;
         double dTMin;
 
         wpt.trajectory.points.push_back(start);

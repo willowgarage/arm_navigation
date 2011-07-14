@@ -82,12 +82,12 @@ TEST(MoveArm, goToPoseGoal)
   //-position [x, y, z]    = [0.77025, -.18, 0.73]
   //-rotation [x, y, z, w] = [0, -0.05, 0, 0]
 
-  goalA.goal_constraints.pose_constraint[0].type = motion_planning_msgs::PoseConstraint::POSITION_X 
-    + motion_planning_msgs::PoseConstraint::POSITION_Y 
-    + motion_planning_msgs::PoseConstraint::POSITION_Z
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_R 
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_P 
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_Y;
+  goalA.goal_constraints.pose_constraint[0].type = arm_navigation_msgs::PoseConstraint::POSITION_X 
+    + arm_navigation_msgs::PoseConstraint::POSITION_Y 
+    + arm_navigation_msgs::PoseConstraint::POSITION_Z
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_R 
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_P 
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_Y;
   
   goalA.goal_constraints.pose_constraint[0].link_name = "r_wrist_roll_link";
   goalA.goal_constraints.pose_constraint[0].pose.pose.position.x = 0.60;
@@ -122,14 +122,14 @@ TEST(MoveArm, goToPoseGoal)
   goalA.contacts[0].links.push_back("r_gripper_r_finger_tip_link");
   
   goalA.contacts[0].depth = 0.04;
-  goalA.contacts[0].bound.type = mapping_msgs::Object::SPHERE;
+  goalA.contacts[0].bound.type = arm_navigation_msgs::Object::SPHERE;
   goalA.contacts[0].bound.dimensions.push_back(0.3);
   goalA.contacts[0].pose = goalA.goal_constraints.pose_constraint[0].pose;
   
   goalA.contacts[1].links.push_back("r_gripper_palm_link");
   goalA.contacts[1].links.push_back("r_wrist_roll_link");
   goalA.contacts[1].depth = 0.02;
-  goalA.contacts[1].bound.type = mapping_msgs::Object::SPHERE;
+  goalA.contacts[1].bound.type = arm_navigation_msgs::Object::SPHERE;
   goalA.contacts[1].bound.dimensions.push_back(0.2);
   goalA.contacts[1].pose = goalA.goal_constraints.pose_constraint[0].pose;
   
@@ -176,12 +176,12 @@ TEST(MoveArm, goToPoseGoal)
   goalB.goal_constraints.set_pose_constraint_size(1);
   goalB.goal_constraints.pose_constraint[0].pose.header.stamp = ros::Time::now();
   goalB.goal_constraints.pose_constraint[0].pose.header.frame_id = "base_link";
-  goalB.goal_constraints.pose_constraint[0].type = motion_planning_msgs::PoseConstraint::POSITION_X 
-    + motion_planning_msgs::PoseConstraint::POSITION_Y 
-    + motion_planning_msgs::PoseConstraint::POSITION_Z
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_R 
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_P 
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_Y;
+  goalB.goal_constraints.pose_constraint[0].type = arm_navigation_msgs::PoseConstraint::POSITION_X 
+    + arm_navigation_msgs::PoseConstraint::POSITION_Y 
+    + arm_navigation_msgs::PoseConstraint::POSITION_Z
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_R 
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_P 
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_Y;
   
   goalB.goal_constraints.pose_constraint[0].link_name = "r_wrist_roll_link";
   goalB.goal_constraints.pose_constraint[0].pose.pose.position.x = 0.60;
@@ -212,12 +212,12 @@ TEST(MoveArm, goToPoseGoal)
   goalB.path_constraints.set_pose_constraint_size(1);
   goalB.path_constraints.pose_constraint[0].pose.header.stamp = ros::Time::now();
   goalB.path_constraints.pose_constraint[0].pose.header.frame_id = "base_link";
-  goalB.path_constraints.pose_constraint[0].type = motion_planning_msgs::PoseConstraint::POSITION_X 
-    + motion_planning_msgs::PoseConstraint::POSITION_Y
-    + motion_planning_msgs::PoseConstraint::POSITION_Z
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_R
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_P; 
-//     + motion_planning_msgs::PoseConstraint::ORIENTATION_Y;
+  goalB.path_constraints.pose_constraint[0].type = arm_navigation_msgs::PoseConstraint::POSITION_X 
+    + arm_navigation_msgs::PoseConstraint::POSITION_Y
+    + arm_navigation_msgs::PoseConstraint::POSITION_Z
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_R
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_P; 
+//     + arm_navigation_msgs::PoseConstraint::ORIENTATION_Y;
   goalB.path_constraints.pose_constraint[0].link_name = "r_wrist_roll_link";
   goalB.path_constraints.pose_constraint[0].pose.pose.position.x = 0.60;
   goalB.path_constraints.pose_constraint[0].pose.pose.position.y = -0.25;
@@ -251,14 +251,14 @@ TEST(MoveArm, goToPoseGoal)
   goalB.contacts[0].links.push_back("r_gripper_r_finger_tip_link");
   
   goalB.contacts[0].depth = 0.04;
-  goalB.contacts[0].bound.type = mapping_msgs::Object::SPHERE;
+  goalB.contacts[0].bound.type = arm_navigation_msgs::Object::SPHERE;
   goalB.contacts[0].bound.dimensions.push_back(0.3);
   goalB.contacts[0].pose = goalB.goal_constraints.pose_constraint[0].pose;
   
   goalB.contacts[1].links.push_back("r_gripper_palm_link");
   goalB.contacts[1].links.push_back("r_wrist_roll_link");
   goalB.contacts[1].depth = 0.02;
-  goalB.contacts[1].bound.type = mapping_msgs::Object::SPHERE;
+  goalB.contacts[1].bound.type = arm_navigation_msgs::Object::SPHERE;
   goalB.contacts[1].bound.dimensions.push_back(0.2);
   goalB.contacts[1].pose = goalB.goal_constraints.pose_constraint[0].pose;
   

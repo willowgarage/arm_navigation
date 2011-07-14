@@ -35,7 +35,7 @@
 /** \author Sachin Chitta */
 
 #include <gtest/gtest.h>
-#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
+#include <arm_navigation_msgs/JointTrajectoryWithLimits.h>
 #include <spline_smoother/cubic_trajectory.h>
 
 double gen_rand(double min, double max)
@@ -53,7 +53,7 @@ TEST(TestCubicTrajectory, TestCubicTrajectoryWithWrapAround)
   int length = 2;
   int joints = 1;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(joints);
   wpt.trajectory.joint_names[0] = std::string("test0");
@@ -108,7 +108,7 @@ TEST(TestCubicTrajectory, TestCubicTrajectory)
   int length = 4;
   int joints = 2;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(joints);
   wpt.trajectory.joint_names[0] = std::string("test0");
@@ -181,7 +181,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits1)
   int length = 2;
   int joints = 1;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(joints);
   wpt.trajectory.joint_names[0] = std::string("test0");
@@ -228,7 +228,7 @@ TEST(TestCubicTrajectory, TestWithAccelerationLimits2)
   int length = 2;
   int joints = 1;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(joints);
   wpt.trajectory.joint_names[0] = std::string("test0");

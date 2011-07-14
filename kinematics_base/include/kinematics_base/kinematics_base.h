@@ -38,7 +38,7 @@
 #define KINEMATICS_BASE_
 
 #include <geometry_msgs/PoseStamped.h>
-#include <motion_planning_msgs/RobotState.h>
+#include <arm_navigation_msgs/RobotState.h>
 
 #include <kinematics_msgs/GetPositionIK.h>
 #include <kinematics_msgs/GetPositionFK.h>

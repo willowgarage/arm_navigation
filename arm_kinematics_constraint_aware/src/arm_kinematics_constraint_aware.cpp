@@ -114,10 +114,10 @@ void ArmKinematicsConstraintAware::advertiseBaseKinematicsServices()
 void ArmKinematicsConstraintAware::advertiseConstraintIKService()
 {
   ik_collision_service_ = node_handle_.advertiseService(IK_WITH_COLLISION_SERVICE,&ArmKinematicsConstraintAware::getConstraintAwarePositionIK,this);
-  display_trajectory_publisher_ = root_handle_.advertise<motion_planning_msgs::DisplayTrajectory>("ik_solution_display", 1);
+  display_trajectory_publisher_ = root_handle_.advertise<arm_navigation_msgs::DisplayTrajectory>("ik_solution_display", 1);
 }
 
-bool ArmKinematicsConstraintAware::isReady(motion_planning_msgs::ArmNavigationErrorCodes &error_code)
+bool ArmKinematicsConstraintAware::isReady(arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
 {
   if(!active_)
   {
@@ -125,10 +125,10 @@ bool ArmKinematicsConstraintAware::isReady(motion_planning_msgs::ArmNavigationEr
     return false;
   }
   if(!collision_models_interface_->isPlanningSceneSet()) {
-    ROS_INFO("Planning scene not set");
+    ROS_WARN("Planning scene not set");
     error_code.val = error_code.COLLISION_CHECKING_UNAVAILABLE;
     return false;
-  }    
+  } 
   error_code.val = error_code.SUCCESS;
   return true;
 }
@@ -186,7 +186,7 @@ bool ArmKinematicsConstraintAware::getConstraintAwarePositionIK(kinematics_msgs:
     /*
       if(visualize_solution_)
       {
-      motion_planning_msgs::DisplayTrajectory display_trajectory;
+      arm_navigation_msgs::DisplayTrajectory display_trajectory;
       display_trajectory.trajectory.joint_trajectory.points.resize(1);
       display_trajectory.trajectory.joint_trajectory.points[0].positions = response.solution.joint_state.position;
       display_trajectory.trajectory.joint_trajectory.joint_names = response.solution.joint_state.name;
@@ -354,11 +354,8 @@ void ArmKinematicsConstraintAware::printStringVec(const std::string &prefix, con
 bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK::Request &request, 
                                                  kinematics_msgs::GetPositionIK::Response &response)
 {
-  if(!active_)
-  {
-    ROS_ERROR("IK service not active");
+  if(!isReady(response.error_code))
     return true;
-  }
 
   if(!checkIKService(request,response,chain_info_))
     return true;

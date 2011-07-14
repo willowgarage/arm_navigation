@@ -43,8 +43,8 @@
 #include <spline_smoother/cubic_trajectory.h>
 #include <planning_environment/models/collision_models_interface.h>
 #include <planning_environment/models/model_utils.h>
-#include <motion_planning_msgs/RobotState.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/RobotState.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 
 namespace constraint_aware_spline_smoother
@@ -171,12 +171,12 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     return false;
   }
 
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-  motion_planning_msgs::RobotState robot_state;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+  arm_navigation_msgs::RobotState robot_state;
   spline_smoother::CubicTrajectory trajectory_solver;
   spline_smoother::SplineTrajectory spline, shortcut_spline;
-  motion_planning_msgs::JointTrajectoryWithLimits shortcut, discretized_trajectory;
+  arm_navigation_msgs::JointTrajectoryWithLimits shortcut, discretized_trajectory;
 
   trajectory_out = trajectory_in;
 
@@ -282,7 +282,7 @@ bool CubicSplineShortCutter<T>::smooth(const T& trajectory_in,
     discretizeTrajectory(shortcut_spline,discretization,discretized_trajectory.trajectory);
     ROS_DEBUG("Succeeded in sampling trajectory with size: %d",(int)discretized_trajectory.trajectory.points.size());
 
-    motion_planning_msgs::Constraints empty_goal_constraints;
+    arm_navigation_msgs::Constraints empty_goal_constraints;
 
     if(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
                                                            discretized_trajectory.trajectory,

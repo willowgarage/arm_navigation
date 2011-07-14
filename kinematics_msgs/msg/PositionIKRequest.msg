@@ -10,8 +10,8 @@ geometry_msgs/PoseStamped pose_stamped
 # The seed state MUST contain state for all joints to be used by the IK solver
 # to compute IK. The list of joints that the IK solver deals with can be found using
 # the kinematics_msgs/GetKinematicSolverInfo
-motion_planning_msgs/RobotState ik_seed_state
+arm_navigation_msgs/RobotState ik_seed_state
 
 # Additional state information can be provided here to specify the starting positions 
 # of other joints/links on the robot.
-motion_planning_msgs/RobotState robot_state
+arm_navigation_msgs/RobotState robot_state

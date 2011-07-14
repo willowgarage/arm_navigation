@@ -72,8 +72,8 @@ bool OmplRosJointPlanner::initializePlanningStateSpace(ompl::base::StateSpacePtr
   return true;
 }
 
-bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Request &request,
-                                         motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosJointPlanner::isRequestValid(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                         arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   if(request.motion_plan_request.group_name != group_name_)
   {
@@ -85,7 +85,7 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
   {
     if (!(request.motion_plan_request.goal_constraints.position_constraints[i].link_name == end_effector_name_))
     {
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_LINK_NAME;
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_LINK_NAME;
       ROS_ERROR("Cartesian goals for link %s are the only ones that can be processed", end_effector_name_.c_str());
       return false;      
     }
@@ -94,7 +94,7 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
   {
     if (!(request.motion_plan_request.goal_constraints.orientation_constraints[i].link_name == end_effector_name_))
     {
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_LINK_NAME;
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_LINK_NAME;
       ROS_ERROR("Cartesian goals for link %s are the only ones that can be processed", end_effector_name_.c_str());
       return false;      
     }
@@ -105,21 +105,21 @@ bool OmplRosJointPlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Re
     if(request.motion_plan_request.goal_constraints.position_constraints.size() != request.motion_plan_request.goal_constraints.orientation_constraints.size())
     {
       ROS_ERROR("Can only deal with requests that have the same number of position and orientation constraints");
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_GOAL_POSITION_CONSTRAINTS;
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_GOAL_POSITION_CONSTRAINTS;
       return false;
     }
   }
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
   {
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
     ROS_ERROR("Request does not specify correct allowed planning time %f",request.motion_plan_request.allowed_planning_time.toSec());
     return false;
   }
   return true;
 }
 
-bool OmplRosJointPlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                                  motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosJointPlanner::setGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                  arm_navigation_msgs::GetMotionPlan::Response &response)
 {
 
   if(!request.motion_plan_request.goal_constraints.joint_constraints.empty() 
@@ -142,8 +142,8 @@ bool OmplRosJointPlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &
   }
 }
 
-bool OmplRosJointPlanner::setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                                    motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosJointPlanner::setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                    arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> start(state_space_);
   ROS_DEBUG("Start");
@@ -163,7 +163,7 @@ bool OmplRosJointPlanner::setStart(motion_planning_msgs::GetMotionPlan::Request 
       response.error_code.val = response.error_code.START_STATE_VIOLATES_PATH_CONSTRAINTS;
     else if(response.error_code.val == response.error_code.COLLISION_CONSTRAINTS_VIOLATED)
       response.error_code.val = response.error_code.START_STATE_IN_COLLISION;
-    ROS_ERROR("Start state is invalid. Reason: %s",motion_planning_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
+    ROS_ERROR("Start state is invalid. Reason: %s",arm_navigation_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
     return false;
   }
   planner_->getProblemDefinition()->clearStartStates(); 
@@ -171,8 +171,8 @@ bool OmplRosJointPlanner::setStart(motion_planning_msgs::GetMotionPlan::Request 
   return true;
 }
 
-bool OmplRosJointPlanner::setJointGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                                        motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosJointPlanner::setJointGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                        arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> goal(state_space_);
   ompl::base::GoalPtr goal_states(new ompl::base::GoalStates(planner_->getSpaceInformation()));
@@ -191,7 +191,7 @@ bool OmplRosJointPlanner::setJointGoal(motion_planning_msgs::GetMotionPlan::Requ
   }
   for(unsigned int i=0; i < num_goals; i++)
   {
-    std::vector<motion_planning_msgs::JointConstraint> joint_constraints;
+    std::vector<arm_navigation_msgs::JointConstraint> joint_constraints;
     for(unsigned int j=0; j < dimension; j++)
       joint_constraints.push_back(request.motion_plan_request.goal_constraints.joint_constraints[i*dimension+j]);
     if(!ompl_ros_interface::jointConstraintsToOmplState(joint_constraints,goal))
@@ -210,7 +210,7 @@ bool OmplRosJointPlanner::setJointGoal(motion_planning_msgs::GetMotionPlan::Requ
       response.error_code.val = response.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
     else if(response.error_code.val == response.error_code.COLLISION_CONSTRAINTS_VIOLATED)
       response.error_code.val = response.error_code.GOAL_IN_COLLISION;
-    ROS_ERROR("Joint space goal is invalid. Reason: %s",motion_planning_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
+    ROS_ERROR("Joint space goal is invalid. Reason: %s",arm_navigation_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
     return false;
   }  
   ROS_INFO_STREAM("Setting " << num_goals << " goals");
@@ -218,8 +218,8 @@ bool OmplRosJointPlanner::setJointGoal(motion_planning_msgs::GetMotionPlan::Requ
   return true;
 }
 
-bool OmplRosJointPlanner::setPoseGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                                       motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosJointPlanner::setPoseGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                       arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   if(!ik_sampler_available_)
   {
@@ -242,9 +242,9 @@ bool OmplRosJointPlanner::initializeStateValidityChecker(ompl_ros_interface::Omp
     return true;
 }
 
-motion_planning_msgs::RobotTrajectory OmplRosJointPlanner::getSolutionPath()
+arm_navigation_msgs::RobotTrajectory OmplRosJointPlanner::getSolutionPath()
 {
-  motion_planning_msgs::RobotTrajectory robot_trajectory;
+  arm_navigation_msgs::RobotTrajectory robot_trajectory;
   ompl::geometric::PathGeometric solution = planner_->getSolutionPath();
   solution.interpolate();
   omplPathGeometricToRobotTrajectory(solution,robot_trajectory);

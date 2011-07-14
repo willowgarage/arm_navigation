@@ -1,9 +1,0 @@
-# This service call determines whether the environment is safe, e.g.
-# is the environment server receiving joint state updates?
-# if enabled, is a 3D collision map being updated regularly?
-# It can be used to perform gross checks before calling a motion planner
----
-# Integer error code corresponding to the first check that was violated
-# The message contains both the returned error code value and a set 
-# of possible error codes
-motion_planning_msgs/ArmNavigationErrorCodes error_code

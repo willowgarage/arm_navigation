@@ -82,8 +82,8 @@ private:
     @brief Planning - choose the correct planner and then call it
     with the request.
  */
-  bool computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
-                   motion_planning_msgs::GetMotionPlan::Response &response);
+  bool computePlan(arm_navigation_msgs::GetMotionPlan::Request &request,
+                   arm_navigation_msgs::GetMotionPlan::Response &response);
 
  /**
     @brief Get the names of all groups we will be planning for

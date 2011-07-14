@@ -39,8 +39,8 @@
 namespace trajectory_filter_server
 {
 TrajectoryFilterServer::TrajectoryFilterServer() : private_handle_("~"),
-                                                   filter_chain_("motion_planning_msgs::FilterJointTrajectory::Request"),
-                                                   filter_constraints_chain_("motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request")
+                                                   filter_chain_("arm_navigation_msgs::FilterJointTrajectory::Request"),
+                                                   filter_constraints_chain_("arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request")
 {
   std::string service_type_string;
   private_handle_.param<std::string>("service_type",service_type_string,"FilterJointTrajectory");
@@ -81,14 +81,14 @@ bool TrajectoryFilterServer::init()
   return true;
 }
 
-bool TrajectoryFilterServer::filter(motion_planning_msgs::FilterJointTrajectory::Request &req,
-                                    motion_planning_msgs::FilterJointTrajectory::Response &resp)
+bool TrajectoryFilterServer::filter(arm_navigation_msgs::FilterJointTrajectory::Request &req,
+                                    arm_navigation_msgs::FilterJointTrajectory::Response &resp)
 {
   ROS_DEBUG("TrajectoryFilter::Got trajectory with %d points and %d joints",
             (int)req.trajectory.points.size(),
             (int)req.trajectory.joint_names.size());
   getLimits(req.trajectory,req.limits);
-  motion_planning_msgs::FilterJointTrajectory::Request chain_response;
+  arm_navigation_msgs::FilterJointTrajectory::Request chain_response;
   if (!filter_chain_.update(req,chain_response))
   {
     ROS_ERROR("Filter chain failed to process trajectory");
@@ -99,13 +99,13 @@ bool TrajectoryFilterServer::filter(motion_planning_msgs::FilterJointTrajectory:
   return true;
 }
 
-bool TrajectoryFilterServer::filterConstraints(motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request &req,
-                                               motion_planning_msgs::FilterJointTrajectoryWithConstraints::Response &resp)
+bool TrajectoryFilterServer::filterConstraints(arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request &req,
+                                               arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Response &resp)
 {
   ROS_DEBUG("TrajectoryFilter::Got trajectory with %d points and %d joints",
             (int)req.trajectory.points.size(),
             (int)req.trajectory.joint_names.size());
-  motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request filter_response;
+  arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request filter_response;
   getLimits(req.trajectory,req.limits);
   if (!filter_constraints_chain_.update(req,filter_response))
   {
@@ -118,14 +118,14 @@ bool TrajectoryFilterServer::filterConstraints(motion_planning_msgs::FilterJoint
 }
 
 void TrajectoryFilterServer::getLimits(const trajectory_msgs::JointTrajectory& trajectory, 
-                                       std::vector<motion_planning_msgs::JointLimits>& limits_out)
+                                       std::vector<arm_navigation_msgs::JointLimits>& limits_out)
 {
   int num_joints = trajectory.joint_names.size();
   limits_out.resize(num_joints);
   for (int i=0; i<num_joints; ++i)
   {
-    std::map<std::string, motion_planning_msgs::JointLimits>::const_iterator limit_it = joint_limits_.find(trajectory.joint_names[i]);
-    motion_planning_msgs::JointLimits limits;
+    std::map<std::string, arm_navigation_msgs::JointLimits>::const_iterator limit_it = joint_limits_.find(trajectory.joint_names[i]);
+    arm_navigation_msgs::JointLimits limits;
 
     if (limit_it == joint_limits_.end())
     {

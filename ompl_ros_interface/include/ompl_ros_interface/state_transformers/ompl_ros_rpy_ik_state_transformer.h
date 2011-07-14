@@ -67,28 +67,28 @@ public:
   /* @brief Configure the transformer when a request is received. This is typically a one time configuration 
      for each planning request.
    */ 
-  virtual bool configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                                  motion_planning_msgs::GetMotionPlan::Response &response);
+  virtual bool configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                                  arm_navigation_msgs::GetMotionPlan::Response &response);
 
   /* @brief Compute the inverse transform (from planning state to physical state)
    */ 
   virtual bool inverseTransform(const ompl::base::State &ompl_state,
-                                motion_planning_msgs::RobotState &robot_state);
+                                arm_navigation_msgs::RobotState &robot_state);
 
   /* @brief Compute the forward transform (from physical state to planning state)
    */ 
-  virtual bool forwardTransform(const motion_planning_msgs::RobotState &robot_state,
+  virtual bool forwardTransform(const arm_navigation_msgs::RobotState &robot_state,
                                 ompl::base::State &ompl_state);
 
   /* 
      @brief Get a default physical state
   */ 
-  virtual motion_planning_msgs::RobotState getDefaultState();
+  virtual arm_navigation_msgs::RobotState getDefaultState();
   
 private:
 
   int real_vector_index_;
-  motion_planning_msgs::RobotState seed_state_, solution_state_;
+  arm_navigation_msgs::RobotState seed_state_, solution_state_;
   int x_index_, y_index_, z_index_, pitch_index_, roll_index_, yaw_index_;  
   boost::shared_ptr<ompl::base::ScopedState<ompl::base::CompoundStateSpace> > scoped_state_;
 
@@ -99,7 +99,7 @@ private:
                        geometry_msgs::Pose &pose);
 
   double generateRandomNumber(const double &min, const double &max);
-  void generateRandomState(motion_planning_msgs::RobotState &robot_state);
+  void generateRandomState(arm_navigation_msgs::RobotState &robot_state);
 
 
 };

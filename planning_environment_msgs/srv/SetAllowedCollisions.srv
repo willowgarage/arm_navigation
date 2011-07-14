@@ -1,6 +1,0 @@
-#FOR TESTING/DEBUGGING ONLY - best practice is to use AllowedCollisionOperations!
-#sets the allowed collision map using the given operations, used until revert service is called
-motion_planning_msgs/OrderedCollisionOperations ord
----
-# the resulting collision matrix
-AllowedCollisionMatrix matrix

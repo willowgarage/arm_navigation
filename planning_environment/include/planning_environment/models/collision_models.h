@@ -40,17 +40,17 @@
 #include "planning_environment/models/robot_models.h"
 #include <tf/tf.h>
 #include <collision_space/environment.h>
-#include <planning_environment_msgs/PlanningScene.h>
-#include <geometric_shapes_msgs/Shape.h>
+#include <arm_navigation_msgs/PlanningScene.h>
+#include <arm_navigation_msgs/Shape.h>
 #include <geometric_shapes/bodies.h>
 #include <trajectory_msgs/JointTrajectory.h>
-#include <motion_planning_msgs/Constraints.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <motion_planning_msgs/MotionPlanRequest.h>
-#include <planning_environment_msgs/ContactInformation.h>
+#include <arm_navigation_msgs/Constraints.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/MotionPlanRequest.h>
+#include <arm_navigation_msgs/ContactInformation.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
-#include <motion_planning_msgs/OrderedCollisionOperations.h>
+#include <arm_navigation_msgs/OrderedCollisionOperations.h>
 
 static const std::string COLLISION_MAP_NAME="collision_map";
 
@@ -78,7 +78,7 @@ public:
   //
   // Planning scene functions
   //
-  planning_models::KinematicState* setPlanningScene(const planning_environment_msgs::PlanningScene& planning_scene);
+  planning_models::KinematicState* setPlanningScene(const arm_navigation_msgs::PlanningScene& planning_scene);
 
   void revertPlanningScene(planning_models::KinematicState* state);
 
@@ -86,13 +86,13 @@ public:
   // Planning scene and state based transform functions
   //
   bool convertAttachedCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                                     mapping_msgs::AttachedCollisionObject& att_obj) const;
+                                                     arm_navigation_msgs::AttachedCollisionObject& att_obj) const;
   
   bool convertCollisionObjectToNewWorldFrame(const planning_models::KinematicState& state,
-                                             mapping_msgs::CollisionObject& obj) const;
+                                             arm_navigation_msgs::CollisionObject& obj) const;
   
   bool convertConstraintsGivenNewWorldTransform(const planning_models::KinematicState& state,
-                                                motion_planning_msgs::Constraints& constraints,
+                                                arm_navigation_msgs::Constraints& constraints,
                                                 const std::string& opt_frame="") const;
   
   bool convertPoseGivenWorldTransform(const planning_models::KinematicState& state,
@@ -123,7 +123,7 @@ public:
   bool updateAttachedBodyPoses(const planning_models::KinematicState& state);
 
   //this function will fail if the header is not in the world frame
-  bool addStaticObject(const mapping_msgs::CollisionObject& obj);
+  bool addStaticObject(const arm_navigation_msgs::CollisionObject& obj);
 
   void addStaticObject(const std::string& name,
                        std::vector<shapes::Shape*>& shapes,
@@ -135,7 +135,7 @@ public:
   void deleteAllStaticObjects();
 
   //this function will fail if the header is not in the world frame
-  void setCollisionMap(const mapping_msgs::CollisionMap& map,
+  void setCollisionMap(const arm_navigation_msgs::CollisionMap& map,
                        bool mask_before_insertion=true);
 
   void setCollisionMap(std::vector<shapes::Shape*>& shapes,
@@ -148,7 +148,7 @@ public:
                                 std::vector<btTransform>& poses);
   
   //this function will fail if the header is not in the world frame
-  bool addAttachedObject(const mapping_msgs::AttachedCollisionObject& att);
+  bool addAttachedObject(const arm_navigation_msgs::AttachedCollisionObject& att);
 
   //fails if the link_name is not a valid link
   bool addAttachedObject(const std::string& object_name,
@@ -181,21 +181,21 @@ public:
   // Handling collision space functions
   //
 
-  void applyLinkPaddingToCollisionSpace(const std::vector<motion_planning_msgs::LinkPadding>& link_padding);
+  void applyLinkPaddingToCollisionSpace(const std::vector<arm_navigation_msgs::LinkPadding>& link_padding);
 
-  void getCurrentLinkPadding(std::vector<motion_planning_msgs::LinkPadding>& link_padding);
+  void getCurrentLinkPadding(std::vector<arm_navigation_msgs::LinkPadding>& link_padding);
 
   void revertCollisionSpacePaddingToDefault();
 
   void revertAllowedCollisionToDefault();
 
-  bool applyOrderedCollisionOperationsToCollisionSpace(const motion_planning_msgs::OrderedCollisionOperations &ord,
+  bool applyOrderedCollisionOperationsToCollisionSpace(const arm_navigation_msgs::OrderedCollisionOperations &ord,
                                                        bool print=false);
   bool disableCollisionsForNonUpdatedLinks(const std::string& group_name);
 
   bool setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm);
 
-  bool computeAllowedContact(const motion_planning_msgs::AllowedContactSpecification& al,
+  bool computeAllowedContact(const arm_navigation_msgs::AllowedContactSpecification& al,
                              collision_space::EnvironmentModel::AllowedContact& allowed_contact) const;
 
   //
@@ -206,15 +206,15 @@ public:
 
   const collision_space::EnvironmentModel::AllowedCollisionMatrix& getDefaultAllowedCollisionMatrix() const;
 
-  void getCollisionSpaceCollisionMap(mapping_msgs::CollisionMap& cmap) const;
+  void getCollisionSpaceCollisionMap(arm_navigation_msgs::CollisionMap& cmap) const;
 
-  void getLastCollisionMap(mapping_msgs::CollisionMap& cmap) const;
+  void getLastCollisionMap(arm_navigation_msgs::CollisionMap& cmap) const;
   
-  void getCollisionSpaceAllowedCollisions(planning_environment_msgs::AllowedCollisionMatrix& matrix) const;
+  void getCollisionSpaceAllowedCollisions(arm_navigation_msgs::AllowedCollisionMatrix& matrix) const;
 
-  void getCollisionSpaceCollisionObjects(std::vector<mapping_msgs::CollisionObject>& omap) const;
+  void getCollisionSpaceCollisionObjects(std::vector<arm_navigation_msgs::CollisionObject>& omap) const;
 
-  void getCollisionSpaceAttachedCollisionObjects(std::vector<mapping_msgs::AttachedCollisionObject>& avec) const;
+  void getCollisionSpaceAttachedCollisionObjects(std::vector<arm_navigation_msgs::AttachedCollisionObject>& avec) const;
 
   //
   // Functions for checking collisions and validity
@@ -227,49 +227,49 @@ public:
   bool isKinematicStateInEnvironmentCollision(const planning_models::KinematicState& state);
 
   void getPlanningSceneGivenState(const planning_models::KinematicState& state,
-                                  planning_environment_msgs::PlanningScene& scene);
+                                  arm_navigation_msgs::PlanningScene& scene);
 
   void getAllCollisionsForState(const planning_models::KinematicState& state,
-                                std::vector<planning_environment_msgs::ContactInformation>& contacts,
+                                std::vector<arm_navigation_msgs::ContactInformation>& contacts,
                                 unsigned int num_per_pair = 1);
 
   bool isKinematicStateValid(const planning_models::KinematicState& state,
                              const std::vector<std::string>& names,
-                             motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                             const motion_planning_msgs::Constraints goal_constraints,
-                             const motion_planning_msgs::Constraints path_constraints,
+                             arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+                             const arm_navigation_msgs::Constraints goal_constraints,
+                             const arm_navigation_msgs::Constraints path_constraints,
 			     bool verbose = false);
 
-  bool isJointTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
+  bool isJointTrajectoryValid(const arm_navigation_msgs::PlanningScene& planning_scene,
                               const trajectory_msgs::JointTrajectory &trajectory,
-                              const motion_planning_msgs::Constraints& goal_constraints,
-                              const motion_planning_msgs::Constraints& path_constraints,
-                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                              std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                              const arm_navigation_msgs::Constraints& goal_constraints,
+                              const arm_navigation_msgs::Constraints& path_constraints,
+                              arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+                              std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                               const bool evaluate_entire_trajectory);
 
   bool isJointTrajectoryValid(planning_models::KinematicState& state,
                               const trajectory_msgs::JointTrajectory &trajectory,
-                              const motion_planning_msgs::Constraints& goal_constraints,
-                              const motion_planning_msgs::Constraints& path_constraints,
-                              motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-                              std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+                              const arm_navigation_msgs::Constraints& goal_constraints,
+                              const arm_navigation_msgs::Constraints& path_constraints,
+                              arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+                              std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
                               const bool evaluate_entire_trajectory);  
 
-  // bool isRobotTrajectoryValid(const planning_environment_msgs::PlanningScene& planning_scene,
-  //                             const motion_planning_msgs::RobotTrajectory &trajectory,
-  //                             const motion_planning_msgs::Constraints& goal_constraints,
-  //                             const motion_planning_msgs::Constraints& path_constraints,
-  //                             motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-  //                             std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+  // bool isRobotTrajectoryValid(const arm_navigation_msgs::PlanningScene& planning_scene,
+  //                             const arm_navigation_msgs::RobotTrajectory &trajectory,
+  //                             const arm_navigation_msgs::Constraints& goal_constraints,
+  //                             const arm_navigation_msgs::Constraints& path_constraints,
+  //                             arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+  //                             std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
   //                             const bool evaluate_entire_trajectory);
 
   // bool isRobotTrajectoryValid(planning_models::KinematicState& state,
-  //                             const motion_planning_msgs::RobotTrajectory &trajectory,
-  //                             const motion_planning_msgs::Constraints& goal_constraints,
-  //                             const motion_planning_msgs::Constraints& path_constraints,
-  //                             motion_planning_msgs::ArmNavigationErrorCodes& error_code,
-  //                             std::vector<motion_planning_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
+  //                             const arm_navigation_msgs::RobotTrajectory &trajectory,
+  //                             const arm_navigation_msgs::Constraints& goal_constraints,
+  //                             const arm_navigation_msgs::Constraints& path_constraints,
+  //                             arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
+  //                             std::vector<arm_navigation_msgs::ArmNavigationErrorCodes>& trajectory_error_codes,
   //                             const bool evaluate_entire_trajectory);  
 
 
@@ -330,18 +330,18 @@ public:
   ///
 
   void writePlanningSceneBag(const std::string& filename,
-                             const planning_environment_msgs::PlanningScene& planning_scene) const;
+                             const arm_navigation_msgs::PlanningScene& planning_scene) const;
   
   bool readPlanningSceneBag(const std::string& filename,
-                            planning_environment_msgs::PlanningScene& planning_scene) const;
+                            arm_navigation_msgs::PlanningScene& planning_scene) const;
 
   bool appendMotionPlanRequestToPlanningSceneBag(const std::string& filename,
                                                  const std::string& topic_name,
-                                                 const motion_planning_msgs::MotionPlanRequest& req);
+                                                 const arm_navigation_msgs::MotionPlanRequest& req);
 
   bool loadMotionPlanRequestsInPlanningSceneBag(const std::string& filename,
                                                 const std::string& topic_name,
-                                                std::vector<motion_planning_msgs::MotionPlanRequest>& motion_plan_reqs);
+                                                std::vector<arm_navigation_msgs::MotionPlanRequest>& motion_plan_reqs);
 
   bool loadJointTrajectoriesInPlanningSceneBag(const std::string& filename,
                                                const std::string& topic_name,
@@ -378,7 +378,7 @@ public:
     return object_padd_;
   }
 
-  void getDefaultOrderedCollisionOperations(std::vector<motion_planning_msgs::CollisionOperation> &self_collision) const
+  void getDefaultOrderedCollisionOperations(std::vector<arm_navigation_msgs::CollisionOperation> &self_collision) const
   {
     self_collision = default_collision_operations_;
   }
@@ -435,7 +435,7 @@ protected:
   double attached_padd_;
   std::vector<double> bounding_planes_;
 
-  std::vector<motion_planning_msgs::CollisionOperation> default_collision_operations_;
+  std::vector<arm_navigation_msgs::CollisionOperation> default_collision_operations_;
 
   std::map<std::string, geometry_msgs::TransformStamped> scene_transform_map_;
 

@@ -2,15 +2,15 @@
 
 import roslib; roslib.load_manifest('planning_environment')
 import rospy
-import planning_environment_msgs.srv
+import arm_navigation_msgs.srv
 import sys
 import std_srvs.srv
 import unittest
 import mapping_msgs.msg
 from mapping_msgs.msg import CollisionObject
 from mapping_msgs.msg import AttachedCollisionObject
-from motion_planning_msgs.msg import CollisionOperation
-from geometric_shapes_msgs.msg import Shape
+from arm_navigation_msgs.msg import CollisionOperation
+from arm_navigation_msgs.msg import Shape
 from geometry_msgs.msg import Pose
 from std_msgs.msg import String
 
@@ -67,11 +67,11 @@ class TestAllowedCollisionOperations(unittest.TestCase):
         global revert_allowed_collision_service_name
         full_name = default_prefix+'/'+set_allowed_collision_service_name
         rospy.wait_for_service(full_name)
-        set_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, planning_environment_msgs.srv.SetAllowedCollisions)  
+        set_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, arm_navigation_msgs.srv.SetAllowedCollisions)  
 
         full_name = default_prefix+'/'+get_allowed_collision_service_name
         rospy.wait_for_service(full_name)
-        get_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, planning_environment_msgs.srv.GetAllowedCollisionMatrix)
+        get_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, arm_navigation_msgs.srv.GetAllowedCollisionMatrix)
 
         full_name = default_prefix+'/'+revert_allowed_collision_service_name
         rospy.wait_for_service(full_name)
@@ -79,7 +79,7 @@ class TestAllowedCollisionOperations(unittest.TestCase):
 
         #first we get the default
         
-        get_mat = planning_environment_msgs.srv.GetAllowedCollisionMatrixRequest()
+        get_mat = arm_navigation_msgs.srv.GetAllowedCollisionMatrixRequest()
     
         get_res = get_allowed_collision_service_proxy(get_mat)
 
@@ -104,7 +104,7 @@ class TestAllowedCollisionOperations(unittest.TestCase):
         self.assertEqual(False, get_res.matrix.entries[r_gripper_palm_link_index].enabled[l_gripper_palm_link_index])
          
         #if enable just this link, it should be true
-        set_allowed_request = planning_environment_msgs.srv.SetAllowedCollisionsRequest()   
+        set_allowed_request = arm_navigation_msgs.srv.SetAllowedCollisionsRequest()   
         set_allowed_request.ord.collision_operations = [CollisionOperation() for _ in range(1)]
         set_allowed_request.ord.collision_operations[0].object1 = "r_gripper_palm_link"
         set_allowed_request.ord.collision_operations[0].object2 = "l_gripper_palm_link"
@@ -139,11 +139,11 @@ class TestAllowedCollisionOperations(unittest.TestCase):
         global revert_allowed_collision_service_name
         full_name = default_prefix+'/'+set_allowed_collision_service_name
         rospy.wait_for_service(full_name)
-        set_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, planning_environment_msgs.srv.SetAllowedCollisions)  
+        set_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, arm_navigation_msgs.srv.SetAllowedCollisions)  
 
         full_name = default_prefix+'/'+get_allowed_collision_service_name
         rospy.wait_for_service(full_name)
-        get_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, planning_environment_msgs.srv.GetAllowedCollisionMatrix)
+        get_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, arm_navigation_msgs.srv.GetAllowedCollisionMatrix)
 
         full_name = default_prefix+'/'+revert_allowed_collision_service_name
         rospy.wait_for_service(full_name)
@@ -214,7 +214,7 @@ class TestAllowedCollisionOperations(unittest.TestCase):
 
         rospy.sleep(2.0)
 
-        get_mat = planning_environment_msgs.srv.GetAllowedCollisionMatrixRequest()
+        get_mat = arm_navigation_msgs.srv.GetAllowedCollisionMatrixRequest()
     
         get_res = get_allowed_collision_service_proxy(get_mat)
 
@@ -240,7 +240,7 @@ class TestAllowedCollisionOperations(unittest.TestCase):
         #now disable between all objects
 
         #if enable just this link, it should be true
-        set_allowed_request = planning_environment_msgs.srv.SetAllowedCollisionsRequest()   
+        set_allowed_request = arm_navigation_msgs.srv.SetAllowedCollisionsRequest()   
         set_allowed_request.ord.collision_operations = [CollisionOperation() for _ in range(1)]
         set_allowed_request.ord.collision_operations[0].object1 = "r_gripper_palm_link"
         set_allowed_request.ord.collision_operations[0].object2 = CollisionOperation.COLLISION_SET_OBJECTS
@@ -262,11 +262,11 @@ class TestAllowedCollisionOperations(unittest.TestCase):
         global revert_allowed_collision_service_name
         full_name = default_prefix+'/'+set_allowed_collision_service_name
         rospy.wait_for_service(full_name)
-        set_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, planning_environment_msgs.srv.SetAllowedCollisions)  
+        set_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, arm_navigation_msgs.srv.SetAllowedCollisions)  
 
         full_name = default_prefix+'/'+get_allowed_collision_service_name
         rospy.wait_for_service(full_name)
-        get_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, planning_environment_msgs.srv.GetAllowedCollisionMatrix)
+        get_allowed_collision_service_proxy = rospy.ServiceProxy(full_name, arm_navigation_msgs.srv.GetAllowedCollisionMatrix)
 
         full_name = default_prefix+'/'+revert_allowed_collision_service_name
         rospy.wait_for_service(full_name)
@@ -306,7 +306,7 @@ class TestAllowedCollisionOperations(unittest.TestCase):
 
         rospy.sleep(5.0)
 
-        get_mat = planning_environment_msgs.srv.GetAllowedCollisionMatrixRequest()
+        get_mat = arm_navigation_msgs.srv.GetAllowedCollisionMatrixRequest()
     
         get_res = get_allowed_collision_service_proxy(get_mat)
 
@@ -332,7 +332,7 @@ class TestAllowedCollisionOperations(unittest.TestCase):
         self.assertEqual(True, get_res.matrix.entries[r_gripper_palm_link_index].enabled[obj3_index])
         
         #this should overwrite touch links
-        set_allowed_request = planning_environment_msgs.srv.SetAllowedCollisionsRequest()   
+        set_allowed_request = arm_navigation_msgs.srv.SetAllowedCollisionsRequest()   
         set_allowed_request.ord.collision_operations = [CollisionOperation() for _ in range(1)]
         set_allowed_request.ord.collision_operations[0].object1 = "obj3"
         set_allowed_request.ord.collision_operations[0].object2 = "r_gripper_palm_link"

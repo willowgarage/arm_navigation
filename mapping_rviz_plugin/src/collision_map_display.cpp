@@ -190,7 +190,7 @@ void CollisionMapDisplay::update(float wall_dt, float ros_dt)
 {
 }
 
-void CollisionMapDisplay::processMessage(const mapping_msgs::CollisionMap::ConstPtr& msg)
+void CollisionMapDisplay::processMessage(const arm_navigation_msgs::CollisionMap::ConstPtr& msg)
 {
   clear();
 
@@ -306,7 +306,7 @@ void CollisionMapDisplay::processMessage(const mapping_msgs::CollisionMap::Const
   scene_node_->setOrientation(orientation);
 }
 
-void CollisionMapDisplay::incomingMessage(const mapping_msgs::CollisionMap::ConstPtr& message)
+void CollisionMapDisplay::incomingMessage(const arm_navigation_msgs::CollisionMap::ConstPtr& message)
 {
   processMessage(message);
 }
@@ -341,7 +341,7 @@ void CollisionMapDisplay::createProperties()
   topic_property_ = property_manager_->createProperty<rviz::ROSTopicStringProperty> ("Topic", property_prefix_, boost::bind(&CollisionMapDisplay::getTopic, this),
                                                                                boost::bind(&CollisionMapDisplay::setTopic, this, _1), parent_category_, this);
   rviz::ROSTopicStringPropertyPtr topic_prop = topic_property_.lock();
-  topic_prop->setMessageType(mapping_msgs::CollisionMap::__s_getDataType());
+  topic_prop->setMessageType(arm_navigation_msgs::CollisionMap::__s_getDataType());
 }
 
 } // namespace mapping_rviz_plugin

@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,11 +46,11 @@
 #include <boost/thread.hpp>
 #include <ros/ros.h>
 #include <gtest/gtest.h>
-#include <mapping_msgs/CollisionObject.h>
-#include <geometric_shapes_msgs/Shape.h>
-#include <collision_environment_msgs/MakeStaticCollisionMapAction.h>
+#include <arm_navigation_msgs/CollisionObject.h>
+#include <arm_navigation_msgs/Shape.h>
+#include <arm_navigation_msgs/MakeStaticCollisionMapAction.h>
 
-typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
+typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
 
 unsigned int REPS_TO_TRY = 10;
 
@@ -67,10 +67,10 @@ TEST(MoveArm, goToPoseGoal)
   ros::NodeHandle private_handle("~");
 
   ros::Publisher object_in_map_pub_;
-  object_in_map_pub_  = nh.advertise<mapping_msgs::CollisionObject>("collision_object", 10);
+  object_in_map_pub_  = nh.advertise<arm_navigation_msgs::CollisionObject>("collision_object", 10);
 
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
-  actionlib::SimpleActionClient<collision_environment_msgs::MakeStaticCollisionMapAction> make_static_map(nh, "make_static_collision_map");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MakeStaticCollisionMapAction> make_static_map(nh, "make_static_collision_map");
 
   boost::thread spin_thread(&spinThread);
   
@@ -79,12 +79,12 @@ TEST(MoveArm, goToPoseGoal)
   ROS_INFO("Connected to servers");
 
   //push the table and legs into the collision space
-  mapping_msgs::CollisionObject table_object;
-  table_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  arm_navigation_msgs::CollisionObject table_object;
+  table_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   table_object.header.frame_id = "base_link";
   table_object.header.stamp = ros::Time::now();
-  geometric_shapes_msgs::Shape object;
-  object.type = geometric_shapes_msgs::Shape::BOX;
+  arm_navigation_msgs::Shape object;
+  object.type = arm_navigation_msgs::Shape::BOX;
   object.dimensions.resize(3);
   object.dimensions[0] = 1.0;
   object.dimensions[1] = 1.0;
@@ -103,12 +103,12 @@ TEST(MoveArm, goToPoseGoal)
   table_object.id = "table";
   object_in_map_pub_.publish(table_object);
 
-  mapping_msgs::CollisionObject leg_object;
-  leg_object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  arm_navigation_msgs::CollisionObject leg_object;
+  leg_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   leg_object.header.frame_id = "base_link";
   leg_object.header.stamp = ros::Time::now();
-  geometric_shapes_msgs::Shape l_object;
-  l_object.type = geometric_shapes_msgs::Shape::BOX;
+  arm_navigation_msgs::Shape l_object;
+  l_object.type = arm_navigation_msgs::Shape::BOX;
   l_object.dimensions.resize(3);
   l_object.dimensions[0] = 0.05;
   l_object.dimensions[1] = 0.05;
@@ -142,7 +142,7 @@ TEST(MoveArm, goToPoseGoal)
   names[5] = "r_wrist_flex_joint";
   names[6] = "r_wrist_roll_joint";
 
-  move_arm_msgs::MoveArmGoal goalA, goalB;
+  arm_navigation_msgs::MoveArmGoal goalA, goalB;
   goalB.motion_plan_request.group_name = "right_arm";
   goalB.motion_plan_request.num_planning_attempts = 1;
   goalB.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
@@ -206,7 +206,7 @@ TEST(MoveArm, goToPoseGoal)
   goalA.motion_plan_request.goal_constraints.position_constraints[0].position.y = 0;
   goalA.motion_plan_request.goal_constraints.position_constraints[0].position.z = .35;
     
-  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
   goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
@@ -253,7 +253,7 @@ TEST(MoveArm, goToPoseGoal)
       }
     }
 
-  //   collision_environment_msgs::MakeStaticCollisionMapGoal static_map_goal;
+  //   arm_navigation_msgs::MakeStaticCollisionMapGoal static_map_goal;
     
 //     static_map_goal.cloud_source = "full_cloud_filtered";
 //     static_map_goal.number_of_clouds = 2;

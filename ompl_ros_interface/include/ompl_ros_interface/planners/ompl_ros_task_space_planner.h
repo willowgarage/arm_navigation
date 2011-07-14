@@ -62,20 +62,20 @@ namespace ompl_ros_interface
     /**
      * @brief Returns whether the motion planning request is valid
      */
-    virtual bool isRequestValid(motion_planning_msgs::GetMotionPlan::Request &request,
-                                motion_planning_msgs::GetMotionPlan::Response &response);
+    virtual bool isRequestValid(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                arm_navigation_msgs::GetMotionPlan::Response &response);
 
     /**
      * @brief Set the start state(s)
      */
-     virtual bool setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                          motion_planning_msgs::GetMotionPlan::Response &response);
+     virtual bool setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                          arm_navigation_msgs::GetMotionPlan::Response &response);
 
     /**
      * @brief Set the goal state(s)
      */
-    virtual bool setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                         motion_planning_msgs::GetMotionPlan::Response &response);
+    virtual bool setGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                         arm_navigation_msgs::GetMotionPlan::Response &response);
 
     /**
      * @brief Initialize the state validity checker
@@ -107,11 +107,11 @@ namespace ompl_ros_interface
     /**
       @brief Returns the solution path
      */
-    virtual motion_planning_msgs::RobotTrajectory getSolutionPath() = 0;
+    virtual arm_navigation_msgs::RobotTrajectory getSolutionPath() = 0;
 
     boost::shared_ptr<ompl_ros_interface::OmplRosStateTransformer> state_transformer_;
 
-    virtual bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
+    virtual bool constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints, 
                                         ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal);
 
   };

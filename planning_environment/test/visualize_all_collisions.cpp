@@ -36,8 +36,8 @@
 
 #include <ros/ros.h>
 #include <planning_environment/monitors/planning_monitor.h>
-#include <planning_environment_msgs/GetPlanningScene.h>
-#include <planning_environment_msgs/GetRobotState.h>
+#include <arm_navigation_msgs/GetPlanningScene.h>
+#include <arm_navigation_msgs/GetRobotState.h>
 #include <planning_environment/models/model_utils.h>
 
 static const std::string planning_scene_name = "/environment_monitor/get_planning_scene";      
@@ -54,28 +54,28 @@ int main(int argc, char** argv)
 
   planning_environment::CollisionModels cmodel(robot_description_name);
 
-  ros::ServiceClient planning_scene_client = nh.serviceClient<planning_environment_msgs::GetPlanningScene>(planning_scene_name, true);      
+  ros::ServiceClient planning_scene_client = nh.serviceClient<arm_navigation_msgs::GetPlanningScene>(planning_scene_name, true);      
   ros::service::waitForService(planning_scene_name);
   
-  ros::ServiceClient robot_state_service = nh.serviceClient<planning_environment_msgs::GetRobotState>(robot_state_name, true);      
+  ros::ServiceClient robot_state_service = nh.serviceClient<arm_navigation_msgs::GetRobotState>(robot_state_name, true);      
   ros::service::waitForService(robot_state_name);
   
   ros::Publisher vis_marker_publisher = nh.advertise<visualization_msgs::Marker>(vis_topic_name, 128);
   ros::Publisher vis_marker_array_publisher = nh.advertise<visualization_msgs::MarkerArray>(vis_topic_name+"_array", 128);
 
-  planning_environment_msgs::GetRobotState::Request rob_state_req;
-  planning_environment_msgs::GetRobotState::Response rob_state_res;
+  arm_navigation_msgs::GetRobotState::Request rob_state_req;
+  arm_navigation_msgs::GetRobotState::Response rob_state_res;
 
-  planning_environment_msgs::GetPlanningScene::Request req;
-  planning_environment_msgs::GetPlanningScene::Response res;
+  arm_navigation_msgs::GetPlanningScene::Request req;
+  arm_navigation_msgs::GetPlanningScene::Response res;
 
-  mapping_msgs::CollisionObject obj1;
+  arm_navigation_msgs::CollisionObject obj1;
   obj1.header.stamp = ros::Time::now();
   obj1.header.frame_id = "odom_combined";
   obj1.id = "wall";
-  obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  obj1.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   obj1.shapes.resize(1);
-  obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  obj1.shapes[0].type = arm_navigation_msgs::Shape::BOX;
   obj1.shapes[0].dimensions.resize(3);
   obj1.shapes[0].dimensions[0] = 0.05;
   obj1.shapes[0].dimensions[1] = 4.0;
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
   obj1.poses[0].position.z = 1.0;
   obj1.poses[0].orientation.w = 1.0;
 
-  mapping_msgs::AttachedCollisionObject att_obj;
+  arm_navigation_msgs::AttachedCollisionObject att_obj;
   att_obj.object = obj1;
   att_obj.object.header.stamp = ros::Time::now();
   att_obj.object.header.frame_id = "r_gripper_r_finger_tip_link";
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
   att_obj.touch_links.push_back("r_forearm_link");
   att_obj.touch_links.push_back("r_gripper_motor_accelerometer_link");
   att_obj.object.id = "obj2";
-  att_obj.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  att_obj.object.shapes[0].type = arm_navigation_msgs::Shape::CYLINDER;
   att_obj.object.shapes[0].dimensions.resize(2);
   att_obj.object.shapes[0].dimensions[0] = .02;
   att_obj.object.shapes[0].dimensions[1] = .25;

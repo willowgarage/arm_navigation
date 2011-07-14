@@ -73,24 +73,24 @@ void planning_environment::CollisionSpaceMonitor::startEnvironmentMonitor(void)
     return;
 
   if(use_collision_map_) {
-    collisionMapSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(root_handle_, "collision_map_occ", 1);
-    collisionMapFilter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(*collisionMapSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
+    collisionMapSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionMap>(root_handle_, "collision_map_occ", 1);
+    collisionMapFilter_ = new tf::MessageFilter<arm_navigation_msgs::CollisionMap>(*collisionMapSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
     collisionMapFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionMapCallback, this, _1));
     ROS_INFO("Listening to collision_map using message notifier with target frame %s", collisionMapFilter_->getTargetFramesString().c_str());
     
-    collisionMapUpdateSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(root_handle_, "collision_map_update", 1024);
-    collisionMapUpdateFilter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(*collisionMapUpdateSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
+    collisionMapUpdateSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionMap>(root_handle_, "collision_map_update", 1024);
+    collisionMapUpdateFilter_ = new tf::MessageFilter<arm_navigation_msgs::CollisionMap>(*collisionMapUpdateSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
     collisionMapUpdateFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionMapUpdateCallback, this, _1));
     ROS_DEBUG("Listening to collision_map_update using message notifier with target frame %s", collisionMapUpdateFilter_->getTargetFramesString().c_str());
   }
 
-  collisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
-  collisionObjectFilter_ = new tf::MessageFilter<mapping_msgs::CollisionObject>(*collisionObjectSubscriber_, *tf_, cm_->getWorldFrameId(), 1024);
+  collisionObjectSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionObject>(root_handle_, "collision_object", 1024);
+  collisionObjectFilter_ = new tf::MessageFilter<arm_navigation_msgs::CollisionObject>(*collisionObjectSubscriber_, *tf_, cm_->getWorldFrameId(), 1024);
   collisionObjectFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionObjectCallback, this, _1));
   ROS_DEBUG("Listening to object_in_map using message notifier with target frame %s", collisionObjectFilter_->getTargetFramesString().c_str());
   
   //using regular message filter as there's no header
-  attachedCollisionObjectSubscriber_ = new message_filters::Subscriber<mapping_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
+  attachedCollisionObjectSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::AttachedCollisionObject>(root_handle_, "attached_collision_object", 1024);	
   attachedCollisionObjectSubscriber_->registerCallback(boost::bind(&CollisionSpaceMonitor::attachObjectCallback, this, _1));    
 
   envMonitorStarted_ = true;
@@ -104,13 +104,13 @@ void planning_environment::CollisionSpaceMonitor::setUseCollisionMap(bool use_co
   if(!envMonitorStarted_) return;
 
   if(use_collision_map_) {
-    collisionMapSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(root_handle_, "collision_map", 1);
-    collisionMapFilter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(*collisionMapSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
+    collisionMapSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionMap>(root_handle_, "collision_map", 1);
+    collisionMapFilter_ = new tf::MessageFilter<arm_navigation_msgs::CollisionMap>(*collisionMapSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
     collisionMapFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionMapCallback, this, _1));
     ROS_DEBUG("Listening to collision_map using message notifier with target frame %s", collisionMapFilter_->getTargetFramesString().c_str());
     
-    collisionMapUpdateSubscriber_ = new message_filters::Subscriber<mapping_msgs::CollisionMap>(root_handle_, "collision_map_update", 1);
-    collisionMapUpdateFilter_ = new tf::MessageFilter<mapping_msgs::CollisionMap>(*collisionMapUpdateSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
+    collisionMapUpdateSubscriber_ = new message_filters::Subscriber<arm_navigation_msgs::CollisionMap>(root_handle_, "collision_map_update", 1);
+    collisionMapUpdateFilter_ = new tf::MessageFilter<arm_navigation_msgs::CollisionMap>(*collisionMapUpdateSubscriber_, *tf_, cm_->getWorldFrameId(), 1);
     collisionMapUpdateFilter_->registerCallback(boost::bind(&CollisionSpaceMonitor::collisionMapUpdateCallback, this, _1));
     ROS_DEBUG("Listening to collision_map_update using message notifier with target frame %s", collisionMapUpdateFilter_->getTargetFramesString().c_str());
   } else {
@@ -218,18 +218,18 @@ void planning_environment::CollisionSpaceMonitor::waitForMap(void) const
     ROS_INFO("Map received!");
 }
 
-void planning_environment::CollisionSpaceMonitor::collisionMapUpdateCallback(const mapping_msgs::CollisionMapConstPtr &collisionMap)
+void planning_environment::CollisionSpaceMonitor::collisionMapUpdateCallback(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap)
 {
   if (collisionMap->boxes.size() > 0)
     updateCollisionSpace(collisionMap, false);
 }
 
-void planning_environment::CollisionSpaceMonitor::collisionMapCallback(const mapping_msgs::CollisionMapConstPtr &collisionMap)
+void planning_environment::CollisionSpaceMonitor::collisionMapCallback(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap)
 {
   updateCollisionSpace(collisionMap, true);
 }
 
-void planning_environment::CollisionSpaceMonitor::collisionMapAsSpheres(const mapping_msgs::CollisionMapConstPtr &collisionMap,
+void planning_environment::CollisionSpaceMonitor::collisionMapAsSpheres(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap,
                                                                         std::vector<shapes::Shape*> &spheres, std::vector<btTransform> &poses)
 {
   // we want to make sure the frame the robot model is kept in is the same as the frame of the collisionMap
@@ -285,13 +285,13 @@ void planning_environment::CollisionSpaceMonitor::collisionMapAsSpheres(const ma
   }
 }
 
-void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const mapping_msgs::CollisionMapConstPtr &collision_map,
+void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const arm_navigation_msgs::CollisionMapConstPtr &collision_map,
                                                                       std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses)
 {
   collisionMapAsBoxes(*collision_map, boxes, poses);
 }
 
-void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const mapping_msgs::CollisionMap& collision_map,
+void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const arm_navigation_msgs::CollisionMap& collision_map,
                                                                       std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses)
 {
 
@@ -350,7 +350,7 @@ void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const mapp
   }
 }
 
-void planning_environment::CollisionSpaceMonitor::updateCollisionSpace(const mapping_msgs::CollisionMapConstPtr &collision_map, bool clear)
+void planning_environment::CollisionSpaceMonitor::updateCollisionSpace(const arm_navigation_msgs::CollisionMapConstPtr &collision_map, bool clear)
 { 
   std::vector<shapes::Shape*> shapes;
   std::vector<btTransform> poses;
@@ -363,12 +363,12 @@ void planning_environment::CollisionSpaceMonitor::updateCollisionSpace(const map
 }
 
 
-void planning_environment::CollisionSpaceMonitor::collisionObjectCallback(const mapping_msgs::CollisionObjectConstPtr &collision_object)
+void planning_environment::CollisionSpaceMonitor::collisionObjectCallback(const arm_navigation_msgs::CollisionObjectConstPtr &collision_object)
 {
   processCollisionObjectMsg(collision_object, *tf_, cm_);
 }
 
-bool planning_environment::CollisionSpaceMonitor::attachObjectCallback(const mapping_msgs::AttachedCollisionObjectConstPtr &attached_object)
+bool planning_environment::CollisionSpaceMonitor::attachObjectCallback(const arm_navigation_msgs::AttachedCollisionObjectConstPtr &attached_object)
 {
   return processAttachedCollisionObjectMsg(attached_object, *tf_, cm_);
 }

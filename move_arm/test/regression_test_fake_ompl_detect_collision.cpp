@@ -74,7 +74,7 @@ void setupGoal(const std::vector<std::string> &names, move_arm::MoveArmGoal &goa
     goal.contacts[0].links.push_back("r_gripper_palm_link");
     goal.contacts[0].links.push_back("r_wrist_roll_link");
     goal.contacts[0].depth = 0.04;
-    goal.contacts[0].bound.type = mapping_msgs::Object::SPHERE;
+    goal.contacts[0].bound.type = arm_navigation_msgs::Object::SPHERE;
     goal.contacts[0].bound.dimensions.push_back(0.5);
 
     goal.contacts[0].pose.header.stamp = ros::Time::now();
@@ -174,12 +174,12 @@ TEST(MoveArm, goToPoseGoal)
   //-position [x, y, z]    = [0.413446, 0.0124666, 0.206998]
   //-rotation [x, y, z, w] = [0.132744, 0.888279, 0.288412, 0.331901]
 
-  goalA.goal_constraints.pose_constraint[0].type = motion_planning_msgs::PoseConstraint::POSITION_X 
-    + motion_planning_msgs::PoseConstraint::POSITION_Y 
-    + motion_planning_msgs::PoseConstraint::POSITION_Z
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_R 
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_P 
-    + motion_planning_msgs::PoseConstraint::ORIENTATION_Y;
+  goalA.goal_constraints.pose_constraint[0].type = arm_navigation_msgs::PoseConstraint::POSITION_X 
+    + arm_navigation_msgs::PoseConstraint::POSITION_Y 
+    + arm_navigation_msgs::PoseConstraint::POSITION_Z
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_R 
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_P 
+    + arm_navigation_msgs::PoseConstraint::ORIENTATION_Y;
   
   goalA.goal_constraints.pose_constraint[0].link_name = "r_wrist_roll_link";
   goalA.goal_constraints.pose_constraint[0].pose.pose.position.x = 0.413446;

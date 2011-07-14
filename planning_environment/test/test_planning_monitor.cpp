@@ -49,18 +49,18 @@ static const double VERY_SMALL = .0001;
 class PlanningMonitorTest : public testing::Test {
 public:
 
-  // void actionFeedbackCallback(const planning_environment_msgs::SetPlanningSceneFeedbackConstPtr& feedback) {
+  // void actionFeedbackCallback(const arm_navigation_msgs::SetPlanningSceneFeedbackConstPtr& feedback) {
   //   ready_ = true;  
   // }
 
   // void actionDoneCallback(const actionlib::SimpleClientGoalState& state,
-  //                         const planning_environment_msgs::SetPlanningSceneResultConstPtr& result)
+  //                         const arm_navigation_msgs::SetPlanningSceneResultConstPtr& result)
   // {
   //   EXPECT_TRUE(state == actionlib::SimpleClientGoalState::PREEMPTED);
   //   ROS_INFO("Got preempted");
   // }
 
-  void setPlanningSceneCallback(const planning_environment_msgs::PlanningScene& scene) {
+  void setPlanningSceneCallback(const arm_navigation_msgs::PlanningScene& scene) {
     got_set_callback_ = true;
   }
 
@@ -118,10 +118,10 @@ protected:
   planning_environment::CollisionModels *collision_models_;
   planning_environment::PlanningMonitor *planning_monitor_;
 
-  planning_environment_msgs::PlanningScene planning_scene_diff_;
-  planning_environment_msgs::PlanningScene planning_scene_;
+  arm_navigation_msgs::PlanningScene planning_scene_diff_;
+  arm_navigation_msgs::PlanningScene planning_scene_;
 
-  motion_planning_msgs::OrderedCollisionOperations operations_;
+  arm_navigation_msgs::OrderedCollisionOperations operations_;
   
 };
 
@@ -137,13 +137,13 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].position.x = 4.0;
   planning_scene_diff_.robot_state.multi_dof_joint_state.poses[0].orientation.w = 1.0;
 
-  mapping_msgs::CollisionObject obj1;
+  arm_navigation_msgs::CollisionObject obj1;
   obj1.header.stamp = ros::Time::now();
   obj1.header.frame_id = "map_to_stapler";
   obj1.id = "obj1";
-  obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  obj1.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   obj1.shapes.resize(1);
-  obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  obj1.shapes[0].type = arm_navigation_msgs::Shape::BOX;
   obj1.shapes[0].dimensions.resize(3);
   obj1.shapes[0].dimensions[0] = .1;
   obj1.shapes[0].dimensions[1] = .1;
@@ -154,7 +154,7 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   obj1.poses[0].position.z = 0;
   obj1.poses[0].orientation.w = 1.0;
 
-  mapping_msgs::AttachedCollisionObject att_obj;
+  arm_navigation_msgs::AttachedCollisionObject att_obj;
   att_obj.object = obj1;
   att_obj.object.header.stamp = ros::Time::now();
   att_obj.object.header.frame_id = "odom_combined";
@@ -169,7 +169,7 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   att_obj.touch_links.push_back("r_forearm_link");
   att_obj.touch_links.push_back("r_gripper_motor_accelerometer_link");
   att_obj.object.id = "obj2";
-  att_obj.object.shapes[0].type = geometric_shapes_msgs::Shape::CYLINDER;
+  att_obj.object.shapes[0].type = arm_navigation_msgs::Shape::CYLINDER;
   att_obj.object.shapes[0].dimensions.resize(2);
   att_obj.object.shapes[0].dimensions[0] = .025;
   att_obj.object.shapes[0].dimensions[1] = .5;
@@ -228,7 +228,7 @@ TEST_F(PlanningMonitorTest, ChangingObjects)
   test_collision_models.revertPlanningScene(state);
 
   //now we mess with ordered collision operations
-  motion_planning_msgs::CollisionOperation cop;
+  arm_navigation_msgs::CollisionOperation cop;
   cop.object1 = "l_end_effector";
   cop.object2 = "obj3";
   cop.operation = cop.DISABLE;
@@ -271,13 +271,13 @@ TEST_F(PlanningMonitorTest, ChangingRobotState)
 
   planning_environment::CollisionModels test_collision_models("robot_description");
 
-  mapping_msgs::CollisionObject obj1;
+  arm_navigation_msgs::CollisionObject obj1;
   obj1.header.stamp = ros::Time::now();
   obj1.header.frame_id = "odom_combined";
   obj1.id = "table";
-  obj1.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+  obj1.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
   obj1.shapes.resize(1);
-  obj1.shapes[0].type = geometric_shapes_msgs::Shape::BOX;
+  obj1.shapes[0].type = arm_navigation_msgs::Shape::BOX;
   obj1.shapes[0].dimensions.resize(3);
   obj1.shapes[0].dimensions[0] = 1.0;
   obj1.shapes[0].dimensions[1] = 1.0;
@@ -409,9 +409,9 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 
   ros::NodeHandle priv_nh("~");
 
-  actionlib::SimpleActionClient<planning_environment_msgs::SetPlanningSceneAction> ac(priv_nh, "set_planning_scene", true);
+  actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction> ac(priv_nh, "set_planning_scene", true);
 
-  planning_environment_msgs::SetPlanningSceneGoal goal;
+  arm_navigation_msgs::SetPlanningSceneGoal goal;
   
   goal.planning_scene = planning_scene_;
 

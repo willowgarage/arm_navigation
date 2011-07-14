@@ -10,7 +10,7 @@
   <url>http://ros.org/wiki/mapping_rviz_plugin</url>
   <depend package="rviz"/>
   <depend package="roscpp"/>
-  <depend package="mapping_msgs"/>
+  <depend package="arm_navigation_msgs"/>
   <depend package="tf"/>
   
   <export>

@@ -1,4 +1,0 @@
-
-MoveArmActionGoal action_goal
-MoveArmActionResult action_result
-MoveArmActionFeedback action_feedback

@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,13 +55,13 @@ TEST(MoveArm, goToJointGoal)
 {
   ros::NodeHandle nh;
   ros::NodeHandle private_handle("~");
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
   boost::thread spin_thread(&spinThread);
 
   move_arm.waitForServer();
   ROS_INFO("Connected to server");
   
-  move_arm_msgs::MoveArmGoal goalB;
+  arm_navigation_msgs::MoveArmGoal goalB;
   std::vector<std::string> names(7);
   names[0] = "r_shoulder_pan_joint";
   names[1] = "r_shoulder_lift_joint";

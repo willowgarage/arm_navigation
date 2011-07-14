@@ -98,8 +98,8 @@ public:
    * @param request The request that the planner gets
    * @param response The response to the planning request
    */ 
-  bool configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                          motion_planning_msgs::GetMotionPlan::Response &response,
+  bool configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                          arm_navigation_msgs::GetMotionPlan::Response &response,
                           const unsigned int &max_sample_count = 100);
 
   /**
@@ -116,7 +116,7 @@ public:
 
 private:
   void sampleGoals(const unsigned int &number_goals,
-                   std::vector<motion_planning_msgs::RobotState> &sampled_states_vector) const;
+                   std::vector<arm_navigation_msgs::RobotState> &sampled_states_vector) const;
 
   std::vector<geometry_msgs::PoseStamped> ik_poses_;
   unsigned int max_sample_count_;
@@ -127,7 +127,7 @@ private:
   std::string kinematics_solver_name_, group_name_, end_effector_name_;
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> scoped_state_;
-  motion_planning_msgs::RobotState seed_state_, solution_state_;
+  arm_navigation_msgs::RobotState seed_state_, solution_state_;
 
   ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;
   ompl_ros_interface::RobotStateToOmplStateMapping robot_state_to_ompl_state_mapping_;
