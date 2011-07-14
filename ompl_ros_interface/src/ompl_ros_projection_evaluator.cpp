@@ -103,6 +103,11 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSp
     cellSizes_[2] = (b.high[2] - b.low[2]) / 10.0;
     ROS_INFO("Choosing projection evaluator for SE3 state space %s",evaluator_name.c_str());
   }
+  else
+  {
+    ROS_ERROR("Incorrect or no projection evaluator defined. Projection evaluator must be defined either as a combination of joints with joint limits or one of the continuous, planar, spherical or floating joints.");
+    throw new OMPLROSException();
+  }
 };
 	
 unsigned int OmplRosProjectionEvaluator::getDimension(void) const
