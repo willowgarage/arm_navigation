@@ -112,8 +112,15 @@ bool OmplRosPlanningGroup::initializeProjectionEvaluator()
   }
   node_handle_.getParam(group_name_+"/projection_evaluator",projection_evaluator);
   ompl::base::ProjectionEvaluatorPtr ompl_projection_evaluator;
-  ompl_projection_evaluator.reset(new ompl_ros_interface::OmplRosProjectionEvaluator(state_space_.get(),
-                                                                                     projection_evaluator));
+  try
+  {
+    ompl_projection_evaluator.reset(new ompl_ros_interface::OmplRosProjectionEvaluator(state_space_.get(),
+                                                                                       projection_evaluator));
+  }
+  catch(...)
+  {
+    return false;
+  }
   state_space_->registerDefaultProjection(ompl_projection_evaluator);
   return true;
 }
