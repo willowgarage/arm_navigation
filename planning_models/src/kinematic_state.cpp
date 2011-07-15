@@ -500,6 +500,7 @@ bool planning_models::KinematicState::JointState::areJointStateValuesWithinBound
     bool within_bounds;
     joint_model_->isValueWithinVariableBounds(it->first, joint_state_values_[it->second], within_bounds);
     if(!within_bounds) {
+      ROS_DEBUG_STREAM("Joint " << it->first << " value " << joint_state_values_[it->second] << " not within bounds");
       return false;
     }
   }

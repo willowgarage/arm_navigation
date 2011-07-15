@@ -190,7 +190,9 @@ bool planning_models::KinematicModel::addModelGroup(const planning_models::Kinem
     if(!gc.subgroups_.empty()) {
       ROS_WARN_STREAM("Ignoring subgroups as tip and base are defined for group " << gc.name_);
     }
-    bool base_link_is_world_link = (gc.base_link_ == getRoot()->getParentFrameId());
+    //if this is not a physical robot link but is the world link
+    bool base_link_is_world_link = (gc.base_link_ == getRoot()->getParentFrameId() &&
+                                    getLinkModel(gc.base_link_) == NULL);
     const LinkModel* base_link = NULL;
     if(!base_link_is_world_link) {
       base_link = getLinkModel(gc.base_link_);
@@ -944,8 +946,10 @@ bool planning_models::KinematicModel::JointModel::isValueWithinVariableBounds(co
     return false;
   }
   if(value < bounds.first || value > bounds.second) {
+    ROS_DEBUG_STREAM("Violates bounds: Value " << value << " lower " << bounds.first << " upper " << bounds.second);
     within_bounds = false;
   } else {
+    ROS_DEBUG_STREAM("Satisfies bounds: Value " << value << " lower " << bounds.first << " upper " << bounds.second);
     within_bounds = true;
   }
   return true;
@@ -1118,7 +1122,22 @@ btTransform planning_models::KinematicModel::RevoluteJointModel::computeTransfor
 std::vector<double> planning_models::KinematicModel::RevoluteJointModel::computeJointStateValues(const btTransform& transform) const
 {
   std::vector<double> ret;
-  ret.push_back(transform.getRotation().getAngle()*transform.getRotation().getAxis().dot(axis_));
+  ROS_DEBUG_STREAM("Transform angle is " << transform.getRotation().getAngle() 
+                   << " axis x " << transform.getRotation().getAxis().x()
+                   << " axis y " << transform.getRotation().getAxis().y()
+                   << " axis z " << transform.getRotation().getAxis().z());
+  double val = transform.getRotation().getAngle()*transform.getRotation().getAxis().dot(axis_);
+  while(val < -M_PI) {
+    if(val < -M_PI) {
+      val += 2*M_PI;
+    }
+  }
+  while(val > M_PI) {
+    if(val > M_PI) {
+      val -= 2*M_PI;
+    }
+  }
+  ret.push_back(val);
   return ret;
 }
 
@@ -1249,7 +1268,7 @@ planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::str
                                                                   const KinematicModel* parent_model) :
   name_(group_name)
 {
-  ROS_DEBUG_STREAM("\nGroup " << group_name);
+  ROS_DEBUG_STREAM("Group " << group_name);
 
   joint_model_vector_ = group_joints;
   fixed_joint_model_vector_ = fixed_group_joints;
