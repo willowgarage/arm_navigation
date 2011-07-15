@@ -12,3 +12,4 @@ rosbuild_add_library(collision_space src/environment_objects.cpp
 
 rosbuild_add_gtest(test_collision_space test/test_collision_space.cpp)
 target_link_libraries(test_collision_space collision_space)
+target_link_libraries(test_collision_space assimp)

@@ -40,7 +40,7 @@
 
 // System
 #include <vector>
-#include <Eigen/Array>
+#include <Eigen/Core>
 
 // KDL
 #include <kdl/frames.hpp>
