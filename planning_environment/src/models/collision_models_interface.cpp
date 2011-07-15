@@ -69,8 +69,13 @@ planning_environment::CollisionModelsInterface::CollisionModelsInterface(const s
     
     std_srvs::Empty::Request req;
     std_srvs::Empty::Response res;
-    if(!env_server_register_client_.call(req, res)) {
-      ROS_INFO_STREAM("Couldn't register for planning scenes");
+    while(true) {
+      if(!env_server_register_client_.call(req, res)) {
+        ROS_INFO_STREAM("Couldn't register for planning scenes");
+        ros::WallDuration(1.0).sleep();
+      } else {
+        break;
+      }
     }
   }
 }

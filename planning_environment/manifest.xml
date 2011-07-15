@@ -26,9 +26,9 @@
   <depend package="collision_space" />
   <depend package="pcl_ros" />
   <depend package="robot_self_filter" />
-  <depend package="yaml_cpp" />
   <depend package="rviz" />
 
+  <rosdep name="yaml-cpp"/>
   <rosdep name="qt4" />
   <rosdep name="tinyxml" />
 
