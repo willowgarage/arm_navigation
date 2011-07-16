@@ -69,9 +69,6 @@ public:
   /** \brief Clear the stored constraint */
   virtual void clear(void) = 0;
 
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc) = 0;
-	
   /** \brief Decide whether the constraint is satisfied in the indicated state or group, if specified */
   virtual bool decide(const planning_models::KinematicState *state,
                       bool verbose=false) const = 0;
@@ -91,9 +88,6 @@ public:
     m_joint = NULL;
   }
 	
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
   bool use(const arm_navigation_msgs::JointConstraint &jc);
 
@@ -125,9 +119,6 @@ public:
   {
   }
 	
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
   bool use(const arm_navigation_msgs::OrientationConstraint &pc);
 
@@ -168,9 +159,6 @@ public:
   }
 	
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
   bool use(const arm_navigation_msgs::VisibilityConstraint &vc);
 
   /** \brief Clear the stored constraint */
@@ -199,9 +187,6 @@ public:
   {
   }
 	
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
   bool use(const arm_navigation_msgs::PositionConstraint &pc);
 
