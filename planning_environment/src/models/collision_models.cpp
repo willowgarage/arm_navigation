@@ -1441,8 +1441,8 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
         ROS_WARN_STREAM("Collision reported but no contacts");
       }
       for(unsigned int i = 0; i < contacts.size(); i++) {
-	ROS_INFO_STREAM("Collision between " << contacts[i].contact_body_1 
-			<< " and " << contacts[i].contact_body_2);
+	ROS_DEBUG_STREAM("Collision between " << contacts[i].contact_body_1 
+                         << " and " << contacts[i].contact_body_2);
       }
     }
     return false;

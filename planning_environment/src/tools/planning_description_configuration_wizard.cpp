@@ -47,7 +47,7 @@ PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(c
 {
   progress_ = 0;
   package_directory_ = "";
-  string full_urdf_path = ros::package::getPath(urdf_package_) + urdf_path_;
+  string full_urdf_path = ros::package::getPath(urdf_package_)+"/"+urdf_path_;
 
   ROS_INFO_STREAM("full path name is " << full_urdf_path);
 
@@ -281,6 +281,7 @@ void PlanningDescriptionConfigurationWizard::popupNotOkayWarning()
 void PlanningDescriptionConfigurationWizard::popupOkayWarning()
 {
   ok_dialog_->show();
+  ok_dialog_->setFocus();
 }
 
 void PlanningDescriptionConfigurationWizard::popupFileFailure(const char* reason)
@@ -404,10 +405,10 @@ void PlanningDescriptionConfigurationWizard::outputJointLimitsYAML()
     {
       boost::shared_ptr<const urdf::Joint> urdf_joint = robot_model->getJoint(jmv[i]->getName());
       double max_vel = 0.0;
-      if(urdf_joint)
+      if(urdf_joint && urdf_joint->limits)
       {
         max_vel = urdf_joint->limits->velocity;
-      }
+      } 
       const map<string, pair<double, double> >& bounds_map = jmv[i]->getAllVariableBounds();
       for(map<string, pair<double, double> >::const_iterator it2 = bounds_map.begin(); it2 != bounds_map.end(); it2++)
       {
@@ -421,10 +422,15 @@ void PlanningDescriptionConfigurationWizard::outputJointLimitsYAML()
               dynamic_cast<const KinematicModel::RevoluteJointModel*> (jmv[i]);
           bool has_limits = (rev == NULL || !rev->continuous_);
           emitter << YAML::Value << has_limits;
-          emitter << YAML::Key << "has_velocity_limits" << YAML::Value << "true";
-          emitter << YAML::Key << "max_velocity" << YAML::Value << max_vel;
-          emitter << YAML::Key << "has_acceleration_limits" << YAML::Value << "true";
-          emitter << YAML::Key << "max_acceleration" << YAML::Value << DEFAULT_ACCELERATION;
+          if(max_vel > 0.0) {
+            emitter << YAML::Key << "has_velocity_limits" << YAML::Value << "true";
+            emitter << YAML::Key << "max_velocity" << YAML::Value << max_vel;
+            emitter << YAML::Key << "has_acceleration_limits" << YAML::Value << "true";
+            emitter << YAML::Key << "max_acceleration" << YAML::Value << DEFAULT_ACCELERATION;
+          } else {
+            emitter << YAML::Key << "has_velocity_limits" << YAML::Value << "false";
+            emitter << YAML::Key << "has_acceleration_limits" << YAML::Value << "false";
+          }
           emitter << YAML::Key << "angle_wraparound" << YAML::Value << !has_limits;
           emitter << YAML::EndMap;
         }
@@ -652,7 +658,7 @@ void PlanningDescriptionConfigurationWizard::outputPlanningEnvironmentLaunch()
   TiXmlElement *rd = new TiXmlElement("param");
   launch_root->LinkEndChild(rd);
   rd->SetAttribute("name", "robot_description");
-  rd->SetAttribute("textfile", "$(find " + urdf_package_ + ")" + urdf_path_);
+  rd->SetAttribute("textfile", "$(find " + urdf_package_ + ")/" + urdf_path_);
 
   TiXmlElement *rp = new TiXmlElement("rosparam");
   launch_root->LinkEndChild(rp);
@@ -980,75 +986,6 @@ string PlanningDescriptionConfigurationWizard::getRobotName()
   return urdf_->getName();
 }
 
-/* Functionally replicated from Collision Model ?
-void PlanningDescriptionConfigurationWizard::getRobotMeshResourceMarkersGivenState(const KinematicState& state,
-                                                                                   MarkerArray& arr,
-                                                                                   const std_msgs::ColorRGBA& color,
-                                                                                   const string& name,
-                                                                                   const ros::Duration& lifetime,
-                                                                                   const vector<string>* names) const
-{
-  boost::shared_ptr<urdf::Model> robot_model = urdf_;
-
-  vector<string> link_names;
-  if(names == NULL)
-  {
-    kmodel_->getLinkModelNames(link_names);
-  }
-  else
-  {
-    link_names = *names;
-  }
-
-  for(unsigned int i = 0; i < link_names.size(); i++)
-  {
-    boost::shared_ptr<const urdf::Link> urdf_link = robot_model->getLink(link_names[i]);
-    if(!urdf_link)
-    {
-      ROS_INFO_STREAM("Invalid urdf name " << link_names[i]);
-      continue;
-    }
-    if(!urdf_link->collision)
-    {
-      continue;
-    }
-    const urdf::Geometry *geom = urdf_link->collision->geometry.get();
-    if(!geom)
-    {
-      continue;
-    }
-    const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*> (geom);
-    if(!mesh)
-    {
-      continue;
-    }
-    if(mesh->filename.empty())
-    {
-      continue;
-    }
-    const KinematicState::LinkState* ls = state.getLinkState(link_names[i]);
-    if(ls == NULL)
-    {
-      ROS_WARN_STREAM("No link state for name " << names << " though there's a mesh");
-      continue;
-    }
-    Marker mark;
-    mark.header.frame_id = kmodel_->getRoot()->getParentFrameId();
-    mark.header.stamp = ros::Time::now();
-    mark.ns = name;
-    mark.id = i;
-    mark.type = mark.MESH_RESOURCE;
-    mark.scale.x = 1.0;
-    mark.scale.y = 1.0;
-    mark.scale.z = 1.0;
-    mark.color = color;
-    mark.mesh_resource = mesh->filename;
-    mark.lifetime = lifetime;
-    tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
-    arr.markers.push_back(mark);
-  }
-}
-*/
 vector<int> PlanningDescriptionConfigurationWizard::getSelectedRows(QTableWidget* table)
 {
   QList<QTableWidgetItem*> selected = table->selectedItems();
@@ -2052,6 +1989,13 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
 
   progress_ = 1;
   emit changeProgress(1);
+  /////////////////////////
+  // ADJACENT PAIRS IN COLLISION
+  ////////////////////////
+  vector<CollisionOperationsGenerator::StringPair> adj_links = getAdjacentLinks();
+  ops_gen_->disablePairCollisionChecking(adj_links);
+  disable_map_[CollisionOperationsGenerator::ADJACENT] = adj_links;
+
   emit changeLabel("Finding always in collision pairs....");
   /////////////////////////
   // ALWAYS-DEFAULT IN COLLISION

@@ -40,15 +40,6 @@
 #include <angles/angles.h>
 #include <cassert>
 
-bool planning_environment::JointConstraintEvaluator::use(const ros::Message *kc)
-{
-  const arm_navigation_msgs::JointConstraint *jc = dynamic_cast<const arm_navigation_msgs::JointConstraint*>(kc);
-  if (jc)
-    return use(*jc);
-  else
-    return false;
-}
-
 bool planning_environment::JointConstraintEvaluator::use(const arm_navigation_msgs::JointConstraint &jc)
 {
   m_jc     = jc;
@@ -120,24 +111,6 @@ void planning_environment::JointConstraintEvaluator::print(std::ostream &out) co
     out << "No constraint" << std::endl;    
 }
 
-bool planning_environment::PositionConstraintEvaluator::use(const ros::Message *kc)
-{
-  const arm_navigation_msgs::PositionConstraint *pc = dynamic_cast<const arm_navigation_msgs::PositionConstraint*>(kc);
-  if (pc)
-    return use(*pc);
-  else
-    return false;
-}
-
-bool planning_environment::OrientationConstraintEvaluator::use(const ros::Message *kc)
-{
-  const arm_navigation_msgs::OrientationConstraint *pc = dynamic_cast<const arm_navigation_msgs::OrientationConstraint*>(kc);
-  if (pc)
-    return use(*pc);
-  else
-    return false;
-}
-	
 bool planning_environment::createConstraintRegionFromMsg(const arm_navigation_msgs::Shape &constraint_region_shape, 
                                                          const geometry_msgs::Pose &constraint_region_pose, 
                                                          boost::scoped_ptr<bodies::Body> &body)
@@ -514,14 +487,6 @@ void planning_environment::KinematicConstraintEvaluatorSet::print(std::ostream &
     m_kce[i]->print(out);
 }
 
-bool planning_environment::VisibilityConstraintEvaluator::use(const ros::Message *kc)
-{
-  const arm_navigation_msgs::VisibilityConstraint *pc = dynamic_cast<const arm_navigation_msgs::VisibilityConstraint*>(kc);
-  if (pc)
-    return use(*pc);
-  else
-    return false;
-}
 void planning_environment::VisibilityConstraintEvaluator::print(std::ostream &out) const
 {
   out << "Visibility constraint for sensor on link '" << m_vc.sensor_pose.header.frame_id << "'" << std::endl;

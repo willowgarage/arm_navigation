@@ -409,9 +409,9 @@ TEST_F(PlanningMonitorTest, PlanningMonitorWithCollisionInterface)
 
   ros::NodeHandle priv_nh("~");
 
-  actionlib::SimpleActionClient<arm_navigation_msgs::SetPlanningSceneAction> ac(priv_nh, "set_planning_scene", true);
+  actionlib::SimpleActionClient<arm_navigation_msgs::SyncPlanningSceneAction> ac(priv_nh, "sync_planning_scene", true);
 
-  arm_navigation_msgs::SetPlanningSceneGoal goal;
+  arm_navigation_msgs::SyncPlanningSceneGoal goal;
   
   goal.planning_scene = planning_scene_;
 

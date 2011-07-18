@@ -358,6 +358,8 @@ void CollisionOperationsGenerator::performanceTestSavedResults(std::map<Collisio
       com = "Often";
     } else if(it->first == OCCASIONALLY) {
       com = "Occasionally";
+    } else if(it->first == ADJACENT){
+      com = "Adjacent";
     } else {
       com = "Never";
     }
@@ -383,6 +385,8 @@ void CollisionOperationsGenerator::outputYamlStringOfSavedResults(YAML::Emitter&
       com = "Often";
     } else if(it->first == OCCASIONALLY) {
       com = "Occasionally";
+    } else if(it->first == ADJACENT){
+      com = "Adjacent";
     } else {
       com = "Never";
     }
