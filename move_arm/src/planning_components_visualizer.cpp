@@ -611,7 +611,7 @@ class PlanningComponentsVisualizer
       moveEndEffectorMarkers(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false);
 
       // If we previously selected a planning group, deselect its marker.
-      if(is_ik_control_active_ && old_group_name != "" && selectableMarkerExists(old_group_name + "_selectable"))
+      if(old_group_name != "" && selectableMarkerExists(old_group_name + "_selectable"))
       {
         GroupCollection& gc = group_map_[old_group_name];
         btTransform cur = robot_state_->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform();
@@ -621,10 +621,6 @@ class PlanningComponentsVisualizer
         {
           deleteJointMarkers(group_map_[old_group_name]);
         }
-      }
-      else if(is_joint_control_active_)
-      {
-        deleteJointMarkers(group_map_[old_group_name]);
       }
 
       // Select the new planning group's marker.
@@ -640,7 +636,7 @@ class PlanningComponentsVisualizer
         GroupCollection& gc = group_map_[current_group_name_];
         createSelectableJointMarkers(gc);
       }
-
+      interactive_marker_server_->erase(current_group_name_ + "_selectable");
       interactive_marker_server_->applyChanges();
       lock_.unlock();
       ROS_INFO("Planning group selected.");
@@ -786,6 +782,7 @@ class PlanningComponentsVisualizer
           }
           else if(prismaticJoint != NULL)
           {
+            maxDimension *= 3.0;
             makeInteractive1DOFTranslationMarker(transform,
                                                  prismaticJoint->axis_,
                                                  model->getName() + "_joint_control",
@@ -804,65 +801,105 @@ class PlanningComponentsVisualizer
     /// @param gc the group collection that the joint is in.
     /// @param value, a transform that the joint will attempt to match.
     /////
-    void setJointState(GroupCollection& gc, std::string& jointName, btTransform value)
+  void setJointState(GroupCollection& gc, std::string& joint_name, btTransform value)
     {
 
 
-      KinematicState* currentState = gc.getState(ik_control_type_);
-      string parentLink =
-          gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getParentLinkModel()->getName();
-      string childLink =
-          gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(jointName)->getChildLinkModel()->getName();
-      KinematicState::JointState* jointState = currentState->getJointState(jointName);
-      const KinematicModel::JointModel* jointModel = jointState->getJointModel();
+      KinematicState* current_state = gc.getState(ik_control_type_);
+      string parent_link =
+          gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(joint_name)->getParentLinkModel()->getName();
+      string child_link =
+          gc.getState(ik_control_type_)->getKinematicModel()->getJointModel(joint_name)->getChildLinkModel()->getName();
+      KinematicState::JointState* joint_state = current_state->getJointState(joint_name);
+      const KinematicModel::JointModel* joint_model = joint_state->getJointModel();
 
-      bool isRotational = (dynamic_cast<const KinematicModel::RevoluteJointModel*>(jointModel) != NULL);
-      bool isPrismatic = (dynamic_cast<const KinematicModel::PrismaticJointModel*>(jointModel) != NULL);
+      const KinematicModel::RevoluteJointModel* rev_model = dynamic_cast<const KinematicModel::RevoluteJointModel*>(joint_model);
 
-      KinematicState::LinkState* linkState = currentState->getLinkState(parentLink);
-      btTransform transformedValue;
+      bool is_rotational = (rev_model != NULL);
+      bool is_continuous = is_rotational && rev_model->continuous_;
+      bool is_prismatic = (dynamic_cast<const KinematicModel::PrismaticJointModel*>(joint_model) != NULL);
 
+      KinematicState::LinkState* link_state = current_state->getLinkState(parent_link);
+      btTransform transformed_value;
 
-      if(isPrismatic)
+      if(is_prismatic)
       {
-        value.setRotation(jointState->getVariableTransform().getRotation());
-        transformedValue =currentState->getLinkState(childLink)->getLinkModel()->getJointOriginTransform().inverse() * linkState->getGlobalLinkTransform().inverse() * value;
+        value.setRotation(joint_state->getVariableTransform().getRotation());
+        transformed_value = current_state->getLinkState(child_link)->getLinkModel()->getJointOriginTransform().inverse() * link_state->getGlobalLinkTransform().inverse() * value;
       }
-      else if(isRotational)
+      else if(is_rotational)
       {
-            transformedValue =currentState->getLinkState(childLink)->getLinkModel()->getJointOriginTransform().inverse() * linkState->getGlobalLinkTransform().inverse() * value;
-
+        transformed_value = current_state->getLinkState(child_link)->getLinkModel()->getJointOriginTransform().inverse() * link_state->getGlobalLinkTransform().inverse() * value;
+      }
+      double old_actual_value = joint_state->getJointStateValues()[0];
+      double old_value;
+      if(prev_joint_control_value_map_.find(joint_name) == prev_joint_control_value_map_.end()) {
+        old_value = old_actual_value;
+      } else {
+        old_value = prev_joint_control_value_map_[joint_name];
       }
 
-      //transformedValue = btTransform(btQuaternion(dynamic_cast<const KinematicModel::RevoluteJointModel*>(jointModel)->axis_, value.getRotation().getAngle()), transformedValue.getOrigin());
+      joint_state->setJointStateValues(transformed_value);
+      double new_value = joint_state->getJointStateValues()[0];
+      prev_joint_control_value_map_[joint_name] = new_value;
 
-      btTransform oldState = jointState->getVariableTransform();
-      jointState->setJointStateValues(transformedValue);
+      double low_bound, high_bound;
+      joint_state->getJointValueBounds(joint_state->getName(), low_bound, high_bound);
 
+      double apply_diff;
 
-
-      map<string, double> stateMap;
-      if(currentState->isJointWithinBounds(jointName))
-      {
-        currentState->getKinematicStateValues(stateMap);
-        currentState->setKinematicState(stateMap);
-        robot_state_->setKinematicState(stateMap);
-        // Send state to robot model.
-        updateJointStates(gc);
-
-        createSelectableJointMarkers(gc);
-
-        if(is_ik_control_active_)
+      if(is_rotational) {
+        //more neg
+        if(old_value < -M_PI/2.0 && new_value > M_PI/2.0) {
+          apply_diff = -((-M_PI-old_value)+(M_PI-new_value));
+        } else if(old_value > M_PI/2.0 && new_value < -M_PI/2.0) {
+          apply_diff = (M_PI-old_value)+(-M_PI-new_value);
+        } else {
+          apply_diff = new_value-old_value;
+        }
+        ROS_DEBUG_STREAM("Old value " << old_value << " new value " << new_value << " apply diff " << apply_diff);
+        double apply_value;
+        if(!is_continuous) {
+          if(apply_diff > 0.0) {
+            apply_value = fmin(old_actual_value+apply_diff, high_bound);
+          } else {
+            apply_value = fmax(old_actual_value+apply_diff, low_bound);
+          }
+        } else {
+          apply_value = old_actual_value+apply_diff;
+        }
+        std::vector<double> val_vec(1, apply_value);
+        joint_state->setJointStateValues(val_vec);
+      } else {
+        std::vector<double> val_vec;
+        if(!current_state->isJointWithinBounds(joint_name))
         {
-          selectMarker(selectable_markers_[current_group_name_ + "_selectable"],
-                       currentState->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+          if(new_value < low_bound) {
+            val_vec.push_back(low_bound);
+          } else if(new_value > high_bound) {
+            val_vec.push_back(high_bound);
+          } else {
+            val_vec.push_back(old_value);
+            ROS_INFO_STREAM("Weird bounds behavior " << new_value << " low " << low_bound << " high " << high_bound);
+          }
+          ROS_DEBUG_STREAM("New val " << new_value << " low bound " << low_bound << " high bound " << high_bound << " res " << val_vec[0]);
+          joint_state->setJointStateValues(val_vec);
         }
       }
-      else
-      {
-        jointState->setJointStateValues(oldState);
-      }
+      map<string, double> state_map;
+      current_state->getKinematicStateValues(state_map);
+      current_state->setKinematicState(state_map);
+      robot_state_->setKinematicState(state_map);
+      // Send state to robot model.
+      updateJointStates(gc);
 
+      createSelectableJointMarkers(gc);
+      
+      if(is_ik_control_active_)
+      {
+        selectMarker(selectable_markers_[current_group_name_ + "_selectable"],
+                     current_state->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+      }
     }
 
     void resetToLastGoodState(GroupCollection& gc)
@@ -1587,6 +1624,11 @@ class PlanningComponentsVisualizer
         case InteractiveMarkerFeedback::BUTTON_CLICK:
           if(feedback->marker_name.rfind("_selectable") != string::npos)
           {
+            if(feedback->marker_name == current_group_name_) {
+              return;
+            } 
+            deselectMarker(selectable_markers_[current_group_name_ + "_selectable"],
+                           gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
             btTransform cur = toBulletTransform(feedback->pose);
             if(isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
             {
@@ -1599,6 +1641,8 @@ class PlanningComponentsVisualizer
                   deleteKinematicStates();
                   selectPlanningGroup(cmd);
                   break;
+                } else {
+                  
                 }
                 cmd++;
               }
@@ -1674,9 +1718,7 @@ class PlanningComponentsVisualizer
                 is_ik_control_active_ = false;
                 menu_handler_map_["Top Level"].setCheckState(ik_control_handle_, MenuHandler::UNCHECKED);
                 menu_handler_map_["Top Level"].reApply(*interactive_marker_server_);
-                geometry_msgs::Pose nonsensePose;
-                deselectMarker(selectable_markers_[current_group_name_ + "_selectable"],
-                               gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+                interactive_marker_server_->erase(current_group_name_);
                 interactive_marker_server_->applyChanges();
               }
             }
@@ -1841,6 +1883,7 @@ class PlanningComponentsVisualizer
           break;
 
         case InteractiveMarkerFeedback::MOUSE_UP:
+          prev_joint_control_value_map_.clear();
           if(feedback->marker_name.rfind("pole_") != string::npos && feedback->marker_name.rfind("_selectable")
               == string::npos)
           {
@@ -1873,7 +1916,6 @@ class PlanningComponentsVisualizer
           else if(is_joint_control_active_ && feedback->marker_name.rfind("_joint_control") != string::npos)
           {
             btTransform cur = toBulletTransform(feedback->pose);
-
             string jointName = feedback->marker_name.substr(0, feedback->marker_name.rfind("_joint_control"));
             setJointState(gc, jointName, cur);
           }
@@ -2377,7 +2419,7 @@ class PlanningComponentsVisualizer
 
     map<string, bool> joint_clicked_map_;
     map<string, btTransform> joint_prev_transform_map_;
-
+  map<string, double> prev_joint_control_value_map_;
 };
 
 PlanningComponentsVisualizer* pcv;
