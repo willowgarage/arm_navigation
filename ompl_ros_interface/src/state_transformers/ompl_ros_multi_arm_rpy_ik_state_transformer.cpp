@@ -45,7 +45,7 @@ bool OmplRosMultiArmRPYIKStateTransformer::initialize()
   seed_states_.resize(arm_names_.size());
   solution_states_.resize(arm_names_.size());
   end_effector_offsets_.resize(arm_names_.size());
-
+  ompl_state_to_robot_state_mappings_.resize(arm_names_.size());
   for(unsigned int i=0; i < arm_names_.size(); i++)
   {
     seed_states_[i].joint_state.name = kinematics_solvers_[i]->getJointNames();

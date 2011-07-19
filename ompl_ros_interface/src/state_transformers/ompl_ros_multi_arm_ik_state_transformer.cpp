@@ -67,7 +67,7 @@ OmplRosMultiArmIKStateTransformer::OmplRosMultiArmIKStateTransformer(const ompl:
     arm_names_.push_back(arm_name);
 
     std::string solver_name;
-    if(!node_handle.getParam(group_name_+arm_name+"/kinematics_solver", solver_name))
+    if(!node_handle.getParam(group_name_+"/"+arm_name+"/kinematics_solver", solver_name))
     {
       ROS_ERROR("Could not find parameter %s on param server in namespace %s",(group_name_+arm_name+"/kinematics_solver").c_str(),node_handle.getNamespace().c_str());
       throw new OMPLROSException();
@@ -75,7 +75,7 @@ OmplRosMultiArmIKStateTransformer::OmplRosMultiArmIKStateTransformer(const ompl:
     kinematics_solver_names_.push_back(solver_name);
 
     std::string tip_name;
-    if(!node_handle.getParam(group_name_+arm_name+"/tip_name", tip_name))
+    if(!node_handle.getParam(group_name_+"/"+arm_name+"/tip_name", tip_name))
     {
       ROS_ERROR("Could not find parameter %s on param server in namespace %s",(group_name_+arm_name+"/tip_name").c_str(),node_handle.getNamespace().c_str());
       throw new OMPLROSException();
