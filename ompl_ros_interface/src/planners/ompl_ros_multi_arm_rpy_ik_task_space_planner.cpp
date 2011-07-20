@@ -177,7 +177,7 @@ bool OmplRosMultiArmRPYIKTaskSpacePlanner::setStart(arm_navigation_msgs::GetMoti
       response.error_code.val = response.error_code.START_STATE_VIOLATES_PATH_CONSTRAINTS;
     else if(response.error_code.val == response.error_code.COLLISION_CONSTRAINTS_VIOLATED)
       response.error_code.val = response.error_code.START_STATE_IN_COLLISION;
-    ROS_ERROR_STREAM("Start state is invalid with code " << response.error_code.val);
+    ROS_ERROR("Start state is invalid. Reason: %s (%d) ",(arm_navigation_msgs::armNavigationErrorCodeToString(response.error_code)).c_str(),response.error_code.val);
     return false;
   }
   planner_->getProblemDefinition()->clearStartStates(); 
