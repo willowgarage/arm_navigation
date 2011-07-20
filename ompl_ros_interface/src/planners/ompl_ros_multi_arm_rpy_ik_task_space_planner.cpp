@@ -259,14 +259,14 @@ bool OmplRosMultiArmRPYIKTaskSpacePlanner::constraintsToOmplState(const arm_navi
   btMatrix3x3 rotation(orientation);
   rotation.getRPY(roll,pitch,yaw);
 
-  ROS_DEBUG("Setting goal: %f %f %f, %f %f %f",
+  ROS_INFO("Setting goal: %f %f %f, %f %f %f",
            desired_pose.pose.position.x,
            desired_pose.pose.position.y,
            desired_pose.pose.position.z,
            roll,
            pitch,
            yaw);
-  ROS_DEBUG("Setting goal (quaternion): %f %f %f %f",
+  ROS_INFO("Setting goal (quaternion): %f %f %f %f",
            desired_pose.pose.orientation.x,
            desired_pose.pose.orientation.y,
            desired_pose.pose.orientation.z,
@@ -533,7 +533,7 @@ geometry_msgs::PoseStamped OmplRosMultiArmRPYIKTaskSpacePlanner::getObjectPose(c
                                                                   desired_pose.pose,
                                                                   desired_pose)) 
   {
-      ROS_WARN_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
+      ROS_WARN_STREAM("getObjectPose has problems transforming pose into frame " << state_transformer_->getFrame());
   }
   btQuaternion orientation;
   double roll,pitch,yaw;
@@ -541,8 +541,8 @@ geometry_msgs::PoseStamped OmplRosMultiArmRPYIKTaskSpacePlanner::getObjectPose(c
   btMatrix3x3 rotation(orientation);
   rotation.getRPY(roll,pitch,yaw);
   
-  ROS_DEBUG("End effector pose in frame %s: %f %f %f, %f %f %f",state_transformer_->getFrame().c_str(), desired_pose.pose.position.x,desired_pose.pose.position.y,desired_pose.pose.position.z,roll,pitch,yaw);
-  ROS_DEBUG_STREAM("Quaternion is " 
+  ROS_INFO("Object pose in frame %s: %f %f %f, %f %f %f",state_transformer_->getFrame().c_str(), desired_pose.pose.position.x,desired_pose.pose.position.y,desired_pose.pose.position.z,roll,pitch,yaw);
+  ROS_INFO_STREAM("Quaternion is " 
                    << orientation.x() << " " 
                    << orientation.y() << " " 
                      << orientation.z() << " " 

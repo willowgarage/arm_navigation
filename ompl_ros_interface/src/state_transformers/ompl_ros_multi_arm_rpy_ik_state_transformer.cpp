@@ -104,7 +104,7 @@ bool OmplRosMultiArmRPYIKStateTransformer::inverseTransform(const ompl::base::St
 
   (*scoped_state_) = ompl_state;
   int error_code;
-  unsigned int joint_count(0);
+  //  unsigned int joint_count(0);
   for(unsigned int i=0; i < arm_names_.size(); i++)
   {
     geometry_msgs::Pose end_effector_pose;
@@ -112,7 +112,7 @@ bool OmplRosMultiArmRPYIKStateTransformer::inverseTransform(const ompl::base::St
     ompl_ros_interface::omplStateToRobotState(*scoped_state_,ompl_state_to_robot_state_mappings_[i],seed_states_[i]);
     tf::poseTFToMsg(pose_tf*end_effector_offsets_[i],end_effector_pose);
 
-    ROS_DEBUG_STREAM("Inner pose is " <<
+    ROS_DEBUG_STREAM("Inner pose is " << i << "::" << 
                      end_effector_pose.position.x << " " <<
                      end_effector_pose.position.y << " " <<
                      end_effector_pose.position.z << " " <<
@@ -129,8 +129,9 @@ bool OmplRosMultiArmRPYIKStateTransformer::inverseTransform(const ompl::base::St
     {
       for(unsigned int j=0; j < solution_states_[i].joint_state.position.size(); j++)
       {
-        robot_state.joint_state.position[joint_count] = solution_states_[i].joint_state.position[j];
-        joint_count++;
+        robot_state.joint_state.position.push_back(solution_states_[i].joint_state.position[j]);
+        robot_state.joint_state.name.push_back(solution_states_[i].joint_state.name[j]);
+        //        joint_count++;
       }
       return true;
     }
@@ -171,7 +172,9 @@ arm_navigation_msgs::RobotState OmplRosMultiArmRPYIKStateTransformer::getDefault
       {
         std::vector<std::string> joint_names = kinematics_solvers_[i]->getJointNames();
         for(unsigned int j=0; j < joint_names.size(); j++)
+        {
           robot_state.joint_state.name.push_back(joint_names[j]);
+        }
       }
       else
       {
@@ -187,11 +190,19 @@ arm_navigation_msgs::RobotState OmplRosMultiArmRPYIKStateTransformer::getDefault
 void OmplRosMultiArmRPYIKStateTransformer::generateRandomState(arm_navigation_msgs::RobotState &robot_state)
 {
   std::vector<const planning_models::KinematicModel::JointModel*> joint_models = physical_joint_model_group_->getJointModels();
+  if(robot_state.joint_state.position.empty())
+    robot_state.joint_state.position.resize(robot_state.joint_state.name.size());
   for(unsigned int i=0; i < robot_state.joint_state.name.size(); i++)
   {
     std::pair<double,double> bounds;
-    joint_models[i]->getVariableBounds(robot_state.joint_state.name[i],bounds);
-    robot_state.joint_state.position[i] = generateRandomNumber(bounds.first,bounds.second);    
+    for(unsigned int j=0; j < joint_models.size(); ++j)
+    {
+      if(robot_state.joint_state.name[i] == joint_models[j]->getName())
+      {
+        joint_models[j]->getVariableBounds(robot_state.joint_state.name[i],bounds);
+        robot_state.joint_state.position[i] = generateRandomNumber(bounds.first,bounds.second);    
+      }
+    }
   }
 }
 
