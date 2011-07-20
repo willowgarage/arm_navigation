@@ -121,11 +121,10 @@ bool OmplRosMultiArmRPYIKStateTransformer::inverseTransform(const ompl::base::St
                      end_effector_pose.orientation.z << " " << 
                      end_effector_pose.orientation.w);
 
-    if(kinematics_solvers_[i]->searchPositionIK(end_effector_pose,
-                                                seed_states_[i].joint_state.position,
-                                                1.0,
-                                                solution_states_[i].joint_state.position,
-                                                error_code))
+    if(kinematics_solvers_[i]->getPositionIK(end_effector_pose,
+					     seed_states_[i].joint_state.position,
+					     solution_states_[i].joint_state.position,
+					     error_code))
     {
       for(unsigned int j=0; j < solution_states_[i].joint_state.position.size(); j++)
       {
@@ -133,10 +132,11 @@ bool OmplRosMultiArmRPYIKStateTransformer::inverseTransform(const ompl::base::St
         robot_state.joint_state.name.push_back(solution_states_[i].joint_state.name[j]);
         //        joint_count++;
       }
-      return true;
     }
+    else
+      return false;
   }
-  return false;
+  return true;
 }
 
 bool OmplRosMultiArmRPYIKStateTransformer::forwardTransform(const arm_navigation_msgs::RobotState &joint_state,

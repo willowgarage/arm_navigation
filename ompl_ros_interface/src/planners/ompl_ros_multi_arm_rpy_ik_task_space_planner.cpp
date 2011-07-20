@@ -182,6 +182,12 @@ bool OmplRosMultiArmRPYIKTaskSpacePlanner::setStart(arm_navigation_msgs::GetMoti
   }
   planner_->getProblemDefinition()->clearStartStates(); 
   planner_->addStartState(start);
+
+  std::stringstream string_stream;
+  state_space_->printState(start.get(),string_stream);
+  ROS_INFO("Ompl Start State: %s",string_stream.str().c_str());
+
+
   ROS_DEBUG("Setting start state successful");
   return true;
 }
@@ -274,6 +280,10 @@ bool OmplRosMultiArmRPYIKTaskSpacePlanner::constraintsToOmplState(const arm_navi
 
   if(!poseStampedToOmplState(desired_pose,goal))
     return false;
+
+  std::stringstream string_stream;
+  state_space_->printState(goal.get(),string_stream);
+  ROS_INFO("Ompl Goal State: %s",string_stream.str().c_str());
 
   return true;
 }
@@ -508,6 +518,14 @@ geometry_msgs::PoseStamped OmplRosMultiArmRPYIKTaskSpacePlanner::getObjectPose(c
     end_effector_poses[i] = collision_models_interface_->getPlanningSceneState()->getLinkState(end_effector_names_[i])->getGlobalLinkTransform();
     //Store candidate object pose in same variable
     end_effector_poses[i] = end_effector_poses[i] * end_effector_offsets_[i].inverse();
+    ROS_INFO("Object pose inferred from end effector %d (%s): %f %f %f, %f %f %f %f",i,end_effector_names_[i].c_str(),
+	     end_effector_poses[i].getOrigin().x(),
+	     end_effector_poses[i].getOrigin().y(),
+	     end_effector_poses[i].getOrigin().z(),
+	     end_effector_poses[i].getRotation().x(),
+	     end_effector_poses[i].getRotation().y(),
+	     end_effector_poses[i].getRotation().z(),
+	     end_effector_poses[i].getRotation().w());
   }
   
   geometry_msgs::PoseStamped desired_pose;
