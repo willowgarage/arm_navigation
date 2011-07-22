@@ -46,6 +46,14 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 
+inline static std::string stripTFPrefix(const std::string& s) {
+  
+  if(s.find_last_of('/') == std::string::npos) {
+    return s;
+  }
+  return s.substr(s.find_last_of('/')+1);
+}
+
 planning_environment::CollisionModels::CollisionModels(const std::string &description) : RobotModels(description)
 {
   planning_scene_set_ = false;
@@ -328,17 +336,20 @@ bool planning_environment::CollisionModels::convertPoseGivenWorldTransform(const
 {
   ret_pose.header = header;
   ret_pose.pose = pose;
+  
+  std::string r_header_frame_id = stripTFPrefix(header.frame_id);
+  std::string r_des_frame_id = stripTFPrefix(des_frame_id);
 
-  bool header_is_fixed_frame = (header.frame_id == getWorldFrameId());
-  bool des_is_fixed_frame = (des_frame_id == getWorldFrameId());
+  bool header_is_fixed_frame = (r_header_frame_id == getWorldFrameId());
+  bool des_is_fixed_frame = (r_des_frame_id == getWorldFrameId());
 
   //Scenario 1(fixed->fixed): if pose is in the world frame and
   //desired is in the world frame, just return
   if(header_is_fixed_frame && des_is_fixed_frame) {
     return true;
   }
-  const planning_models::KinematicState::LinkState* header_link_state = state.getLinkState(header.frame_id);
-  const planning_models::KinematicState::LinkState* des_link_state = state.getLinkState(des_frame_id);
+  const planning_models::KinematicState::LinkState* header_link_state = state.getLinkState(r_header_frame_id);
+  const planning_models::KinematicState::LinkState* des_link_state = state.getLinkState(r_des_frame_id);
   
   bool header_is_robot_frame = (header_link_state != NULL);
   bool des_is_robot_frame = (des_link_state != NULL);
@@ -349,18 +360,18 @@ bool planning_environment::CollisionModels::convertPoseGivenWorldTransform(const
   //Scenario 2(*-> other): We can't deal with desired being in a
   //non-fixed frame or relative to the robot.  TODO - decide if this is useful
   if(des_is_other_frame) {
-    ROS_WARN_STREAM("Shouldn't be transforming into non-fixed non-robot frame " << des_frame_id);
+    ROS_WARN_STREAM("Shouldn't be transforming into non-fixed non-robot frame " << r_des_frame_id);
     return false;
   }
 
   //Scenario 3 (other->fixed) && 4 (other->robot): we first need to
   //transform into the fixed frame
   if(header_is_other_frame) {
-    if(scene_transform_map_.find(header.frame_id) == scene_transform_map_.end()) {
-      ROS_WARN_STREAM("Planning scene didn't contain transform " << header.frame_id << " so can't transform");
+    if(scene_transform_map_.find(r_header_frame_id) == scene_transform_map_.end()) {
+      ROS_WARN_STREAM("Trying to transform from other frame " << r_header_frame_id << " to " << r_des_frame_id << " but planning scene doesn't have other frame");
       return false;
     }
-    geometry_msgs::TransformStamped trans = scene_transform_map_.find(header.frame_id)->second;
+    geometry_msgs::TransformStamped trans = scene_transform_map_.find(r_header_frame_id)->second;
     
     tf::Transform tf_trans;
     tf::transformMsgToTF(trans.transform, tf_trans);
@@ -1844,13 +1855,12 @@ void planning_environment::CollisionModels::getAllCollisionSpaceObjectMarkers(co
   getAttachedCollisionObjectMarkers(state, arr, name, attached_color, lifetime);
 }
 
-void planning_environment::CollisionModels::getRobotMarkersGivenState(
-                                                                                  const planning_models::KinematicState& state,
-                                                                                  visualization_msgs::MarkerArray& arr,
-                                                                                  const std_msgs::ColorRGBA& color,
-                                                                                  const std::string& name,
-                                                                                  const ros::Duration& lifetime,
-                                                                                  const std::vector<std::string>* names) const
+void planning_environment::CollisionModels::getRobotMarkersGivenState(const planning_models::KinematicState& state,
+                                                                      visualization_msgs::MarkerArray& arr,
+                                                                      const std_msgs::ColorRGBA& color,
+                                                                      const std::string& name,
+                                                                      const ros::Duration& lifetime,
+                                                                      const std::vector<std::string>* names) const
 {
   boost::shared_ptr<urdf::Model> robot_model = getParsedDescription();
 
