@@ -773,10 +773,10 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
       return;
     }
     if(allowed) {
-      ROS_DEBUG_STREAM("Collision but allowed touch between " << cdata->body_name_1 << " and " << cdata->body_name_2);
+      ROS_DEBUG_STREAM("Potential collision but collisions allowed between " << cdata->body_name_1 << " and " << cdata->body_name_2);
       return;
     } else {
-      ROS_DEBUG_STREAM("Collision and no allowed touch between " << cdata->body_name_1 << " and " << cdata->body_name_2);
+      ROS_DEBUG_STREAM("Will test for collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
     }
   }
 
@@ -797,6 +797,7 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
   if(!cdata->contacts) {
     //we don't care about contact information, so just set to true if there's been collision
     if (numc) {
+      ROS_DEBUG_STREAM("Detected collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
       cdata->collides = true;      
       cdata->done = true;
     }
@@ -1029,7 +1030,7 @@ void collision_space::EnvironmentModelODE::testEnvironmentCollision(CollisionDat
   }
 }
 
-bool collision_space::EnvironmentModelODE::hasObject(const std::string& ns)
+bool collision_space::EnvironmentModelODE::hasObject(const std::string& ns) const
 {
   if(coll_namespaces_.find(ns) != coll_namespaces_.end()) {
     return true;

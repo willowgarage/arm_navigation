@@ -77,7 +77,7 @@ public:
   virtual void clearObjects(const std::string &ns);
 
   /** \brief Tells whether or not there is an object with the given name in the collision model */
-  virtual bool hasObject(const std::string& ns);
+  virtual bool hasObject(const std::string& ns) const;
 		
   /** \brief Add a static collision object to the map. The user releases ownership of the passed object. Memory allocated for the shape is freed by the collision environment. */
   virtual void addObject(const std::string &ns, shapes::StaticShape *shape);
