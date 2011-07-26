@@ -47,7 +47,7 @@ namespace collision_space
 /** \brief A class describing an environment for a kinematic robot using ODE */
 class EnvironmentModelODE : public EnvironmentModel
 {     
-	
+  
   friend void nearCallbackFn(void *data, dGeomID o1, dGeomID o2);
 	
 public:
@@ -121,6 +121,53 @@ public:
   virtual EnvironmentModel* clone(void) const;
 
 protected:
+
+  /** \brief Structure for maintaining ODE temporary data */
+  struct ODEStorage
+  {	
+    struct Element
+    {
+      double *vertices;
+      dTriIndex *indices;
+      dTriMeshDataID data;
+      int n_indices;
+      int n_vertices;
+    };
+	    
+    ~ODEStorage(void)
+    {
+      clear();
+    }
+
+    void remove(dGeomID id) {
+      
+      if(meshes.find(id) == meshes.end()) {
+        return;
+      }
+
+      Element& e = meshes[id];
+      delete[] e.indices;
+      delete[] e.vertices;
+      dGeomTriMeshDataDestroy(e.data);
+      meshes.erase(id);
+    }
+	    
+    void clear(void)
+    {
+      for(std::map<dGeomID, Element>::iterator it = meshes.begin();
+          it != meshes.end();
+          it++)
+      {
+        delete[] it->second.indices;
+        delete[] it->second.vertices;
+        dGeomTriMeshDataDestroy(it->second.data);
+      }
+      meshes.clear();
+    }
+	    
+    /* Pointers for ODE indices; we need this around in ODE's assumed datatype */
+    std::map<dGeomID, Element> meshes;
+  };
 	
   class ODECollide2
   {
@@ -226,15 +273,22 @@ protected:
 
   struct AttGeom
   {
+    AttGeom(ODEStorage& s) : storage(s){
+    }
+
     ~AttGeom() {
+
       for(unsigned int i = 0; i < geom.size(); i++) {
         dGeomDestroy(geom[i]);
+        storage.remove(geom[i]);
       }
       for(unsigned int i = 0; i < padded_geom.size(); i++) {
         dGeomDestroy(padded_geom[i]);
+        storage.remove(padded_geom[i]);
       }
     }
 
+    ODEStorage& storage;
     std::vector<dGeomID> geom;
     std::vector<dGeomID> padded_geom;
     const planning_models::KinematicModel::AttachedBodyModel *att;
@@ -243,6 +297,9 @@ protected:
 
   struct LinkGeom
   {
+    LinkGeom(ODEStorage& s) : storage(s){
+    }
+
     ~LinkGeom() {
       for(unsigned int i = 0; i < geom.size(); i++) {
         dGeomDestroy(geom[i]);
@@ -261,47 +318,20 @@ protected:
       att_bodies.clear();
     }
 
+    ODEStorage& storage;
     std::vector<dGeomID> geom;
     std::vector<dGeomID> padded_geom;
     std::vector<AttGeom*> att_bodies;
     const planning_models::KinematicModel::LinkModel *link;
     unsigned int index;
   };
-
-  /** \brief Structure for maintaining ODE temporary data */
-  struct ODEStorage
-  {	
-    struct Element
-    {
-      double *vertices;
-      dTriIndex *indices;
-      dTriMeshDataID data;
-      int n_indices;
-      int n_vertices;
-    };
-	    
-    ~ODEStorage(void)
-    {
-      clear();
-    }
-	    
-    void clear(void)
-    {
-      for (unsigned int i = 0 ; i < mesh.size() ; ++i)
-      {
-        delete[] mesh[i].indices;
-        delete[] mesh[i].vertices;
-        dGeomTriMeshDataDestroy(mesh[i].data);
-      }
-      mesh.clear();
-    }
-	    
-    /* Pointers for ODE indices; we need this around in ODE's assumed datatype */
-    std::vector<Element> mesh;
-  };
 	
   struct ModelInfo
   {
+    ~ModelInfo() {
+      storage.clear();
+    }
+
     std::vector< LinkGeom* > link_geom;
     dSpaceID env_space;
     dSpaceID self_space;
@@ -317,14 +347,16 @@ protected:
 	    
     virtual ~CollisionNamespace(void)
     {
-      if (space)
+      if (space) {
         dSpaceDestroy(space);
+      }
     }
 	    
     void clear(void)
     {
-      if (space)
+      if (space) { 
         dSpaceDestroy(space);
+      }
       space = dHashSpaceCreate(0);
       geoms.clear();
       collide2.clear();

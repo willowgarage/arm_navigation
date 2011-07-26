@@ -59,8 +59,8 @@ collision_space::EnvironmentModelODE::EnvironmentModelODE(void) : EnvironmentMod
   ODEInitCountLock.lock();
   if (ODEInitCount == 0)
   {
-    ROS_DEBUG("Initializing ODE");
-    dInitODE2(0);
+    int res = dInitODE2(0);
+    ROS_DEBUG_STREAM("Calling ODE Init res " << res);
   }
   ODEInitCount++;
   ODEInitCountLock.unlock();
@@ -82,9 +82,9 @@ collision_space::EnvironmentModelODE::~EnvironmentModelODE(void)
   ODEInitCount--;
   if (ODEInitCount == 0)
   {
+    ODEThreadMap.clear();
     ROS_DEBUG("Closing ODE");
-    //causes faults in some tests - after we call this we can't reinitialize
-    //dCloseODE();
+    dCloseODE();
   }
   ODEInitCountLock.unlock();
 }
@@ -98,8 +98,10 @@ void collision_space::EnvironmentModelODE::freeMemory(void)
     dSpaceDestroy(model_geom_.env_space);
   if (model_geom_.self_space)
     dSpaceDestroy(model_geom_.self_space);
-  for (std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() ; ++it)
+  for (std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() ; ++it) {
     delete it->second;
+  }
+  model_geom_.storage.clear();
   coll_namespaces_.clear();
 }
 
@@ -112,7 +114,7 @@ void collision_space::EnvironmentModelODE::checkThreadInit(void) const
     ODEThreadMap[id] = 1;
     ROS_DEBUG("Initializing new thread (%d total)", (int)ODEThreadMap.size());
     dAllocateODEDataForThread(dAllocateMaskAll);
-  }
+  } 
   ODEThreadMapLock.unlock();
 }
 
@@ -175,7 +177,7 @@ void collision_space::EnvironmentModelODE::createODERobotModel()
     if (!link || !link->getLinkShape())
       continue;
 	
-    LinkGeom *lg = new LinkGeom();
+    LinkGeom *lg = new LinkGeom(model_geom_.storage);
     lg->link = link;
     if(!default_collision_matrix_.getEntryIndex(link->getName(), lg->index)) {
       ROS_WARN_STREAM("Link " << link->getName() << " not in provided collision matrix");
@@ -304,13 +306,12 @@ dGeomID collision_space::EnvironmentModelODE::createODEGeom(dSpaceID space, ODES
         dTriMeshDataID data = dGeomTriMeshDataCreate();
         dGeomTriMeshDataBuildDouble(data, vertices, sizeof(double) * 3, mesh->vertexCount, indices, icount, sizeof(dTriIndex) * 3);
         g = dCreateTriMesh(space, data, NULL, NULL, NULL);
-        unsigned int p = storage.mesh.size();
-        storage.mesh.resize(p + 1);
-        storage.mesh[p].vertices = vertices;
-        storage.mesh[p].indices = indices;
-        storage.mesh[p].data = data;
-        storage.mesh[p].n_vertices = mesh->vertexCount;
-        storage.mesh[p].n_indices = icount;
+        ODEStorage::Element& e = storage.meshes[g];
+        e.vertices = vertices;
+        e.indices = indices;
+        e.data = data;
+        e.n_vertices = mesh->vertexCount;
+        e.n_indices = icount;
       }
     }
 	
@@ -379,7 +380,7 @@ void collision_space::EnvironmentModelODE::addAttachedBody(LinkGeom* lg,
                                                            const planning_models::KinematicModel::AttachedBodyModel* attm,
                                                            double padd) {
 
-  AttGeom* attg = new AttGeom();
+  AttGeom* attg = new AttGeom(model_geom_.storage);
   attg->att = attm;
 
   if(!default_collision_matrix_.addEntry(attm->getName(), false)) {
@@ -423,6 +424,7 @@ void collision_space::EnvironmentModelODE::setAttachedBodiesLinkPadding() {
         for(unsigned int k = 0; k < attached_bodies[j]->getShapes().size(); k++) {
           geom_lookup_map_.erase(lg->att_bodies[j]->padded_geom[k]);
           dGeomDestroy(lg->att_bodies[j]->padded_geom[k]);
+          model_geom_.storage.remove(lg->att_bodies[j]->padded_geom[k]);
           dGeomID padd_ga = createODEGeom(model_geom_.env_space, model_geom_.storage, attached_bodies[j]->getShapes()[k], robot_scale_, new_padd);
           assert(padd_ga);
           lg->att_bodies[j]->padded_geom[k] = padd_ga;
@@ -449,6 +451,7 @@ void collision_space::EnvironmentModelODE::revertAttachedBodiesLinkPadding() {
         for(unsigned int k = 0; k < attached_bodies[j]->getShapes().size(); k++) {
           geom_lookup_map_.erase(lg->att_bodies[j]->padded_geom[k]);
           dGeomDestroy(lg->att_bodies[j]->padded_geom[k]);
+          model_geom_.storage.remove(lg->att_bodies[j]->padded_geom[k]);
           dGeomID padd_ga = createODEGeom(model_geom_.env_space, model_geom_.storage, attached_bodies[j]->getShapes()[k], robot_scale_, new_padd);
           assert(padd_ga);
           lg->att_bodies[j]->padded_geom[k] = padd_ga;
@@ -504,6 +507,7 @@ void collision_space::EnvironmentModelODE::setAlteredLinkPadding(const std::map<
       for (unsigned int j = 0 ; j < lg->padded_geom.size() ; ++j) {
         geom_lookup_map_.erase(lg->padded_geom[j]);
         dGeomDestroy(lg->padded_geom[j]);
+        model_geom_.storage.remove(lg->padded_geom[j]);
       }
       lg->padded_geom.clear();
       dGeomID g = createODEGeom(model_geom_.env_space, model_geom_.storage, link->getLinkShape(), robot_scale_, new_padding);
@@ -532,6 +536,7 @@ void collision_space::EnvironmentModelODE::revertAlteredLinkPadding() {
       for (unsigned int j = 0 ; j < lg->padded_geom.size() ; ++j) {
         geom_lookup_map_.erase(lg->padded_geom[j]);
         dGeomDestroy(lg->padded_geom[j]);
+        model_geom_.storage.remove(lg->padded_geom[j]);
       }
       ROS_DEBUG_STREAM("Reverting padding for link " << lg->link->getName() << " from " << altered_link_padding_map_[lg->link->getName()]
                       << " to " << old_padding);
@@ -971,6 +976,8 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
           return;
         }
       }
+    } else {
+      ROS_DEBUG_STREAM("Will not test for allowed collision between object " << cn->name << " and link " << lg->link->getName());
     }
     //now we need to do the attached bodies
     for(unsigned int j = 0; j < lg->att_bodies.size(); j++) {
@@ -1006,6 +1013,8 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
             return;
           }
         }
+      } else {
+        ROS_DEBUG_STREAM("Will not test for allowed collision between object " << cn->name << " and attached object " << att_name);
       } 
     }
   }
@@ -1170,24 +1179,26 @@ dGeomID collision_space::EnvironmentModelODE::copyGeom(dSpaceID space, ODEStorag
     {
       dTriMeshDataID tdata = dGeomTriMeshGetData(geom);
       dTriMeshDataID cdata = dGeomTriMeshDataCreate();
-      for (unsigned int i = 0 ; i < sourceStorage.mesh.size() ; ++i)
-        if (sourceStorage.mesh[i].data == tdata)
+      for(std::map<dGeomID, ODEStorage::Element>::const_iterator it = sourceStorage.meshes.begin();
+          it != sourceStorage.meshes.end();
+          it++) {
+        if (it->second.data == tdata)
         {
-          unsigned int p = storage.mesh.size();
-          storage.mesh.resize(p + 1);
-          storage.mesh[p].n_vertices = sourceStorage.mesh[i].n_vertices;
-          storage.mesh[p].n_indices = sourceStorage.mesh[i].n_indices;
-          storage.mesh[p].indices = new dTriIndex[storage.mesh[p].n_indices];
-          for (int j = 0 ; j < storage.mesh[p].n_indices ; ++j)
-            storage.mesh[p].indices[j] = sourceStorage.mesh[i].indices[j];
-          storage.mesh[p].vertices = new double[storage.mesh[p].n_vertices];
-          for (int j = 0 ; j < storage.mesh[p].n_vertices ; ++j)
-            storage.mesh[p].vertices[j] = sourceStorage.mesh[i].vertices[j];
-          dGeomTriMeshDataBuildDouble(cdata, storage.mesh[p].vertices, sizeof(double) * 3, storage.mesh[p].n_vertices, storage.mesh[p].indices, storage.mesh[p].n_indices, sizeof(dTriIndex) * 3);
-          storage.mesh[p].data = cdata;
+          ODEStorage::Element& e = storage.meshes[geom];
+          e.n_vertices = it->second.n_vertices;
+          e.n_indices = it->second.n_indices;
+          e.indices = new dTriIndex[e.n_indices];
+          for (int j = 0 ; j < e.n_indices ; ++j)
+            e.indices[j] = it->second.indices[j];
+          e.vertices = new double[e.n_vertices];
+          for (int j = 0 ; j < e.n_vertices ; ++j)
+            e.vertices[j] = e.vertices[j];
+          dGeomTriMeshDataBuildDouble(cdata, e.vertices, sizeof(double) * 3, e.n_vertices, e.indices, e.n_indices, sizeof(dTriIndex) * 3);
+          e.data = cdata;
           break;
         }
-      ng = dCreateTriMesh(space, cdata, NULL, NULL, NULL);
+        ng = dCreateTriMesh(space, cdata, NULL, NULL, NULL);
+      }
     }
     break;
   default:

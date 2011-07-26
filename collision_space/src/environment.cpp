@@ -36,6 +36,7 @@
 
 #include "collision_space/environment.h"
 #include <ros/console.h>
+#include <iomanip>
 
 collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatrix(const std::vector<std::string>& names,
                                                                                   bool allowed) 
@@ -304,6 +305,17 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(cons
     }
   }
   return ok;
+}
+
+void collision_space::EnvironmentModel::AllowedCollisionMatrix::print(std::ostream& out) const {
+  for(entry_type::right_const_iterator it = allowed_entries_bimap_.right.begin(); it != allowed_entries_bimap_.right.end(); it++) {
+    out << std::setw(40) << it->second;
+    out << " | ";
+    for(entry_type::right_const_iterator it2 = allowed_entries_bimap_.right.begin(); it2 != allowed_entries_bimap_.right.end(); it2++) {
+      out << std::setw(3) << allowed_entries_[it->first][it2->first];
+    }
+    out << std::endl;
+  }
 }
 
 bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count) const

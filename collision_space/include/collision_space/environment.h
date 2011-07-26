@@ -169,6 +169,8 @@ public:
     const entry_type& getEntriesBimap() const {
       return allowed_entries_bimap_;
     }
+
+    void print(std::ostream& out) const;
     
   private:
 
