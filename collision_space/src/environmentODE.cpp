@@ -385,6 +385,8 @@ void collision_space::EnvironmentModelODE::addAttachedBody(LinkGeom* lg,
 
   if(!default_collision_matrix_.addEntry(attm->getName(), false)) {
     ROS_WARN_STREAM("Must already have an entry in allowed collision matrix for " << attm->getName());
+  } else {
+    ROS_DEBUG_STREAM("Adding entry for " << attm->getName());
   } 
   attached_bodies_in_collision_matrix_[attm->getName()] = true;
   default_collision_matrix_.getEntryIndex(attm->getName(), attg->index);
@@ -778,7 +780,7 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
       return;
     }
     if(allowed) {
-      ROS_DEBUG_STREAM("Potential collision but collisions allowed between " << cdata->body_name_1 << " and " << cdata->body_name_2);
+      ROS_DEBUG_STREAM("Will not test for collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
       return;
     } else {
       ROS_DEBUG_STREAM("Will test for collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
@@ -953,6 +955,7 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
     
     //have to test collisions with link
     if(!allowed) {
+      ROS_DEBUG_STREAM("Will test for collision between object " << cn->name << " and link " << lg->link->getName());
       for(unsigned int j = 0; j < lg->padded_geom.size(); j++) {
         //have to figure
         unsigned int current_contacts_size = 0;
@@ -990,6 +993,7 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
         }
       }
       if(!allowed) {
+        ROS_DEBUG_STREAM("Will test for collision between object " << cn->name << " and attached object " << att_name);
         for(unsigned int k = 0; k < lg->att_bodies[j]->padded_geom.size(); k++) {
           //have to figure
           unsigned int current_contacts_size = 0;
@@ -1094,8 +1098,6 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
   dGeomID g = createODEGeom(cn->space, cn->storage, shape, 1.0, 0.0);
   assert(g);
   dGeomSetData(g, reinterpret_cast<void*>(shape));
-
-  default_collision_matrix_.addEntry(ns, false);
 
   updateGeom(g, pose);
   cn->geoms.push_back(g);
