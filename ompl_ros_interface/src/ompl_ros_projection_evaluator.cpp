@@ -105,7 +105,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSp
   }
   else
   {
-    ROS_ERROR("Could not initialize projection evaluator. A projection evaluator needs to be defined as either a combination of revolute joints with joint limits, or a continuous, spherical, planar of floating joint. ");
+    ROS_ERROR("Incorrect or no projection evaluator defined. Projection evaluator must be defined either as a combination of joints with joint limits or one of the continuous, planar, spherical or floating joints.");
     throw new OMPLROSException();
   }
 };

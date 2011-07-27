@@ -1,7 +1,9 @@
 ## the list of groups for which motion planning can be performed
 groups: 
   - right_arm 
-  - left_arm 
+  - left_arm
+  - right_arm_cartesian
+  - left_arm_cartesian
 
 ## the planner configurations; each config must have a type, which specifies
 ## the planner to be used; other parameters can be specified as well, depending 
@@ -35,7 +37,7 @@ right_arm_cartesian:
   parent_frame: torso_lift_link
   physical_group: right_arm
   planner_type: RPYIKTaskSpacePlanner
-  manifolds:
+  state_spaces:
     - x
     - y
     - z
@@ -74,7 +76,7 @@ left_arm_cartesian:
   parent_frame: torso_lift_link
   physical_group: left_arm
   planner_type: RPYIKTaskSpacePlanner
-  manifolds:
+  state_spaces:
     - x
     - y
     - z
@@ -117,4 +119,26 @@ planner_configs:
   LBKPIECEkConfig1:
     type: kinematic::LBKPIECE
     
+  RRTkConfig1:
+    type: kinematic::RRT
+
+  RRTConnectkConfig1:
+    type: kinematic::RRTConnect
+
+  LazyRRTkConfig1:
+    type: kinematic::LazyRRT
+
+  ESTkConfig1:
+    type: kinematic::EST
+
+  KPIECEkConfig1:
+    type: kinematic::KPIECE
+
+  RRTStarkConfig1:
+    type: kinematic::RRTStar
+
+  BKPIECEkConfig1:
+    type: kinematic::BKPIECE
+
 publish_diagnostics: true
+default_planner_config: SBLkConfig1

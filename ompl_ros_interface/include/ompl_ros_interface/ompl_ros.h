@@ -45,6 +45,7 @@
 #include <planning_environment/models/collision_models_interface.h>
 
 // OMPL ROS Interface
+#include <ompl_ros_interface/planners/ompl_ros_multi_arm_rpy_ik_task_space_planner.h>
 #include <ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h>
 #include <ompl_ros_interface/planners/ompl_ros_joint_planner.h>
 #include <ompl_ros_interface/helpers/ompl_ros_conversions.h>
