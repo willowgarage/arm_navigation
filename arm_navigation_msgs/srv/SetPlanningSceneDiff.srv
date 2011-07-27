@@ -3,7 +3,7 @@
 # passed to other nodes. 
 PlanningScene planning_scene_diff
 
-# OPTIONAL: Diff uses ordered collision operations instead of allowed_collision_matrix
+# OPTIONAL: Diff uses ordered collision operations in addition to allowed_collision_matrix
 arm_navigation_msgs/OrderedCollisionOperations operations
 ---
 # This includes the current planning scene and any changes applied from the 
