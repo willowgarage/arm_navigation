@@ -45,8 +45,11 @@
 #include <std_srvs/Empty.h>
 #include <arm_navigation_msgs/SyncPlanningSceneAction.h>
 #include <actionlib/client/simple_action_client.h>
+#include <planning_environment/models/model_utils.h>
 
 static const std::string SYNC_PLANNING_SCENE_NAME ="sync_planning_scene";
+static const unsigned int UNSUCCESSFUL_REPLY_LIMIT = 2;
+static const ros::Duration PLANNING_SCENE_CLIENT_TIMEOUT(1.0);
 
 namespace planning_environment
 {
@@ -106,6 +109,7 @@ private:
   bool registerPlanningScene(std_srvs::Empty::Request &req,
                              std_srvs::Empty::Response &res)
   {
+    register_lock_.lock();
     if(req.__connection_header->find("callerid") == req.__connection_header->end()) {
       ROS_ERROR_STREAM("Request has no callerid");
       return false;
@@ -117,12 +121,15 @@ private:
     sync_planning_scene_clients_[callerid] = new actionlib::SimpleActionClient<arm_navigation_msgs::SyncPlanningSceneAction>(callerid+"/"+SYNC_PLANNING_SCENE_NAME, true);
     while(ros::ok()) {
       if(!sync_planning_scene_clients_[callerid]->waitForServer(ros::Duration(1.0))) {
-        ROS_INFO_STREAM("Couldn't connect back to action server for " << callerid);
+        ROS_INFO_STREAM("Couldn't connect back to action server for " << callerid << ". Removing from list");
+        delete sync_planning_scene_clients_[callerid];
+        sync_planning_scene_clients_.erase(callerid);
       } else {
         break;
       }
     }
     ROS_INFO_STREAM("Successfully connected to planning scene action server for " << callerid);
+    register_lock_.unlock();
     return true;
   }
 		
@@ -149,12 +156,31 @@ private:
   bool setPlanningSceneDiff(arm_navigation_msgs::SetPlanningSceneDiff::Request &req, 
                             arm_navigation_msgs::SetPlanningSceneDiff::Response &res) 
   {
+    ros::WallTime s1 = ros::WallTime::now();
     if(use_monitor_) {
       planning_monitor_->getCompletePlanningScene(req.planning_scene_diff,
                                                   req.operations,
                                                   res.planning_scene);
     } else {
-         res.planning_scene = req.planning_scene_diff;
+      res.planning_scene = req.planning_scene_diff;
+      if(req.operations.collision_operations.size() > 0) {
+        std::vector<std::string> o_strings;
+        for(unsigned int i = 0; i < req.planning_scene_diff.collision_objects.size(); i++) {
+          o_strings.push_back(req.planning_scene_diff.collision_objects[i].id);
+        }
+        if(req.planning_scene_diff.collision_map.boxes.size() > 0) {
+          o_strings.push_back(COLLISION_MAP_NAME);
+        }
+        std::vector<std::string> a_strings;
+        for(unsigned int i = 0; i < req.planning_scene_diff.attached_collision_objects.size(); i++) {
+          a_strings.push_back(req.planning_scene_diff.attached_collision_objects[i].object.id);
+        }
+        res.planning_scene.allowed_collision_matrix = 
+          applyOrderedCollisionOperationsToCollisionsModel(collision_models_,
+                                                           req.operations, 
+                                                           o_strings,
+                                                           a_strings);
+      }
     }
     arm_navigation_msgs::SyncPlanningSceneGoal planning_scene_goal;
     planning_scene_goal.planning_scene = res.planning_scene;
@@ -163,19 +189,35 @@ private:
         it++) {
       it->second->sendGoal(planning_scene_goal);
     }
+    std::vector<std::string> bad_list;
     for(std::map<std::string, actionlib::SimpleActionClient<arm_navigation_msgs::SyncPlanningSceneAction>* >::iterator it = sync_planning_scene_clients_.begin();
         it != sync_planning_scene_clients_.end();
         it++) {
-      while(ros::ok() && !it->second->waitForResult(ros::Duration(1.0))) {
-        ROS_INFO_STREAM("Waiting for response from planning scene client " << it->first << ".  State is " << it->second->getState().state_);
+      if(!it->second->waitForResult(PLANNING_SCENE_CLIENT_TIMEOUT)) {
+        unsuccessful_planning_scene_client_replies_[it->first]++;
+        ROS_INFO_STREAM("Did not get reply from planning scene client " << it->first 
+                        << ".  Incrementing counter to " << unsuccessful_planning_scene_client_replies_[it->first]);
+        if(unsuccessful_planning_scene_client_replies_[it->first] > UNSUCCESSFUL_REPLY_LIMIT) {
+          ROS_WARN_STREAM("Failed to get reply from planning scene client " << it->first << " for " 
+                          << UNSUCCESSFUL_REPLY_LIMIT << " consecutive tries.  Removing");
+          bad_list.push_back(it->first);
+        } 
+        continue;
       } 
+      unsuccessful_planning_scene_client_replies_[it->first] = 0;
     }
- 
+
+    for(unsigned int i = 0; i < bad_list.size(); i++) {
+      delete sync_planning_scene_clients_[bad_list[i]];
+      sync_planning_scene_clients_.erase(bad_list[i]);
+    }
+    ROS_DEBUG_STREAM("Setting planning scene diff took " << (ros::WallTime::now()-s1).toSec());
     return true;
   }
 
 private:
-	
+
+  boost::mutex register_lock_;
   ros::NodeHandle root_handle_, private_handle_;
   planning_environment::CollisionModels *collision_models_;
   planning_environment::PlanningMonitor *planning_monitor_;
@@ -189,6 +231,7 @@ private:
   ros::ServiceServer set_planning_scene_diff_service_;
 
   ros::ServiceServer register_planning_scene_service_;
+  std::map<std::string, unsigned int> unsuccessful_planning_scene_client_replies_;
   std::map<std::string, actionlib::SimpleActionClient<arm_navigation_msgs::SyncPlanningSceneAction>* > sync_planning_scene_clients_;
 };    
 }
@@ -198,7 +241,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "environment_server");
   //figuring out whether robot_description has been remapped
 
-  ros::AsyncSpinner spinner(4); 
+  ros::AsyncSpinner spinner(1); 
   spinner.start();
   planning_environment::EnvironmentServer environment_monitor;
   ros::waitForShutdown();

@@ -147,13 +147,21 @@ void planning_environment::convertKinematicStateToRobotState(const planning_mode
 
 void planning_environment::applyOrderedCollisionOperationsToMatrix(const arm_navigation_msgs::OrderedCollisionOperations &ord,
                                              collision_space::EnvironmentModel::AllowedCollisionMatrix& acm) {
+  if(ord.collision_operations.size() == 0) {
+    ROS_INFO_STREAM("No allowed collision operations");
+  }
+  
   for(size_t i = 0; i < ord.collision_operations.size(); i++) {
     
     bool allowed = (ord.collision_operations[i].operation == arm_navigation_msgs::CollisionOperation::DISABLE);
-    
+
+    ROS_INFO_STREAM("Setting collision operation between " << ord.collision_operations[i].object1
+                     << " and " << ord.collision_operations[i].object2 << " allowed " << allowed);
+
     if(ord.collision_operations[i].object1 == ord.collision_operations[i].COLLISION_SET_ALL &&
        ord.collision_operations[i].object2 == ord.collision_operations[i].COLLISION_SET_ALL) {
       acm.changeEntry(allowed);
+      ROS_INFO_STREAM("Should be setting all");
     } else if(ord.collision_operations[i].object1 == ord.collision_operations[i].COLLISION_SET_ALL ||
               ord.collision_operations[i].object2 == ord.collision_operations[i].COLLISION_SET_ALL) {
       //second case - only one all
@@ -294,6 +302,8 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const arm_na
         break;
       }
     }
+
+    ROS_INFO_STREAM("Coll op first and second all " << first_all << " " << second_all);
     if(first_all && second_all) {
       matrix.changeEntry(op);
     } else if(first_all) {
@@ -314,33 +324,34 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const arm_na
   }
   return all_ok;
 }               
-       
-/*
-inline void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &curAllowed,
-                                 const std::map<std::string, unsigned int> &vecIndices) {
-  size_t all_size = curAllowed.size();
-  for(unsigned int i = 0; i < vecIndices.size(); i++) {
-    std::string n;
-    for(std::map<std::string, unsigned int>::const_iterator it = vecIndices.begin();
-        it != vecIndices.end();
-        it++) {
-      if(it->second == i) {
-        n = it->first; 
-      }
-    }
-    if(n.empty()) {
-      ROS_WARN_STREAM("Can't find index " << i << " in vecIndex");
-      return;
-    }
-    std::cout << std::setw(40) << n;
-    std::cout << " | ";
-    for(size_t j = 0; j < all_size; j++) {
-      std::cout << std::setw(3) << curAllowed[i][j];
-    }
-    std::cout << std::endl;
+
+arm_navigation_msgs::AllowedCollisionMatrix 
+planning_environment::applyOrderedCollisionOperationsToCollisionsModel(const planning_environment::CollisionModels* cm,
+                                                                       const arm_navigation_msgs::OrderedCollisionOperations& ordered_coll,
+                                                                       const std::vector<std::string>& object_names,
+                                                                       const std::vector<std::string>& att_names)
+{
+  collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm->getDefaultAllowedCollisionMatrix();
+  
+  for(unsigned int i = 0; i < object_names.size(); i++) {
+    if(!acm.hasEntry(object_names[i])) {
+      acm.addEntry(object_names[i], false);
+    } 
   }
+
+  for(unsigned int i = 0; i < att_names.size(); i++) {
+    if(!acm.hasEntry(att_names[i])) {
+      acm.addEntry(att_names[i], false);
+    } 
+  }
+
+  applyOrderedCollisionOperationsListToACM(ordered_coll, object_names, att_names, cm->getKinematicModel(), acm);
+                         
+  arm_navigation_msgs::AllowedCollisionMatrix ret_msg;
+  convertFromACMToACMMsg(acm, ret_msg);
+  return ret_msg;
 }
-*/
+
 bool planning_environment::doesKinematicStateObeyConstraints(const planning_models::KinematicState& state,
                                        const arm_navigation_msgs::Constraints& constraints,
                                        bool verbose) {
@@ -497,3 +508,4 @@ void planning_environment::getAllKinematicStateStampedTransforms(const planning_
     trans_vector.push_back(ts);
   }
 } 
+

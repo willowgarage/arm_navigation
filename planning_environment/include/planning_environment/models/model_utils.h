@@ -49,6 +49,7 @@
 #include <arm_navigation_msgs/LinkPadding.h>
 #include <collision_space/environment.h>
 #include <arm_navigation_msgs/AllowedCollisionMatrix.h>
+#include <planning_environment/models/collision_models.h>
 
 namespace planning_environment {
 
@@ -74,6 +75,12 @@ bool applyOrderedCollisionOperationsListToACM(const arm_navigation_msgs::Ordered
                                               const std::vector<std::string>& att_names,
                                               const planning_models::KinematicModel* model,
                                               collision_space::EnvironmentModel::AllowedCollisionMatrix& matrix);
+
+arm_navigation_msgs::AllowedCollisionMatrix 
+applyOrderedCollisionOperationsToCollisionsModel(const CollisionModels* cm,
+                                                 const arm_navigation_msgs::OrderedCollisionOperations& ordered_coll,
+                                                 const std::vector<std::string>& object_names,
+                                                 const std::vector<std::string>& att_names);
 
 void getAllKinematicStateStampedTransforms(const planning_models::KinematicState& state,
                                            std::vector<geometry_msgs::TransformStamped>& trans_vector,
