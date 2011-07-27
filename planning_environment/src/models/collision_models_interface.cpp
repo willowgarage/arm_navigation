@@ -90,6 +90,7 @@ planning_environment::CollisionModelsInterface::~CollisionModelsInterface()
 
 void planning_environment::CollisionModelsInterface::syncPlanningSceneCallback(const arm_navigation_msgs::SyncPlanningSceneGoalConstPtr& scene)
 {
+  ros::WallTime t1 = ros::WallTime::now();
   bodiesLock();
   arm_navigation_msgs::SyncPlanningSceneResult res;
   res.ok = true;
@@ -126,6 +127,7 @@ void planning_environment::CollisionModelsInterface::syncPlanningSceneCallback(c
   feedback.ready = true;
   action_server_->publishFeedback(feedback);
   action_server_->setSucceeded(res);
+  ROS_DEBUG_STREAM("Setting took " << (ros::WallTime::now()-t1).toSec());
   bodiesUnlock();
 }
 
