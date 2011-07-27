@@ -191,7 +191,8 @@ public:
 
   bool applyOrderedCollisionOperationsToCollisionSpace(const arm_navigation_msgs::OrderedCollisionOperations &ord,
                                                        bool print=false);
-  bool disableCollisionsForNonUpdatedLinks(const std::string& group_name);
+  bool disableCollisionsForNonUpdatedLinks(const std::string& group_name,
+                                           bool use_default=false);
 
   bool setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm);
 

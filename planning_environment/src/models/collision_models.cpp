@@ -1081,16 +1081,23 @@ bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCol
   return true;
 }
 
-bool planning_environment::CollisionModels::disableCollisionsForNonUpdatedLinks(const std::string& group_name)
+bool planning_environment::CollisionModels::disableCollisionsForNonUpdatedLinks(const std::string& group_name,
+                                                                                bool use_default)
 {
   kmodel_->sharedLock();  
   const planning_models::KinematicModel::JointModelGroup* joint_model_group = kmodel_->getModelGroup(group_name);
-  collision_space::EnvironmentModel::AllowedCollisionMatrix acm = ode_collision_model_->getCurrentAllowedCollisionMatrix();
+  collision_space::EnvironmentModel::AllowedCollisionMatrix acm;
+  if(use_default) { 
+    acm = ode_collision_model_->getDefaultAllowedCollisionMatrix();
+  } else {
+    acm = ode_collision_model_->getCurrentAllowedCollisionMatrix();
+  }
   if(joint_model_group == NULL) {
     ROS_WARN_STREAM("No joint group " << group_name);
     kmodel_->sharedUnlock();  
     return false;
   }
+
   std::vector<std::string> updated_link_names = joint_model_group->getUpdatedLinkModelNames();
   std::map<std::string, bool> updated_link_map;
   for(unsigned int i = 0; i < updated_link_names.size(); i++) {
@@ -1132,6 +1139,7 @@ bool planning_environment::CollisionModels::disableCollisionsForNonUpdatedLinks(
     return false;
   }
   setAlteredAllowedCollisionMatrix(acm);  
+
   kmodel_->sharedUnlock();  
   return true;
 }
