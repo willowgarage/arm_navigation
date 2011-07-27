@@ -1069,7 +1069,7 @@ private:
     arm_navigation_msgs::GetMotionPlan::Request req;	    
     moveArmGoalToPlannerRequest(goal,req);	    
 
-    if(!getAndSetPlanningScene(goal->planning_scene_diff)) {
+    if(!getAndSetPlanningScene(goal->planning_scene_diff, goal->operations)) {
       ROS_INFO("Problem setting planning scene");
       move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
       action_server_->setAborted(move_arm_action_result_);
@@ -1111,7 +1111,7 @@ private:
           const arm_navigation_msgs::MoveArmGoalConstPtr& new_goal = action_server_->acceptNewGoal();
           moveArmGoalToPlannerRequest(new_goal,req);
           ROS_DEBUG("Received new goal, will preempt previous goal");
-          if(!getAndSetPlanningScene(new_goal->planning_scene_diff)) {
+          if(!getAndSetPlanningScene(new_goal->planning_scene_diff, new_goal->operations)) {
             ROS_INFO("Problem setting planning scene");
             move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
             action_server_->setAborted(move_arm_action_result_);
@@ -1165,13 +1165,15 @@ private:
     action_server_->setAborted(move_arm_action_result_);
   }
 
-  bool getAndSetPlanningScene(const arm_navigation_msgs::PlanningScene& planning_diff) {
+  bool getAndSetPlanningScene(const arm_navigation_msgs::PlanningScene& planning_diff,
+                              const arm_navigation_msgs::OrderedCollisionOperations& operations) {
     arm_navigation_msgs::SetPlanningSceneDiff::Request planning_scene_req;
     arm_navigation_msgs::SetPlanningSceneDiff::Response planning_scene_res;
 
     revertPlanningScene();
 
     planning_scene_req.planning_scene_diff = planning_diff;
+    planning_scene_req.operations = operations;
 
     if(!set_planning_scene_diff_client_.call(planning_scene_req, planning_scene_res)) {
       ROS_WARN("Can't get planning scene");

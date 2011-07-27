@@ -9,6 +9,9 @@ PlanningScene planning_scene_diff
 # A motion planning request
 MotionPlanRequest motion_plan_request
 
+# OPTIONAL: Diff uses ordered collision operations in addition to allowed_collision_matrix
+arm_navigation_msgs/OrderedCollisionOperations operations
+
 # OPTIONAL flag
 # Setting this flag to true will allow move_arm to accept plans that do not go all the way to the goal
 bool accept_partial_plans
