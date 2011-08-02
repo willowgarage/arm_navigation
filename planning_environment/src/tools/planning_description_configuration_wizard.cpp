@@ -32,6 +32,8 @@
 #include <planning_environment/tools/planning_description_configuration_wizard.h>
 #include <qt4/QtGui/qapplication.h>
 #include <qt4/QtGui/qradiobutton.h>
+#include <qt4/QtGui/qdialogbuttonbox.h>
+#include <qt4/QtCore/qtextstream.h>
 #include <boost/thread.hpp>
 
 using namespace std;
@@ -43,8 +45,9 @@ using namespace collision_space;
 PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(const string& urdf_package,
                                                                                const string& urdf_path, QWidget* parent) :
   QWizard(parent), inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package),
-      urdf_path_(urdf_path)
+  urdf_path_(urdf_path)
 {
+  emitter_ = NULL;
   progress_ = 0;
   package_directory_ = "";
   string full_urdf_path = ros::package::getPath(urdf_package_)+"/"+urdf_path_;
@@ -124,6 +127,9 @@ PlanningDescriptionConfigurationWizard::~PlanningDescriptionConfigurationWizard(
   {
     delete ops_gen_;
   }
+  if(emitter_ != NULL) {
+    delete emitter_;
+  }
 }
 
 void PlanningDescriptionConfigurationWizard::deleteKinematicStates()
@@ -193,15 +199,15 @@ bool PlanningDescriptionConfigurationWizard::setupWithWorldFixedFrame(const stri
 void PlanningDescriptionConfigurationWizard::emitWorldJointYAML()
 {
 
-  emitter_ << YAML::Key << "multi_dof_joints";
-  emitter_ << YAML::Value << YAML::BeginSeq;
-  emitter_ << YAML::BeginMap;
-  emitter_ << YAML::Key << "name" << YAML::Value << world_joint_config_.name;
-  emitter_ << YAML::Key << "type" << YAML::Value << world_joint_config_.type;
-  emitter_ << YAML::Key << "parent_frame_id" << YAML::Value << world_joint_config_.parent_frame_id;
-  emitter_ << YAML::Key << "child_frame_id" << YAML::Value << world_joint_config_.child_frame_id;
-  emitter_ << YAML::EndMap;
-  emitter_ << YAML::EndSeq;
+  (*emitter_) << YAML::Key << "multi_dof_joints";
+  (*emitter_) << YAML::Value << YAML::BeginSeq;
+  (*emitter_) << YAML::BeginMap;
+  (*emitter_) << YAML::Key << "name" << YAML::Value << world_joint_config_.name;
+  (*emitter_) << YAML::Key << "type" << YAML::Value << world_joint_config_.type;
+  (*emitter_) << YAML::Key << "parent_frame_id" << YAML::Value << world_joint_config_.parent_frame_id;
+  (*emitter_) << YAML::Key << "child_frame_id" << YAML::Value << world_joint_config_.child_frame_id;
+  (*emitter_) << YAML::EndMap;
+  (*emitter_) << YAML::EndSeq;
 }
 
 void PlanningDescriptionConfigurationWizard::outputConfigAndLaunchRviz()
@@ -237,32 +243,31 @@ void PlanningDescriptionConfigurationWizard::outputConfigAndLaunchRviz()
   ofstream touch_file("vcg_ready");
 }
 
-bool PlanningDescriptionConfigurationWizard::addGroup(string new_group_name, string base, string tip)
+PlanningDescriptionConfigurationWizard::GroupAddStatus 
+PlanningDescriptionConfigurationWizard::addGroup(const KinematicModel::GroupConfig& group_config)
 {
   lock_.lock();
-  if(kmodel_->hasModelGroup(new_group_name))
+  
+  if(kmodel_->hasModelGroup(group_config.name_))
   {
-    kmodel_->removeModelGroup(new_group_name);
+    QString t;
+    QTextStream(&t) << "There is already a planning group named " << group_config.name_.c_str() << ". Replace this group?";
+    confirm_group_text_->setText(t);
+    int val = confirm_group_replace_dialog_->exec();
+    if(val == QDialog::Rejected) {
+      return GroupAddCancel;
+    } 
+    kmodel_->removeModelGroup(group_config.name_);
   }
-  KinematicModel::GroupConfig gc(new_group_name, base, tip);
-  bool group_ok = kmodel_->addModelGroup(gc);
+  deleteKinematicStates();
+  bool group_ok = kmodel_->addModelGroup(group_config);
   robot_state_ = new KinematicState(kmodel_);
   robot_state_->setKinematicStateToDefault();
 
-  if(!group_ok)
-  {
-    popupNotOkayWarning();
-    ROS_ERROR("%s %s %s invalid!", new_group_name.c_str(), base.c_str(), tip.c_str());
-  }
-  else
-  {
-    popupOkayWarning();
-    updateGroupTable();
-  }
-
   if(group_ok)
   {
-    current_show_group_ = new_group_name;
+    setup_groups_page_->updateGroupTable();
+    current_show_group_ = group_config.name_;
   }
   else
   {
@@ -270,18 +275,30 @@ bool PlanningDescriptionConfigurationWizard::addGroup(string new_group_name, str
   }
 
   lock_.unlock();
-  return group_ok;
+  if(group_ok) {
+    return GroupAddSuccess;
+  }
+  return GroupAddFailed;
 }
 
-void PlanningDescriptionConfigurationWizard::popupNotOkayWarning()
+void PlanningDescriptionConfigurationWizard::removeGroup(const std::string& name) 
 {
-  not_ok_dialog_->show();
-}
+  lock_.lock();
+  if(!kmodel_->hasModelGroup(name)) {
+    lock_.unlock();
+    return;
+  }
+  deleteKinematicStates();
+  kmodel_->removeModelGroup(name);
 
-void PlanningDescriptionConfigurationWizard::popupOkayWarning()
-{
-  ok_dialog_->show();
-  ok_dialog_->setFocus();
+  robot_state_ = new KinematicState(kmodel_);
+  robot_state_->setKinematicStateToDefault();
+
+  if(current_show_group_ == name) {
+    current_show_group_ = "";
+  }
+  
+  lock_.unlock();
 }
 
 void PlanningDescriptionConfigurationWizard::popupFileFailure(const char* reason)
@@ -295,67 +312,49 @@ void PlanningDescriptionConfigurationWizard::popupFileSuccess()
   file_success_dialog_->show();
 }
 
-void PlanningDescriptionConfigurationWizard::updateGroupTable()
-{
-  current_group_table_->clear();
-  vector<string> modelNames;
-  kmodel_->getModelGroupNames(modelNames);
-  current_group_table_->setRowCount((int)modelNames.size());
-  current_group_table_->setColumnCount(1);
-  current_group_table_->setColumnWidth(0, 300);
-  current_group_table_->setDragEnabled(false);
-  current_group_table_->setHorizontalHeaderItem(0, new QTableWidgetItem("Planning Groups"));
-  for(size_t i = 0; i < modelNames.size(); i++)
-  {
-    QTableWidgetItem* item = new QTableWidgetItem(modelNames[i].c_str());
-    current_group_table_->setItem((int)i, 0, item);
-    item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-  }
-}
-
 void PlanningDescriptionConfigurationWizard::emitGroupYAML()
 {
-  emitter_ << YAML::Key << "groups";
-  emitter_ << YAML::Value << YAML::BeginSeq;
+  (*emitter_) << YAML::Key << "groups";
+  (*emitter_) << YAML::Value << YAML::BeginSeq;
 
   const map<string, KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
 
   for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin(); it
       != group_config_map.end(); it++)
   {
-    emitter_ << YAML::BeginMap;
-    emitter_ << YAML::Key << "name" << YAML::Value << it->first;
+    (*emitter_) << YAML::BeginMap;
+    (*emitter_) << YAML::Key << "name" << YAML::Value << it->first;
     if(!it->second.base_link_.empty())
     {
-      emitter_ << YAML::Key << "base_link" << YAML::Value << it->second.base_link_;
-      emitter_ << YAML::Key << "tip_link" << YAML::Value << it->second.tip_link_;
+      (*emitter_) << YAML::Key << "base_link" << YAML::Value << it->second.base_link_;
+      (*emitter_) << YAML::Key << "tip_link" << YAML::Value << it->second.tip_link_;
     }
     else
     {
       if(!it->second.subgroups_.empty())
       {
-        emitter_ << YAML::Key << "subgroups";
-        emitter_ << YAML::Value << YAML::BeginSeq;
+        (*emitter_) << YAML::Key << "subgroups";
+        (*emitter_) << YAML::Value << YAML::BeginSeq;
         for(unsigned int i = 0; i < it->second.subgroups_.size(); i++)
         {
-          emitter_ << it->second.subgroups_[i];
+          (*emitter_) << it->second.subgroups_[i];
         }
-        emitter_ << YAML::EndSeq;
+        (*emitter_) << YAML::EndSeq;
       }
       if(!it->second.joints_.empty())
       {
-        emitter_ << YAML::Key << "joints";
-        emitter_ << YAML::Value << YAML::BeginSeq;
+        (*emitter_) << YAML::Key << "joints";
+        (*emitter_) << YAML::Value << YAML::BeginSeq;
         for(unsigned int i = 0; i < it->second.joints_.size(); i++)
         {
-          emitter_ << it->second.joints_[i];
+          (*emitter_) << it->second.joints_[i];
         }
-        emitter_ << YAML::EndSeq;
+        (*emitter_) << YAML::EndSeq;
       }
     }
-    emitter_ << YAML::EndMap;
+    (*emitter_) << YAML::EndMap;
   }
-  emitter_ << YAML::EndSeq;
+  (*emitter_) << YAML::EndSeq;
 }
 
 // void setupGroupSubgroupCollection(const string& new_group_name) {
@@ -444,8 +443,7 @@ void PlanningDescriptionConfigurationWizard::outputJointLimitsYAML()
   outf << emitter.c_str();
 }
 
-Marker PlanningDescriptionConfigurationWizard::transformEnvironmentModelContactInfoMarker(
-                                                                                          const EnvironmentModel::Contact& c)
+Marker PlanningDescriptionConfigurationWizard::transformEnvironmentModelContactInfoMarker(const EnvironmentModel::Contact& c)
 {
   string ns_name;
   ns_name = c.body_name_1;
@@ -463,7 +461,7 @@ Marker PlanningDescriptionConfigurationWizard::transformEnvironmentModelContactI
   mk.pose.position.z = c.pos.z();
   mk.pose.orientation.w = 1.0;
 
-  mk.scale.x = mk.scale.y = mk.scale.z = 0.1;
+  mk.scale.x = mk.scale.y = mk.scale.z = 0.05;
   return mk;
 }
 
@@ -471,16 +469,20 @@ Marker PlanningDescriptionConfigurationWizard::transformEnvironmentModelContactI
 void PlanningDescriptionConfigurationWizard::outputPlanningDescriptionYAML()
 {
   //initial map
-  emitter_ << YAML::BeginMap;
+  if(emitter_ != NULL) {
+    delete emitter_;
+  }
+  emitter_ = new YAML::Emitter;
+  (*emitter_) << YAML::BeginMap;
   emitWorldJointYAML();
   emitGroupYAML();
   //ops_gen_->performanceTestSavedResults(disable_map_);
-  ops_gen_->outputYamlStringOfSavedResults(emitter_, disable_map_);
+  ops_gen_->outputYamlStringOfSavedResults((*emitter_), disable_map_);
   //end map
-  emitter_ << YAML::EndMap;
+  (*emitter_) << YAML::EndMap;
   ofstream outf(full_yaml_outfile_name_.c_str(), ios_base::trunc);
 
-  outf << emitter_.c_str();
+  outf << emitter_->c_str();
 }
 
 void PlanningDescriptionConfigurationWizard::outputOMPLGroupYAML()
@@ -953,7 +955,7 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
     {
       ROS_ERROR("The joint model group %s did not exist!", current_show_group_.c_str());
     }
-  }
+  } 
   lock_.unlock();
 }
 
@@ -986,308 +988,6 @@ string PlanningDescriptionConfigurationWizard::getRobotName()
   return urdf_->getName();
 }
 
-vector<int> PlanningDescriptionConfigurationWizard::getSelectedRows(QTableWidget* table)
-{
-  QList<QTableWidgetItem*> selected = table->selectedItems();
-
-  vector<int> rows;
-  for(int i = 0; i < selected.size(); i++)
-  {
-    bool rowExists = false;
-    int r = selected[i]->row();
-    for(size_t j = 0; j < rows.size(); j++)
-    {
-      if((int)j == r)
-      {
-        rowExists = true;
-      }
-    }
-
-    if(!rowExists)
-    {
-      rows.push_back(r);
-    }
-  }
-  return rows;
-}
-
-void PlanningDescriptionConfigurationWizard::toggleTable(QTableWidget* table, int column)
-{
-  vector<int> rows = getSelectedRows(table);
-  for(size_t i = 0; i < rows.size(); i++)
-  {
-    QCheckBox* box = dynamic_cast<QCheckBox*> (table->cellWidget(rows[i], column));
-
-    if(box != NULL)
-    {
-      if(box->isChecked())
-      {
-        box->setChecked(false);
-      }
-      else
-      {
-        box->setChecked(true);
-      }
-    }
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::defaultTogglePushed()
-{
-  toggleTable(default_collision_table_, 2);
-  defaultCollisionTableChanged();
-}
-
-void PlanningDescriptionConfigurationWizard::oftenTogglePushed()
-{
-  toggleTable(often_collision_table_);
-  oftenCollisionTableChanged();
-}
-
-void PlanningDescriptionConfigurationWizard::adjacentTogglePushed()
-{
-  toggleTable(adjacent_link_table_, 2);
-  adjacentTableChanged();
-}
-
-void PlanningDescriptionConfigurationWizard::occasionallyTogglePushed()
-{
-  toggleTable(occasionally_collision_table_);
-  occasionallyCollisionTableChanged();
-}
-
-void PlanningDescriptionConfigurationWizard::dofTogglePushed()
-{
-  toggleTable(dof_selection_table_);
-  dofSelectionTableChanged();
-}
-
-void PlanningDescriptionConfigurationWizard::selectJointButtonClicked()
-{
-  QList<QTableWidgetItem*> selected = joint_table_->selectedItems();
-
-  for(int i = 0; i < selected.size(); i++)
-  {
-    string name = selected[i]->text().toStdString();
-    bool alreadyExists = false;
-    int rowToAdd = 0;
-    for(int r = 0; r < selected_joint_table_->rowCount(); r++)
-    {
-      QTableWidgetItem* item = selected_joint_table_->item(r, 0);
-
-      if(item->text().toStdString() == name)
-      {
-        alreadyExists = true;
-        break;
-      }
-      rowToAdd = r + 1;
-    }
-
-    if(!alreadyExists)
-    {
-      selected_joint_table_->setRowCount(selected_joint_table_->rowCount() + 1);
-      QTableWidgetItem* newItem = new QTableWidgetItem(name.c_str());
-      newItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-      selected_joint_table_->setItem(rowToAdd, 0, newItem);
-    }
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::deselectJointButtonClicked()
-{
-  QList<QTableWidgetItem*> deselected = selected_joint_table_->selectedItems();
-
-  for(int i = 0; i < deselected.size(); i++)
-  {
-    selected_joint_table_->removeRow(deselected[i]->row());
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::deleteGroupButtonClicked()
-{
-  QList<QTableWidgetItem*> itemList = current_group_table_->selectedItems();
-
-  for(int i = 0; i < itemList.size(); i++)
-  {
-    if(current_show_group_ == itemList[i]->text().toStdString())
-    {
-      current_show_group_ = "";
-    }
-    if(kmodel_->hasModelGroup(itemList[i]->text().toStdString()))
-    {
-      kmodel_->removeModelGroup(itemList[i]->text().toStdString());
-    }
-  }
-
-  updateGroupTable();
-
-  if(current_group_table_->rowCount() == 0)
-  {
-    validateDoneBox();
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::acceptChainClicked()
-{
-  addGroup(chain_name_field_->text().toStdString(), base_link_field_->text().toStdString(),
-           tip_link_field_->text().toStdString());
-  createDofPageTable();
-}
-
-void PlanningDescriptionConfigurationWizard::acceptGroupClicked()
-{
-  lock_.lock();
-  string new_group_name = joint_group_name_field_->text().toStdString();
-  vector<string> joints;
-  for(int i = 0; i < selected_joint_table_->rowCount(); i++)
-  {
-    joints.push_back(selected_joint_table_->item(i, 0)->text().toStdString());
-  }
-
-  deleteKinematicStates();
-  if(kmodel_->hasModelGroup(new_group_name))
-  {
-    kmodel_->removeModelGroup(new_group_name);
-  }
-
-  vector<string> emp;
-  KinematicModel::GroupConfig gc(new_group_name, joints, emp);
-  bool group_ok = kmodel_->addModelGroup(gc);
-
-  robot_state_ = new KinematicState(kmodel_);
-  robot_state_->setKinematicStateToDefault();
-  if(!group_ok)
-  {
-    ROS_ERROR_STREAM("Joint collection group really should be ok");
-    current_show_group_ = "";
-    popupNotOkayWarning();
-  }
-  else
-  {
-    current_show_group_ = new_group_name;
-    sendMarkers();
-  }
-
-  popupOkayWarning();
-  updateGroupTable();
-  lock_.unlock();
-
-  createDofPageTable();
-}
-
-void PlanningDescriptionConfigurationWizard::baseLinkTreeClick()
-{
-  QTreeWidgetItem* item = link_tree_->currentItem();
-  if(item != NULL)
-  {
-    base_link_field_->setText(item->text(0));
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::tipLinkTreeClick()
-{
-  QTreeWidgetItem* item = link_tree_->currentItem();
-  if(item != NULL)
-  {
-    tip_link_field_->setText(item->text(0));
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::validateDoneBox()
-{
-  if(group_selection_done_box_->isChecked())
-  {
-    if(current_group_table_->rowCount() <= 0)
-    {
-      group_selection_done_box_->setChecked(false);
-      need_groups_dialog_->show();
-      setup_groups_page_->setButtonText(QWizard::NextButton, "New Group...");
-    }
-    else
-    {
-      setup_groups_page_->setButtonText(QWizard::NextButton, "Next >");
-      current_show_group_ = "";
-    }
-  }
-  else
-  {
-    setup_groups_page_->setButtonText(QWizard::NextButton, "New Group...");
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::groupTableClicked()
-{
-  QList<QTableWidgetItem*> selected = current_group_table_->selectedItems();
-
-  if(selected.size() == 0)
-  {
-    return;
-  }
-  else
-  {
-    QTableWidgetItem* first = selected[0];
-    int row = first->row();
-    QTableWidgetItem* groupName = current_group_table_->item(row, 0);
-    current_show_group_ = groupName->text().toStdString();
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::defaultTableClicked()
-{
-  QList<QTableWidgetItem*> selected = default_collision_table_->selectedItems();
-
-  if(selected.size() == 0)
-  {
-    return;
-  }
-
-  int row = selected[0]->row();
-  std_msgs::ColorRGBA color;
-  color.r = 1.0;
-  color.g = 1.0;
-  color.b = 0.2;
-  color.a = 1.0;
-  visualizeCollision(default_in_collision_joint_values_, default_collision_pairs_, row, color);
-
-}
-
-void PlanningDescriptionConfigurationWizard::oftenTableClicked()
-{
-  QList<QTableWidgetItem*> selected = often_collision_table_->selectedItems();
-
-  if(selected.size() == 0)
-  {
-    return;
-  }
-
-  int row = selected[0]->row();
-  std_msgs::ColorRGBA color;
-  color.r = 1.0;
-  color.g = 1.0;
-  color.b = 0.2;
-  color.a = 1.0;
-  visualizeCollision(often_in_collision_joint_values_, often_collision_pairs_, row, color);
-
-}
-
-void PlanningDescriptionConfigurationWizard::occasionallyTableClicked()
-{
-  QList<QTableWidgetItem*> selected = occasionally_collision_table_->selectedItems();
-
-  if(selected.size() == 0)
-  {
-    return;
-  }
-
-  int row = selected[0]->row();
-  std_msgs::ColorRGBA color;
-  color.r = 1.0;
-  color.g = 1.0;
-  color.b = 0.2;
-  color.a = 1.0;
-  visualizeCollision(occasionally_collision_joint_values_, occasionally_collision_pairs_, row, color);
-}
-
 void PlanningDescriptionConfigurationWizard::dofSelectionTableChanged()
 {
   int xind = 0;
@@ -1310,550 +1010,6 @@ void PlanningDescriptionConfigurationWizard::dofSelectionTableChanged()
   ops_gen_->generateSamplingStructures(cdof_map);
 }
 
-void PlanningDescriptionConfigurationWizard::oftenCollisionTableChanged()
-{
-  vector<pair<string, string> >& disableVector = disable_map_[CollisionOperationsGenerator::OFTEN];
-  for(int i = 0; i < often_collision_table_->rowCount(); i++)
-  {
-    QCheckBox* box = dynamic_cast<QCheckBox*> (often_collision_table_->cellWidget(i, 3));
-    if(box != NULL)
-    {
-      bool alreadyDisabled = false;
-      vector<pair<string, string> >::iterator pos;
-      pair<string, string> linkPair;
-      linkPair.first = often_collision_table_->item(i, 0)->text().toStdString();
-      linkPair.second = often_collision_table_->item(i, 1)->text().toStdString();
-      for(vector<pair<string, string> >::iterator it = disableVector.begin(); it != disableVector.end(); it++)
-      {
-        if((*it) == linkPair)
-        {
-          alreadyDisabled = true;
-          pos = it;
-          break;
-        }
-      }
-
-      if(box->isChecked())
-      {
-        if(alreadyDisabled)
-        {
-          disableVector.erase(pos);
-          ops_gen_->enablePairCollisionChecking(linkPair);
-        }
-      }
-      else
-      {
-        if(!alreadyDisabled)
-        {
-          disableVector.push_back(linkPair);
-          ops_gen_->disablePairCollisionChecking(linkPair);
-        }
-      }
-    }
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::defaultCollisionTableChanged()
-{
-  vector<pair<string, string> >& disableVector = disable_map_[CollisionOperationsGenerator::DEFAULT];
-  for(int i = 0; i < default_collision_table_->rowCount(); i++)
-  {
-    QCheckBox* box = dynamic_cast<QCheckBox*> (default_collision_table_->cellWidget(i, 2));
-    if(box != NULL)
-    {
-      bool alreadyDisabled = false;
-      vector<pair<string, string> >::iterator pos;
-      pair<string, string> linkPair;
-      linkPair.first = default_collision_table_->item(i, 0)->text().toStdString();
-      linkPair.second = default_collision_table_->item(i, 1)->text().toStdString();
-      for(vector<pair<string, string> >::iterator it = disableVector.begin(); it != disableVector.end(); it++)
-      {
-        if((*it) == linkPair)
-        {
-          alreadyDisabled = true;
-          pos = it;
-          break;
-        }
-      }
-
-      if(box->isChecked())
-      {
-        if(alreadyDisabled)
-        {
-          disableVector.erase(pos);
-          ops_gen_->enablePairCollisionChecking(linkPair);
-        }
-      }
-      else
-      {
-        if(!alreadyDisabled)
-        {
-          disableVector.push_back(linkPair);
-          ops_gen_->disablePairCollisionChecking(linkPair);
-        }
-      }
-    }
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::occasionallyCollisionTableChanged()
-{
-  vector<pair<string, string> >& disableVector = disable_map_[CollisionOperationsGenerator::OCCASIONALLY];
-  vector<pair<string, string> >& disableVectorNever = disable_map_[CollisionOperationsGenerator::NEVER];
-  for(int i = 0; i < occasionally_collision_table_->rowCount(); i++)
-  {
-    QCheckBox* box = dynamic_cast<QCheckBox*> (occasionally_collision_table_->cellWidget(i, 3));
-    if(box != NULL)
-    {
-      bool alreadyDisabled = false;
-      vector<pair<string, string> >::iterator pos = disableVector.end();
-      vector<pair<string, string> >::iterator posNever = disableVectorNever.end();
-      pair<string, string> linkPair;
-      linkPair.first = occasionally_collision_table_->item(i, 0)->text().toStdString();
-      linkPair.second = occasionally_collision_table_->item(i, 1)->text().toStdString();
-      for(vector<pair<string, string> >::iterator it = disableVector.begin(); it != disableVector.end(); it++)
-      {
-        if((*it) == linkPair)
-        {
-          alreadyDisabled = true;
-          pos = it;
-          break;
-        }
-      }
-
-      if(pos == disableVector.end())
-      {
-        for(vector<pair<string, string> >::iterator it = disableVectorNever.begin(); it != disableVectorNever.end(); it++)
-        {
-          if((*it) == linkPair)
-          {
-            alreadyDisabled = true;
-            posNever = it;
-            break;
-          }
-        }
-      }
-
-      if(box->isChecked())
-      {
-        if(alreadyDisabled)
-        {
-          if(pos != disableVector.end())
-          {
-            disableVector.erase(pos);
-          }
-
-          if(posNever != disableVectorNever.end())
-          {
-            disableVectorNever.erase(pos);
-          }
-          ops_gen_->enablePairCollisionChecking(linkPair);
-        }
-      }
-      else
-      {
-        if(!alreadyDisabled)
-        {
-          if(i < (int)occasionally_collision_pairs_.size())
-          {
-            disableVector.push_back(linkPair);
-          }
-          else
-          {
-            disableVectorNever.push_back(linkPair);
-          }
-          ops_gen_->disablePairCollisionChecking(linkPair);
-        }
-      }
-    }
-  }
-}
-
-vector<CollisionOperationsGenerator::StringPair> PlanningDescriptionConfigurationWizard::getAdjacentLinks()
-{
-  vector<CollisionOperationsGenerator::StringPair> toReturn;
-  const planning_models::KinematicModel* model = robot_state_->getKinematicModel();
-  const planning_models::KinematicModel::LinkModel* link = model->getRoot()->getChildLinkModel();
-  accumulateAdjacentLinksRecursive(link, toReturn);
-  return toReturn;
-}
-
-void PlanningDescriptionConfigurationWizard::accumulateAdjacentLinksRecursive(const KinematicModel::LinkModel* parent,
-                             vector<CollisionOperationsGenerator::StringPair>& adjacencies)
-{
-  vector<KinematicModel::JointModel*> joints = parent->getChildJointModels();
-
-  for(size_t i = 0; i < joints.size(); i++)
-  {
-    const KinematicModel::JointModel* joint = joints[i];
-    CollisionOperationsGenerator::StringPair pair;
-    pair.first = parent->getName();
-    pair.second = joint->getChildLinkModel()->getName();
-    adjacencies.push_back(pair);
-    accumulateAdjacentLinksRecursive(joint->getChildLinkModel(), adjacencies);
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::generateAdjacentLinkTable()
-{
-  vector<CollisionOperationsGenerator::StringPair> adjacent_link_pairs_ = getAdjacentLinks();
-
-  adjacent_link_table_->clear();
-  adjacent_link_table_->setRowCount((int)(adjacent_link_pairs_.size()));
-  adjacent_link_table_->setColumnCount(3);
-
-  adjacent_link_table_->setColumnWidth(0, 300);
-  adjacent_link_table_->setColumnWidth(1, 300);
-  adjacent_link_table_->setColumnWidth(3, 300);
-
-  QStringList titleList;
-  titleList.append("Link A");
-  titleList.append("Link B");
-  titleList.append("Enable?");
-
-  adjacent_link_table_->setHorizontalHeaderLabels(titleList);
-
-  if(adjacent_link_pairs_.size() == 0)
-  {
-    adjacent_link_table_->setRowCount(1);
-    QTableWidgetItem* noCollide = new QTableWidgetItem("No Adjacent Links");
-    adjacent_link_table_->setItem(0, 0, noCollide);
-  }
-
-  ROS_INFO("%lu adjacent link pairs.", adjacent_link_pairs_.size());
-
-  for(size_t i = 0; i < adjacent_link_pairs_.size(); i++)
-  {
-    QTableWidgetItem* linkA = new QTableWidgetItem(adjacent_link_pairs_[i].first.c_str());
-    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QTableWidgetItem* linkB = new QTableWidgetItem(adjacent_link_pairs_[i].second.c_str());
-    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QCheckBox* enableBox = new QCheckBox(adjacent_link_table_);
-    enableBox->setChecked(false);
-    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(adjacentTableChanged()));
-
-    adjacent_link_table_->setItem((int)i, 0, linkA);
-    adjacent_link_table_->setItem((int)i, 1, linkB);
-    adjacent_link_table_->setCellWidget((int)i, 2, enableBox);
-  }
-
-  adjacentTableChanged();
-
-}
-
-void PlanningDescriptionConfigurationWizard::adjacentTableChanged()
-{
-  vector<pair<string, string> >& disableVector = disable_map_[CollisionOperationsGenerator::ADJACENT];
-  for(int i = 0; i < adjacent_link_table_->rowCount(); i++)
-  {
-    QCheckBox* box = dynamic_cast<QCheckBox*> (adjacent_link_table_->cellWidget(i, 2));
-    if(box != NULL)
-    {
-      bool alreadyDisabled = false;
-      vector<pair<string, string> >::iterator pos;
-      pair<string, string> linkPair;
-      linkPair.first = adjacent_link_table_->item(i, 0)->text().toStdString();
-      linkPair.second = adjacent_link_table_->item(i, 1)->text().toStdString();
-      for(vector<pair<string, string> >::iterator it = disableVector.begin(); it != disableVector.end(); it++)
-      {
-        if((*it) == linkPair)
-        {
-          alreadyDisabled = true;
-          pos = it;
-          break;
-        }
-      }
-
-      if(box->isChecked())
-      {
-        if(alreadyDisabled)
-        {
-          disableVector.erase(pos);
-          ops_gen_->enablePairCollisionChecking(linkPair);
-        }
-      }
-      else
-      {
-        if(!alreadyDisabled)
-        {
-          disableVector.push_back(linkPair);
-          ops_gen_->disablePairCollisionChecking(linkPair);
-        }
-      }
-    }
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::initAdjacentLinkPage()
-{
-  adjacent_link_page_ = new QWizardPage(this);
-  adjacent_link_page_->setTitle("Adjacent Links");
-
-  QVBoxLayout* layout = new QVBoxLayout(adjacent_link_page_);
-  adjacent_link_page_->setSubTitle("The following link pairs have been determined to be adjacent.\n "
-      "By default, collisions are disabled for them.");
-
-  adjacent_link_table_ = new QTableWidget(adjacent_link_page_);
-  layout->addWidget(adjacent_link_table_);
-
-  QPushButton* toggleSelected = new QPushButton(adjacent_link_page_);
-  toggleSelected->setText("Toggle Selected");
-  layout->addWidget(toggleSelected);
-  connect(toggleSelected, SIGNAL(clicked()), this, SLOT(adjacentTogglePushed()));
-  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  generateAdjacentLinkTable();
-
-  //addPage(adjacent_link_page_);
-  setPage(AdjacentLinkPage, adjacent_link_page_);
-  adjacent_link_page_->setLayout(layout);
-
-}
-
-void PlanningDescriptionConfigurationWizard::generateOccasionallyInCollisionTable()
-{
-  lock_.lock();
-  vector<CollisionOperationsGenerator::StringPair> not_in_collision;
-  vector<double> percentages;
-
-  ops_gen_->generateOccasionallyAndNeverInCollisionPairs(occasionally_collision_pairs_, not_in_collision, percentages,
-                                                         occasionally_collision_joint_values_);
-
-  occasionally_collision_table_->clear();
-  occasionally_collision_table_->setRowCount((int)(occasionally_collision_pairs_.size() + not_in_collision.size()));
-  occasionally_collision_table_->setColumnCount(4);
-
-  occasionally_collision_table_->setColumnWidth(0, 300);
-  occasionally_collision_table_->setColumnWidth(1, 300);
-  occasionally_collision_table_->setColumnWidth(2, 300);
-  occasionally_collision_table_->setColumnWidth(3, 300);
-
-  QStringList titleList;
-  titleList.append("Link A");
-  titleList.append("Link B");
-  titleList.append("% Colliding");
-  titleList.append("Enable?");
-
-  occasionally_collision_table_->setHorizontalHeaderLabels(titleList);
-
-  if(occasionally_collision_pairs_.size() + not_in_collision.size() == 0)
-  {
-    occasionally_collision_table_->setRowCount(1);
-    QTableWidgetItem* noCollide = new QTableWidgetItem("No Collisions");
-    occasionally_collision_table_->setItem(0, 0, noCollide);
-  }
-
-  ROS_INFO("%lu links occasionally in collision.", occasionally_collision_pairs_.size());
-
-  for(size_t i = 0; i < occasionally_collision_pairs_.size(); i++)
-  {
-    QTableWidgetItem* linkA = new QTableWidgetItem(occasionally_collision_pairs_[i].first.c_str());
-    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QTableWidgetItem* linkB = new QTableWidgetItem(occasionally_collision_pairs_[i].second.c_str());
-    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    stringstream percentageStream;
-    percentageStream << percentages[i];
-    QTableWidgetItem* percentage = new QTableWidgetItem(percentageStream.str().c_str());
-    percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QCheckBox* enableBox = new QCheckBox(occasionally_collision_table_);
-    enableBox->setChecked(true);
-    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(occasionallyCollisionTableChanged()));
-
-    occasionally_collision_table_->setItem((int)i, 0, linkA);
-    occasionally_collision_table_->setItem((int)i, 1, linkB);
-    occasionally_collision_table_->setItem((int)i, 2, percentage);
-    occasionally_collision_table_->setCellWidget((int)i, 3, enableBox);
-  }
-
-  for(size_t i = 0; i < not_in_collision.size(); i++)
-  {
-    QTableWidgetItem* linkA = new QTableWidgetItem(not_in_collision[i].first.c_str());
-    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QTableWidgetItem* linkB = new QTableWidgetItem(not_in_collision[i].second.c_str());
-    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    stringstream percentageStream;
-    percentageStream << 0.0;
-    QTableWidgetItem* percentage = new QTableWidgetItem(percentageStream.str().c_str());
-    percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QCheckBox* enableBox = new QCheckBox(occasionally_collision_table_);
-    enableBox->setChecked(false);
-    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(occasionallyCollisionTableChanged()));
-
-    occasionally_collision_table_->setItem((int)(i + occasionally_collision_pairs_.size()), 0, linkA);
-    occasionally_collision_table_->setItem((int)(i + occasionally_collision_pairs_.size()), 1, linkB);
-    occasionally_collision_table_->setItem((int)(i + occasionally_collision_pairs_.size()), 2, percentage);
-    occasionally_collision_table_->setCellWidget((int)(i + occasionally_collision_pairs_.size()), 3, enableBox);
-  }
-  occasionallyCollisionTableChanged();
-
-  lock_.unlock();
-}
-
-void PlanningDescriptionConfigurationWizard::generateOftenInCollisionTable()
-{
-  lock_.lock();
-  vector<double> percentages;
-
-  ops_gen_->generateOftenInCollisionPairs(often_collision_pairs_, percentages, often_in_collision_joint_values_);
-
-  often_collision_table_->clear();
-  often_collision_table_->setRowCount((int)often_collision_pairs_.size());
-  often_collision_table_->setColumnCount(4);
-
-  often_collision_table_->setColumnWidth(0, 250);
-  often_collision_table_->setColumnWidth(1, 250);
-  often_collision_table_->setColumnWidth(2, 250);
-  often_collision_table_->setColumnWidth(3, 250);
-
-  QStringList titleList;
-  titleList.append("Link A");
-  titleList.append("Link B");
-  titleList.append("% Colliding");
-  titleList.append("Enable?");
-
-  often_collision_table_->setHorizontalHeaderLabels(titleList);
-
-  if(often_collision_pairs_.size() == 0)
-  {
-    often_collision_table_->setRowCount(1);
-    QTableWidgetItem* noCollide = new QTableWidgetItem("No Collisions");
-    often_collision_table_->setItem(0, 0, noCollide);
-  }
-
-  ROS_INFO("%lu links often in collision.", often_collision_pairs_.size());
-
-  for(size_t i = 0; i < often_collision_pairs_.size(); i++)
-  {
-    QTableWidgetItem* linkA = new QTableWidgetItem(often_collision_pairs_[i].first.c_str());
-    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QTableWidgetItem* linkB = new QTableWidgetItem(often_collision_pairs_[i].second.c_str());
-    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    stringstream percentageStream;
-    percentageStream << percentages[i];
-    QTableWidgetItem* percentage = new QTableWidgetItem(percentageStream.str().c_str());
-    percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QCheckBox* enableBox = new QCheckBox(often_collision_table_);
-    enableBox->setChecked(false);
-    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(oftenCollisionTableChanged()));
-
-    often_collision_table_->setItem((int)i, 0, linkA);
-    often_collision_table_->setItem((int)i, 1, linkB);
-    often_collision_table_->setItem((int)i, 2, percentage);
-    often_collision_table_->setCellWidget((int)i, 3, enableBox);
-  }
-  oftenCollisionTableChanged();
-
-  lock_.unlock();
-}
-
-void PlanningDescriptionConfigurationWizard::generateAlwaysInCollisionTable()
-{
-  vector<CollisionOperationsGenerator::StringPair> always_in_collision;
-  vector<CollisionOperationsGenerator::CollidingJointValues> in_collision_joint_values;
-
-  ops_gen_->generateAlwaysInCollisionPairs(always_in_collision, in_collision_joint_values);
-
-  lock_.lock();
-  robot_state_->setKinematicStateToDefault();
-
-  std_msgs::ColorRGBA always_color;
-  always_color.a = 1.0;
-  always_color.r = 1.0;
-  always_color.g = .8;
-  always_color.b = 0.04;
-
-  collision_markers_.markers.clear();
-  cm_->getAllCollisionPointMarkers(*robot_state_, collision_markers_, always_color, ros::Duration(.2));
-
-  always_collision_table_->clear();
-  always_collision_table_->setRowCount((int)always_in_collision.size());
-  always_collision_table_->setColumnCount(2);
-  always_collision_table_->setColumnWidth(0, 500);
-  always_collision_table_->setColumnWidth(1, 500);
-  QStringList titleList;
-  titleList.append("Link A");
-  titleList.append("Link B");
-  always_collision_table_->setHorizontalHeaderLabels(titleList);
-
-  for(size_t i = 0; i < always_in_collision.size(); i++)
-  {
-    QTableWidgetItem* linkA = new QTableWidgetItem(always_in_collision[i].first.c_str());
-    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-    QTableWidgetItem* linkB = new QTableWidgetItem(always_in_collision[i].second.c_str());
-    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    always_collision_table_->setItem((int)i, 0, linkA);
-    always_collision_table_->setItem((int)i, 1, linkB);
-
-  }
-  lock_.unlock();
-
-  ops_gen_->disablePairCollisionChecking(always_in_collision);
-  disable_map_[CollisionOperationsGenerator::ALWAYS] = always_in_collision;
-}
-
-void PlanningDescriptionConfigurationWizard::generateDefaultInCollisionTable()
-{
-  lock_.lock();
-
-  ops_gen_->generateDefaultInCollisionPairs(default_collision_pairs_, default_in_collision_joint_values_);
-
-  default_collision_table_->clear();
-  default_collision_table_->setRowCount((int)default_collision_pairs_.size());
-  default_collision_table_->setColumnCount(3);
-
-  default_collision_table_->setColumnWidth(0, 300);
-  default_collision_table_->setColumnWidth(1, 300);
-  default_collision_table_->setColumnWidth(2, 300);
-
-  QStringList titleList;
-  titleList.append("Link A");
-  titleList.append("Link B");
-  titleList.append("Enable?");
-
-  default_collision_table_->setHorizontalHeaderLabels(titleList);
-
-  if(default_collision_pairs_.size() == 0)
-  {
-    default_collision_table_->setRowCount(1);
-    QTableWidgetItem* noCollide = new QTableWidgetItem("No Collisions");
-    default_collision_table_->setItem(0, 0, noCollide);
-  }
-
-  ROS_INFO("%lu links default in collision.", default_collision_pairs_.size());
-
-  for(size_t i = 0; i < default_collision_pairs_.size(); i++)
-  {
-    QTableWidgetItem* linkA = new QTableWidgetItem(default_collision_pairs_[i].first.c_str());
-    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QTableWidgetItem* linkB = new QTableWidgetItem(default_collision_pairs_[i].second.c_str());
-    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-
-    QCheckBox* enableBox = new QCheckBox(default_collision_table_);
-    enableBox->setChecked(false);
-    connect(enableBox, SIGNAL(toggled(bool)), this, SLOT(defaultCollisionTableChanged()));
-
-    default_collision_table_->setItem((int)i, 0, linkA);
-    default_collision_table_->setItem((int)i, 1, linkB);
-    default_collision_table_->setCellWidget((int)i, 2, enableBox);
-  }
-  defaultCollisionTableChanged();
-
-  lock_.unlock();
-}
-
 void PlanningDescriptionConfigurationWizard::popupGenericWarning(const char* text)
 {
   generic_dialog_label_->setText(text);
@@ -1863,14 +1019,9 @@ void PlanningDescriptionConfigurationWizard::popupGenericWarning(const char* tex
   ROS_INFO("Showing warning: %s", text);
 }
 
-void PlanningDescriptionConfigurationWizard::fileSelected(const QString& file)
-{
-  package_path_field_->setText(file);
-}
-
 void PlanningDescriptionConfigurationWizard::writeFiles()
 {
-  package_directory_ = package_path_field_->text().toStdString();
+  package_directory_ = output_wizard_page_->getPackagePathField();
   int ok = chdir(package_directory_.c_str());
 
   if(ok != 0)
@@ -1931,31 +1082,33 @@ void PlanningDescriptionConfigurationWizard::writeFiles()
   else
   {
     outputJointLimitsYAML();
-    progress_bar_->setValue(10);
+    output_wizard_page_->updateProgressBar(10);
     outputOMPLGroupYAML();
-    progress_bar_->setValue(20);
+    output_wizard_page_->updateProgressBar(20);
     outputPlanningDescriptionYAML();
-    progress_bar_->setValue(30);
+    output_wizard_page_->updateProgressBar(30);
     outputOMPLLaunchFile();
-    progress_bar_->setValue(40);
+    output_wizard_page_->updateProgressBar(40);
     outputKinematicsLaunchFiles();
-    progress_bar_->setValue(50);
+    output_wizard_page_->updateProgressBar(50);
     outputTrajectoryFilterLaunch();
-    progress_bar_->setValue(65);
+    output_wizard_page_->updateProgressBar(65);
     outputPlanningEnvironmentLaunch();
-    progress_bar_->setValue(75);
+    output_wizard_page_->updateProgressBar(75);
     outputMoveGroupLaunchFiles();
     outputArmNavigationLaunchFile();
     outputPlanningComponentVisualizerLaunchFile();
-    progress_bar_->setValue(100);
+    output_wizard_page_->updateProgressBar(100);
 
     popupFileSuccess();
+
+    output_wizard_page_->setSuccessfulGeneration();
   }
 }
 
 void PlanningDescriptionConfigurationWizard::labelChanged(const char* label)
 {
-  progress_label_->setText(label);
+  output_wizard_page_->setProgressLabel(label);
 }
 
 void PlanningDescriptionConfigurationWizard::autoConfigure()
@@ -1992,7 +1145,8 @@ void PlanningDescriptionConfigurationWizard::autoConfigure()
   /////////////////////////
   // ADJACENT PAIRS IN COLLISION
   ////////////////////////
-  vector<CollisionOperationsGenerator::StringPair> adj_links = getAdjacentLinks();
+  vector<CollisionOperationsGenerator::StringPair> adj_links; 
+  ops_gen_->generateAdjacentInCollisionPairs(adj_links);
   ops_gen_->disablePairCollisionChecking(adj_links);
   disable_map_[CollisionOperationsGenerator::ADJACENT] = adj_links;
 
@@ -2070,12 +1224,13 @@ int PlanningDescriptionConfigurationWizard::nextId() const
 {
   switch (currentId())
   {
-    case StartPage:
-      return SetupGroupsPage;
-
-    case SetupGroupsPage:
-      if(group_selection_done_box_->isChecked())
-      {
+  case StartPage:
+    return SetupGroupsPage;
+  case SetupGroupsPage:
+    return setup_groups_page_->nextId();
+  case KinematicChainsPage:
+    {
+      if(!kinematic_chain_page_->getReturnToGroups()) {
         if(wizard_mode_ == PlanningDescriptionConfigurationWizard::Advanced)
         {
           return SelectDOFPage;
@@ -2084,58 +1239,58 @@ int PlanningDescriptionConfigurationWizard::nextId() const
         {
           return OutputFilesPage;
         }
+      } else {
+        return SetupGroupsPage;
       }
-      else
-      {
-        if(group_selection_mode_box_->itemText(group_selection_mode_box_->currentIndex()) == "Kinematic Chains")
+    }
+  case JointCollectionsPage:
+    {
+      if(!joint_collections_page_->getReturnToGroups()) {
+        if(wizard_mode_ == PlanningDescriptionConfigurationWizard::Advanced)
         {
-          return KinematicChainsPage;
+          return SelectDOFPage;
         }
         else
         {
-          return JointCollectionsPage;
+          return OutputFilesPage;
         }
+      } else {
+        return SetupGroupsPage;
       }
+    }
+  case SelectDOFPage:
+    return AdjacentLinkPage;
+    
+  case AdjacentLinkPage:
+    return AlwaysInCollisionPage;
+    
+  case AlwaysInCollisionPage:
+    return DefaultInCollisionPage;
+    
+  case DefaultInCollisionPage:
+    return OftenInCollisionPage;
+    
+  case OftenInCollisionPage:
+    return OccasionallyInCollisionPage;
+    
+  case OccasionallyInCollisionPage:
+    return OutputFilesPage;
+    
+  case OutputFilesPage:
       return -1;
-
-    case KinematicChainsPage:
-      return SetupGroupsPage;
-
-    case JointCollectionsPage:
-      return SetupGroupsPage;
-
-    case SelectDOFPage:
-      return AdjacentLinkPage;
-
-    case AdjacentLinkPage:
-      return AlwaysInCollisionPage;
-
-    case AlwaysInCollisionPage:
-      return DefaultInCollisionPage;
-
-    case DefaultInCollisionPage:
-      return OftenInCollisionPage;
-
-    case OftenInCollisionPage:
-      return OccasionallyInCollisionPage;
-
-    case OccasionallyInCollisionPage:
-      return OutputFilesPage;
-
-    case OutputFilesPage:
-      return -1;
-
-    default:
-      return -1;
+      
+  default:
+    return -1;
   }
 }
 
 void PlanningDescriptionConfigurationWizard::update()
 {
-  progress_bar_->setValue(progress_);
+  output_wizard_page_->updateProgressBar(progress_);
   if(progress_ >= 100)
   {
     popupFileSuccess();
+    output_wizard_page_->setSuccessfulGeneration();
   }
 
   QWizard::update();
@@ -2202,21 +1357,20 @@ void PlanningDescriptionConfigurationWizard::visualizeCollision(vector<Collision
                                                                 int& index, std_msgs::ColorRGBA& color)
 {
 
-  if(index > (int)(pairs.size()) || index < 0 || pairs.size() == 0)
+  if(index >= (int)(pairs.size()) || index < 0 || pairs.size() == 0)
   {
     return;
   }
   lock_.lock();
 
-  ROS_INFO("Visualizing collision index %d", index);
-
-  collision_markers_.markers.clear();
   robot_state_->setKinematicState(jointValues[index]);
 
   if(!cm_->isKinematicStateInCollision(*robot_state_))
   {
     ROS_INFO_STREAM("Really should be in collision");
   }
+
+  collision_markers_.markers.clear();
 
   vector<EnvironmentModel::AllowedContact> allowed_contacts;
   vector<EnvironmentModel::Contact> coll_space_contacts;
@@ -2232,8 +1386,10 @@ void PlanningDescriptionConfigurationWizard::visualizeCollision(vector<Collision
     {
       marker = transformEnvironmentModelContactInfoMarker(coll_space_contacts[j]);
       marker2 = transformEnvironmentModelContactInfoMarker(coll_space_contacts[j]);
+      marker.id = 0;
+      marker.id = 1;
       marker.color = color;
-      marker.lifetime = ros::Duration(.2);
+      marker.lifetime = ros::Duration(0.2);
       marker2.type = Marker::ARROW;
       marker2.color.r = 1.0;
       marker2.color.g = 0.0;
@@ -2242,7 +1398,7 @@ void PlanningDescriptionConfigurationWizard::visualizeCollision(vector<Collision
       marker2.scale.x = 0.5;
       marker2.scale.y = 0.5;
       marker2.scale.z = 0.5;
-      marker2.pose.position.z = marker2.pose.position.z + 0.8;
+      marker2.pose.position.z = marker2.pose.position.z+.65;
       marker2.pose.orientation.x = 0.0;
       marker2.pose.orientation.y = 1.0;
       marker2.pose.orientation.z = 0.0;
@@ -2250,7 +1406,7 @@ void PlanningDescriptionConfigurationWizard::visualizeCollision(vector<Collision
       marker2.lifetime = ros::Duration(0.2);
       collision_markers_.markers.push_back(marker);
       collision_markers_.markers.push_back(marker2);
-    }
+    } 
   }
   lock_.unlock();
 
@@ -2259,17 +1415,36 @@ void PlanningDescriptionConfigurationWizard::visualizeCollision(vector<Collision
 void PlanningDescriptionConfigurationWizard::setupQtPages()
 {
   initStartPage();
-  initSetupGroupsPage();
-  initKinematicChainsPage();
-  initJointCollectionsPage();
-  initSelectDofPage();
-  initAdjacentLinkPage();
-  initAlwaysInCollisionPage();
-  initDefaultInCollisionPage();
-  initOftenInCollisionPage();
-  initOccasionallyInCollisionPage();
-  initOutputFilesPage();
 
+  setup_groups_page_ = new SetupGroupsWizardPage(this);
+  setPage(SetupGroupsPage, setup_groups_page_);
+
+  kinematic_chain_page_ = new KinematicChainWizardPage(this);
+  setPage(KinematicChainsPage, kinematic_chain_page_);
+
+  joint_collections_page_ = new JointCollectionWizardPage(this);
+  setPage(JointCollectionsPage, joint_collections_page_);
+
+  initSelectDofPage();
+
+  adjacent_link_page_ = new CollisionsWizardPage(this, CollisionOperationsGenerator::ADJACENT);
+  setPage(AdjacentLinkPage, adjacent_link_page_);
+
+  always_in_collision_page_ = new CollisionsWizardPage(this, CollisionOperationsGenerator::ALWAYS);
+  setPage(AlwaysInCollisionPage, always_in_collision_page_);
+
+  default_in_collision_page_ = new CollisionsWizardPage(this, CollisionOperationsGenerator::DEFAULT);
+  setPage(DefaultInCollisionPage, default_in_collision_page_);
+
+  often_in_collision_page_ = new CollisionsWizardPage(this, CollisionOperationsGenerator::OFTEN);
+  setPage(OftenInCollisionPage, often_in_collision_page_);
+
+  occasionally_in_collision_page_ = new CollisionsWizardPage(this, CollisionOperationsGenerator::NEVER);
+  setPage(OccasionallyInCollisionPage, occasionally_in_collision_page_);
+
+  output_wizard_page_ = new OutputWizardPage(this);
+  setPage(OutputFilesPage, output_wizard_page_);
+ 
   generic_dialog_ = new QDialog(this);
   QVBoxLayout* gDialogLayout = new QVBoxLayout(generic_dialog_);
   generic_dialog_label_ = new QLabel(generic_dialog_);
@@ -2291,13 +1466,6 @@ void PlanningDescriptionConfigurationWizard::setupQtPages()
   okDialogLayout->addWidget(okText);
   ok_dialog_->setLayout(okDialogLayout);
 
-  not_ok_dialog_ = new QDialog(this);
-  QVBoxLayout* notOkDialogLayout = new QVBoxLayout(not_ok_dialog_);
-  QLabel* notOkText = new QLabel(not_ok_dialog_);
-  notOkText->setText("Error! The planning group was invalid!");
-  notOkDialogLayout->addWidget(notOkText);
-  not_ok_dialog_->setLayout(notOkDialogLayout);
-
   file_failure_dialog_ = new QDialog(this);
   QVBoxLayout* filefailureLayout = new QVBoxLayout(file_failure_dialog_);
   QLabel* fileFailureText = new QLabel(file_failure_dialog_);
@@ -2315,6 +1483,16 @@ void PlanningDescriptionConfigurationWizard::setupQtPages()
   filesuccessLayout->addWidget(filesuccessText);
   file_success_dialog_->setLayout(filesuccessLayout);
 
+  confirm_group_replace_dialog_ = new QDialog(this);
+  QVBoxLayout* confirm_group_replace_layout = new QVBoxLayout(confirm_group_replace_dialog_);
+  confirm_group_text_ = new QLabel(this);
+  confirm_group_text_->setText("Really replace group ");
+  confirm_group_replace_layout->addWidget(confirm_group_text_);
+  QDialogButtonBox* group_button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+  confirm_group_replace_layout->addWidget(group_button_box);
+  connect(group_button_box, SIGNAL(accepted()), confirm_group_replace_dialog_, SLOT(accept()));
+  connect(group_button_box, SIGNAL(rejected()), confirm_group_replace_dialog_, SLOT(reject()));
+  confirm_group_replace_dialog_->setLayout(confirm_group_replace_layout);
 }
 
 void PlanningDescriptionConfigurationWizard::initStartPage()
@@ -2453,227 +1631,6 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
   start_page_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
-void PlanningDescriptionConfigurationWizard::initSetupGroupsPage()
-{
-  setup_groups_page_ = new QWizardPage(this);
-  setup_groups_page_->setTitle("Planning Group Setup");
-
-  QGridLayout* layout = new QGridLayout(setup_groups_page_);
-  setup_groups_page_->setSubTitle(
-                                  "Select planning groups for your robot based on kinematic chains, or joint collections."
-                                    " When you are finished, please check the checkbox and you can move on by pressing Next.");
-
-  QGroupBox* selectGroupsBox = new QGroupBox(setup_groups_page_);
-  selectGroupsBox->setTitle("Current Groups");
-
-
-  current_group_table_ = new QTableWidget(selectGroupsBox);
-  QVBoxLayout* groupBoxLayout = new QVBoxLayout(selectGroupsBox);
-  groupBoxLayout->addWidget(current_group_table_);
-  selectGroupsBox->setLayout(groupBoxLayout);
-  layout->addWidget(selectGroupsBox, 0, 0, 1, 1);
-  QPushButton* deleteButton = new QPushButton(selectGroupsBox);
-  deleteButton->setText("Delete");
-  groupBoxLayout->addWidget(deleteButton);
-  deleteButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  connect(current_group_table_, SIGNAL(itemClicked(QTableWidgetItem*)), SLOT(groupTableClicked()));
-  connect(deleteButton, SIGNAL(clicked()), this, SLOT(deleteGroupButtonClicked()));
-
-  QGroupBox* modeBox = new QGroupBox(setup_groups_page_);
-  modeBox->setTitle("Select Mode");
-  QVBoxLayout* modeBoxLayout = new QVBoxLayout(modeBox);
-  group_selection_mode_box_ = new QComboBox(modeBox);
-  group_selection_done_box_ = new QCheckBox(modeBox);
-  group_selection_done_box_->setText("Done Selecting Groups");
-
-  connect(group_selection_done_box_, SIGNAL(toggled(bool)), this, SLOT(validateDoneBox()));
-
-  QStringList texts;
-  texts.append("Kinematic Chains");
-  texts.append("Joint Collections");
-  group_selection_mode_box_->addItems(texts);
-
-  modeBoxLayout->addWidget(group_selection_mode_box_);
-  modeBoxLayout->addWidget(group_selection_done_box_);
-  modeBox->setLayout(modeBoxLayout);
-  layout->addWidget(modeBox, 0, 2, 1, 1);
-
-  //addPage(setup_groups_page_);
-  setPage(SetupGroupsPage, setup_groups_page_);
-  setup_groups_page_->setLayout(layout);
-  modeBoxLayout->setAlignment(group_selection_mode_box_, Qt::AlignTop);
-  layout->setAlignment(modeBox, Qt::AlignTop);
-
-  setup_groups_page_->setButtonText(QWizard::NextButton, "New Group...");
-}
-
-void PlanningDescriptionConfigurationWizard::initKinematicChainsPage()
-{
-  kinematic_chains_page_ = new QWizardPage(this);
-  kinematic_chains_page_->setTitle("Select Kinematic Chain");
-
-  QGridLayout* layout = new QGridLayout(kinematic_chains_page_);
-  kinematic_chains_page_->setSubTitle("Select a planning group based on a kinematic chain."
-    " Select a base link (the first link in the chain) and a tip link."
-    " They must be connected by a direct line of joints.");
-
-  QImage* image = new QImage();
-  if(!image->load("./resources/chains.png"))
-  {
-    ROS_ERROR("FAILED TO LOAD ./resources/chains.png");
-  }
-  ROS_INFO("Loaded Image with %d bytes.", image->byteCount());
-
-  QLabel* imageLabel = new QLabel(kinematic_chains_page_);
-  imageLabel->setPixmap(QPixmap::fromImage(*image));
-  imageLabel->setAlignment(Qt::AlignTop);
-  layout->addWidget(imageLabel, 0, 0, 0, 1);
-  QGroupBox* treeBox = new QGroupBox(kinematic_chains_page_);
-  treeBox->setTitle("Links");
-  layout->addWidget(treeBox, 0, 1, 1, 1);
-
-  QVBoxLayout* treeLayout = new QVBoxLayout(treeBox);
-  link_tree_ = new QTreeWidget(treeBox);
-  treeLayout->addWidget(link_tree_);
-  QPushButton* baseLinkButton = new QPushButton(treeBox);
-  baseLinkButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-  baseLinkButton->setText("Select Base Link");
-  treeLayout->addWidget(baseLinkButton);
-  QPushButton* tipLinkButton = new QPushButton(treeBox);
-  tipLinkButton->setText("Select Tip Link");
-  tipLinkButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-  treeLayout->addWidget(tipLinkButton);
-  treeBox->setLayout(treeLayout);
-  createLinkTree();
-
-  connect(baseLinkButton, SIGNAL(clicked()), this, SLOT(baseLinkTreeClick()));
-  connect(tipLinkButton, SIGNAL(clicked()), this, SLOT(tipLinkTreeClick()));
-  QGroupBox* chainBox = new QGroupBox(kinematic_chains_page_);
-  chainBox->setTitle("Kinematic Chain");
-  QFormLayout* chainLayout = new QFormLayout(chainBox);
-  chain_name_field_ = new QLineEdit(chainBox);
-  base_link_field_ = new QLineEdit(chainBox);
-  tip_link_field_ = new QLineEdit(chainBox);
-  chainLayout->addRow("Chain Name", chain_name_field_);
-  chainLayout->addRow("Base Link", base_link_field_);
-  chainLayout->addRow("Tip Link", tip_link_field_);
-
-  QPushButton* acceptButton = new QPushButton(chainBox);
-  acceptButton->setText("Accept Chain");
-  chainLayout->addRow(acceptButton);
-  chainBox->setLayout(chainLayout);
-  acceptButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  connect(acceptButton, SIGNAL(clicked()), this, SLOT(acceptChainClicked()));
-
-  layout->addWidget(chainBox, 1, 1, 1, 2);
-
-  //addPage(kinematic_chains_page_);
-  setPage(KinematicChainsPage, kinematic_chains_page_);
-  kinematic_chains_page_->setLayout(layout);
-
-  kinematic_chains_page_->setButtonText(QWizard::NextButton, "-");
-}
-
-void PlanningDescriptionConfigurationWizard::createJointCollectionTables()
-{
-  const vector<KinematicModel::JointModel*>& jmv = kmodel_->getJointModels();
-
-  joint_table_->setRowCount((int)jmv.size());
-  joint_table_->setColumnCount(1);
-  joint_table_->setColumnWidth(0, 300);
-  selected_joint_table_->setColumnCount(1);
-  selected_joint_table_->setColumnWidth(0, 300);
-  QStringList headerLabels;
-  headerLabels.append("Joint");
-  QStringList headerLabels2;
-  headerLabels2.append("Selected Joints");
-  joint_table_->setHorizontalHeaderLabels(headerLabels);
-  selected_joint_table_->setHorizontalHeaderLabels(headerLabels2);
-  for(size_t i = 1; i < jmv.size(); i++)
-  {
-    QTableWidgetItem* item = new QTableWidgetItem(jmv[i]->getName().c_str());
-    item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-    joint_table_->setItem((int)i - 1, 0, item);
-  }
-}
-
-void PlanningDescriptionConfigurationWizard::initJointCollectionsPage()
-{
-  joint_collections_page_ = new QWizardPage(this);
-  joint_collections_page_->setTitle("Select Joint Collections");
-
-  QGridLayout* layout = new QGridLayout(joint_collections_page_);
-
-  joint_collections_page_->setSubTitle("Select an arbitrary group of joints to form a planning group.");
-
-  QImage* image = new QImage();
-  if(!image->load("./resources/groups.png"))
-  {
-    ROS_ERROR("FAILED TO LOAD ./resources/groups.png");
-  }
-  ROS_INFO("Loaded Image with %d bytes.", image->byteCount());
-
-  QLabel* imageLabel = new QLabel(kinematic_chains_page_);
-  imageLabel->setPixmap(QPixmap::fromImage(*image));
-  imageLabel->setAlignment(Qt::AlignTop);
-  layout->addWidget(imageLabel, 0, 1, 1, 1);
-
-  QGroupBox* jointBox = new QGroupBox(joint_collections_page_);
-  jointBox->setTitle("Joints");
-  jointBox->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-
-  QVBoxLayout* jointLayout = new QVBoxLayout(jointBox);
-  joint_table_ = new QTableWidget(jointBox);
-  jointLayout->addWidget(joint_table_);
-  jointBox->setLayout(jointLayout);
-  layout->addWidget(jointBox, 0, 0, 3, 1);
-
-  QPushButton* selectButton = new QPushButton(jointBox);
-  selectButton->setText("v Select v");
-  jointLayout->addWidget(selectButton);
-  selectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-
-  connect(selectButton, SIGNAL(clicked()), this, SLOT(selectJointButtonClicked()));
-
-  QGroupBox* selectedBox = new QGroupBox(joint_collections_page_);
-  selectedBox->setTitle("Joint Group");
-
-  QVBoxLayout* selectedLayout = new QVBoxLayout(selectedBox);
-  selected_joint_table_ = new QTableWidget(jointBox);
-  jointLayout->addWidget(selected_joint_table_);
-
-  QPushButton* deselectButton = new QPushButton(jointBox);
-  deselectButton->setText("^ Deselect ^");
-  jointLayout->addWidget(deselectButton);
-  deselectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  connect(deselectButton, SIGNAL(clicked()), this, SLOT(deselectJointButtonClicked()));
-
-  QLabel* jointGroupLabel = new QLabel(selectedBox);
-  jointGroupLabel->setText(" Joint Group Name: ");
-  joint_group_name_field_ = new QLineEdit(selectedBox);
-  selectedLayout->addWidget(jointGroupLabel);
-  selectedLayout->addWidget(joint_group_name_field_);
-  QPushButton* acceptButton = new QPushButton(selectedBox);
-  acceptButton->setText("Accept Joint Group");
-  acceptButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-  selectedLayout->addWidget(acceptButton);
-  selectedBox->setLayout(selectedLayout);
-  layout->addWidget(selectedBox, 1, 1, 1, 1);
-
-  connect(acceptButton, SIGNAL(clicked()), this, SLOT(acceptGroupClicked()));
-
-  //addPage(joint_collections_page_);
-  setPage(JointCollectionsPage, joint_collections_page_);
-  joint_collections_page_->setLayout(layout);
-
-  createJointCollectionTables();
-  joint_collections_page_->setButtonText(QWizard::NextButton, "-");
-}
-
 void PlanningDescriptionConfigurationWizard::initSelectDofPage()
 {
   select_dof_page_ = new QWizardPage(this);
@@ -2697,6 +1654,8 @@ void PlanningDescriptionConfigurationWizard::initSelectDofPage()
   //addPage(select_dof_page_);
   setPage(SelectDOFPage, select_dof_page_);
   select_dof_page_->setLayout(layout);
+
+  createDofPageTable();
 
 }
 
@@ -2767,178 +1726,286 @@ void PlanningDescriptionConfigurationWizard::createDofPageTable()
 
   dofSelectionTableChanged();
 }
-
-void PlanningDescriptionConfigurationWizard::initAlwaysInCollisionPage()
+          
+SetupGroupsWizardPage::SetupGroupsWizardPage(PlanningDescriptionConfigurationWizard *parent) 
+  : QWizardPage(parent), next_from_groups_id_(PlanningDescriptionConfigurationWizard::OutputFilesPage)
 {
-  always_in_collision_page_ = new QWizardPage(this);
-  always_in_collision_page_->setTitle("Links Always In Collision");
+  parent_ = parent;
 
-  QVBoxLayout* layout = new QVBoxLayout(always_in_collision_page_);
-  always_in_collision_page_->setSubTitle("The following links are always in collision over the sample space. "
-    "By default, collisions will be disabled for them. Collisions are visualized as yellow spheres in rviz.");
-  QPushButton* generateButton = new QPushButton(always_in_collision_page_);
-  generateButton->setText("Generate List (May take a minute)");
-  layout->addWidget(generateButton);
-  connect(generateButton, SIGNAL(clicked()), this, SLOT(generateAlwaysInCollisionTable()));
-  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+  setTitle("Planning Group Setup");
 
-  always_collision_table_ = new QTableWidget(always_in_collision_page_);
-  layout->addWidget(always_collision_table_);
+  QGridLayout* layout = new QGridLayout(this);
+  setSubTitle("Select planning groups for your robot based on kinematic chains, or joint collections."
+              " When you are finished, please check the checkbox and you can move on by pressing Next.");
+  
+  QGroupBox* selectGroupsBox = new QGroupBox(this);
+  selectGroupsBox->setTitle("Current Groups");
 
-  //addPage(always_in_collision_page_);
-  setPage(AlwaysInCollisionPage, always_in_collision_page_);
-  always_in_collision_page_->setLayout(layout);
+  current_group_table_ = new QTableWidget(selectGroupsBox);
+  QVBoxLayout* groupBoxLayout = new QVBoxLayout(selectGroupsBox);
+  groupBoxLayout->addWidget(current_group_table_);
+  selectGroupsBox->setLayout(groupBoxLayout);
+  layout->addWidget(selectGroupsBox, 0, 0, 1, 1);
+  QPushButton* deleteButton = new QPushButton(selectGroupsBox);
+  deleteButton->setText("Delete");
+  groupBoxLayout->addWidget(deleteButton);
+  deleteButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+  
+  connect(current_group_table_, SIGNAL(itemClicked(QTableWidgetItem*)), SLOT(groupTableClicked()));
+  connect(deleteButton, SIGNAL(clicked()), this, SLOT(deleteGroupButtonClicked()));
+
+  QGroupBox* modeBox = new QGroupBox(this);
+  modeBox->setTitle("Add groups");
+  QVBoxLayout* modeBoxLayout = new QVBoxLayout(modeBox);
+  QPushButton* add_kinematic_chain_button = new QPushButton(tr("&Add Kinematic Chain Group"));
+  QPushButton* add_joint_collection_button = new QPushButton(tr("&Add Joint Collection Group"));
+  modeBoxLayout->addWidget(add_kinematic_chain_button);
+  modeBoxLayout->addWidget(add_joint_collection_button);
+
+  first_group_field_ = new QLineEdit(this);
+  registerField("first_group*", first_group_field_);
+  first_group_field_->hide();
+  
+  connect(add_kinematic_chain_button, SIGNAL(clicked()), this, SLOT(addKinematicChainGroup()));
+  connect(add_joint_collection_button, SIGNAL(clicked()), this, SLOT(addJointCollectionGroup()));
+  
+  modeBox->setLayout(modeBoxLayout);
+  layout->addWidget(modeBox, 0, 2, 1, 1);
+  
+  setLayout(layout);
+  layout->setAlignment(modeBox, Qt::AlignTop);
+  
+  setButtonText(QWizard::NextButton, "Done with groups");
 }
 
-void PlanningDescriptionConfigurationWizard::initDefaultInCollisionPage()
+
+void SetupGroupsWizardPage::groupTableClicked()
 {
-  default_collision_page_ = new QWizardPage(this);
-  default_collision_page_->setTitle("Links Default In Collision");
-
-  QVBoxLayout* layout = new QVBoxLayout(default_collision_page_);
-  default_collision_page_->setSubTitle("The following links are in collision in the default robot state. "
-    "By default, collisions will be disabled for them.  Select items to visualize collisions in rviz.");
-
-  QPushButton* generateButton = new QPushButton(default_collision_page_);
-  generateButton->setText("Generate List (May take a minute)");
-  layout->addWidget(generateButton);
-  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  default_collision_table_ = new QTableWidget(default_collision_page_);
-  layout->addWidget(default_collision_table_);
-
-  connect(default_collision_table_, SIGNAL(cellClicked(int, int)), this, SLOT(defaultTableClicked()));
-  QPushButton* toggleSelected = new QPushButton(default_collision_page_);
-  toggleSelected->setText("Toggle Selected");
-  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  layout->addWidget(toggleSelected);
-  connect(toggleSelected, SIGNAL(clicked()), this, SLOT(defaultTogglePushed()));
-
-  connect(generateButton, SIGNAL(clicked()), this, SLOT(generateDefaultInCollisionTable()));
-
-  //addPage(default_collision_page_);
-  setPage(DefaultInCollisionPage, default_collision_page_);
-  default_collision_page_->setLayout(layout);
+  QList<QTableWidgetItem*> selected = current_group_table_->selectedItems();
+  
+  if(selected.size() == 0)
+  {
+    return;
+  }
+  else
+  {
+    QTableWidgetItem* first = selected[0];
+    int row = first->row();
+    QTableWidgetItem* groupName = current_group_table_->item(row, 0);
+    parent_->setCurrentShowGroup(groupName->text().toStdString());
+  }
 }
 
-void PlanningDescriptionConfigurationWizard::initOftenInCollisionPage()
+
+void SetupGroupsWizardPage::updateGroupTable()
 {
-  often_in_collision_page_ = new QWizardPage(this);
-  often_in_collision_page_->setTitle("Links Often In Collision");
-
-  QVBoxLayout* layout = new QVBoxLayout(often_in_collision_page_);
-  often_in_collision_page_->setSubTitle("The following links are often in collision over the sample space. "
-    " By default, collisions will be disabled for them. Select items to visualize collisions in rviz.");
-
-  QPushButton* generateButton = new QPushButton(often_in_collision_page_);
-  generateButton->setText("Generate List (May take a minute)");
-  layout->addWidget(generateButton);
-  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  often_collision_table_ = new QTableWidget(often_in_collision_page_);
-  layout->addWidget(often_collision_table_);
-
-  QPushButton* toggleSelected = new QPushButton(often_in_collision_page_);
-  toggleSelected->setText("Toggle Selected");
-  layout->addWidget(toggleSelected);
-  connect(toggleSelected, SIGNAL(clicked()), this, SLOT(oftenTogglePushed()));
-  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  connect(generateButton, SIGNAL(clicked()), this, SLOT(generateOftenInCollisionTable()));
-
-  //addPage(often_in_collision_page_);
-  setPage(OftenInCollisionPage, often_in_collision_page_);
-  often_in_collision_page_->setLayout(layout);
-
-  connect(often_collision_table_, SIGNAL(cellClicked(int, int)), this, SLOT(oftenTableClicked()));
+  current_group_table_->clear();
+  first_group_field_->clear();
+  
+  vector<string> modelNames;
+  parent_->getKinematicModel()->getModelGroupNames(modelNames);
+  current_group_table_->setRowCount((int)modelNames.size());
+  current_group_table_->setColumnCount(1);
+  current_group_table_->setColumnWidth(0, 300);
+  current_group_table_->setDragEnabled(false);
+  current_group_table_->setHorizontalHeaderItem(0, new QTableWidgetItem("Planning Groups"));
+  if(!modelNames.empty()) {
+    first_group_field_->setText(modelNames[0].c_str());
+  }
+  for(size_t i = 0; i < modelNames.size(); i++)
+  {
+    QTableWidgetItem* item = new QTableWidgetItem(modelNames[i].c_str());
+    current_group_table_->setItem((int)i, 0, item);
+    item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+  }
 }
 
-void PlanningDescriptionConfigurationWizard::initOccasionallyInCollisionPage()
+void SetupGroupsWizardPage::deleteGroupButtonClicked()
 {
-  occasionally_in_collision_page_ = new QWizardPage(this);
-  occasionally_in_collision_page_->setTitle("Links Occasionally In Collision");
+  QList<QTableWidgetItem*> itemList = current_group_table_->selectedItems();
 
-  QVBoxLayout* layout = new QVBoxLayout(occasionally_in_collision_page_);
-
-  occasionally_in_collision_page_->setSubTitle(
-                                               "The following links are occasionally (or never) in collision over the sample space. "
-                                                 "By default, collisions will be disabled. Select a pair to visualize in rviz.");
-
-  QPushButton* generateButton = new QPushButton(occasionally_in_collision_page_);
-  generateButton->setText("Generate List (May take a minute)");
-  layout->addWidget(generateButton);
-  connect(generateButton, SIGNAL(clicked()), this, SLOT(generateOccasionallyInCollisionTable()));
-  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-
-  occasionally_collision_table_ = new QTableWidget(occasionally_in_collision_page_);
-  layout->addWidget(occasionally_collision_table_);
-
-  connect(occasionally_collision_table_, SIGNAL(itemClicked(QTableWidgetItem*)), SLOT(occasionallyTableClicked()));
-
-  QPushButton* toggleSelected = new QPushButton(occasionally_in_collision_page_);
-  toggleSelected->setText("Toggle Selected");
-  layout->addWidget(toggleSelected);
-  connect(toggleSelected, SIGNAL(clicked()), this, SLOT(occasionallyTogglePushed()));
-  toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  //addPage(occasionally_in_collision_page_);
-  setPage(OccasionallyInCollisionPage, occasionally_in_collision_page_);
-  occasionally_in_collision_page_->setLayout(layout);
+  for(int i = 0; i < itemList.size(); i++)
+  {
+    if(parent_->getKinematicModel()->hasModelGroup(itemList[i]->text().toStdString()))
+    {
+      parent_->removeGroup(itemList[i]->text().toStdString());
+    }
+  }
+  updateGroupTable();
 }
 
-void PlanningDescriptionConfigurationWizard::initOutputFilesPage()
-{
-  output_files_page_ = new QWizardPage(this);
-  output_files_page_->setTitle("Output Files");
-  QVBoxLayout* layout = new QVBoxLayout(output_files_page_);
-
-  output_files_page_->setSubTitle("Done! The wizard will auto-generate a stack called <your_robot_name>_arm_navigation "
-                                    "in the selected folder when you click the generate button below.");
-
-  package_path_field_ = new QLineEdit(output_files_page_);
-  package_path_field_->setText("<absolute directory path>");
-  layout->addWidget(package_path_field_);
-
-  QPushButton* selectFileButton = new QPushButton(output_files_page_);
-  selectFileButton->setText("Select Directory ...");
-  selectFileButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-  file_selector_ = new QFileDialog(this);
-  file_selector_->setFileMode(QFileDialog::Directory);
-  file_selector_->setOption(QFileDialog::ShowDirsOnly, true);
-
-  connect(file_selector_, SIGNAL(fileSelected(const QString&)), this, SLOT(fileSelected(const QString&)));
-  connect(selectFileButton, SIGNAL(clicked()), file_selector_, SLOT(open()));
-  layout->addWidget(selectFileButton);
-
-  QPushButton* generateButton = new QPushButton(output_files_page_);
-  generateButton->setText("Generate Config Files...");
-  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-
-  layout->addWidget(generateButton);
-
-  progress_bar_ = new QProgressBar(output_files_page_);
-  progress_label_ = new QLabel(output_files_page_);
-  layout->addWidget(progress_bar_);
-  layout->addWidget(progress_label_);
-
-  connect(generateButton, SIGNAL(clicked()), this, SLOT(writeFiles()));
-  //addPage(output_files_page_);
-  setPage(OutputFilesPage, output_files_page_);
-  output_files_page_->setLayout(layout);
+int SetupGroupsWizardPage::nextId() const {
+  if(next_from_groups_id_ == PlanningDescriptionConfigurationWizard::OutputFilesPage)
+  {
+    if(parent_->getWizardMode() == PlanningDescriptionConfigurationWizard::Advanced)
+    {
+      return PlanningDescriptionConfigurationWizard::SelectDOFPage;
+    }
+    else
+    {
+      return PlanningDescriptionConfigurationWizard::OutputFilesPage;
+    }
+  }
+  return next_from_groups_id_;
 }
 
-void PlanningDescriptionConfigurationWizard::createLinkTree()
+void SetupGroupsWizardPage::addKinematicChainGroup() {
+  next_from_groups_id_ = PlanningDescriptionConfigurationWizard::KinematicChainsPage;
+  parent_->next();
+  next_from_groups_id_ = PlanningDescriptionConfigurationWizard::OutputFilesPage;
+}
+
+void SetupGroupsWizardPage::addJointCollectionGroup() {
+  next_from_groups_id_ = PlanningDescriptionConfigurationWizard::JointCollectionsPage;
+  parent_->next();
+  next_from_groups_id_ = PlanningDescriptionConfigurationWizard::OutputFilesPage;
+}
+
+KinematicChainWizardPage::KinematicChainWizardPage(PlanningDescriptionConfigurationWizard *parent) 
+  : QWizardPage(parent), return_to_groups_(false)
 {
-  const KinematicModel::JointModel* rootJoint = kmodel_->getRoot();
+  parent_ = parent;
+  setTitle("Select Kinematic Chain");
+
+  QGridLayout* layout = new QGridLayout(this);
+  setSubTitle("Select a planning group based on a kinematic chain."
+              " Select a base link (the first link in the chain) and a tip link."
+              " They must be connected by a direct line of joints.");
+  
+  QImage* image = new QImage();
+  if(!image->load("./resources/chains.png"))
+  {
+    ROS_ERROR("FAILED TO LOAD ./resources/chains.png");
+  }
+  ROS_INFO("Loaded Image with %d bytes.", image->byteCount());
+
+  QLabel* imageLabel = new QLabel(this);
+  imageLabel->setPixmap(QPixmap::fromImage(*image));
+  imageLabel->setAlignment(Qt::AlignTop);
+  layout->addWidget(imageLabel, 0, 0, 0, 1);
+  QGroupBox* treeBox = new QGroupBox(this);
+  treeBox->setTitle("Links");
+  layout->addWidget(treeBox, 0, 1, 1, 1);
+
+  QVBoxLayout* treeLayout = new QVBoxLayout(treeBox);
+  link_tree_ = new QTreeWidget(treeBox);
+  treeLayout->addWidget(link_tree_);
+  QPushButton* baseLinkButton = new QPushButton(treeBox);
+  baseLinkButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+  baseLinkButton->setText("Select Base Link");
+  treeLayout->addWidget(baseLinkButton);
+  QPushButton* tipLinkButton = new QPushButton(treeBox);
+  tipLinkButton->setText("Select Tip Link");
+  tipLinkButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+  treeLayout->addWidget(tipLinkButton);
+  treeBox->setLayout(treeLayout);
+  createLinkTree(parent->getKinematicModel());
+
+  connect(baseLinkButton, SIGNAL(clicked()), this, SLOT(baseLinkTreeClick()));
+  connect(tipLinkButton, SIGNAL(clicked()), this, SLOT(tipLinkTreeClick()));
+  QGroupBox* chainBox = new QGroupBox(this);
+  chainBox->setTitle("Kinematic Chain");
+  QFormLayout* chainLayout = new QFormLayout(chainBox);
+  chain_name_field_ = new QLineEdit(chainBox);
+  base_link_field_ = new QLineEdit(chainBox);
+  tip_link_field_ = new QLineEdit(chainBox);
+  chainLayout->addRow("Chain Name", chain_name_field_);
+  chainLayout->addRow("Base Link", base_link_field_);
+  chainLayout->addRow("Tip Link", tip_link_field_);
+  layout->addWidget(chainBox, 1, 1, 1, 2);
+
+  registerField("chain_name*", chain_name_field_);
+  registerField("base_link*", base_link_field_);
+  registerField("tip_link*", tip_link_field_);
+
+  setLayout(layout);
+
+  good_group_dialog_ = new QDialog(this);
+  QVBoxLayout* good_group_layout = new QVBoxLayout(good_group_dialog_);
+  QLabel* good_dialog_text = new QLabel(good_group_dialog_);
+  good_dialog_text->setText("Your group is valid and has been added to the planning groups.\nIt should be visualized in Rviz");
+  good_group_layout->addWidget(good_dialog_text);
+  QPushButton* return_to_groups_button = new QPushButton(tr("&Return To Groups"));
+  QPushButton* add_another_kinematic_chain_button = new QPushButton(tr("&Add Another Kinematic Chain"));
+  QPushButton* done_with_groups_button = new QPushButton(tr("&Done Adding Groups"));
+  QDialogButtonBox* good_button_box = new QDialogButtonBox();
+  good_group_layout->addWidget(good_button_box);
+  good_button_box->addButton(return_to_groups_button, QDialogButtonBox::RejectRole);
+  good_button_box->addButton(add_another_kinematic_chain_button, QDialogButtonBox::ResetRole);
+  good_button_box->addButton(done_with_groups_button, QDialogButtonBox::AcceptRole);
+  connect(good_button_box, SIGNAL(rejected()), good_group_dialog_, SLOT(reject()));
+  connect(good_button_box, SIGNAL(rejected()), parent, SLOT(back()));
+  connect(good_button_box, SIGNAL(accepted()), good_group_dialog_, SLOT(accept()));
+  connect(add_another_kinematic_chain_button, SIGNAL(clicked()), this, SLOT(resetPage()));
+  good_group_dialog_->setLayout(good_group_layout);
+
+  not_ok_dialog_ = new QDialog(this);
+  QVBoxLayout* notOkDialogLayout = new QVBoxLayout(not_ok_dialog_);
+  QLabel* notOkText = new QLabel(not_ok_dialog_);
+  notOkText->setText("Error! The planning group was invalid!");
+  notOkDialogLayout->addWidget(notOkText);
+  QDialogButtonBox* ok_button_box = new QDialogButtonBox(QDialogButtonBox::Ok);
+  notOkDialogLayout->addWidget(ok_button_box);
+  connect(ok_button_box, SIGNAL(accepted()), not_ok_dialog_, SLOT(accept()));
+  not_ok_dialog_->setLayout(notOkDialogLayout);
+
+  setButtonText(QWizard::NextButton, "Add Group");
+}
+
+bool KinematicChainWizardPage::validatePage() {
+  
+  KinematicModel::GroupConfig gc(getChainNameField(), getBaseLinkField(), getTipLinkField());
+
+  PlanningDescriptionConfigurationWizard::GroupAddStatus stat = 
+    parent_->addGroup(gc);
+
+  if(stat == PlanningDescriptionConfigurationWizard::GroupAddSuccess) {
+    int val = good_group_dialog_->exec();
+    parent_->setCurrentShowGroup("");
+    if(val == QDialog::Accepted) {
+      return true;
+    } else if(val == QDialog::Rejected) {
+      return false;
+    } else {
+      return false;
+    }
+  } else if(stat == PlanningDescriptionConfigurationWizard::GroupAddFailed) {
+    not_ok_dialog_->exec();
+    return false;
+  } else {
+    //cancelled duplicated
+    return false;
+  }
+}
+
+void KinematicChainWizardPage::baseLinkTreeClick() {
+  QTreeWidgetItem* item = link_tree_->currentItem();
+  if(item != NULL)
+  {
+    base_link_field_->setText(item->text(0));
+  }
+}
+
+void KinematicChainWizardPage::tipLinkTreeClick()
+{
+  QTreeWidgetItem* item = link_tree_->currentItem();
+  if(item != NULL)
+  {
+    tip_link_field_->setText(item->text(0));
+  }
+}
+
+void KinematicChainWizardPage::createLinkTree(const planning_models::KinematicModel* kmodel)
+{
+  const KinematicModel::JointModel* rootJoint = kmodel->getRoot();
   addLinktoTreeRecursive(rootJoint->getChildLinkModel(), NULL);
 
   link_tree_->expandToDepth(0);
 }
 
-void PlanningDescriptionConfigurationWizard::addLinktoTreeRecursive(const KinematicModel::LinkModel* link,
-                                                                    const KinematicModel::LinkModel* parent)
+
+void KinematicChainWizardPage::addLinktoTreeRecursive(const KinematicModel::LinkModel* link,
+                                                      const KinematicModel::LinkModel* parent)
 {
   QTreeWidgetItem* toAdd = new QTreeWidgetItem(link_tree_);
   if(parent == NULL)
@@ -2962,9 +2029,9 @@ void PlanningDescriptionConfigurationWizard::addLinktoTreeRecursive(const Kinema
   }
 }
 
-bool PlanningDescriptionConfigurationWizard::addLinkChildRecursive(QTreeWidgetItem* parent,
-                                                                   const KinematicModel::LinkModel* link,
-                                                                   const string& parentName)
+bool KinematicChainWizardPage::addLinkChildRecursive(QTreeWidgetItem* parent,
+                                                     const KinematicModel::LinkModel* link,
+                                                     const string& parentName)
 {
   if(parent->text(0).toStdString() == parentName)
   {
@@ -2985,6 +2052,598 @@ bool PlanningDescriptionConfigurationWizard::addLinkChildRecursive(QTreeWidgetIt
   }
 
   return false;
+}
+
+JointCollectionWizardPage::JointCollectionWizardPage(PlanningDescriptionConfigurationWizard *parent) 
+  : QWizardPage(parent), return_to_groups_(false)
+{ 
+  parent_ = parent;
+  setTitle("Select Joint Collections");
+
+  QGridLayout* layout = new QGridLayout(this);
+
+  setSubTitle("Select an arbitrary group of joints to form a planning group.");
+
+  QImage* image = new QImage();
+  if(!image->load("./resources/groups.png"))
+  {
+    ROS_ERROR("FAILED TO LOAD ./resources/groups.png");
+  }
+
+  QLabel* imageLabel = new QLabel(this);
+  imageLabel->setPixmap(QPixmap::fromImage(*image));
+  imageLabel->setAlignment(Qt::AlignTop);
+  layout->addWidget(imageLabel, 0, 1, 1, 1);
+
+  QGroupBox* jointBox = new QGroupBox(this);
+  jointBox->setTitle("Joints");
+
+
+  QVBoxLayout* jointLayout = new QVBoxLayout(jointBox);
+  joint_table_ = new QTableWidget(jointBox);
+  jointLayout->addWidget(joint_table_);
+  jointBox->setLayout(jointLayout);
+  layout->addWidget(jointBox, 0, 0, 3, 1);
+
+  QPushButton* selectButton = new QPushButton(jointBox);
+  selectButton->setText("v Select v");
+  jointLayout->addWidget(selectButton);
+  selectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
+  first_joint_field_ = new QLineEdit(this);
+  registerField("first_joint*", first_joint_field_);
+  first_joint_field_->hide();
+
+  connect(selectButton, SIGNAL(clicked()), this, SLOT(selectJointButtonClicked()));
+
+  QGroupBox* selectedBox = new QGroupBox(this);
+  selectedBox->setTitle("Joint Group");
+
+  QVBoxLayout* selectedLayout = new QVBoxLayout(selectedBox);
+  selected_joint_table_ = new QTableWidget(jointBox);
+  jointLayout->addWidget(selected_joint_table_);
+
+  QPushButton* deselectButton = new QPushButton(jointBox);
+  deselectButton->setText("^ Deselect ^");
+  jointLayout->addWidget(deselectButton);
+  deselectButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
+  connect(deselectButton, SIGNAL(clicked()), this, SLOT(deselectJointButtonClicked()));
+
+  QLabel* jointGroupLabel = new QLabel(selectedBox);
+  jointGroupLabel->setText(" Joint Group Name: ");
+  joint_group_name_field_ = new QLineEdit(selectedBox);
+  selectedLayout->addWidget(jointGroupLabel);
+  selectedLayout->addWidget(joint_group_name_field_);
+  selectedBox->setLayout(selectedLayout);
+  layout->addWidget(selectedBox, 1, 1, 1, 1);
+  setLayout(layout);
+
+  createJointCollectionTables();
+
+  good_group_dialog_ = new QDialog(this);
+  QVBoxLayout* good_group_layout = new QVBoxLayout(good_group_dialog_);
+  QLabel* good_dialog_text = new QLabel(good_group_dialog_);
+  good_dialog_text->setText("Your group is valid and has been added to the planning groups.\nIt should be visualized in Rviz");
+  good_group_layout->addWidget(good_dialog_text);
+  QPushButton* return_to_groups_button = new QPushButton(tr("&Return To Groups"));
+  QPushButton* add_another_kinematic_chain_button = new QPushButton(tr("&Add Another Kinematic Chain"));
+  QPushButton* done_with_groups_button = new QPushButton(tr("&Done Adding Groups"));
+  QDialogButtonBox* good_button_box = new QDialogButtonBox();
+  good_group_layout->addWidget(good_button_box);
+  good_button_box->addButton(return_to_groups_button, QDialogButtonBox::RejectRole);
+  good_button_box->addButton(add_another_kinematic_chain_button, QDialogButtonBox::ResetRole);
+  good_button_box->addButton(done_with_groups_button, QDialogButtonBox::AcceptRole);
+  connect(good_button_box, SIGNAL(rejected()), good_group_dialog_, SLOT(reject()));
+  connect(good_button_box, SIGNAL(rejected()), parent, SLOT(back()));
+  connect(good_button_box, SIGNAL(accepted()), good_group_dialog_, SLOT(accept()));
+  connect(add_another_kinematic_chain_button, SIGNAL(clicked()), this, SLOT(resetPage()));
+  good_group_dialog_->setLayout(good_group_layout);
+
+  not_ok_dialog_ = new QDialog(this);
+  QVBoxLayout* notOkDialogLayout = new QVBoxLayout(not_ok_dialog_);
+  QLabel* notOkText = new QLabel(not_ok_dialog_);
+  notOkText->setText("Error! The planning group was invalid!");
+  notOkDialogLayout->addWidget(notOkText);
+  QDialogButtonBox* ok_button_box = new QDialogButtonBox(QDialogButtonBox::Ok);
+  notOkDialogLayout->addWidget(ok_button_box);
+  connect(ok_button_box, SIGNAL(accepted()), not_ok_dialog_, SLOT(accept()));
+  not_ok_dialog_->setLayout(notOkDialogLayout);
+
+  setButtonText(QWizard::NextButton, "Add Group");
+  registerField("collection_name*", joint_group_name_field_);
+
+
+}
+
+bool JointCollectionWizardPage::validatePage() {
+  
+  string new_group_name = joint_group_name_field_->text().toStdString();
+  vector<string> joints;
+  for(int i = 0; i < selected_joint_table_->rowCount(); i++)
+  {
+    joints.push_back(selected_joint_table_->item(i, 0)->text().toStdString());
+  }
+  
+  vector<string> subgroups;
+  KinematicModel::GroupConfig gc(new_group_name, joints, subgroups);
+
+  PlanningDescriptionConfigurationWizard::GroupAddStatus stat = 
+    parent_->addGroup(gc);
+
+  if(stat == PlanningDescriptionConfigurationWizard::GroupAddSuccess) {
+    int val = good_group_dialog_->exec();
+    parent_->setCurrentShowGroup("");
+    if(val == QDialog::Accepted) {
+      return true;
+    } else if(val == QDialog::Rejected) {
+      return false;
+    } else {
+      return false;
+    }
+  } else if(stat == PlanningDescriptionConfigurationWizard::GroupAddFailed) {
+    not_ok_dialog_->exec();
+    return false;
+  } else {
+    //cancelled duplicated
+    return false;
+  }
+}
+
+void JointCollectionWizardPage::selectJointButtonClicked()
+{
+  QList<QTableWidgetItem*> selected = joint_table_->selectedItems();
+
+  for(int i = 0; i < selected.size(); i++)
+  {
+    string name = selected[i]->text().toStdString();
+    bool alreadyExists = false;
+    int rowToAdd = 0;
+    for(int r = 0; r < selected_joint_table_->rowCount(); r++)
+    {
+      QTableWidgetItem* item = selected_joint_table_->item(r, 0);
+
+      if(item->text().toStdString() == name)
+      {
+        alreadyExists = true;
+        break;
+      }
+      rowToAdd = r + 1;
+    }
+
+    if(!alreadyExists)
+    {
+      selected_joint_table_->setRowCount(selected_joint_table_->rowCount() + 1);
+      QTableWidgetItem* newItem = new QTableWidgetItem(name.c_str());
+      newItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+      selected_joint_table_->setItem(rowToAdd, 0, newItem);
+    }
+  }
+  if(selected_joint_table_->rowCount() > 0) {
+    first_joint_field_->setText("has");
+  }
+}
+
+void JointCollectionWizardPage::deselectJointButtonClicked()
+{
+  QList<QTableWidgetItem*> deselected = selected_joint_table_->selectedItems();
+
+  for(int i = 0; i < deselected.size(); i++)
+  {
+    selected_joint_table_->removeRow(deselected[i]->row());
+  }
+  if(selected_joint_table_->rowCount() == 0) {
+    first_joint_field_->clear();
+  }
+}
+
+void JointCollectionWizardPage::createJointCollectionTables()
+{
+  const vector<KinematicModel::JointModel*>& jmv = parent_->getKinematicModel()->getJointModels();
+
+  joint_table_->setRowCount((int)jmv.size());
+  joint_table_->setColumnCount(1);
+  joint_table_->setColumnWidth(0, 300);
+  selected_joint_table_->setColumnCount(1);
+  selected_joint_table_->setColumnWidth(0, 300);
+  QStringList headerLabels;
+  headerLabels.append("Joint");
+  QStringList headerLabels2;
+  headerLabels2.append("Selected Joints");
+  joint_table_->setHorizontalHeaderLabels(headerLabels);
+  selected_joint_table_->setHorizontalHeaderLabels(headerLabels2);
+  for(size_t i = 1; i < jmv.size(); i++)
+  {
+    QTableWidgetItem* item = new QTableWidgetItem(jmv[i]->getName().c_str());
+    item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+    joint_table_->setItem((int)i - 1, 0, item);
+  }
+}
+
+CollisionsWizardPage::CollisionsWizardPage(PlanningDescriptionConfigurationWizard *parent,
+                                           CollisionOperationsGenerator::DisableType disable_type)
+  : QWizardPage(parent), disable_type_(disable_type), 
+    allow_enable_(true), show_percentages_(false), is_clickable_(true), coll_default_enabled_(false)
+{
+  parent_ = parent;
+  std::string title = "Links ";
+  if(disable_type_ == CollisionOperationsGenerator::ALWAYS) {
+    title += "Always";
+    allow_enable_ = false;
+  } else if(disable_type_ == CollisionOperationsGenerator::DEFAULT) {
+    title += "Default";
+  } else if(disable_type_ == CollisionOperationsGenerator::OFTEN) {
+    title += "Often";
+    show_percentages_ = true;
+  } else if(disable_type == CollisionOperationsGenerator::ADJACENT) { 
+    is_clickable_ = false;
+    title += "Adjacent";
+  } else {
+    coll_default_enabled_ = true;
+    show_percentages_ = true;
+    title += "Occasionally and Never";
+  }
+  title += " In Collision";
+  setTitle(title.c_str());
+
+  QVBoxLayout* layout = new QVBoxLayout(this);
+  setSubTitle("The following links are always in collision over the sample space. "
+              "By default, collisions will be disabled for them. Collisions are visualized as yellow spheres in rviz.");
+  QPushButton* generateButton = new QPushButton(this);
+  generateButton->setText("Generate List (May take a minute)");
+  layout->addWidget(generateButton);
+  connect(generateButton, SIGNAL(clicked()), this, SLOT(generateCollisionTable()));
+  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
+  collision_table_ = new QTableWidget(this);
+  layout->addWidget(collision_table_);
+
+  if(allow_enable_) {
+    QPushButton* toggle_selected = new QPushButton(this);
+    toggle_selected->setText("Toggle Selected");
+    layout->addWidget(toggle_selected);
+    connect(toggle_selected, SIGNAL(clicked()), this, SLOT(toggleTable()));
+    toggle_selected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+  }
+  if(is_clickable_) {
+    connect(collision_table_, SIGNAL(cellClicked(int, int)), this, SLOT(tableClicked()));
+  }
+  setLayout(layout);
+}
+
+void CollisionsWizardPage::generateCollisionTable() {
+  vector<CollisionOperationsGenerator::StringPair> not_in_collision;
+  vector<double> percentages;
+  if(disable_type_ == CollisionOperationsGenerator::ALWAYS) {
+    parent_->getOperationsGenerator()->generateAlwaysInCollisionPairs(collision_pairs_, in_collision_joint_values_);
+  } else if(disable_type_ == CollisionOperationsGenerator::DEFAULT) {
+    parent_->getOperationsGenerator()->generateDefaultInCollisionPairs(collision_pairs_, in_collision_joint_values_);
+  } else if(disable_type_ == CollisionOperationsGenerator::OFTEN) {
+    parent_->getOperationsGenerator()->generateOftenInCollisionPairs(collision_pairs_, percentages, in_collision_joint_values_);
+  } else if(disable_type_ == CollisionOperationsGenerator::ADJACENT) { 
+    parent_->getOperationsGenerator()->generateAdjacentInCollisionPairs(collision_pairs_);
+  } else {
+    parent_->getOperationsGenerator()->generateOccasionallyAndNeverInCollisionPairs(collision_pairs_, not_in_collision,
+                                                                       percentages, in_collision_joint_values_);
+  }
+
+  if(disable_type_ == CollisionOperationsGenerator::NEVER ||
+     disable_type_ == CollisionOperationsGenerator::OCCASIONALLY) {
+    disable_pairs_ = not_in_collision;
+    enable_pairs_ = collision_pairs_;
+  } else {
+    disable_pairs_ = collision_pairs_;
+  }
+
+  collision_table_->clear();
+  collision_table_->setRowCount((int)collision_pairs_.size()+(int)not_in_collision.size());
+  collision_table_->setColumnCount(2);
+  collision_table_->setColumnWidth(0, 500);
+  collision_table_->setColumnWidth(1, 500);
+  QStringList titleList;
+  titleList.append("Link A");
+  titleList.append("Link B");
+  if(show_percentages_) {
+    titleList.append("% Colliding");
+  }
+  if(allow_enable_) {
+    titleList.append("Enable?");
+  }
+  if(show_percentages_ && allow_enable_) {
+    collision_table_->setColumnCount(4);
+    
+    collision_table_->setColumnWidth(0, 300);
+    collision_table_->setColumnWidth(1, 300);
+    collision_table_->setColumnWidth(2, 200);
+    collision_table_->setColumnWidth(3, 200);
+  } else if(allow_enable_) {
+    collision_table_->setColumnCount(3);
+    
+    collision_table_->setColumnWidth(0, 300);
+    collision_table_->setColumnWidth(1, 300);
+    collision_table_->setColumnWidth(2, 300);
+  }
+  //shouldn't ever have percentages without allowed enable
+
+  collision_table_->setHorizontalHeaderLabels(titleList);
+  if(collision_pairs_.size() + not_in_collision.size() == 0) {
+    collision_table_->setRowCount(1);
+    QTableWidgetItem* no_collide = new QTableWidgetItem("No Link Pairs Of This Kind");
+    collision_table_->setItem(0, 0, no_collide);
+  }
+
+  bool bad_percentages = false;
+  if(show_percentages_ && collision_pairs_.size() != percentages.size()) {
+    ROS_WARN_STREAM("Percentages enabled but percentage size " << percentages.size() 
+                    << " not equal to collision pairs size " << collision_pairs_.size());
+    bad_percentages = true;
+  }
+
+  for(size_t i = 0; i < collision_pairs_.size(); i++)
+  {
+    QTableWidgetItem* linkA = new QTableWidgetItem(collision_pairs_[i].first.c_str());
+    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+    QTableWidgetItem* linkB = new QTableWidgetItem(collision_pairs_[i].second.c_str());
+    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    collision_table_->setItem((int)i, 0, linkA);
+    collision_table_->setItem((int)i, 1, linkB);
+
+    if(show_percentages_) {
+      stringstream percentageStream;
+      if(bad_percentages) {
+        percentageStream << 1.0;
+      } else {
+        percentageStream << percentages[i];
+      }
+      QTableWidgetItem* percentage = new QTableWidgetItem(percentageStream.str().c_str());
+      percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+      collision_table_->setItem((int)i, 2, percentage);
+    }
+
+    if(allow_enable_) {
+      QCheckBox* enable_box = new QCheckBox(collision_table_);
+      if(coll_default_enabled_) {
+        enable_box->setChecked(true);
+      } else {
+        enable_box->setChecked(false);
+      }
+      connect(enable_box, SIGNAL(toggled(bool)), this, SLOT(tableChanged()));
+      if(show_percentages_) {
+        collision_table_->setCellWidget((int)i, 3, enable_box); 
+      } else {
+        collision_table_->setCellWidget((int)i, 2, enable_box);
+      }
+    }
+  }
+  for(size_t i = 0; i < not_in_collision.size(); i++)
+  {
+    QTableWidgetItem* linkA = new QTableWidgetItem(not_in_collision[i].first.c_str());
+    linkA->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+    QTableWidgetItem* linkB = new QTableWidgetItem(not_in_collision[i].second.c_str());
+    linkB->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    collision_table_->setItem((int)i+collision_pairs_.size(), 0, linkA);
+    collision_table_->setItem((int)i+collision_pairs_.size(), 1, linkB);
+
+    if(show_percentages_) {
+      stringstream percentageStream;
+      percentageStream << 0.0;
+      QTableWidgetItem* percentage = new QTableWidgetItem(percentageStream.str().c_str());
+      percentage->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+      collision_table_->setItem((int)i+collision_pairs_.size(), 2, percentage);
+    }
+
+    if(allow_enable_) {
+      QCheckBox* enable_box = new QCheckBox(collision_table_);
+      enable_box->setChecked(false);
+      connect(enable_box, SIGNAL(toggled(bool)), this, SLOT(tableChanged()));
+      if(show_percentages_) {
+        collision_table_->setCellWidget((int)i+collision_pairs_.size(), 3, enable_box); 
+      } else {
+        collision_table_->setCellWidget((int)i+collision_pairs_.size(), 2, enable_box);
+      }
+    }
+  }
+  tableChanged();
+}
+
+vector<int> CollisionsWizardPage::getSelectedRows(QTableWidget* table)
+{
+  QList<QTableWidgetItem*> selected = table->selectedItems();
+
+  vector<int> rows;
+  for(int i = 0; i < selected.size(); i++)
+  {
+    bool rowExists = false;
+    int r = selected[i]->row();
+    for(size_t j = 0; j < rows.size(); j++)
+    {
+      if((int)j == r)
+      {
+        rowExists = true;
+      }
+    }
+
+    if(!rowExists)
+    {
+      rows.push_back(r);
+    }
+  }
+  return rows;
+}
+
+void CollisionsWizardPage::toggleTable()
+{
+  unsigned int column = 2;
+  if(show_percentages_) {
+    column = 3;
+  }
+  vector<int> rows = getSelectedRows(collision_table_);
+  for(size_t i = 0; i < rows.size(); i++)
+  {
+    QCheckBox* box = dynamic_cast<QCheckBox*> (collision_table_->cellWidget(rows[i], column));
+
+    if(box != NULL)
+    {
+      if(box->isChecked())
+      {
+        box->setChecked(false);
+      }
+      else
+      {
+        box->setChecked(true);
+      }
+    }
+  }
+  tableChanged();
+}
+
+void CollisionsWizardPage::tableClicked() {
+  QList<QTableWidgetItem*> selected = collision_table_->selectedItems();
+
+  if(selected.size() == 0)
+  {
+    return;
+  }
+
+  int row = selected[0]->row();
+  std_msgs::ColorRGBA color;
+  color.r = 1.0;
+  color.g = 1.0;
+  color.b = 0.2;
+  color.a = 1.0;
+  parent_->visualizeCollision(in_collision_joint_values_, collision_pairs_, row, color);
+}
+
+void CollisionsWizardPage::tableChanged() {
+  unsigned int column = 2;
+  if(show_percentages_) {
+    column = 3;
+  }
+  for(int i = 0; i < collision_table_->rowCount(); i++)
+  {
+    QCheckBox* box = dynamic_cast<QCheckBox*> (collision_table_->cellWidget(i, column));
+    if(box != NULL)
+    {
+      pair<string, string> link_pair;
+      link_pair.first = collision_table_->item(i, 0)->text().toStdString();
+      link_pair.second = collision_table_->item(i, 1)->text().toStdString();
+      bool in_disabled = false;
+      vector<pair<string, string> >::iterator it = disable_pairs_.begin();
+      while(it != disable_pairs_.end())
+      {
+        if((*it) == link_pair) {
+          in_disabled = true;
+          if(box->isChecked()) {
+            disable_pairs_.erase(it);
+          }
+          break;
+        }
+        it++;
+      }
+      if(!in_disabled) {
+        if(box->isChecked()) {
+          it = extra_disable_pairs_.begin();
+          while(it != extra_disable_pairs_.end()) {
+            if((*it) == link_pair) {
+              extra_disable_pairs_.erase(it);
+              break;
+            }
+            it++;
+          }
+        }
+        if(!box->isChecked()) {
+          bool in_enable = false;
+          it = enable_pairs_.begin();
+          while(it != enable_pairs_.end()) {
+            if((*it) == link_pair) {
+              in_enable = true;
+              break;
+            }
+            it++;
+          }
+          if(!in_enable) {
+            disable_pairs_.push_back(link_pair);
+          } else {
+            bool found = false;
+            it = extra_disable_pairs_.begin();
+            while(it != extra_disable_pairs_.end()) {
+              if((*it) == link_pair) {
+                found = true;
+                break;
+              }
+              it++;
+            }
+            if(!found) {
+              extra_disable_pairs_.push_back(link_pair);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+bool CollisionsWizardPage::validatePage() {
+  parent_->getOperationsGenerator()->disablePairCollisionChecking(disable_pairs_);
+  //for occasionally and never 
+  if(!extra_disable_pairs_.empty()) {
+    parent_->setDisableMap(CollisionOperationsGenerator::OCCASIONALLY, extra_disable_pairs_);
+  }
+  parent_->setDisableMap(disable_type_, disable_pairs_);
+  return true;
+}
+
+OutputWizardPage::OutputWizardPage(PlanningDescriptionConfigurationWizard *parent) 
+  : QWizardPage(parent), successful_generation_(false)
+{
+  setTitle("Output Files");
+  QVBoxLayout* layout = new QVBoxLayout(this);
+
+  setSubTitle("Done! The wizard will auto-generate a stack called <your_robot_name>_arm_navigation "
+              "in the selected folder when you click the generate button below.");
+
+  package_path_field_ = new QLineEdit(this);
+  package_path_field_->setText("<absolute directory path>");
+  layout->addWidget(package_path_field_);
+
+  QPushButton* selectFileButton = new QPushButton(this);
+  selectFileButton->setText("Select Directory ...");
+  selectFileButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+  file_selector_ = new QFileDialog(this);
+  file_selector_->setFileMode(QFileDialog::Directory);
+  file_selector_->setOption(QFileDialog::ShowDirsOnly, true);
+
+  connect(file_selector_, SIGNAL(fileSelected(const QString&)), this, SLOT(fileSelected(const QString&)));
+  connect(selectFileButton, SIGNAL(clicked()), file_selector_, SLOT(open()));
+  layout->addWidget(selectFileButton);
+
+  QPushButton* generateButton = new QPushButton(this);
+  generateButton->setText("Generate Config Files...");
+  generateButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+
+  layout->addWidget(generateButton);
+
+  progress_bar_ = new QProgressBar(this);
+  progress_label_ = new QLabel(this);
+  layout->addWidget(progress_bar_);
+  layout->addWidget(progress_label_);
+
+  really_exit_dialog_ = new QDialog(this);
+  QVBoxLayout* really_exit_layout = new QVBoxLayout(really_exit_dialog_);
+  QLabel* really_exit_text = new QLabel(really_exit_dialog_);
+  really_exit_text->setText("You haven't generated an application - do you really want to exit?");
+  really_exit_layout->addWidget(really_exit_text);
+  QDialogButtonBox* exit_button_box = new QDialogButtonBox(QDialogButtonBox::Yes | QDialogButtonBox::No);
+  connect(exit_button_box, SIGNAL(accepted()), really_exit_dialog_, SLOT(accept()));
+  connect(exit_button_box, SIGNAL(rejected()), really_exit_dialog_, SLOT(reject()));
+  really_exit_layout->addWidget(exit_button_box);
+  really_exit_dialog_->setLayout(really_exit_layout);
+
+  connect(generateButton, SIGNAL(clicked()), parent, SLOT(writeFiles()));
+  //addPage(output_files_page_);
+  setLayout(layout);
 }
 
 PlanningDescriptionConfigurationWizard* pdcw;

@@ -53,12 +53,12 @@ class CollisionOperationsGenerator {
 public:
 
   enum DisableType {
+    ADJACENT,
     ALWAYS,
     DEFAULT,
     OFTEN,
     OCCASIONALLY,
-    NEVER,
-    ADJACENT
+    NEVER
   };
 
   enum SamplingSafety
@@ -72,11 +72,10 @@ public:
 
   CollisionOperationsGenerator(CollisionModels* cm);
   
-  ~CollisionOperationsGenerator() {
-  }
-
   typedef std::pair<std::string, std::string> StringPair;
   typedef std::map<std::string, double> CollidingJointValues;
+
+  void generateAdjacentInCollisionPairs(std::vector<StringPair>& adjacent_in_collision_pairs);
   
   void generateAlwaysInCollisionPairs(std::vector<StringPair>& always_in_collision_pairs,
                                       std::vector<CollidingJointValues>& in_collision_joint_values);
@@ -158,6 +157,9 @@ public:
   unsigned int performance_testing_num_;
 
 protected:
+
+  void accumulateAdjacentLinksRecursive(const planning_models::KinematicModel::LinkModel* parent,
+                                        std::vector<StringPair>& adjacencies);
 
   void sampleAndCountCollisions(unsigned int num);
 

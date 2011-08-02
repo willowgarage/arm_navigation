@@ -58,6 +58,30 @@ CollisionOperationsGenerator::CollisionOperationsGenerator(planning_environment:
 
 }
 
+void CollisionOperationsGenerator::generateAdjacentInCollisionPairs(std::vector<CollisionOperationsGenerator::StringPair>& adjacent_in_collision_pairs)
+{
+  adjacent_in_collision_pairs.clear();
+  const planning_models::KinematicModel* model = cm_->getKinematicModel();
+  const planning_models::KinematicModel::LinkModel* link = model->getRoot()->getChildLinkModel();
+  accumulateAdjacentLinksRecursive(link, adjacent_in_collision_pairs);
+}
+
+void CollisionOperationsGenerator::accumulateAdjacentLinksRecursive(const planning_models::KinematicModel::LinkModel* parent,
+                                                                    std::vector<CollisionOperationsGenerator::StringPair>& adjacencies){
+  std::vector<planning_models::KinematicModel::JointModel*> joints = parent->getChildJointModels();
+  
+  for(size_t i = 0; i < joints.size(); i++)
+  {
+    const planning_models::KinematicModel::JointModel* joint = joints[i];
+    StringPair pair;
+    pair.first = parent->getName();
+    pair.second = joint->getChildLinkModel()->getName();
+    adjacencies.push_back(pair);
+    accumulateAdjacentLinksRecursive(joint->getChildLinkModel(), adjacencies);
+  }
+}
+
+
 void CollisionOperationsGenerator::generateAlwaysInCollisionPairs(std::vector<CollisionOperationsGenerator::StringPair>& always_in_collision,
                                                                   std::vector<CollisionOperationsGenerator::CollidingJointValues>& in_collision_joint_values)
 {
@@ -372,6 +396,7 @@ void CollisionOperationsGenerator::performanceTestSavedResults(std::map<Collisio
  
 
 void CollisionOperationsGenerator::outputYamlStringOfSavedResults(YAML::Emitter& outy,  const std::map<CollisionOperationsGenerator::DisableType, std::vector<CollisionOperationsGenerator::StringPair> >& disable_types) {
+  std::map<std::pair<std::string, std::string>, bool> already_output;
   outy << YAML::Key << "default_collision_operations";
   outy << YAML::Value << YAML::BeginSeq; 
   for(std::map<DisableType, std::vector<StringPair> >::const_iterator it = disable_types.begin(); 
@@ -392,12 +417,20 @@ void CollisionOperationsGenerator::outputYamlStringOfSavedResults(YAML::Emitter&
     }
     com += " in collision";
     for(unsigned int i = 0; i < it->second.size(); i++) {
-     outy << YAML::BeginMap; 
-     outy << YAML::Key << "object1" << YAML::Value << it->second[i].first;
-     outy << YAML::Key << "object2" << YAML::Value << it->second[i].second;
-     outy << YAML::Key << "operation" << YAML::Value << "disable";
-     outy << YAML::Comment(com);
-     outy << YAML::EndMap;
+      std::pair<std::string, std::string> p1(it->second[i].first, it->second[i].second);
+      std::pair<std::string, std::string> p2(it->second[i].second, it->second[i].first);
+      if(already_output.find(p1) != already_output.end() || 
+         already_output.find(p2) != already_output.end()) {
+        continue;
+      }
+      already_output[p1] = true;
+      already_output[p2] = true;
+      outy << YAML::BeginMap; 
+      outy << YAML::Key << "object1" << YAML::Value << it->second[i].first;
+      outy << YAML::Key << "object2" << YAML::Value << it->second[i].second;
+      outy << YAML::Key << "operation" << YAML::Value << "disable";
+      outy << YAML::Comment(com);
+      outy << YAML::EndMap;
     }
   }
 }
