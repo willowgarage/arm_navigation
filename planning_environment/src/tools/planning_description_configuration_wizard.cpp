@@ -304,12 +304,7 @@ void PlanningDescriptionConfigurationWizard::removeGroup(const std::string& name
 void PlanningDescriptionConfigurationWizard::popupFileFailure(const char* reason)
 {
   file_failure_reason_->setText(reason);
-  file_failure_dialog_->show();
-}
-
-void PlanningDescriptionConfigurationWizard::popupFileSuccess()
-{
-  file_success_dialog_->show();
+  file_failure_dialog_->exec();
 }
 
 void PlanningDescriptionConfigurationWizard::emitGroupYAML()
@@ -1100,8 +1095,6 @@ void PlanningDescriptionConfigurationWizard::writeFiles()
     outputPlanningComponentVisualizerLaunchFile();
     output_wizard_page_->updateProgressBar(100);
 
-    popupFileSuccess();
-
     output_wizard_page_->setSuccessfulGeneration();
   }
 }
@@ -1289,7 +1282,6 @@ void PlanningDescriptionConfigurationWizard::update()
   output_wizard_page_->updateProgressBar(progress_);
   if(progress_ >= 100)
   {
-    popupFileSuccess();
     output_wizard_page_->setSuccessfulGeneration();
   }
 
@@ -1452,20 +1444,6 @@ void PlanningDescriptionConfigurationWizard::setupQtPages()
   gDialogLayout->addWidget(generic_dialog_label_);
   generic_dialog_->setLayout(gDialogLayout);
 
-  need_groups_dialog_ = new QDialog(this);
-  QVBoxLayout* needsGroupsDialogLayout = new QVBoxLayout(need_groups_dialog_);
-  QLabel* needsGroupsText = new QLabel(need_groups_dialog_);
-  needsGroupsText->setText("Cannot continue without planning groups!");
-  needsGroupsDialogLayout->addWidget(needsGroupsText);
-  need_groups_dialog_->setLayout(needsGroupsDialogLayout);
-
-  ok_dialog_ = new QDialog(this);
-  QVBoxLayout* okDialogLayout = new QVBoxLayout(ok_dialog_);
-  QLabel* okText = new QLabel(ok_dialog_);
-  okText->setText("The planning group was valid! Visualize in Rviz.");
-  okDialogLayout->addWidget(okText);
-  ok_dialog_->setLayout(okDialogLayout);
-
   file_failure_dialog_ = new QDialog(this);
   QVBoxLayout* filefailureLayout = new QVBoxLayout(file_failure_dialog_);
   QLabel* fileFailureText = new QLabel(file_failure_dialog_);
@@ -1474,14 +1452,10 @@ void PlanningDescriptionConfigurationWizard::setupQtPages()
   file_failure_reason_->setText("unspecified.");
   filefailureLayout->addWidget(fileFailureText);
   filefailureLayout->addWidget(file_failure_reason_);
+  QDialogButtonBox* file_failure_box = new QDialogButtonBox(QDialogButtonBox::Ok);
+  filefailureLayout->addWidget(file_failure_box);
+  connect(file_failure_box, SIGNAL(accepted()), file_failure_dialog_, SLOT(accept()));
   file_failure_dialog_->setLayout(filefailureLayout);
-
-  file_success_dialog_ = new QDialog(this);
-  QVBoxLayout* filesuccessLayout = new QVBoxLayout(file_success_dialog_);
-  QLabel* filesuccessText = new QLabel(file_success_dialog_);
-  filesuccessText->setText("Successfully created files!");
-  filesuccessLayout->addWidget(filesuccessText);
-  file_success_dialog_->setLayout(filesuccessLayout);
 
   confirm_group_replace_dialog_ = new QDialog(this);
   QVBoxLayout* confirm_group_replace_layout = new QVBoxLayout(confirm_group_replace_dialog_);
@@ -2640,6 +2614,22 @@ OutputWizardPage::OutputWizardPage(PlanningDescriptionConfigurationWizard *paren
   connect(exit_button_box, SIGNAL(rejected()), really_exit_dialog_, SLOT(reject()));
   really_exit_layout->addWidget(exit_button_box);
   really_exit_dialog_->setLayout(really_exit_layout);
+
+  successful_creation_dialog_ = new QDialog(this);
+  QVBoxLayout* successful_creation_layout = new QVBoxLayout(successful_creation_dialog_);
+  QLabel* successful_creation_text = new QLabel(successful_creation_dialog_);
+  successful_creation_text->setText("Your application was successfully created.");
+  successful_creation_layout->addWidget(successful_creation_text);
+  QPushButton* exit_now_button = new QPushButton(tr("&Exit Wizard"));
+  QPushButton* stay_in_application_button = new QPushButton(tr("&Stay In Wizard"));
+  QDialogButtonBox* success_button_box = new QDialogButtonBox();
+  successful_creation_layout->addWidget(success_button_box);
+  success_button_box->addButton(stay_in_application_button, QDialogButtonBox::RejectRole);
+  success_button_box->addButton(exit_now_button, QDialogButtonBox::AcceptRole);
+  connect(success_button_box, SIGNAL(rejected()), successful_creation_dialog_, SLOT(reject()));
+  connect(success_button_box, SIGNAL(accepted()), successful_creation_dialog_, SLOT(accept()));
+  connect(success_button_box, SIGNAL(accepted()), parent, SLOT(accept()));
+  successful_creation_dialog_->setLayout(successful_creation_layout);
 
   connect(generateButton, SIGNAL(clicked()), parent, SLOT(writeFiles()));
   //addPage(output_files_page_);

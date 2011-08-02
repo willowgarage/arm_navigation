@@ -87,7 +87,6 @@ class PlanningDescriptionConfigurationWizard: public QWizard
   inline void popupWaitWarning() { popupGenericWarning("Please wait..."); }
   void popupGenericWarning(const char* text);
   void popupFileFailure(const char* reason);
-  void popupFileSuccess();
   void emitGroupYAML();
   void outputJointLimitsYAML();
   visualization_msgs::Marker
@@ -212,11 +211,8 @@ protected:
   QTableWidget* dof_selection_table_;
   QCheckBox* group_selection_done_box_;
 
-  QDialog* need_groups_dialog_;
-  QDialog* ok_dialog_;
   QDialog* file_failure_dialog_;
   QLabel* file_failure_reason_;
-  QDialog* file_success_dialog_;
   QLineEdit* package_path_field_;
   QDialog* generic_dialog_;
   QLabel* generic_dialog_label_;
@@ -436,6 +432,7 @@ class OutputWizardPage : public QWizardPage
   
   void setSuccessfulGeneration() {
     successful_generation_ = true;
+    successful_creation_dialog_->show();
   }
 
   void updateProgressBar(unsigned int progress) {
@@ -478,6 +475,7 @@ private:
   QFileDialog* file_selector_;
 
   QDialog* really_exit_dialog_;
+  QDialog* successful_creation_dialog_;
 };
 
 #endif
