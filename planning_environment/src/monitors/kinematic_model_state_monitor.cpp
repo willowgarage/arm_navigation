@@ -103,7 +103,7 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
   static bool first_time = true;
 
   unsigned int n = joint_state->name.size();
-  if (joint_state->name.size() != joint_state->position.size() || joint_state->name.size() !=joint_state->velocity.size())
+  if (joint_state->name.size() != joint_state->position.size())
   {
     ROS_ERROR("Planning environment received invalid joint state");
     current_joint_values_lock_.unlock();
