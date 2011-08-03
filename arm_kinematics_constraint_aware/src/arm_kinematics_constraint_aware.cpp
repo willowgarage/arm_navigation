@@ -354,24 +354,33 @@ void ArmKinematicsConstraintAware::printStringVec(const std::string &prefix, con
 bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK::Request &request, 
                                                  kinematics_msgs::GetPositionIK::Response &response)
 {
-  if(!isReady(response.error_code))
-    return true;
+  bool scene_set = collision_models_interface_->isPlanningSceneSet();
+  if(!isReady(response.error_code)) {
+    if(request.ik_request.pose_stamped.header.frame_id != root_name_) {
+      response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
+      return true;
+    }
+  }
 
   if(!checkIKService(request,response,chain_info_))
     return true;
 
   geometry_msgs::PoseStamped pose_msg_in = request.ik_request.pose_stamped;
   geometry_msgs::PoseStamped pose_msg_out;
-  planning_environment::setRobotStateAndComputeTransforms(request.ik_request.robot_state, *collision_models_interface_->getPlanningSceneState());
-  
-  if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
-                                                                  root_name_,
-                                                                  pose_msg_in.header,
-                                                                  pose_msg_in.pose,
-                                                                  pose_msg_out)) {
-    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
-    return true;
-  }  
+  if(scene_set) {
+    planning_environment::setRobotStateAndComputeTransforms(request.ik_request.robot_state, *collision_models_interface_->getPlanningSceneState());
+    
+    if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                    root_name_,
+                                                                    pose_msg_in.header,
+                                                                    pose_msg_in.pose,
+                                                                    pose_msg_out)) {
+      response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
+      return true;
+    }  
+  } else {
+    pose_msg_out = pose_msg_in;
+  }
   request.ik_request.pose_stamped = pose_msg_out;
   ROS_DEBUG_STREAM("Pose is " << pose_msg_out.pose.position.x << " " << pose_msg_out.pose.position.y << " " << pose_msg_out.pose.position.z);
 
@@ -459,7 +468,12 @@ bool ArmKinematicsConstraintAware::getPositionFK(kinematics_msgs::GetPositionFK:
       pose_stamped.header.frame_id = root_name_;
       pose_stamped.header.stamp = ros::Time();
       
-      if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+      if(!collision_models_interface_->isPlanningSceneSet()) {
+        if(request.header.frame_id != root_name_) {
+          response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
+          return true;
+        }
+      } else if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                       request.header.frame_id,
                                                                       pose_stamped.header,
                                                                       solutions[i],
