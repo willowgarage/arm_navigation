@@ -2476,12 +2476,16 @@ void CollisionsWizardPage::toggleTable()
 void CollisionsWizardPage::tableClicked() {
   QList<QTableWidgetItem*> selected = collision_table_->selectedItems();
 
+  ROS_DEBUG_STREAM("Table clicked");
+
   if(selected.size() == 0)
   {
     return;
   }
 
   int row = selected[0]->row();
+  ROS_DEBUG_STREAM("Showing selection " << row);
+
   std_msgs::ColorRGBA color;
   color.r = 1.0;
   color.g = 1.0;
