@@ -88,6 +88,13 @@ namespace kinematics {
                                      std::vector<double> &solution,
                                      int &error_code) = 0;      
 
+       virtual bool searchPositionIK(const geometry_msgs::Pose &ik_pose,
+                                     const std::vector<double> &ik_seed_state,
+                                     const double &timeout,
+                                     const double &max_distance,
+                                     std::vector<double> &solution,
+                                     int &error_code) = 0;
+
       /**
        * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
        * This particular method is intended for "searching" for a solutions by stepping through the redundancy
