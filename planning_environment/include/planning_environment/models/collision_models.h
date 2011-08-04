@@ -314,11 +314,12 @@ public:
                                         bool use_default_padding,
                                         const ros::Duration& lifetime) const;
   void getRobotMarkersGivenState(const planning_models::KinematicState& state,
-                                             visualization_msgs::MarkerArray& arr,
-                                             const std_msgs::ColorRGBA& color,
-                                             const std::string& name, 
-                                             const ros::Duration& lifetime,
-                                             const std::vector<std::string>* names = NULL) const;
+                                 visualization_msgs::MarkerArray& arr,
+                                 const std_msgs::ColorRGBA& color,
+                                 const std::string& name, 
+                                 const ros::Duration& lifetime,
+                                 const std::vector<std::string>* names = NULL,
+                                 const double scale=1.0) const;
 
   void getGroupAndUpdatedJointMarkersGivenState(const planning_models::KinematicState& state,
                                                 visualization_msgs::MarkerArray& arr,

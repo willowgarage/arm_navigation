@@ -924,7 +924,7 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
     {
       vector<string> group_link_names = jmg->getGroupLinkNames();
       cm_->getRobotMarkersGivenState(*robot_state_, arr, default_color, current_show_group_, ros::Duration(.2),
-                                            &group_link_names);
+                                     &group_link_names, 1.02);
 
       vector<string> updated_link_model_names = jmg->getUpdatedLinkModelNames();
       map<string, bool> dont_include;
@@ -960,7 +960,7 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
     
     vector<string> single_link_name(1, current_show_link_);
     cm_->getRobotMarkersGivenState(*robot_state_, arr, default_color, current_show_link_, ros::Duration(.2),
-                                   &single_link_name);
+                                   &single_link_name, 1.03);
     vis_marker_array_publisher_.publish(arr);
   }
   lock_.unlock();

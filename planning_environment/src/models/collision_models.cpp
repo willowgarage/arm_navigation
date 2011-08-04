@@ -1868,7 +1868,8 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
                                                                       const std_msgs::ColorRGBA& color,
                                                                       const std::string& name,
                                                                       const ros::Duration& lifetime,
-                                                                      const std::vector<std::string>* names) const
+                                                                      const std::vector<std::string>* names,
+                                                                      const double scale) const
 {
   boost::shared_ptr<urdf::Model> robot_model = getParsedDescription();
 
@@ -1930,9 +1931,9 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
       mark.ns = name;
       mark.id = i;
       mark.type = mark.MESH_RESOURCE;
-      mark.scale.x = 1.0;
-      mark.scale.y = 1.0;
-      mark.scale.z = 1.0;
+      mark.scale.x = scale;
+      mark.scale.y = scale;
+      mark.scale.z = scale;
       mark.color = color;
       mark.mesh_resource = mesh->filename;
       mark.lifetime = lifetime;
