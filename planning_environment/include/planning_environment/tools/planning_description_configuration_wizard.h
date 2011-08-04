@@ -116,6 +116,12 @@ class PlanningDescriptionConfigurationWizard: public QWizard
     lock_.unlock();
   }
 
+  void setCurrentShowLink(const std::string& s) {
+    lock_.lock();
+    current_show_link_ = s;
+    lock_.unlock();
+  }
+
   WizardMode getWizardMode() const {
     return wizard_mode_;
   }
@@ -179,6 +185,7 @@ protected:
            std::vector<planning_environment::CollisionOperationsGenerator::StringPair> > disable_map_;
 
   std::string current_show_group_;
+  std::string current_show_link_;
 
   tf::TransformBroadcaster transform_broadcaster_;
   ros::Publisher vis_marker_publisher_;
@@ -308,6 +315,7 @@ public slots:
 
   void baseLinkTreeClick();
   void tipLinkTreeClick();
+  void showTreeLink();
 
   void resetPage() {
     good_group_dialog_->done(0);

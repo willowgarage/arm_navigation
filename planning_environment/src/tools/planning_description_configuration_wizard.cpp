@@ -950,7 +950,19 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
     {
       ROS_ERROR("The joint model group %s did not exist!", current_show_group_.c_str());
     }
-  } 
+  } else if(!current_show_link_.empty()) {
+    MarkerArray arr;
+    std_msgs::ColorRGBA default_color;
+    default_color.a = 1.0;
+    default_color.r = 0.0;
+    default_color.g = 0.0;
+    default_color.b = 1.0;
+    
+    vector<string> single_link_name(1, current_show_link_);
+    cm_->getRobotMarkersGivenState(*robot_state_, arr, default_color, current_show_link_, ros::Duration(.2),
+                                   &single_link_name);
+    vis_marker_array_publisher_.publish(arr);
+  }
   lock_.unlock();
 }
 
@@ -1863,6 +1875,7 @@ KinematicChainWizardPage::KinematicChainWizardPage(PlanningDescriptionConfigurat
 
   QVBoxLayout* treeLayout = new QVBoxLayout(treeBox);
   link_tree_ = new QTreeWidget(treeBox);
+  connect(link_tree_, SIGNAL(itemSelectionChanged()), this, SLOT(showTreeLink()));
   treeLayout->addWidget(link_tree_);
   QPushButton* baseLinkButton = new QPushButton(treeBox);
   baseLinkButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
@@ -1936,6 +1949,7 @@ bool KinematicChainWizardPage::validatePage() {
   if(stat == PlanningDescriptionConfigurationWizard::GroupAddSuccess) {
     int val = good_group_dialog_->exec();
     parent_->setCurrentShowGroup("");
+    parent_->setCurrentShowLink("");
     if(val == QDialog::Accepted) {
       return true;
     } else if(val == QDialog::Rejected) {
@@ -1949,6 +1963,18 @@ bool KinematicChainWizardPage::validatePage() {
   } else {
     //cancelled duplicated
     return false;
+  }
+}
+
+void KinematicChainWizardPage::showTreeLink() {
+  QTreeWidgetItem* item = link_tree_->currentItem();
+  if(item != NULL)
+  {
+    std::string link_name = item->text(0).toStdString();
+    if(!link_name.empty()) {
+      parent_->setCurrentShowGroup("");
+      parent_->setCurrentShowLink(link_name);
+    }
   }
 }
 
@@ -2101,7 +2127,7 @@ JointCollectionWizardPage::JointCollectionWizardPage(PlanningDescriptionConfigur
   good_dialog_text->setText("Your group is valid and has been added to the planning groups.\nIt should be visualized in Rviz");
   good_group_layout->addWidget(good_dialog_text);
   QPushButton* return_to_groups_button = new QPushButton(tr("&Return To Groups"));
-  QPushButton* add_another_kinematic_chain_button = new QPushButton(tr("&Add Another Kinematic Chain"));
+  QPushButton* add_another_kinematic_chain_button = new QPushButton(tr("&Add Another Joint Collection"));
   QPushButton* done_with_groups_button = new QPushButton(tr("&Done Adding Groups"));
   QDialogButtonBox* good_button_box = new QDialogButtonBox();
   good_group_layout->addWidget(good_button_box);
@@ -2241,28 +2267,33 @@ CollisionsWizardPage::CollisionsWizardPage(PlanningDescriptionConfigurationWizar
 {
   parent_ = parent;
   std::string title = "Links ";
+  std::string subtitle;
   if(disable_type_ == CollisionOperationsGenerator::ALWAYS) {
     title += "Always";
+    subtitle = "The following links are always in collision over the sample space.\nClick on a link name to visualize the collision in Rviz";
     allow_enable_ = false;
   } else if(disable_type_ == CollisionOperationsGenerator::DEFAULT) {
+    subtitle = "The following links are in collision in the default state, and will be disabled by default.\nClick on a link name to visualize the collision in Rviz, and check Enable to force self-collision checking for the indicated pair.";
     title += "Default";
   } else if(disable_type_ == CollisionOperationsGenerator::OFTEN) {
     title += "Often";
+    subtitle = "The following links are in collision in the majority of sampled states.  Enabling them will substantially slow collision checking.\nClick on a link name to visualize the collision in Rviz, and check Enable to force self-collision checking for the indicated pair.";
     show_percentages_ = true;
   } else if(disable_type == CollisionOperationsGenerator::ADJACENT) { 
     is_clickable_ = false;
     title += "Adjacent";
+    subtitle = "The following links are adjacent in the kinematic tree and will be disabled by default.\nCheck Enable to force self-collision checking for the indicated pair";
   } else {
     coll_default_enabled_ = true;
     show_percentages_ = true;
+    subtitle = "The following links are in the indicated percentage of samples. By default, link pairs that were found to be in collision in one or more samples have collision checking enabled.\nLink pairs that were never found to be in collision have been disabled.\nClick on a link name to visualize the collision in Rviz.";
     title += "Occasionally and Never";
   }
   title += " In Collision";
   setTitle(title.c_str());
 
   QVBoxLayout* layout = new QVBoxLayout(this);
-  setSubTitle("The following links are always in collision over the sample space. "
-              "By default, collisions will be disabled for them. Collisions are visualized as yellow spheres in rviz.");
+  setSubTitle(subtitle.c_str());
   QPushButton* generateButton = new QPushButton(this);
   generateButton->setText("Generate List (May take a minute)");
   layout->addWidget(generateButton);
