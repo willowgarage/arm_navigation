@@ -10,9 +10,9 @@ import unittest
 
 
 import sensor_msgs.msg
-import mapping_msgs.msg
-from mapping_msgs.msg import CollisionObject
-from mapping_msgs.msg import AttachedCollisionObject
+import arm_navigation_msgs.msg
+from arm_navigation_msgs.msg import CollisionObject
+from arm_navigation_msgs.msg import AttachedCollisionObject
 from arm_navigation_msgs.msg import CollisionOperation
 from arm_navigation_msgs.msg import Shape
 from geometry_msgs.msg import Pose
@@ -34,7 +34,7 @@ def test_add_convert_objects():
     obj1.header.stamp = rospy.Time.now()
     obj1.header.frame_id = "base_link"
     obj1.id = "obj1";
-    obj1.operation.operation = mapping_msgs.msg.CollisionObjectOperation.ADD
+    obj1.operation.operation = arm_navigation_msgs.msg.CollisionObjectOperation.ADD
     obj1.shapes = [Shape() for _ in range(1)]
     obj1.shapes[0].type = Shape.BOX
     obj1.shapes[0].dimensions = [float() for _ in range(3)]
@@ -53,13 +53,13 @@ def test_add_convert_objects():
     att_obj = AttachedCollisionObject()
     att_obj.link_name = "r_gripper_palm_link"
     att_obj.touch_links = ['r_gripper_palm_link', 'r_gripper_r_finger_link', 'r_gripper_l_finger_link',
-                           'r_gripper_r_finger_tip_link', 'r_gripper_l_finger_tip_link', 'r_wrist_roll_link', 'r_wrist_flex_link', 'r_forearm_link', 'r_forearm_cam_optical_frame','r_gripper_l_finger_tip_frame', 'r_gripper_led_frame', 'r_gripper_motor_accelerometer_link','r_gripper_tool_frame']
+                           'r_gripper_r_finger_tip_link', 'r_gripper_l_finger_tip_link', 'r_wrist_roll_link', 'r_wrist_flex_link', 'r_forearm_link', 'r_gripper_motor_accelerometer_link']
     obj2 = CollisionObject()
     
     obj2.header.stamp = rospy.Time.now()
     obj2.header.frame_id = "r_gripper_palm_link"
     obj2.id = "obj2";
-    obj2.operation.operation = mapping_msgs.msg.CollisionObjectOperation.ADD
+    obj2.operation.operation = arm_navigation_msgs.msg.CollisionObjectOperation.ADD
     obj2.shapes = [Shape() for _ in range(1)]
     obj2.shapes[0].type = Shape.CYLINDER
     obj2.shapes[0].dimensions = [float() for _ in range(2)]
