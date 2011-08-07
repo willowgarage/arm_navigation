@@ -45,29 +45,37 @@ MultiArmKinematicsConstraintAware::MultiArmKinematicsConstraintAware(const std::
                                                                      const std::vector<std::string> &end_effector_link_names):kinematics_loader_("kinematics_base","kinematics::KinematicsBase"),group_names_(group_names),kinematics_solver_names_(kinematics_solver_names),end_effector_link_names_(end_effector_link_names)
 {
   planning_environment::CollisionModelsInterface* collision_models_interface = new planning_environment::CollisionModelsInterface("robot_description");
-  MultiArmKinematicsConstraintAware(group_names,kinematics_solver_names,end_effector_link_names,collision_models_interface);
+  if(!initialize(group_names,kinematics_solver_names,end_effector_link_names,collision_models_interface))
+        throw new MultiArmKinematicsException();
   collision_models_interface_generated_ = true;
 }
 
 MultiArmKinematicsConstraintAware::MultiArmKinematicsConstraintAware(const std::vector<std::string> &group_names, 
                                                                      const std::vector<std::string> &kinematics_solver_names,
                                                                      const std::vector<std::string> &end_effector_link_names,
-                                                                     planning_environment::CollisionModelsInterface *collision_models_interface):kinematics_loader_("kinematics_base","kinematics::KinematicsBase"),group_names_(group_names),kinematics_solver_names_(kinematics_solver_names),end_effector_link_names_(end_effector_link_names),collision_models_interface_(collision_models_interface),collision_models_interface_generated_(false)
+                                                                     planning_environment::CollisionModelsInterface *collision_models_interface):kinematics_loader_("kinematics_base","kinematics::KinematicsBase"),collision_models_interface_generated_(false)
 {
+  if(!initialize(group_names,kinematics_solver_names,end_effector_link_names,collision_models_interface))
+        throw new MultiArmKinematicsException();
+}
+
+bool MultiArmKinematicsConstraintAware::initialize(const std::vector<std::string> &group_names, 
+                                                   const std::vector<std::string> &kinematics_solver_names,
+                                                   const std::vector<std::string> &end_effector_link_names,
+                                                   planning_environment::CollisionModelsInterface *collision_models_interface)
+{
+  group_names_ = group_names;
+  kinematics_solver_names_ = kinematics_solver_names;
+  end_effector_link_names_ = end_effector_link_names;
+  collision_models_interface_ = collision_models_interface;
+
   srand ( time(NULL) ); // initialize random seed
   if(group_names_.empty())
-  {
-    throw new MultiArmKinematicsException();
-  }
+    return false;
   if(kinematics_solver_names_.size() != group_names_.size())
-  {
-    throw new MultiArmKinematicsException();
-  }
+    return false;
   if(end_effector_link_names_.size() != group_names_.size())
-  {
-    throw new MultiArmKinematicsException();
-  }
-
+    return false;
   num_groups_ = group_names_.size();
   end_effector_collision_links_.resize(num_groups_);
   kinematics_solvers_.resize(num_groups_);
@@ -82,20 +90,21 @@ MultiArmKinematicsConstraintAware::MultiArmKinematicsConstraintAware(const std::
     catch(pluginlib::PluginlibException& ex)
 	  {
 	    ROS_ERROR("The plugin failed to load. Error1: %s", ex.what());    //handle the class failing to load
-	    throw new MultiArmKinematicsException();
+      return false;
 	  }
+      
+    if(!kinematics_solvers_[i]->initialize(group_names_[i]))
+      return false;
     if(i==0)
       base_frame_ = kinematics_solvers_[i]->getBaseFrame();
     else if(kinematics_solvers_[i]->getBaseFrame() != base_frame_)
-      throw new MultiArmKinematicsException();
-      
-    if(!kinematics_solvers_[i]->initialize(group_names_[i]))
-      throw new MultiArmKinematicsException();      
+      return false;
+
     const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(group_names_[i]);
     if(joint_model_group == NULL) 
 	  {
 	    ROS_WARN_STREAM("No joint group " << group_names_[i]);
-	    throw new MultiArmKinematicsException();
+      return false;
 	  }
     std::vector<std::string> arm_links = joint_model_group->getGroupLinkNames();
     for(unsigned int j=0; j < arm_links.size(); j++)
@@ -111,12 +120,13 @@ MultiArmKinematicsConstraintAware::MultiArmKinematicsConstraintAware(const std::
       if(!joint_model_group->hasJointModel(joint_names[i]))
       {
         ROS_ERROR("Could not get joint model for joint %s",joint_names[j].c_str());
-        throw new MultiArmKinematicsException();
+        return false;
       }
       const planning_models::KinematicModel::JointModel* joint_model = ((planning_models::KinematicModel::JointModelGroup*) (joint_model_group))->getJointModel(joint_names[j]);
       joint_model->getVariableBounds(joint_names[j],bounds_[i][j]);
     }
   }
+  return true;
 }
 
 bool MultiArmKinematicsConstraintAware::setup(const arm_navigation_msgs::PlanningScene& planning_scene,
@@ -143,6 +153,11 @@ std::vector<std::string> MultiArmKinematicsConstraintAware::getArmNames()
   return group_names_;  
 }
 
+std::vector<std::string> MultiArmKinematicsConstraintAware::getEndEffectorNames()
+{
+  return end_effector_link_names_;  
+}
+
 std::vector<std::string> MultiArmKinematicsConstraintAware::getJointNames()
 {
   std::vector<std::string> joint_names;
@@ -163,22 +178,22 @@ bool MultiArmKinematicsConstraintAware::checkRequest(const std::vector<geometry_
   ros::Time start_time = ros::Time::now();
   if(poses.size() != num_groups_)
   {
-    ROS_DEBUG("Num poses: %d does not match number of groups: %d",(int)poses.size(),(int)num_groups_);
+    ROS_ERROR("Num poses: %d does not match number of groups: %d",(int)poses.size(),(int)num_groups_);
     return false;
   }
   if(seed_states.size() != num_groups_)
   {
-    ROS_DEBUG("Num seed state vectors: %d does not match number of groups: %d",(int)seed_states.size(),(int)num_groups_);
+    ROS_ERROR("Num seed state vectors: %d does not match number of groups: %d",(int)seed_states.size(),(int)num_groups_);
     return false;
   }
   if(solutions.size() != num_groups_)
   {
-    ROS_DEBUG("Num solutions vectors: %d does not match number of groups: %d",(int)solutions.size(),(int)num_groups_);
+    ROS_ERROR("Num solutions vectors: %d does not match number of groups: %d",(int)solutions.size(),(int)num_groups_);
     return false;
   }
   if(error_codes.size() != num_groups_)
   {
-    ROS_DEBUG("Num error codes: %d does not match number of groups: %d",(int)error_codes.size(),(int)num_groups_);
+    ROS_ERROR("Num error codes: %d does not match number of groups: %d",(int)error_codes.size(),(int)num_groups_);
     return false;
   }
   return true;
@@ -289,7 +304,12 @@ bool MultiArmKinematicsConstraintAware::checkEndEffectorStates(const std::vector
   {
     btTransform transform;
     tf::poseMsgToTF(poses[i],transform);
-    collision_models_interface_->getPlanningSceneState()->updateKinematicStateWithLinkAt(end_effector_link_names_[i], transform);
+    ROS_INFO("Checking link %s",end_effector_link_names_[i].c_str());
+    if(!collision_models_interface_->getPlanningSceneState()->updateKinematicStateWithLinkAt(end_effector_link_names_[i], transform))
+    {
+      ROS_ERROR("Could not transform link state for %s",end_effector_link_names_[i].c_str());
+      return false;
+    }
     if(collision_models_interface_->isKinematicStateInCollision(*(collision_models_interface_->getPlanningSceneState()))) 
     {
       error_codes[i] = kinematics::IK_LINK_IN_COLLISION;
@@ -399,6 +419,7 @@ bool MultiArmKinematicsConstraintAware::searchConstraintAwarePositionIK(const st
 {
   arm_navigation_msgs::Constraints empty_constraints;
   ros::Time start_time = ros::Time::now();
+  error_codes.resize(num_groups_);
   if(!checkRequest(poses,seed_states,solutions,error_codes))
   {
     ROS_ERROR("Request is malformed");

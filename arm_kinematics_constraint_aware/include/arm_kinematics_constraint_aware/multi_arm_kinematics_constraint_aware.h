@@ -107,6 +107,8 @@ public:
 
   std::vector<std::string> getArmNames();
 
+  std::vector<std::string> getEndEffectorNames();
+
   std::vector<std::string> getJointNames();
 
   bool searchConstraintAwarePositionIK(const std::vector<geometry_msgs::Pose> &poses,
@@ -135,6 +137,11 @@ public:
                                        const double &max_distance=0.0);
   std::string getBaseFrame(){return base_frame_;};
 private:
+  bool initialize(const std::vector<std::string> &group_names, 
+                  const std::vector<std::string> &kinematics_solver_names,
+                  const std::vector<std::string> &end_effector_link_names,
+                  planning_environment::CollisionModelsInterface *collision_models_interface);
+
   bool checkRequest(const std::vector<geometry_msgs::Pose> &poses,
                     const std::vector<std::vector<double> > &seed_states,
                     std::vector<std::vector<double> > &solutions,
