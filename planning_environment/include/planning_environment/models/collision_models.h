@@ -296,7 +296,9 @@ public:
                                          visualization_msgs::MarkerArray& arr,
                                          const std::string& ns, 
                                          const std_msgs::ColorRGBA& color,
-                                         const ros::Duration& lifetime);
+                                         const ros::Duration& lifetime,
+                                         const bool show_padded = false,
+                                         const std::vector<std::string>* link_names = NULL) const;
   
   void getStaticCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,
                                        const std::string& ns, 
@@ -309,17 +311,22 @@ public:
                                    const std_msgs::ColorRGBA& color,
                                    const ros::Duration& lifetime);
 
-  void getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
-                                        visualization_msgs::MarkerArray& arr,
-                                        bool use_default_padding,
-                                        const ros::Duration& lifetime) const;
+
   void getRobotMarkersGivenState(const planning_models::KinematicState& state,
                                  visualization_msgs::MarkerArray& arr,
                                  const std_msgs::ColorRGBA& color,
                                  const std::string& name, 
                                  const ros::Duration& lifetime,
                                  const std::vector<std::string>* names = NULL,
-                                 const double scale=1.0) const;
+                                 const double scale=1.0,
+                                 const bool show_collision_models = true) const;
+
+  void getRobotPaddedMarkersGivenState(const planning_models::KinematicState& state,
+                                       visualization_msgs::MarkerArray& arr,
+                                       const std_msgs::ColorRGBA& color,
+                                       const std::string& name, 
+                                       const ros::Duration& lifetime,
+                                       const std::vector<std::string>* names = NULL) const;
 
   void getGroupAndUpdatedJointMarkersGivenState(const planning_models::KinematicState& state,
                                                 visualization_msgs::MarkerArray& arr,
@@ -387,6 +394,10 @@ public:
       
   const std::map<std::string,double>& getDefaultLinkPaddingMap() const {
     return ode_collision_model_->getDefaultLinkPaddingMap();
+  }
+
+  std::map<std::string,double> getCurrentLinkPaddingMap() const {
+    return ode_collision_model_->getCurrentLinkPaddingMap();
   }
   
   bool isPlanningSceneSet() const {

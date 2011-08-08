@@ -2,7 +2,7 @@
   <description brief="Arm Navigation">
    This stack contains packages that permit collision-free arm navigation
   </description>
-  <author>E. Gil JOnes gjones@willowgarage.com</author>
+  <author>E. Gil Jones gjones@willowgarage.com</author>
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/arm_navigation</url>

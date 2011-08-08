@@ -118,7 +118,7 @@ bool doesKinematicStateObeyConstraints(const planning_models::KinematicState& st
 
 void setMarkerShapeFromShape(const arm_navigation_msgs::Shape &obj, visualization_msgs::Marker &mk);
 
-void setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marker &mk);
+void setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marker &mk, double padding = 0.0);
 
 void convertFromLinkPaddingMapToLinkPaddingVector(const std::map<std::string, double>& link_padding_map,
                                                   std::vector<arm_navigation_msgs::LinkPadding>& link_padding_vector);

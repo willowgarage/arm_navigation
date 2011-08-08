@@ -166,7 +166,7 @@ bool planning_environment::processAttachedCollisionObjectMsg(const arm_navigatio
       
   if(n == 0) {
     if(obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::REMOVE) {
-      cm->deleteAllAttachedObjects();
+      cm->deleteAllAttachedObjects(attached_object->link_name);
       return true;
     } else if (obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::ADD){
       ROS_INFO("Remove must also be specified to delete all attached bodies");

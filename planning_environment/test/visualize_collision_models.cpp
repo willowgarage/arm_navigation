@@ -60,10 +60,17 @@ int main(int argc, char** argv)
   while(nh.ok()) {
     
     visualization_msgs::MarkerArray arr;
-    cmodel.getRobotTrimeshMarkersGivenState(state,
-                                            arr,
-                                            false,
-                                            ros::Duration(1.2));                                            
+    std_msgs::ColorRGBA stat_color;
+    stat_color.a = 0.5;
+    stat_color.r = 0.1;
+    stat_color.g = 0.8;
+    stat_color.b = 0.3;
+
+    cmodel.getRobotMarkersGivenState(state,
+                                     arr,
+                                     stat_color,
+                                     "robot",
+                                     ros::Duration(1.2));                                            
     vis_marker_array_publisher.publish(arr);
     ros::spinOnce();
     r.sleep();
