@@ -115,7 +115,7 @@ bool OmplRosPlanningGroup::initializeProjectionEvaluator()
   try
   {
     ompl_projection_evaluator.reset(new ompl_ros_interface::OmplRosProjectionEvaluator(state_space_.get(),
-                                                                                       projection_evaluator));
+                                                                                     projection_evaluator));
   }
   catch(...)
   {
@@ -442,6 +442,18 @@ bool OmplRosPlanningGroup::computePlan(arm_navigation_msgs::GetMotionPlan::Reque
   
   if(!setStartAndGoalStates(request,response))
     return finish(false);
+  
+  unsigned int start_index;
+  double distance;
+  if(planner_->getProblemDefinition()->isTrivial(&start_index,&distance))
+    {
+      ROS_INFO("Start state seems to be already at the goal");
+      planner_->getPathSimplifier()->reduceVertices(planner_->getSolutionPath());
+      planner_->getPathSimplifier()->collapseCloseVertices(planner_->getSolutionPath());
+      response.trajectory = getSolutionPath();
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::SUCCESS;
+      return finish(true);
+    }
   
   bool solved = planner_->solve(request.motion_plan_request.allowed_planning_time.toSec());
   

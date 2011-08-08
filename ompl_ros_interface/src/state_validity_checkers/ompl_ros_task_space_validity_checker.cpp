@@ -44,7 +44,13 @@ bool OmplRosTaskSpaceValidityChecker::isValid(const ompl::base::State *ompl_stat
   arm_navigation_msgs::RobotState robot_state_msg;
   if(!state_transformer_->inverseTransform(*ompl_state,
                                            robot_state_msg))
-    return false;
+    {
+      return false;
+    }
+  /*  for(unsigned int i=0; i < robot_state_msg.joint_state.position.size(); i++)
+    {
+      ROS_INFO("Joint: %d, %s, %f",i,robot_state_msg.joint_state.name[i].c_str(),robot_state_msg.joint_state.position[i]);
+      }*/
 
   ompl_ros_interface::robotStateToJointStateGroup(robot_state_msg,
                                                   robot_state_to_joint_state_group_mapping_,
