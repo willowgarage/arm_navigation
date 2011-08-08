@@ -1868,7 +1868,7 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
                                                                       const std_msgs::ColorRGBA& color,
                                                                       const std::string& name,
                                                                       const ros::Duration& lifetime,
-                                                                      const std::vector<std::string>* names) const
+                                                                      const std::vector<std::string>* names, bool useVisual) const
 {
   boost::shared_ptr<urdf::Model> robot_model = getParsedDescription();
 
@@ -1897,8 +1897,17 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
       continue;
     }
 
-    const urdf::Geometry *geom = urdf_link->collision->geometry.get();
+    const urdf::Geometry *geom = NULL;
 
+
+    if(!useVisual)
+    {
+      geom = urdf_link->collision->geometry.get();
+    }
+    else
+    {
+      geom = urdf_link->visual->geometry.get();
+    }
     if(!geom)
     {
       continue;
@@ -1979,11 +1988,25 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
 void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
                                                                              visualization_msgs::MarkerArray& arr,
                                                                              bool use_default_padding,
-                                                                             const ros::Duration& lifetime) const
+                                                                             std::string name_space,
+                                                                             const std_msgs::ColorRGBA& color,
+                                                                             const ros::Duration& lifetime,
+                                                                             const std::vector<std::string>* names) const
 {
+  std::vector<std::string> link_names;
+  if(names == NULL)
+  {
+    kmodel_->getLinkModelNames(link_names);
+  }
+  else
+  {
+    link_names = *names;
+  }
+
+
   unsigned int count = 0;
-  for(unsigned int i = 0; i < state.getLinkStateVector().size(); i++) {
-    const planning_models::KinematicState::LinkState* ls = state.getLinkStateVector()[i];
+  for(unsigned int i = 0; i < link_names.size(); i++) {
+    const planning_models::KinematicState::LinkState* ls = state.getLinkState(link_names[i]);
     if(ls->getLinkModel()->getLinkShape() == NULL) continue;
     const shapes::Mesh *mesh = dynamic_cast<const shapes::Mesh*>(ls->getLinkModel()->getLinkShape());
     if(mesh == NULL) continue;
@@ -1994,14 +2017,15 @@ void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(con
       visualization_msgs::Marker mesh_mark;
       mesh_mark.header.frame_id = getWorldFrameId();
       mesh_mark.header.stamp = ros::Time::now();
-      mesh_mark.ns = ls->getName()+"_trimesh";
+      mesh_mark.ns = name_space;
       mesh_mark.id = count++;
       mesh_mark.type = mesh_mark.LINE_LIST;
       mesh_mark.scale.x = mesh_mark.scale.y = mesh_mark.scale.z = .001;	     
-      mesh_mark.color.r = 0.0;
-      mesh_mark.color.g = 0.0;
-      mesh_mark.color.b = 1.0;
-      mesh_mark.color.a = 1.0;
+      mesh_mark.color.r = color.r;
+      mesh_mark.color.g = color.g;
+      mesh_mark.color.b = color.b;
+      mesh_mark.color.a = color.a;
+      mesh_mark.lifetime = lifetime;
       double padding = 0.0;
       if(use_default_padding) {
         if(getDefaultLinkPaddingMap().find(ls->getName()) !=
