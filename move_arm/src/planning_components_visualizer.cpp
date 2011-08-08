@@ -78,7 +78,7 @@ static const double HAND_TRANS_SPEED = .05;
 static const double HAND_ROT_SPEED = .15;
 
 static const string SET_PLANNING_SCENE_DIFF_NAME = "/environment_server/set_planning_scene_diff";
-static const string PLANNER_SERVICE_NAME = "/ompl_planning/plan_kinematic_path";
+static const string PLANNER_SERVICE_NAME = "/chomp_planner_longrange/plan_path";
 static const string TRAJECTORY_FILTER_SERVICE_NAME = "/trajectory_filter_server/filter_trajectory_with_constraints";
 
 typedef map<MenuHandler::EntryHandle, string> MenuEntryMap;
@@ -561,7 +561,8 @@ class PlanningComponentsVisualizer
         endState = group_map_[current_group_name_].getState(EndPosition);
 
         if(startState != NULL)
-        {
+        {          
+          ROS_INFO("Resetting start state.");
           startState->setKinematicState(startStateValues);
         }
 
@@ -590,8 +591,9 @@ class PlanningComponentsVisualizer
 
       if(group_map_[current_group_name_].end_state_ != NULL)
       {
-        group_map_[current_group_name_].setState(EndPosition,
-                                                 new KinematicState(*group_map_[current_group_name_].end_state_));
+        ROS_WARN_STREAM("Selecting with non NULL");
+        // group_map_[current_group_name_].setState(EndPosition,
+        //                                          new KinematicState(*group_map_[current_group_name_].end_state_));
       }
       else
       {
@@ -600,8 +602,9 @@ class PlanningComponentsVisualizer
 
       if(group_map_[current_group_name_].start_state_ != NULL)
       {
-        group_map_[current_group_name_].setState(StartPosition,
-                                                 new KinematicState(*group_map_[current_group_name_].start_state_));
+        ROS_WARN_STREAM("Selecting with non NULL");
+        // group_map_[current_group_name_].setState(EndPosition,
+        //                                          new KinematicState(*group_map_[current_group_name_].start_state_));
       }
       else
       {
@@ -1120,6 +1123,15 @@ class PlanningComponentsVisualizer
     last_joint_state_msg_.header.stamp = ros::Time::now();
     joint_state_publisher_.publish(last_joint_state_msg_);
     joint_state_lock_.unlock();
+
+    if(cm_->getWorldFrameId() != cm_->getRobotFrameId()) {
+      TransformStamped trans;
+      trans.header.frame_id = cm_->getWorldFrameId();
+      trans.header.stamp = ros::Time::now();
+      trans.child_frame_id = cm_->getRobotFrameId();
+      trans.transform.rotation.w = 1.0;
+      transform_broadcaster_.sendTransform(trans);
+    }
   }
 
     bool planToEndEffectorState(PlanningComponentsVisualizer::GroupCollection& gc)
@@ -1627,30 +1639,30 @@ class PlanningComponentsVisualizer
             if(feedback->marker_name == current_group_name_) {
               return;
             } 
-            deselectMarker(selectable_markers_[current_group_name_ + "_selectable"],
-                           gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
             btTransform cur = toBulletTransform(feedback->pose);
-            if(isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
-            {
-              unsigned int cmd = 0;
-              for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
-              {
-
-                if(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable")) == it->first)
-                {
-                  deleteKinematicStates();
-                  selectPlanningGroup(cmd);
-                  break;
-                } else {
-                  
-                }
-                cmd++;
-              }
-
-            }
-            else if(feedback->marker_name.rfind("pole_") != string::npos)
+            if(feedback->marker_name.rfind("pole_") != string::npos)
             {
               selectMarker(selectable_markers_[feedback->marker_name], cur);
+            } else {
+              deselectMarker(selectable_markers_[current_group_name_ + "_selectable"],
+                             gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform());
+              if(isGroupName(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable"))))
+              {
+                unsigned int cmd = 0;
+                for(map<string, GroupCollection>::iterator it = group_map_.begin(); it != group_map_.end(); it++)
+                {
+                  
+                  if(feedback->marker_name.substr(0, feedback->marker_name.rfind("_selectable")) == it->first)
+                  {
+                    deleteKinematicStates();
+                    selectPlanningGroup(cmd);
+                    break;
+                  } else {
+                    
+                  }
+                  cmd++;
+                }
+              }
             }
           }
           break;
