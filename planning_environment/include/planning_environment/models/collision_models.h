@@ -312,13 +312,17 @@ public:
   void getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
                                         visualization_msgs::MarkerArray& arr,
                                         bool use_default_padding,
-                                        const ros::Duration& lifetime) const;
+                                        std::string name_space,
+                                        const std_msgs::ColorRGBA& color,
+                                        const ros::Duration& lifetime,
+                                        const std::vector<std::string>* names) const;
+
   void getRobotMarkersGivenState(const planning_models::KinematicState& state,
                                              visualization_msgs::MarkerArray& arr,
                                              const std_msgs::ColorRGBA& color,
                                              const std::string& name, 
                                              const ros::Duration& lifetime,
-                                             const std::vector<std::string>* names = NULL) const;
+                                             const std::vector<std::string>* names = NULL, bool useVisual = false) const;
 
   void getGroupAndUpdatedJointMarkersGivenState(const planning_models::KinematicState& state,
                                                 visualization_msgs::MarkerArray& arr,

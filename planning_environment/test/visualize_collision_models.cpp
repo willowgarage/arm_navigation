@@ -58,12 +58,14 @@ int main(int argc, char** argv)
 
   ros::Rate r(1.0);
   while(nh.ok()) {
-    
     visualization_msgs::MarkerArray arr;
-    cmodel.getRobotTrimeshMarkersGivenState(state,
-                                            arr,
-                                            false,
-                                            ros::Duration(1.2));                                            
+    std_msgs::ColorRGBA color;
+    color.r = 0.0;
+    color.g = 0.0;
+    color.b = 1.0;
+    color.a = 1.0;
+    std::string label = "trimesh_markers";
+    cmodel.getRobotTrimeshMarkersGivenState(state, arr, false, label, color, ros::Duration(1.2), NULL);
     vis_marker_array_publisher.publish(arr);
     ros::spinOnce();
     r.sleep();
