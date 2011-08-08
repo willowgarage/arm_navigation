@@ -1791,7 +1791,10 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(co
                                                                               visualization_msgs::MarkerArray& arr,
                                                                               const std::string& name,
                                                                               const std_msgs::ColorRGBA& color,
-                                                                              const ros::Duration& lifetime)
+                                                                              const ros::Duration& lifetime,
+                                                                              const bool show_padded,
+                                                                              const std::vector<std::string>* link_names) const
+
 {
   ode_collision_model_->lock();
   std::vector<arm_navigation_msgs::AttachedCollisionObject> attached_objects;
@@ -1803,6 +1806,19 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(co
   ode_collision_model_->getAttachedBodyPoses(att_pose_map);
 
   for(unsigned int i = 0; i < attached_objects.size(); i++) {
+    if(link_names != NULL) {
+      bool found = false;
+      for(unsigned int j = 0; j < link_names->size(); j++) {
+        if(attached_objects[i].link_name == (*link_names)[j]) {
+          found = true;
+          break;
+        }
+      }
+      if(!found) {
+        continue;
+      }
+    }
+
     if(att_pose_map.find(attached_objects[i].object.id) == att_pose_map.end()) {
       ROS_WARN_STREAM("No collision space poses for " << attached_objects[i].object.id); 
       continue;
@@ -1868,7 +1884,9 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
                                                                       const std_msgs::ColorRGBA& color,
                                                                       const std::string& name,
                                                                       const ros::Duration& lifetime,
-                                                                      const std::vector<std::string>* names, bool useVisual) const
+                                                                      const std::vector<std::string>* names,
+                                                                      const double scale,
+                                                                      const bool show_collision_models) const
 {
   boost::shared_ptr<urdf::Model> robot_model = getParsedDescription();
 
@@ -1896,18 +1914,13 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
     {
       continue;
     }
-
-    const urdf::Geometry *geom = NULL;
-
-
-    if(!useVisual)
-    {
+    const urdf::Geometry *geom;
+    if(show_collision_models) {
       geom = urdf_link->collision->geometry.get();
-    }
-    else
-    {
+    } else {
       geom = urdf_link->visual->geometry.get();
     }
+
     if(!geom)
     {
       continue;
@@ -1915,6 +1928,7 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
 
     const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*> (geom);
     const urdf::Box *box = dynamic_cast<const urdf::Box*> (geom);
+    const urdf::Sphere *sphere = dynamic_cast<const urdf::Sphere*> (geom);
     const urdf::Cylinder *cylinder = dynamic_cast<const urdf::Cylinder*> (geom);
 
     const planning_models::KinematicState::LinkState* ls = state.getLinkState(link_names[i]);
@@ -1925,73 +1939,57 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
       continue;
     }
 
+    visualization_msgs::Marker mark;
+    mark.header.frame_id = getWorldFrameId();
+    mark.header.stamp = ros::Time::now();
+    mark.ns = name;
+    mark.id = i;
+    mark.lifetime = lifetime;
+    tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
+    mark.color = color;
+
     if(mesh)
     {
-
       if(mesh->filename.empty())
       {
         continue;
       }
-
-      visualization_msgs::Marker mark;
-      mark.header.frame_id = getWorldFrameId();
-      mark.header.stamp = ros::Time::now();
-      mark.ns = name;
-      mark.id = i;
       mark.type = mark.MESH_RESOURCE;
-      mark.scale.x = 1.0;
-      mark.scale.y = 1.0;
-      mark.scale.z = 1.0;
-      mark.color = color;
+      mark.scale.x = scale;
+      mark.scale.y = scale;
+      mark.scale.z = scale;
       mark.mesh_resource = mesh->filename;
-      mark.lifetime = lifetime;
-      tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
-      arr.markers.push_back(mark);
-
     }
     else if(box)
     {
-      visualization_msgs::Marker mark;
-      mark.header.frame_id = getWorldFrameId();
-      mark.header.stamp = ros::Time::now();
-      mark.ns = name;
-      mark.id = i;
       mark.type = mark.CUBE;
       mark.scale.x = box->dim.x;
       mark.scale.y = box->dim.y;
       mark.scale.z = box->dim.z;
-      mark.color = color;
-      mark.lifetime = lifetime;
-      tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
-      arr.markers.push_back(mark);
     }
     else if(cylinder)
     {
-      visualization_msgs::Marker mark;
-      mark.header.frame_id = getWorldFrameId();
-      mark.header.stamp = ros::Time::now();
-      mark.ns = name;
-      mark.id = i;
       mark.type = mark.CYLINDER;
       mark.scale.x = cylinder->radius;
       mark.scale.y = cylinder->radius;
       mark.scale.z = cylinder->length;
-      mark.color = color;
-      mark.lifetime = lifetime;
-      tf::poseTFToMsg(ls->getGlobalCollisionBodyTransform(), mark.pose);
-      arr.markers.push_back(mark);
+    } else if(sphere) {
+      mark.type = mark.SPHERE;
+      mark.scale.x = mark.scale.y = mark.scale.z = sphere->radius;
+    } else {
+      ROS_WARN_STREAM("Unknown object type for link " << link_names[i]);
+      continue;
     }
-
+    arr.markers.push_back(mark);
   }
 }
 
-void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(const planning_models::KinematicState& state,
-                                                                             visualization_msgs::MarkerArray& arr,
-                                                                             bool use_default_padding,
-                                                                             std::string name_space,
-                                                                             const std_msgs::ColorRGBA& color,
-                                                                             const ros::Duration& lifetime,
-                                                                             const std::vector<std::string>* names) const
+void planning_environment::CollisionModels::getRobotPaddedMarkersGivenState(const planning_models::KinematicState& state,
+                                                                            visualization_msgs::MarkerArray& arr,
+                                                                            const std_msgs::ColorRGBA& color,
+                                                                            const std::string& name,
+                                                                            const ros::Duration& lifetime,
+                                                                            const std::vector<std::string>* names) const
 {
   std::vector<std::string> link_names;
   if(names == NULL)
@@ -2002,124 +2000,28 @@ void planning_environment::CollisionModels::getRobotTrimeshMarkersGivenState(con
   {
     link_names = *names;
   }
-
-
-  unsigned int count = 0;
   for(unsigned int i = 0; i < link_names.size(); i++) {
     const planning_models::KinematicState::LinkState* ls = state.getLinkState(link_names[i]);
     if(ls->getLinkModel()->getLinkShape() == NULL) continue;
-    const shapes::Mesh *mesh = dynamic_cast<const shapes::Mesh*>(ls->getLinkModel()->getLinkShape());
-    if(mesh == NULL) continue;
-    if (mesh->vertexCount > 0 && mesh->triangleCount > 0)
-    {	
-      const btTransform& trans = ls->getGlobalCollisionBodyTransform();
 
-      visualization_msgs::Marker mesh_mark;
-      mesh_mark.header.frame_id = getWorldFrameId();
-      mesh_mark.header.stamp = ros::Time::now();
-      mesh_mark.ns = name_space;
-      mesh_mark.id = count++;
-      mesh_mark.type = mesh_mark.LINE_LIST;
-      mesh_mark.scale.x = mesh_mark.scale.y = mesh_mark.scale.z = .001;	     
-      mesh_mark.color.r = color.r;
-      mesh_mark.color.g = color.g;
-      mesh_mark.color.b = color.b;
-      mesh_mark.color.a = color.a;
-      mesh_mark.lifetime = lifetime;
-      double padding = 0.0;
-      if(use_default_padding) {
-        if(getDefaultLinkPaddingMap().find(ls->getName()) !=
-           getDefaultLinkPaddingMap().end()) {
-          padding = getDefaultLinkPaddingMap().find(ls->getName())->second;
-        }
-      }
-      double *vertices = new double[mesh->vertexCount* 3];
-      double sx = 0.0, sy = 0.0, sz = 0.0;
-      for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
-      {
-        unsigned int i3 = i * 3;
-        vertices[i3] = mesh->vertices[i3];
-        vertices[i3 + 1] = mesh->vertices[i3 + 1];
-        vertices[i3 + 2] = mesh->vertices[i3 + 2];
-        sx += vertices[i3];
-        sy += vertices[i3 + 1];
-        sz += vertices[i3 + 2];
-      }
-      // the center of the mesh
-      sx /= (double)mesh->vertexCount;
-      sy /= (double)mesh->vertexCount;
-      sz /= (double)mesh->vertexCount;
+    const btTransform& trans = ls->getGlobalCollisionBodyTransform();
 
-      // scale the mesh
-      for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i) {
-        unsigned int i3 = i * 3;
-          
-        // vector from center to the vertex
-        double dx = vertices[i3] - sx;
-        double dy = vertices[i3 + 1] - sy;
-        double dz = vertices[i3 + 2] - sz;
-	
-        // length of vector
-        //double norm = sqrt(dx * dx + dy * dy + dz * dz);
-	
-        double ndx = ((dx > 0) ? dx+padding : dx-padding);
-        double ndy = ((dy > 0) ? dy+padding : dy-padding);
-        double ndz = ((dz > 0) ? dz+padding : dz-padding);
-        
-        // the new distance of the vertex from the center
-        //double fact = scale + padding/norm;
-        vertices[i3] = sx + ndx; //dx * fact;
-        vertices[i3 + 1] = sy + ndy; //dy * fact;
-        vertices[i3 + 2] = sz + ndz; //dz * fact;		    
-      }
-      for (unsigned int j = 0 ; j < mesh->triangleCount; ++j) {
-        unsigned int t1ind = mesh->triangles[3*j];
-        unsigned int t2ind = mesh->triangles[3*j + 1];
-        unsigned int t3ind = mesh->triangles[3*j + 2];
+    visualization_msgs::Marker mark;
+    mark.header.frame_id = getWorldFrameId();
+    mark.header.stamp = ros::Time::now();
+    mark.ns = name;
+    mark.id = i;
+    mark.color = color; 
+    mark.lifetime = lifetime;
+    tf::poseTFToMsg(trans, mark.pose);
 
-        btVector3 vec1(vertices[t1ind*3],
-                       vertices[t1ind*3+1],
-                       vertices[t1ind*3+2]);
-
-        btVector3 vec2(vertices[t2ind*3],
-                       vertices[t2ind*3+1],
-                       vertices[t2ind*3+2]);
-
-        btVector3 vec3(vertices[t3ind*3],
-                       vertices[t3ind*3+1],
-                       vertices[t3ind*3+2]);
-
-        vec1 = trans*vec1;
-        vec2 = trans*vec2;
-        vec3 = trans*vec3;
-
-        geometry_msgs::Point pt1;
-        pt1.x = vec1.x();
-        pt1.y = vec1.y();
-        pt1.z = vec1.z();
-
-        geometry_msgs::Point pt2;
-        pt2.x = vec2.x();
-        pt2.y = vec2.y();
-        pt2.z = vec2.z();
-
-        geometry_msgs::Point pt3;
-        pt3.x = vec3.x();
-        pt3.y = vec3.y();
-        pt3.z = vec3.z();
-        
-        mesh_mark.points.push_back(pt1);
-        mesh_mark.points.push_back(pt2);
-        
-        mesh_mark.points.push_back(pt1);
-        mesh_mark.points.push_back(pt3);
-        
-        mesh_mark.points.push_back(pt2);
-        mesh_mark.points.push_back(pt3);
-      }
-      arr.markers.push_back(mesh_mark);
-      delete[] vertices;
+    double padding = 0.0;
+    if(getCurrentLinkPaddingMap().find(ls->getName()) !=
+       getCurrentLinkPaddingMap().end()) {
+      padding = getCurrentLinkPaddingMap().find(ls->getName())->second;
     }
+    setMarkerShapeFromShape(ls->getLinkModel()->getLinkShape(), mark, padding);
+    arr.markers.push_back(mark);
   }
 }
 
@@ -2139,12 +2041,12 @@ void planning_environment::CollisionModels::getGroupAndUpdatedJointMarkersGivenS
 
   std::vector<std::string> group_link_names = jmg->getGroupLinkNames();      
   getRobotMarkersGivenState(state,
-                                        arr,
-                                        group_color,
-                                        group_name,
-                                        lifetime,
-                                        &group_link_names);
-      
+                            arr,
+                            group_color,
+                            group_name,
+                            lifetime,
+                            &group_link_names);
+  
   std::vector<std::string> updated_link_model_names = jmg->getUpdatedLinkModelNames();
   std::map<std::string, bool> dont_include;
   for(unsigned int i = 0; i < group_link_names.size(); i++) {
@@ -2158,11 +2060,11 @@ void planning_environment::CollisionModels::getGroupAndUpdatedJointMarkersGivenS
     }
   }
   getRobotMarkersGivenState(state,
-                                        arr,
-                                        updated_color,
-                                        group_name+"_updated_links",
-                                        lifetime,
-                                        &ex_list);
+                            arr,
+                            updated_color,
+                            group_name+"_updated_links",
+                            lifetime,
+                            &ex_list);
 
 }
 

@@ -103,8 +103,7 @@ int main(int argc, char** argv)
                                              attached_color,
                                              ros::Duration(.2));
 
-    std::string label = "trimesh_markers";
-    cmodel.getRobotTrimeshMarkersGivenState(*state, arr, true, label, stat_color,ros::Duration(.2), NULL);
+    cmodel.getRobotPaddedMarkersGivenState(*state, arr, stat_color, "robot", ros::Duration(.2));
 
     vis_marker_array_publisher.publish(arr);
     ros::spinOnce();

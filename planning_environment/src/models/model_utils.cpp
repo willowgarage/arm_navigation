@@ -410,30 +410,30 @@ void planning_environment::setMarkerShapeFromShape(const arm_navigation_msgs::Sh
   }
 }
 
-void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marker &mk)
+void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marker &mk, double padding)
 {
   switch (obj->type)
   {
   case shapes::SPHERE:
     mk.type = visualization_msgs::Marker::SPHERE;
-    mk.scale.x = mk.scale.y = mk.scale.z = static_cast<const shapes::Sphere*>(obj)->radius * 2.0;
+    mk.scale.x = mk.scale.y = mk.scale.z = static_cast<const shapes::Sphere*>(obj)->radius * 2.0 + padding;
     break;
     
   case shapes::BOX:
     mk.type = visualization_msgs::Marker::CUBE;
     {
       const double *size = static_cast<const shapes::Box*>(obj)->size;
-      mk.scale.x = size[0];
-      mk.scale.y = size[1];
-      mk.scale.z = size[2];
+      mk.scale.x = size[0] + padding*2.0;
+      mk.scale.y = size[1] + padding*2.0;
+      mk.scale.z = size[2] + padding*2.0;
     }
     break;
     
   case shapes::CYLINDER:
     mk.type = visualization_msgs::Marker::CYLINDER;
-    mk.scale.x = static_cast<const shapes::Cylinder*>(obj)->radius * 2.0;
+    mk.scale.x = static_cast<const shapes::Cylinder*>(obj)->radius * 2.0 + padding;
     mk.scale.y = mk.scale.x;
-    mk.scale.z = static_cast<const shapes::Cylinder*>(obj)->length;
+    mk.scale.z = static_cast<const shapes::Cylinder*>(obj)->length + padding*2.0;
     break;
     
   case shapes::MESH:
@@ -441,37 +441,95 @@ void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, vis
     mk.scale.x = mk.scale.y = mk.scale.z = 0.001;
     {	   
       const shapes::Mesh *mesh = static_cast<const shapes::Mesh*>(obj);
-      unsigned int nt = mesh->triangleCount / 3;
-      for (unsigned int i = 0 ; i < nt ; ++i)
+      double* vertices = new double[mesh->vertexCount * 3];
+      double sx = 0.0, sy = 0.0, sz = 0.0;
+      for(unsigned int i = 0; i < mesh->vertexCount; ++i) {
+        unsigned int i3 = i * 3;
+        vertices[i3] = mesh->vertices[i3];
+        vertices[i3 + 1] = mesh->vertices[i3 + 1];
+        vertices[i3 + 2] = mesh->vertices[i3 + 2];
+        sx += vertices[i3];
+        sy += vertices[i3 + 1];
+        sz += vertices[i3 + 2];
+      }
+      // the center of the mesh
+      sx /= (double)mesh->vertexCount;
+      sy /= (double)mesh->vertexCount;
+      sz /= (double)mesh->vertexCount;
+      
+      for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
       {
-        unsigned int v = mesh->triangles[3*i];
-        geometry_msgs::Point pt1;
-        pt1.x = mesh->vertices[v];
-        pt1.y = mesh->vertices[v+1];
-        pt1.z = mesh->vertices[v+2];
-        mk.points.push_back(pt1);
+        unsigned int i3 = i * 3;
+	
+        // vector from center to the vertex
+        double dx = vertices[i3] - sx;
+        double dy = vertices[i3 + 1] - sy;
+        double dz = vertices[i3 + 2] - sz;
+	
+        // length of vector
+        //double norm = sqrt(dx * dx + dy * dy + dz * dz);
+	
+        double ndx = ((dx > 0) ? dx+padding : dx-padding);
+        double ndy = ((dy > 0) ? dy+padding : dy-padding);
+        double ndz = ((dz > 0) ? dz+padding : dz-padding);
         
-        v = mesh->triangles[3*i + 1];
+        // the new distance of the vertex from the center
+        //double fact = scale + padding/norm;
+        vertices[i3] = sx + ndx; //dx * fact;
+        vertices[i3 + 1] = sy + ndy; //dy * fact;
+        vertices[i3 + 2] = sz + ndz; //dz * fact;		    
+      }
+      
+      btTransform trans;
+      tf::poseMsgToTF(mk.pose, trans);
+
+      for (unsigned int j = 0 ; j < mesh->triangleCount; ++j) {
+        unsigned int t1ind = mesh->triangles[3*j];
+        unsigned int t2ind = mesh->triangles[3*j + 1];
+        unsigned int t3ind = mesh->triangles[3*j + 2];
+        
+        btVector3 vec1(vertices[t1ind*3],
+                       vertices[t1ind*3+1],
+                       vertices[t1ind*3+2]);
+        
+        btVector3 vec2(vertices[t2ind*3],
+                       vertices[t2ind*3+1],
+                       vertices[t2ind*3+2]);
+        
+        btVector3 vec3(vertices[t3ind*3],
+                       vertices[t3ind*3+1],
+                       vertices[t3ind*3+2]);
+        
+        //vec1 = trans*vec1;
+        //vec2 = trans*vec2;
+        //vec3 = trans*vec3;
+        
+        geometry_msgs::Point pt1;
+        pt1.x = vec1.x();
+        pt1.y = vec1.y();
+        pt1.z = vec1.z();
+        
         geometry_msgs::Point pt2;
-        pt2.x = mesh->vertices[v];
-        pt2.y = mesh->vertices[v+1];
-        pt2.z = mesh->vertices[v+2];
+        pt2.x = vec2.x();
+        pt2.y = vec2.y();
+        pt2.z = vec2.z();
+        
+        geometry_msgs::Point pt3;
+        pt3.x = vec3.x();
+        pt3.y = vec3.y();
+        pt3.z = vec3.z();
+        
+        mk.points.push_back(pt1);
         mk.points.push_back(pt2);
         
         mk.points.push_back(pt1);
-        
-        v = mesh->triangles[3*i + 2];
-        geometry_msgs::Point pt3;
-        pt3.x = mesh->vertices[v];
-        pt3.y = mesh->vertices[v+1];
-        pt3.z = mesh->vertices[v+2];
         mk.points.push_back(pt3);
         
         mk.points.push_back(pt2);
         mk.points.push_back(pt3);
       }
+      delete[] vertices;
     }
-    
     break;
     
   default:
