@@ -65,6 +65,9 @@ bool MultiArmKinematicsConstraintAware::initialize(const std::vector<std::string
                                                    planning_environment::CollisionModelsInterface *collision_models_interface)
 {
   group_names_ = group_names;
+
+  for(unsigned int i=0; i < group_names.size(); i++)
+    ROS_INFO("Group name : %d, %s",i,group_names_[i].c_str());
   kinematics_solver_names_ = kinematics_solver_names;
   end_effector_link_names_ = end_effector_link_names;
   collision_models_interface_ = collision_models_interface;
@@ -108,7 +111,11 @@ bool MultiArmKinematicsConstraintAware::initialize(const std::vector<std::string
 	  }
     std::vector<std::string> arm_links = joint_model_group->getGroupLinkNames();
     for(unsigned int j=0; j < arm_links.size(); j++)
+    {
       arm_links_.push_back(arm_links[j]);
+      ROS_INFO("Adding arm link %s",arm_links_.back().c_str());
+    }
+
     //    arm_links_.insert(arm_links_.end(),joint_model_group->getGroupLinkNames());
     const planning_models::KinematicModel::LinkModel* end_effector_link = collision_models_interface_->getKinematicModel()->getLinkModel(end_effector_link_names[i]);
     end_effector_collision_links_[i] = collision_models_interface_->getKinematicModel()->getChildLinkModelNames(end_effector_link);
@@ -216,6 +223,15 @@ bool MultiArmKinematicsConstraintAware::getPositionIK(const std::vector<geometry
 
   for(unsigned int i=0; i < num_groups_; i++)
   {
+    ROS_INFO("Pose: %d",i);
+    ROS_INFO("Position: %f %f %f",poses[i].position.x,
+             poses[i].position.y,
+             poses[i].position.z);
+
+    ROS_INFO("Orientation: %f %f %f %f",poses[i].orientation.x,
+             poses[i].orientation.y,
+             poses[i].orientation.z,
+             poses[i].orientation.w);
     bool ik_valid = kinematics_solvers_[i]->getPositionIK(poses[i],
                                                           seed_states[i],
                                                           solutions[i],
@@ -274,6 +290,16 @@ bool MultiArmKinematicsConstraintAware::checkJointStates(const std::vector<std::
   return true;
 }
 
+bool MultiArmKinematicsConstraintAware::checkMotion(const std::vector<std::vector<double> > &start,
+                                                    const std::vector<std::vector<double> > &end)
+{
+  if(start.size() != num_groups_ || end.size() != num_groups_)
+  {
+    ROS_ERROR("Vectors must have same size as number of groups");
+    return false;
+  }
+}
+
 bool MultiArmKinematicsConstraintAware::checkEndEffectorStates(const std::vector<geometry_msgs::Pose> &poses,
                                                                double &timeout,
                                                                std::vector<int> &error_codes)
@@ -291,6 +317,26 @@ bool MultiArmKinematicsConstraintAware::checkEndEffectorStates(const std::vector
     timeout -= (ros::Time::now()-start_time).toSec();  
     return false;
   }
+
+  std::string planning_frame_id = collision_models_interface_->getWorldFrameId();
+  std::vector<geometry_msgs::Pose> transformed_poses;
+  for(unsigned int i=0; i < num_groups_; i++)
+  {
+    geometry_msgs::PoseStamped pose_stamped;
+    pose_stamped.pose = poses[i];
+    pose_stamped.header.stamp = ros::Time::now();
+    pose_stamped.header.frame_id = base_frame_;
+    if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                    planning_frame_id,
+                                                                    pose_stamped.header,
+                                                                    pose_stamped.pose,
+                                                                    pose_stamped)) {
+      ROS_ERROR_STREAM("Cannot transform from " << pose_stamped.header.frame_id << " to " << planning_frame_id);
+      return false;
+    }
+    transformed_poses.push_back(pose_stamped.pose);
+  }
+
   //disabling all collision for arm links
   collision_space::EnvironmentModel::AllowedCollisionMatrix save_acm = collision_models_interface_->getCurrentAllowedCollisionMatrix();
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = save_acm;
@@ -303,25 +349,29 @@ bool MultiArmKinematicsConstraintAware::checkEndEffectorStates(const std::vector
   for(unsigned int i=0; i < num_groups_; i++)
   {
     btTransform transform;
-    tf::poseMsgToTF(poses[i],transform);
-    ROS_INFO("Checking link %s",end_effector_link_names_[i].c_str());
+    tf::poseMsgToTF(transformed_poses[i],transform);
+    ROS_DEBUG("Checking link %s",end_effector_link_names_[i].c_str());
     if(!collision_models_interface_->getPlanningSceneState()->updateKinematicStateWithLinkAt(end_effector_link_names_[i], transform))
     {
       ROS_ERROR("Could not transform link state for %s",end_effector_link_names_[i].c_str());
-      return false;
-    }
-    if(collision_models_interface_->isKinematicStateInCollision(*(collision_models_interface_->getPlanningSceneState()))) 
-    {
-      error_codes[i] = kinematics::IK_LINK_IN_COLLISION;
-      ROS_DEBUG_STREAM("Initial pose check failing");
-      sendEndEffectorPoseToVisualizer(collision_models_interface_->getPlanningSceneState(), false);
       collision_models_interface_->setAlteredAllowedCollisionMatrix(save_acm);
-      timeout -= (ros::Time::now()-start_time).toSec();  
       return false;
     }
-    else
-      error_codes[i] = kinematics::SUCCESS;
   }
+
+  if(collision_models_interface_->isKinematicStateInCollision(*(collision_models_interface_->getPlanningSceneState()))) 
+  {
+    for(unsigned int i =0; i < num_groups_; i++)
+      error_codes[i] = kinematics::IK_LINK_IN_COLLISION;
+    //      sendEndEffectorPoseToVisualizer(collision_models_interface_->getPlanningSceneState(), false);
+    collision_models_interface_->setAlteredAllowedCollisionMatrix(save_acm);
+    timeout -= (ros::Time::now()-start_time).toSec();  
+    return false;
+  }
+  else
+    for(unsigned int i =0; i < num_groups_; i++)
+      error_codes[i] = kinematics::SUCCESS;
+
   collision_models_interface_->setAlteredAllowedCollisionMatrix(save_acm);
   timeout -= (ros::Time::now()-start_time).toSec();  
   return true;
@@ -426,13 +476,30 @@ bool MultiArmKinematicsConstraintAware::searchConstraintAwarePositionIK(const st
     timeout -= (ros::Time::now()-start_time).toSec();
     return false;
   }
+
+  for(unsigned int i=0; i < num_groups_; i++)
+  {
+    ROS_DEBUG("Pose: %d",i);
+    ROS_DEBUG("Position: %f %f %f",poses[i].position.x,
+             poses[i].position.y,
+             poses[i].position.z);
+    
+    ROS_DEBUG("Orientation: %f %f %f %f",poses[i].orientation.x,
+             poses[i].orientation.y,
+             poses[i].orientation.z,
+             poses[i].orientation.w);
+  }
+  
   if(!checkEndEffectorStates(poses,timeout,error_codes))
+  {
+    ROS_ERROR("End effector state was not valid");
     return false;
+  }
 
   std::vector<std::vector<double> > seed_states_random = seed_states;
   while(timeout >= 0.0)
   {
-    bool ik_valid = true;
+    bool ik_valid = false;
     for(unsigned int i=0; i < num_groups_; i++)
     {
       ik_valid = kinematics_solvers_[i]->searchPositionIK(poses[i],
@@ -444,14 +511,30 @@ bool MultiArmKinematicsConstraintAware::searchConstraintAwarePositionIK(const st
       timeout -= (ros::Time::now()-start_time).toSec();
       if(!ik_valid)
       {
-        ROS_DEBUG("Could not find IK solution for arm %s",group_names_[i].c_str());
+        ROS_INFO("Could not find IK solution for arm %s",group_names_[i].c_str());
+        ROS_INFO("Pose: %d",i);
+        ROS_INFO("Position: %f %f %f",poses[i].position.x,
+                 poses[i].position.y,
+                 poses[i].position.z);
+        
+        ROS_INFO("Orientation: %f %f %f %f",poses[i].orientation.x,
+                 poses[i].orientation.y,
+                 poses[i].orientation.z,
+                 poses[i].orientation.w);
         break;
       }
     }
     int error_code;
     if(ik_valid)
+    {
       if(checkJointStates(solutions,empty_constraints,timeout,error_code))
         return true;
+      else
+      {
+        for(unsigned int j=0; j < error_codes.size(); j++)
+          error_codes[j] = error_code;
+      }
+    }
     generateRandomState(seed_states_random);
   }
   return false;
