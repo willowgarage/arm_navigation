@@ -39,8 +39,8 @@
 
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
-#include <motion_planning_msgs/Constraints.h>
-#include <geometric_shapes_msgs/Shape.h>
+#include <arm_navigation_msgs/Constraints.h>
+#include <arm_navigation_msgs/Shape.h>
 #include <geometric_shapes/bodies.h>
 #include <geometry_msgs/Pose.h>
 #include <iostream>
@@ -50,7 +50,7 @@
 
 namespace planning_environment
 {
-bool createConstraintRegionFromMsg(const geometric_shapes_msgs::Shape &constraint_region_shape, 
+bool createConstraintRegionFromMsg(const arm_navigation_msgs::Shape &constraint_region_shape, 
                                    const geometry_msgs::Pose &constraint_region_pose, 
                                    boost::scoped_ptr<bodies::Body> &body);
 
@@ -69,9 +69,6 @@ public:
   /** \brief Clear the stored constraint */
   virtual void clear(void) = 0;
 
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc) = 0;
-	
   /** \brief Decide whether the constraint is satisfied in the indicated state or group, if specified */
   virtual bool decide(const planning_models::KinematicState *state,
                       bool verbose=false) const = 0;
@@ -92,10 +89,7 @@ public:
   }
 	
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  bool use(const motion_planning_msgs::JointConstraint &jc);
+  bool use(const arm_navigation_msgs::JointConstraint &jc);
 
   /** \brief Decide whether the constraint is satisfied in the indicated state or group, if specified */
   virtual bool decide(const planning_models::KinematicState  *state,
@@ -108,11 +102,11 @@ public:
   virtual void print(std::ostream &out = std::cout) const;
 
   /** \brief Get the constraint message */
-  const motion_planning_msgs::JointConstraint& getConstraintMessage(void) const;
+  const arm_navigation_msgs::JointConstraint& getConstraintMessage(void) const;
 
 protected:
 	
-  motion_planning_msgs::JointConstraint         m_jc;
+  arm_navigation_msgs::JointConstraint         m_jc;
   const planning_models::KinematicModel::JointModel *m_joint;    
 };
     
@@ -126,10 +120,7 @@ public:
   }
 	
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  bool use(const motion_planning_msgs::OrientationConstraint &pc);
+  bool use(const arm_navigation_msgs::OrientationConstraint &pc);
 
   /** \brief Clear the stored constraint */
   virtual void clear(void);
@@ -148,11 +139,11 @@ public:
   void print(std::ostream &out = std::cout) const;
 
   /** \brief Get the constraint message */
-  const motion_planning_msgs::OrientationConstraint& getConstraintMessage(void) const;
+  const arm_navigation_msgs::OrientationConstraint& getConstraintMessage(void) const;
 	
 protected:
 	
-  motion_planning_msgs::OrientationConstraint  m_oc;
+  arm_navigation_msgs::OrientationConstraint  m_oc;
   double m_roll, m_pitch, m_yaw;
   btMatrix3x3 m_rotation_matrix;
   boost::scoped_ptr<bodies::Body> m_constraint_region;
@@ -168,10 +159,7 @@ public:
   }
 	
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  bool use(const motion_planning_msgs::VisibilityConstraint &vc);
+  bool use(const arm_navigation_msgs::VisibilityConstraint &vc);
 
   /** \brief Clear the stored constraint */
   virtual void clear(void);
@@ -184,10 +172,10 @@ public:
   void print(std::ostream &out = std::cout) const;
 
   /** \brief Get the constraint message */
-  const motion_planning_msgs::VisibilityConstraint& getConstraintMessage(void) const;
+  const arm_navigation_msgs::VisibilityConstraint& getConstraintMessage(void) const;
 	
 protected:	
-  motion_planning_msgs::VisibilityConstraint  m_vc;
+  arm_navigation_msgs::VisibilityConstraint  m_vc;
   btTransform m_sensor_offset_pose;
 };
 
@@ -200,10 +188,7 @@ public:
   }
 	
   /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  virtual bool use(const ros::Message *kc);
-
-  /** \brief This function assumes the constraint has been transformed into the proper frame, if such a transform is needed */
-  bool use(const motion_planning_msgs::PositionConstraint &pc);
+  bool use(const arm_navigation_msgs::PositionConstraint &pc);
 
   /** \brief Clear the stored constraint */
   virtual void clear(void);
@@ -222,11 +207,11 @@ public:
   void print(std::ostream &out = std::cout) const;
 
   /** \brief Get the constraint message */
-  const motion_planning_msgs::PositionConstraint& getConstraintMessage(void) const;
+  const arm_navigation_msgs::PositionConstraint& getConstraintMessage(void) const;
 	
 protected:
 	
-  motion_planning_msgs::PositionConstraint     m_pc;
+  arm_navigation_msgs::PositionConstraint     m_pc;
   double                                       m_x, m_y, m_z;
   btVector3                                    m_offset;
   boost::scoped_ptr<bodies::Body> m_constraint_region;
@@ -249,16 +234,16 @@ public:
   void clear(void);
 	
   /** \brief Add a set of joint constraints */
-  bool add(const std::vector<motion_planning_msgs::JointConstraint> &jc);
+  bool add(const std::vector<arm_navigation_msgs::JointConstraint> &jc);
 
   /** \brief Add a set of position constraints */
-  bool add(const std::vector<motion_planning_msgs::PositionConstraint> &pc);
+  bool add(const std::vector<arm_navigation_msgs::PositionConstraint> &pc);
 
   /** \brief Add a set of orientation constraints */
-  bool add(const std::vector<motion_planning_msgs::OrientationConstraint> &pc);
+  bool add(const std::vector<arm_navigation_msgs::OrientationConstraint> &pc);
 
   /** \brief Add a set of orientation constraints */
-  bool add(const std::vector<motion_planning_msgs::VisibilityConstraint> &pc);
+  bool add(const std::vector<arm_navigation_msgs::VisibilityConstraint> &pc);
 	
   /** \brief Decide whether the set of constraints is satisfied  */
   bool decide(const planning_models::KinematicState* state,
@@ -268,19 +253,19 @@ public:
   void print(std::ostream &out = std::cout) const;
 	
   /** \brief Get the active position constraints */
-  const std::vector<motion_planning_msgs::PositionConstraint>& getPositionConstraints(void) const
+  const std::vector<arm_navigation_msgs::PositionConstraint>& getPositionConstraints(void) const
   {
     return m_pc;
   }
 
   /** \brief Get the active orientation constraints */
-  const std::vector<motion_planning_msgs::OrientationConstraint>& getOrientationConstraints(void) const
+  const std::vector<arm_navigation_msgs::OrientationConstraint>& getOrientationConstraints(void) const
   {
     return m_oc;
   }
 
   /** \brief Get the active pose constraints */
-  const std::vector<motion_planning_msgs::JointConstraint>& getJointConstraints(void) const
+  const std::vector<arm_navigation_msgs::JointConstraint>& getJointConstraints(void) const
   {
     return m_jc;
   }
@@ -288,11 +273,11 @@ public:
 protected:
 	
   std::vector<KinematicConstraintEvaluator*>         m_kce;
-  std::vector<motion_planning_msgs::JointConstraint> m_jc;
+  std::vector<arm_navigation_msgs::JointConstraint> m_jc;
 
-  std::vector<motion_planning_msgs::PositionConstraint>  m_pc;
-  std::vector<motion_planning_msgs::OrientationConstraint>  m_oc;
-  std::vector<motion_planning_msgs::VisibilityConstraint> m_vc;
+  std::vector<arm_navigation_msgs::PositionConstraint>  m_pc;
+  std::vector<arm_navigation_msgs::OrientationConstraint>  m_oc;
+  std::vector<arm_navigation_msgs::VisibilityConstraint> m_vc;
 };
 } // planning_environment
 

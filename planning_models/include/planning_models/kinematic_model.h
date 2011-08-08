@@ -90,6 +90,34 @@ public:
     /** \brief The mapping between internally defined DOF names and externally defined DOF names */
     std::map<std::string, std::string> name_equivalents;
   };
+
+  struct GroupConfig
+  {
+    GroupConfig() { 
+    }
+
+    GroupConfig(std::string name, 
+                std::string base_link,
+                std::string tip_link) 
+      : name_(name), base_link_(base_link), tip_link_(tip_link)
+    {
+    }
+
+    GroupConfig(std::string name,
+                std::vector<std::string> joints,
+                std::vector<std::string> subgroups) 
+      : name_(name)
+    {
+      joints_ = joints;
+      subgroups_ = subgroups;
+    }
+
+    std::string name_;
+    std::string base_link_;
+    std::string tip_link_;
+    std::vector<std::string> joints_;
+    std::vector<std::string> subgroups_;
+  };
   
   /** \brief A joint from the robot. Contains the transform applied by the joint type */
   class JointModel
@@ -142,13 +170,20 @@ public:
       return computation_order_map_index_;
     }
     /** \brief Gets the joint state equivalent for given name */  
-    std::string getEquiv(const std::string name) const;
+    std::string getEquiv(const std::string& name) const;
 
     /** \brief Gets the lower and upper bounds for a variable */
-    std::pair<double, double> getVariableBounds(std::string variable) const;
+    bool getVariableBounds(const std::string& variable, std::pair<double, double>& bounds) const;
    
     /** \brief Sets the lower and upper bounds for a variable */
-    void setVariableBounds(std::string variable, double low, double high);
+    bool setVariableBounds(const std::string& variable, double low, double high);
+
+    /** \brief Provides a default value for the joint given the joint bounds.
+        Most joints will use the default, but the quaternion for floating
+        point values needs something else */
+    virtual void getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const;
+    
+    virtual bool isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const; 
 
     const std::map<std::string, std::pair<double, double> >& getAllVariableBounds() const {
       return joint_state_bounds_;
@@ -251,6 +286,8 @@ public:
     
     virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
 
+    virtual void getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const;
+
   };
 
   /** \brief A prismatic joint */
@@ -290,6 +327,9 @@ public:
     virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
     
     virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+    
+    //so we can return true for continuous joints
+    virtual bool isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const;
   };
 	
   /** \brief A link from the robot. Contains the constant transform applied to the link and its geometry */
@@ -434,9 +474,11 @@ public:
     friend class KinematicModel;
   public:
 	    
-    JointModelGroup(
-                    const std::string& groupName, 
-                    const std::vector<const JointModel*> &groupJoints);
+    JointModelGroup(const std::string& name,
+                    const std::vector<const JointModel*>& joint_vector,
+                    const std::vector<const JointModel*>& fixed_joint_vector,
+                    const KinematicModel* parent_model);
+    
     ~JointModelGroup(void);
 
     const std::string& getName() const
@@ -454,10 +496,34 @@ public:
     {
       return joint_model_vector_;
     }
+
+    const std::vector<const JointModel*>& getFixedJointModels() const
+    {
+      return fixed_joint_model_vector_;
+    }
     
     const std::vector<std::string>& getJointModelNames() const
     {
       return joint_model_name_vector_;
+    }
+
+    const std::vector<const JointModel*>& getJointRoots() const
+    {
+      return joint_roots_;
+    }
+
+    const std::vector<const LinkModel*>& getGroupLinkModels() const
+    {
+      return group_link_model_vector_;
+    }
+
+    std::vector<std::string> getGroupLinkNames() const
+    {
+      std::vector<std::string> ret_vec;
+      for(unsigned int i = 0; i < group_link_model_vector_.size(); i++) {
+        ret_vec.push_back(group_link_model_vector_[i]->getName());
+      }
+      return ret_vec;
     }
 
     const std::vector<const LinkModel*>& getUpdatedLinkModels() const
@@ -465,12 +531,18 @@ public:
       return updated_link_model_vector_;
     }
 
-    const std::vector<const JointModel*>& getJointRoots() const
+    std::vector<std::string> getUpdatedLinkModelNames() const
     {
-      return joint_roots_;
-    }
-    
+      std::vector<std::string> ret_vec;
+      for(unsigned int i = 0; i < updated_link_model_vector_.size(); i++) {
+        ret_vec.push_back(updated_link_model_vector_[i]->getName());
+      }
+      return ret_vec;
+    }    
+
   private:
+
+    bool is_valid_;
 
     /** \brief Name of group */
     std::string name_;
@@ -481,15 +553,23 @@ public:
     /** \brief Joint instances in the order they appear in the group state */
     std::vector<const JointModel*> joint_model_vector_;
 
+    /** \brief Fixed joint instances in this group */
+    std::vector<const JointModel*> fixed_joint_model_vector_;
+
     /** \brief A map from joint names to their instances */
     std::map<std::string, const JointModel*> joint_model_map_;
 
-     /** \brief The list of joint models that are roots in this group */
+    /** \brief The list of joint models that are roots in this group */
     std::vector<const JointModel*> joint_roots_;
 
-    /** \brief The list of child link_models in the order they should be updated */
+    /** \brief The links that are on the direct lineage between joints
+        and joint_roots_, as well as the children of the joint leafs.
+        May not be in any particular order */
+    std::vector<const LinkModel*> group_link_model_vector_;
+
+    /** \brief The list of downstream link models in the order they should be updated */
     std::vector<const LinkModel*> updated_link_model_vector_;
-	    
+
   };
 
   /** \brief Construct a kinematic model from another one */
@@ -497,7 +577,7 @@ public:
 
   /** \brief Construct a kinematic model from a parsed description and a list of planning groups */
   KinematicModel(const urdf::Model &model, 
-                 const std::map< std::string, std::vector<std::string> > &groups, 
+                 const std::vector<GroupConfig>& group_configs,
                  const std::vector<MultiDofConfig>& multi_dof_configs);
 	
   /** \brief Destructor. Clear all memory. */
@@ -505,8 +585,6 @@ public:
 
   void copyFrom(const KinematicModel &source);
 
-  void defaultState(void);
-	
   /** \brief General the model name **/
   const std::string& getName(void) const;
 
@@ -519,9 +597,30 @@ public:
   /** \brief Get the link names in the order they should be updated */
   void getLinkModelNames(std::vector<std::string> &links) const;
 
-  /** \brief Get the set of links that follow a parent link in the kinematic chain */
+  /** \brief Get the set of link models that follow a parent link in the kinematic chain */
   void getChildLinkModels(const LinkModel* parent, std::vector<const LinkModel*> &links) const;
+
+  /** \brief Get the set of link models that follow a parent joint in the kinematic chain */
+  void getChildLinkModels(const JointModel* parent, std::vector<const LinkModel*> &links) const;
+
+  /** \brief Get the set of joint models that follow a parent link in the kinematic chain */
+  void getChildJointModels(const LinkModel* parent, std::vector<const JointModel*> &links) const;
+
+  /** \brief Get the set of joint models that follow a parent joint in the kinematic chain */
+  void getChildJointModels(const JointModel* parent, std::vector<const JointModel*> &links) const;
   
+  /** \brief Get the set of link names that follow a parent link in the kinematic chain */
+  std::vector<std::string> getChildLinkModelNames(const LinkModel* parent) const;
+
+  /** \brief Get the set of joint names that follow a parent link in the kinematic chain */
+  std::vector<std::string> getChildJointModelNames(const LinkModel* parent) const;
+
+  /** \brief Get the set of joint names that follow a parent joint in the kinematic chain */
+  std::vector<std::string> getChildJointModelNames(const JointModel* parent) const;
+
+  /** \brief Get the set of link names that follow a parent link in the kinematic chain */
+  std::vector<std::string> getChildLinkModelNames(const JointModel* parent) const;
+
   /** \brief Get a joint by its name */
   const JointModel* getJointModel(const std::string &joint) const;
 
@@ -539,6 +638,11 @@ public:
   const std::vector<LinkModel*>& getLinkModels() const
   {
     return link_model_vector_;
+  }
+
+  const std::vector<LinkModel*>& getLinkModelsWithCollisionGeometry() const
+  {
+    return link_models_with_collision_geometry_vector_;
   }
 	
   /** \brief Get the array of joint names, in the order they
@@ -565,6 +669,10 @@ public:
 
   bool hasModelGroup(const std::string& group) const;
 
+  bool addModelGroup(const GroupConfig& group);
+
+  void removeModelGroup(const std::string& group);
+
   const JointModelGroup* getModelGroup(const std::string& name) const
   {
     if(!hasModelGroup(name)) return NULL;
@@ -574,6 +682,10 @@ public:
   const std::map<std::string, JointModelGroup*>& getJointModelGroupMap() const
   {
     return joint_model_group_map_;
+  }
+
+  const std::map<std::string, GroupConfig>& getJointModelGroupConfigMap() const {
+    return joint_model_group_config_map_;
   }
 
   void getModelGroupNames(std::vector<std::string>& getModelGroupNames) const;
@@ -587,6 +699,12 @@ public:
   void replaceAttachedBodyModels(const std::string& link_name, std::vector<AttachedBodyModel*>& attached_body_vector);
 
   void addAttachedBodyModel(const std::string& link_name, AttachedBodyModel* att_body_model);
+
+  std::vector<const AttachedBodyModel*> getAttachedBodyModels() const;
+
+  std::string getRobotName() const {
+    return model_name_;
+  }
 	
 private:
 	
@@ -608,12 +726,16 @@ private:
   /** \brief The vector of links that are updated when computeTransforms() is called, in the order they are updated */
   std::vector<LinkModel*> link_model_vector_;	
 	
+  /** \brief Only links that have collision geometry specified */
+  std::vector<LinkModel*> link_models_with_collision_geometry_vector_;
+
   /** \brief The root joint */
   JointModel *root_;
 	
   std::map<std::string, JointModelGroup*> joint_model_group_map_;
+  std::map<std::string, GroupConfig> joint_model_group_config_map_;
 
-  void buildGroups(const std::map< std::string, std::vector<std::string> > &groups);
+  void buildGroups(const std::vector<GroupConfig>&);
   JointModel* buildRecursive(LinkModel *parent, const urdf::Link *link, 
                              const std::vector<MultiDofConfig>& multi_dof_configs);
   JointModel* constructJointModel(const urdf::Joint *urdfJointModel,  const urdf::Link *child_link,

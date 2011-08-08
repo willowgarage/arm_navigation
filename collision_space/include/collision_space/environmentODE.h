@@ -47,7 +47,7 @@ namespace collision_space
 /** \brief A class describing an environment for a kinematic robot using ODE */
 class EnvironmentModelODE : public EnvironmentModel
 {     
-	
+  
   friend void nearCallbackFn(void *data, dGeomID o1, dGeomID o2);
 	
 public:
@@ -55,28 +55,29 @@ public:
   EnvironmentModelODE(void);
   virtual ~EnvironmentModelODE(void);
 
-  /** \brief Add a group of links to be checked for self collision */
-  virtual void addSelfCollisionGroup(const std::vector<std::string> &group1,
-                                     const std::vector<std::string> &group2);
-
-  /** \brief Remove a group of links to be checked for self collision */
-  virtual void removeSelfCollisionGroup(const std::vector<std::string> &group1,
-                                        const std::vector<std::string> &group2);
-
   /** \brief Get the list of contacts (collisions) */
-  virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1);
+  virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) const;
+
+  /** \brief This function will get the complete list of contacts between any two potentially colliding bodies.  The num per contacts specifies the number of contacts per pair that will be returned */
+  virtual bool getAllCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int num_per_contact = 1) const;
 
   /** \brief Check if a model is in collision */
-  virtual bool isCollision(void);
+  virtual bool isCollision(void) const;
 
   /** \brief Check if a model is in self collision */
-  virtual bool isSelfCollision(void);
+  virtual bool isSelfCollision(void) const;
+
+  /** \brief Check if a model is in environment collision */
+  virtual bool isEnvironmentCollision(void) const;
 	
   /** \brief Remove all objects from collision model */
   virtual void clearObjects(void);
 	
   /** \brief Remove objects from a specific namespace in the collision model */
   virtual void clearObjects(const std::string &ns);
+
+  /** \brief Tells whether or not there is an object with the given name in the collision model */
+  virtual bool hasObject(const std::string& ns) const;
 		
   /** \brief Add a static collision object to the map. The user releases ownership of the passed object. Memory allocated for the shape is freed by the collision environment. */
   virtual void addObject(const std::string &ns, shapes::StaticShape *shape);
@@ -87,24 +88,16 @@ public:
   /** \brief Add a set of collision objects to the map. The user releases ownership of the passed objects. Memory allocated for the shapes is freed by the collision environment. */
   virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses);
 
-  /** \brief Remove objects in the collision space that are collising with the object supplied as argument */
-  virtual void removeCollidingObjects(const shapes::StaticShape *shape);
+  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const;
 
-  /** \brief Remove objects in the collision space that are collising with the object supplied as argument */
-  virtual void removeCollidingObjects(const shapes::Shape *shape, const btTransform &pose);
-
-  virtual const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> getAttachedBodies(void) const;
-
-  virtual const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> getAttachedBodies(const std::string link_name) const;
-	
   /** \brief Add a robot model. Ignore robot links if their name is not
       specified in the string vector. The scale argument can be
       used to increase or decrease the size of the robot's
       bodies (multiplicative factor). The padding can be used to
       increase or decrease the robot's bodies with by an
       additive term */
-  virtual void setRobotModel(const boost::shared_ptr<const planning_models::KinematicModel> &model, 
-                             const std::vector<std::string> &links, 
+  virtual void setRobotModel(const planning_models::KinematicModel* model, 
+                             const AllowedCollisionMatrix& allowed_collision_matrix,
                              const std::map<std::string, double>& link_padding_map,
                              double default_padding = 0.0,
                              double scale = 1.0); 
@@ -118,42 +111,63 @@ public:
   /** \brief Update the set of bodies that are attached to the robot (re-creates them) using the indicated padding or default if non-specified */
   virtual void updateAttachedBodies(const std::map<std::string, double>& link_padding_map);
 
-  /** \brief Enable/Disable collision checking for specific links. Return the previous value of the state (1 or 0) if succesful; -1 otherwise */
-  virtual int setCollisionCheck(const std::string &link, bool state);
-
   /** \briefs Sets a temporary robot padding on the indicated links */
-  virtual void setRobotLinkPadding(const std::map<std::string, double>& link_padding_map);
+  virtual void setAlteredLinkPadding(const std::map<std::string, double>& link_padding_map);
 
   /** \briefs Reverts link padding to that set at robot initialization */
-  virtual void revertRobotLinkPadding();
-
-  /** \brief Enable/Disable collision checking for a set of links.*/
-  void setCollisionCheckLinks(const std::vector<std::string> &links, bool state);
-
-  /** \brief Set collision checking for the set of links to state, set collision checking for all other links to !state */
-  void setCollisionCheckOnlyLinks(const std::vector<std::string> &links, bool state);
-
-  /** \brief Set collision checking for all links to state */
-  void setCollisionCheckAll(bool state);
+  virtual void revertAlteredLinkPadding();
 
   /** \brief Clone the environment */
   virtual EnvironmentModel* clone(void) const;
 
-  void updateAllowedTouch(const std::map<std::string, double>& link_padding_map);
-
-  void updateAllowedTouch(void);
-  
-  virtual void getDefaultAllowedCollisionMatrix(std::vector<std::vector<bool> > &matrix,
-                                                std::map<std::string, unsigned int> &ind) const;
-  
-  /** \brief set the matrix for collision touch to use in lieu of the default settings */
-  virtual void setAllowedCollisionMatrix(const std::vector<std::vector<bool> > &matrix,
-                                 const std::map<std::string, unsigned int > &ind);
-
-  /** \brief reverts to using default settings for allowed collisions */  
-  virtual void revertAllowedCollisionMatrix();
-
 protected:
+
+  /** \brief Structure for maintaining ODE temporary data */
+  struct ODEStorage
+  {	
+    struct Element
+    {
+      double *vertices;
+      dTriIndex *indices;
+      dTriMeshDataID data;
+      int n_indices;
+      int n_vertices;
+    };
+	    
+    ~ODEStorage(void)
+    {
+      clear();
+    }
+
+    void remove(dGeomID id) {
+      
+      if(meshes.find(id) == meshes.end()) {
+        return;
+      }
+
+      Element& e = meshes[id];
+      delete[] e.indices;
+      delete[] e.vertices;
+      dGeomTriMeshDataDestroy(e.data);
+      meshes.erase(id);
+    }
+	    
+    void clear(void)
+    {
+      for(std::map<dGeomID, Element>::iterator it = meshes.begin();
+          it != meshes.end();
+          it++)
+      {
+        delete[] it->second.indices;
+        delete[] it->second.vertices;
+        dGeomTriMeshDataDestroy(it->second.data);
+      }
+      meshes.clear();
+    }
+	    
+    /* Pointers for ODE indices; we need this around in ODE's assumed datatype */
+    std::map<dGeomID, Element> meshes;
+  };
 	
   class ODECollide2
   {
@@ -161,7 +175,7 @@ protected:
 	    
     ODECollide2(dSpaceID space = NULL)
     {	
-      m_setup = false;
+      setup_ = false;
       if (space)
         registerSpace(space);
     }
@@ -248,62 +262,80 @@ protected:
       }
     };
 	    
-    bool               m_setup;
-    std::vector<Geom*> m_geomsX;
-    std::vector<Geom*> m_geomsY;
-    std::vector<Geom*> m_geomsZ;
+    bool setup_;
+    std::vector<Geom*> geoms_x;
+    std::vector<Geom*> geoms_y;
+    std::vector<Geom*> geoms_z;
 	    
     void checkColl(std::vector<Geom*>::const_iterator posStart, std::vector<Geom*>::const_iterator posEnd,
                    Geom *g, void *data, dNearCallback *nearCallback) const;
   };
 
-  struct kGeom
+  struct AttGeom
   {
-    std::vector<dGeomID>                   geom;
-    std::map<dGeomID, unsigned int> geomAttachedBodyMap;
-    std::vector< std::vector<bool> >       allowedTouch;
-    bool                                   enabled;
-    const planning_models::KinematicModel::LinkModel *link;
-    unsigned int                           index;
+    AttGeom(ODEStorage& s) : storage(s){
+    }
+
+    ~AttGeom() {
+
+      for(unsigned int i = 0; i < geom.size(); i++) {
+        dGeomDestroy(geom[i]);
+        storage.remove(geom[i]);
+      }
+      for(unsigned int i = 0; i < padded_geom.size(); i++) {
+        dGeomDestroy(padded_geom[i]);
+        storage.remove(padded_geom[i]);
+      }
+    }
+
+    ODEStorage& storage;
+    std::vector<dGeomID> geom;
+    std::vector<dGeomID> padded_geom;
+    const planning_models::KinematicModel::AttachedBodyModel *att;
+    unsigned int index;
   };
 
-  /** \brief Structure for maintaining ODE temporary data */
-  struct ODEStorage
-  {	
-    struct Element
-    {
-      double         *vertices;
-      dTriIndex      *indices;
-      dTriMeshDataID  data;
-      int             nIndices;
-      int             nVertices;
-    };
-	    
-    ~ODEStorage(void)
-    {
-      clear();
+  struct LinkGeom
+  {
+    LinkGeom(ODEStorage& s) : storage(s){
     }
-	    
-    void clear(void)
-    {
-      for (unsigned int i = 0 ; i < mesh.size() ; ++i)
-      {
-        delete[] mesh[i].indices;
-        delete[] mesh[i].vertices;
-        dGeomTriMeshDataDestroy(mesh[i].data);
+
+    ~LinkGeom() {
+      for(unsigned int i = 0; i < geom.size(); i++) {
+        dGeomDestroy(geom[i]);
       }
-      mesh.clear();
+      for(unsigned int i = 0; i < padded_geom.size(); i++) {
+        dGeomDestroy(padded_geom[i]);
+      }
+      deleteAttachedBodies();
     }
-	    
-    /* Pointers for ODE indices; we need this around in ODE's assumed datatype */
-    std::vector<Element> mesh;
+    
+    void deleteAttachedBodies()
+    {
+      for(unsigned int i = 0; i < att_bodies.size(); i++) {
+        delete att_bodies[i];
+      }
+      att_bodies.clear();
+    }
+
+    ODEStorage& storage;
+    std::vector<dGeomID> geom;
+    std::vector<dGeomID> padded_geom;
+    std::vector<AttGeom*> att_bodies;
+    const planning_models::KinematicModel::LinkModel *link;
+    unsigned int index;
   };
 	
   struct ModelInfo
   {
-    std::vector< kGeom* > linkGeom;
-    dSpaceID              space;
-    ODEStorage            storage;
+    ~ModelInfo() {
+      storage.clear();
+    }
+
+    std::vector< LinkGeom* > link_geom;
+    dSpaceID env_space;
+    dSpaceID self_space;
+    ODEStorage storage;
   };
 	
   struct CollisionNamespace
@@ -315,25 +347,27 @@ protected:
 	    
     virtual ~CollisionNamespace(void)
     {
-      if (space)
+      if (space) {
         dSpaceDestroy(space);
+      }
     }
 	    
     void clear(void)
     {
-      if (space)
+      if (space) { 
         dSpaceDestroy(space);
+      }
       space = dHashSpaceCreate(0);
       geoms.clear();
       collide2.clear();
       storage.clear();
     }
 	    
-    std::string          name;
-    dSpaceID             space;
+    std::string name;
+    dSpaceID space;
     std::vector<dGeomID> geoms;
-    ODECollide2          collide2;
-    ODEStorage           storage;
+    ODECollide2 collide2;
+    ODEStorage storage;
   };
     
   struct CollisionData
@@ -344,50 +378,71 @@ protected:
       collides = false;
       max_contacts = 0;
       contacts = NULL;
-      selfCollisionTest = NULL;
-      link1 = link2 = NULL;
+      allowed_collision_matrix = NULL;
       allowed = NULL;
+      exhaustive = false;
     }
+
+    //these are parameters
+    unsigned int max_contacts;
+    const AllowedCollisionMatrix *allowed_collision_matrix;
+    const std::map<dGeomID, std::pair<std::string, BodyType> >* geom_lookup_map;
+    const std::vector<AllowedContact> *allowed;
+    bool exhaustive;
 	    
-    bool                                       done;
-	    
-    bool                                       collides;
-    unsigned int                               max_contacts;
+    //these are for return info
+    bool done;
+    bool collides;
     std::vector<EnvironmentModelODE::Contact> *contacts;
-    const std::vector< std::vector<bool> >    *selfCollisionTest;
-    dSpaceID                                   selfSpace;
-	    
-    const std::vector<AllowedContact>         *allowed;
-	    
-    const planning_models::KinematicModel::LinkModel     *link1;
-    const planning_models::KinematicModel::LinkModel     *link2;
+    
+    //for the last collision found
+    std::string body_name_1;
+    BodyType body_type_1;
+
+    std::string body_name_2;
+    BodyType body_type_2;
+
+
+
   };
 	
 	
   /** \brief Internal function for collision detection */
-  void testCollision(CollisionData *data);
+  void testCollision(CollisionData *data) const;
 
   /** \brief Internal function for collision detection */
-  void testSelfCollision(CollisionData *data);
+  void testSelfCollision(CollisionData *data) const;
 
   /** \brief Internal function for collision detection */
-  void testBodyCollision(CollisionNamespace *cn, CollisionData *data);
+  void testEnvironmentCollision(CollisionData *data) const;
+
+  /** \brief Internal function for collision detection */
+  void testObjectCollision(CollisionNamespace *cn, CollisionData *data) const;
 
   dGeomID copyGeom(dSpaceID space, ODEStorage &storage, dGeomID geom, ODEStorage &sourceStorage) const;
-  void    createODERobotModel();	
+  void createODERobotModel();	
   dGeomID createODEGeom(dSpaceID space, ODEStorage &storage, const shapes::Shape *shape, double scale, double padding);
   dGeomID createODEGeom(dSpaceID space, ODEStorage &storage, const shapes::StaticShape *shape);
-  void    updateGeom(dGeomID geom, const btTransform &pose) const;	
-  void    removeCollidingObjects(const dGeomID geom);
+  void updateGeom(dGeomID geom, const btTransform &pose) const;	
 
-  /** \brief Check if thread-specific routines have been called */
-  void    checkThreadInit(void) const;	
-  void    freeMemory(void);	
+  void addAttachedBody(LinkGeom* lg, const planning_models::KinematicModel::AttachedBodyModel* attm,
+                       double padd);
+
+  std::map<std::string, bool> attached_bodies_in_collision_matrix_;
+
+  void setAttachedBodiesLinkPadding();
+  void revertAttachedBodiesLinkPadding();
+
+  void freeMemory(void);	
 	
-  ModelInfo                                   m_modelGeom;
-  std::map<std::string, CollisionNamespace*>  m_collNs;
-  std::vector<bool> stored_collision_check;
-	
+  ModelInfo model_geom_;
+  std::map<std::string, CollisionNamespace*> coll_namespaces_;
+
+  std::map<dGeomID, std::pair<std::string, BodyType> > geom_lookup_map_;
+
+  bool previous_set_robot_model_;
+
+  void    checkThreadInit(void) const;  	
 };
 }
 

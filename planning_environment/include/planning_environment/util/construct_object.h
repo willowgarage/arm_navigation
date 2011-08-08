@@ -38,13 +38,13 @@
 #define PLANNING_ENVIRONMENT_UTIL_CONSTRUCT_OBJECT_
 
 #include <geometric_shapes/shapes.h>
-#include <geometric_shapes_msgs/Shape.h>
+#include <arm_navigation_msgs/Shape.h>
 
 namespace planning_environment
 {
     
-shapes::Shape* constructObject(const geometric_shapes_msgs::Shape &obj);
-bool constructObjectMsg(const shapes::Shape* shape, geometric_shapes_msgs::Shape &obj, double padding = 0.0);
+shapes::Shape* constructObject(const arm_navigation_msgs::Shape &obj);
+bool constructObjectMsg(const shapes::Shape* shape, arm_navigation_msgs::Shape &obj, double padding = 0.0);
     
 }
 

@@ -36,22 +36,22 @@
 
 #include <gtest/gtest.h>
 #include <filters/filter_chain.h>
-#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
+#include <arm_navigation_msgs/JointTrajectoryWithLimits.h>
 
 using namespace filters;
 
 TEST(TestLinearSplineVelocityScaler, TestLinearSplineVelocityScaler1)
 {
   // make the filter chain:
-  FilterChain<motion_planning_msgs::JointTrajectoryWithLimits> chain("motion_planning_msgs::JointTrajectoryWithLimits");
+  FilterChain<arm_navigation_msgs::JointTrajectoryWithLimits> chain("arm_navigation_msgs::JointTrajectoryWithLimits");
   ASSERT_TRUE(chain.configure("TestLinearSplineVelocityScaler"));
 
   // create the input:
   int length = 4;
   int joints = 2;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
-  motion_planning_msgs::JointTrajectoryWithLimits wpt_out;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt_out;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(joints);
   wpt.trajectory.joint_names[0] = std::string("test0");

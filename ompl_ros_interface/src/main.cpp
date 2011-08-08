@@ -39,8 +39,14 @@
 int main(int argc, char **argv)
 { 
   ros::init(argc, argv, "ompl_planning");
+
+  ros::AsyncSpinner spinner(1); 
+  spinner.start();
+
   ompl_ros_interface::OmplRos ompl_ros;
   ompl_ros.run();    
-  ros::spin();
+
+  ros::waitForShutdown();
+
   return 0;
 }

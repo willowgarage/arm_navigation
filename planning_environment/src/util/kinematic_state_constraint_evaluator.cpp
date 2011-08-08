@@ -40,16 +40,7 @@
 #include <angles/angles.h>
 #include <cassert>
 
-bool planning_environment::JointConstraintEvaluator::use(const ros::Message *kc)
-{
-  const motion_planning_msgs::JointConstraint *jc = dynamic_cast<const motion_planning_msgs::JointConstraint*>(kc);
-  if (jc)
-    return use(*jc);
-  else
-    return false;
-}
-
-bool planning_environment::JointConstraintEvaluator::use(const motion_planning_msgs::JointConstraint &jc)
+bool planning_environment::JointConstraintEvaluator::use(const arm_navigation_msgs::JointConstraint &jc)
 {
   m_jc     = jc;
   return true;
@@ -98,7 +89,7 @@ void planning_environment::JointConstraintEvaluator::clear(void)
 {
 }
 
-const motion_planning_msgs::JointConstraint& planning_environment::JointConstraintEvaluator::getConstraintMessage(void) const
+const arm_navigation_msgs::JointConstraint& planning_environment::JointConstraintEvaluator::getConstraintMessage(void) const
 {
   return m_jc;
 }
@@ -120,50 +111,32 @@ void planning_environment::JointConstraintEvaluator::print(std::ostream &out) co
     out << "No constraint" << std::endl;    
 }
 
-bool planning_environment::PositionConstraintEvaluator::use(const ros::Message *kc)
-{
-  const motion_planning_msgs::PositionConstraint *pc = dynamic_cast<const motion_planning_msgs::PositionConstraint*>(kc);
-  if (pc)
-    return use(*pc);
-  else
-    return false;
-}
-
-bool planning_environment::OrientationConstraintEvaluator::use(const ros::Message *kc)
-{
-  const motion_planning_msgs::OrientationConstraint *pc = dynamic_cast<const motion_planning_msgs::OrientationConstraint*>(kc);
-  if (pc)
-    return use(*pc);
-  else
-    return false;
-}
-	
-bool planning_environment::createConstraintRegionFromMsg(const geometric_shapes_msgs::Shape &constraint_region_shape, 
+bool planning_environment::createConstraintRegionFromMsg(const arm_navigation_msgs::Shape &constraint_region_shape, 
                                                          const geometry_msgs::Pose &constraint_region_pose, 
                                                          boost::scoped_ptr<bodies::Body> &body)
 {
-  if(constraint_region_shape.type == geometric_shapes_msgs::Shape::SPHERE)
+  if(constraint_region_shape.type == arm_navigation_msgs::Shape::SPHERE)
   {
     if(constraint_region_shape.dimensions.empty())
       return false;
     shapes::Sphere shape(constraint_region_shape.dimensions[0]);
     body.reset(new bodies::Sphere(&shape));
   }
-  else if(constraint_region_shape.type == geometric_shapes_msgs::Shape::BOX)
+  else if(constraint_region_shape.type == arm_navigation_msgs::Shape::BOX)
   {
     if((int) constraint_region_shape.dimensions.size() < 3)
       return false;
     shapes::Box shape(constraint_region_shape.dimensions[0],constraint_region_shape.dimensions[1],constraint_region_shape.dimensions[2]);
     body.reset(new bodies::Box(&shape));
   }
-  else if(constraint_region_shape.type == geometric_shapes_msgs::Shape::CYLINDER)
+  else if(constraint_region_shape.type == arm_navigation_msgs::Shape::CYLINDER)
   {
     if((int) constraint_region_shape.dimensions.size() < 2)
       return false;
     shapes::Cylinder shape(constraint_region_shape.dimensions[0],constraint_region_shape.dimensions[1]);
     body.reset(new bodies::Cylinder(&shape));
   }
-  else if(constraint_region_shape.type == geometric_shapes_msgs::Shape::MESH)
+  else if(constraint_region_shape.type == arm_navigation_msgs::Shape::MESH)
   {
     std::vector<btVector3> vertices;
     std::vector<unsigned int> triangles; 
@@ -191,7 +164,7 @@ bool planning_environment::createConstraintRegionFromMsg(const geometric_shapes_
   return true;
 }
 
-bool planning_environment::PositionConstraintEvaluator::use(const motion_planning_msgs::PositionConstraint &pc)
+bool planning_environment::PositionConstraintEvaluator::use(const arm_navigation_msgs::PositionConstraint &pc)
 {
   m_pc   = pc;
 
@@ -215,7 +188,7 @@ bool planning_environment::PositionConstraintEvaluator::use(const motion_plannin
   return true;
 }
 	
-bool planning_environment::OrientationConstraintEvaluator::use(const motion_planning_msgs::OrientationConstraint &oc)
+bool planning_environment::OrientationConstraintEvaluator::use(const arm_navigation_msgs::OrientationConstraint &oc)
 {
   m_oc   = oc;
   btQuaternion q;
@@ -373,12 +346,12 @@ bool planning_environment::OrientationConstraintEvaluator::decide(double dAng, b
   return dAng < 1e-12;
 }
 
-const motion_planning_msgs::PositionConstraint& planning_environment::PositionConstraintEvaluator::getConstraintMessage(void) const
+const arm_navigation_msgs::PositionConstraint& planning_environment::PositionConstraintEvaluator::getConstraintMessage(void) const
 {
   return m_pc;
 }
 
-const motion_planning_msgs::OrientationConstraint& planning_environment::OrientationConstraintEvaluator::getConstraintMessage(void) const
+const arm_navigation_msgs::OrientationConstraint& planning_environment::OrientationConstraintEvaluator::getConstraintMessage(void) const
 {
   return m_oc;
 }
@@ -386,7 +359,7 @@ const motion_planning_msgs::OrientationConstraint& planning_environment::Orienta
 void planning_environment::PositionConstraintEvaluator::print(std::ostream &out) const
 {
   out << "Position constraint on link '" << m_pc.link_name << "'" << std::endl;
-  if (m_pc.constraint_region_shape.type == geometric_shapes_msgs::Shape::SPHERE)
+  if (m_pc.constraint_region_shape.type == arm_navigation_msgs::Shape::SPHERE)
   {
     if(m_pc.constraint_region_shape.dimensions.empty())
     {
@@ -397,7 +370,7 @@ void planning_environment::PositionConstraintEvaluator::print(std::ostream &out)
       out << "Spherical constraint region with radius " << m_pc.constraint_region_shape.dimensions[0] << std::endl;
     }   
   }
-  else if (m_pc.constraint_region_shape.type == geometric_shapes_msgs::Shape::BOX)
+  else if (m_pc.constraint_region_shape.type == arm_navigation_msgs::Shape::BOX)
   {
     if((int) m_pc.constraint_region_shape.dimensions.size() < 3)
     {
@@ -409,7 +382,7 @@ void planning_environment::PositionConstraintEvaluator::print(std::ostream &out)
           << m_pc.constraint_region_shape.dimensions[1] << " x "  <<  m_pc.constraint_region_shape.dimensions[2] << std::endl;
     }   
   }
-  else if (m_pc.constraint_region_shape.type == geometric_shapes_msgs::Shape::CYLINDER)
+  else if (m_pc.constraint_region_shape.type == arm_navigation_msgs::Shape::CYLINDER)
   {
     if((int) m_pc.constraint_region_shape.dimensions.size() < 2)
     {
@@ -421,7 +394,7 @@ void planning_environment::PositionConstraintEvaluator::print(std::ostream &out)
           << m_pc.constraint_region_shape.dimensions[1] << std::endl;
     }   
   }
-  else if(m_pc.constraint_region_shape.type == geometric_shapes_msgs::Shape::MESH)
+  else if(m_pc.constraint_region_shape.type == arm_navigation_msgs::Shape::MESH)
   {
     out << "Mesh type constraint region.";         
   }
@@ -443,7 +416,7 @@ void planning_environment::KinematicConstraintEvaluatorSet::clear(void)
   m_oc.clear();
 }
 	
-bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<motion_planning_msgs::JointConstraint> &jc)
+bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<arm_navigation_msgs::JointConstraint> &jc)
 {
   bool result = true;
   for (unsigned int i = 0 ; i < jc.size() ; ++i)
@@ -456,7 +429,7 @@ bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vecto
   return result;
 }
 
-bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<motion_planning_msgs::PositionConstraint> &pc)
+bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<arm_navigation_msgs::PositionConstraint> &pc)
 {
   bool result = true;
   for (unsigned int i = 0 ; i < pc.size() ; ++i)
@@ -469,7 +442,7 @@ bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vecto
   return result;
 }
 
-bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<motion_planning_msgs::OrientationConstraint> &oc)
+bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<arm_navigation_msgs::OrientationConstraint> &oc)
 {
   bool result = true;
   for (unsigned int i = 0 ; i < oc.size() ; ++i)
@@ -483,7 +456,7 @@ bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vecto
 }
 
 
-bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<motion_planning_msgs::VisibilityConstraint> &vc)
+bool planning_environment::KinematicConstraintEvaluatorSet::add(const std::vector<arm_navigation_msgs::VisibilityConstraint> &vc)
 {
   bool result = true;
   for (unsigned int i = 0 ; i < vc.size() ; ++i)
@@ -514,26 +487,18 @@ void planning_environment::KinematicConstraintEvaluatorSet::print(std::ostream &
     m_kce[i]->print(out);
 }
 
-bool planning_environment::VisibilityConstraintEvaluator::use(const ros::Message *kc)
-{
-  const motion_planning_msgs::VisibilityConstraint *pc = dynamic_cast<const motion_planning_msgs::VisibilityConstraint*>(kc);
-  if (pc)
-    return use(*pc);
-  else
-    return false;
-}
 void planning_environment::VisibilityConstraintEvaluator::print(std::ostream &out) const
 {
   out << "Visibility constraint for sensor on link '" << m_vc.sensor_pose.header.frame_id << "'" << std::endl;
 }
-const motion_planning_msgs::VisibilityConstraint& planning_environment::VisibilityConstraintEvaluator::getConstraintMessage(void) const
+const arm_navigation_msgs::VisibilityConstraint& planning_environment::VisibilityConstraintEvaluator::getConstraintMessage(void) const
 {
   return m_vc;
 }
 void planning_environment::VisibilityConstraintEvaluator::clear(void)
 {
 }
-bool planning_environment::VisibilityConstraintEvaluator::use(const motion_planning_msgs::VisibilityConstraint &vc)
+bool planning_environment::VisibilityConstraintEvaluator::use(const arm_navigation_msgs::VisibilityConstraint &vc)
 {
   m_vc   = vc;
   tf::poseMsgToTF(m_vc.sensor_pose.pose,m_sensor_offset_pose);

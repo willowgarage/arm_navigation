@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 
 #include <geometry_msgs/Quaternion.h>
 #include <tf/tf.h>
@@ -50,7 +50,7 @@
 #include <ros/ros.h>
 #include <gtest/gtest.h>
 
-typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
+typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
 
 void spinThread()
 {
@@ -61,12 +61,12 @@ TEST(MoveArm, goToPoseGoal)
 {
   ros::NodeHandle nh;
   ros::NodeHandle private_handle("~");
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
   boost::thread spin_thread(&spinThread);
 
   move_arm.waitForServer();
   ROS_INFO("Connected to server");
-  move_arm_msgs::MoveArmGoal goalA;
+  arm_navigation_msgs::MoveArmGoal goalA;
 
   goalA.motion_plan_request.group_name = "right_arm";
   goalA.motion_plan_request.num_planning_attempts = 1;
@@ -98,7 +98,7 @@ TEST(MoveArm, goToPoseGoal)
   goalA.motion_plan_request.goal_constraints.position_constraints[0].position.y = goal_y;
   goalA.motion_plan_request.goal_constraints.position_constraints[0].position.z = goal_z;
 
-  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
+  goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
   goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalA.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);

@@ -34,18 +34,14 @@
 
 /** \author Matei Ciocarlei, Sachin Chitta */
 
-#include <motion_planning_msgs/FilterJointTrajectory.h>
-#include <motion_planning_msgs/FilterJointTrajectoryWithConstraints.h>
+#include <arm_navigation_msgs/FilterJointTrajectory.h>
+#include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <joint_normalization_filters/unnormalize_joint_trajectory.h>
 
 PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectoryWithConstraints,
-                         joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>,
-                         filters::FilterBase<motion_planning_msgs::FilterJointTrajectoryWithConstraints::Request>)
+                         joint_normalization_filters::UnNormalizeJointTrajectory<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>,
+                         filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)
 
 PLUGINLIB_REGISTER_CLASS(UnNormalizeFilterJointTrajectory,
-                         joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::FilterJointTrajectory::Request>,
-                         filters::FilterBase<motion_planning_msgs::FilterJointTrajectory::Request>)
-
-PLUGINLIB_REGISTER_CLASS(UnNormalizeJointTrajectoryWithLimits,
-                         joint_normalization_filters::UnNormalizeJointTrajectory<motion_planning_msgs::JointTrajectoryWithLimits>,
-                         filters::FilterBase<motion_planning_msgs::JointTrajectoryWithLimits>)
+                         joint_normalization_filters::UnNormalizeJointTrajectory<arm_navigation_msgs::FilterJointTrajectory::Request>,
+                         filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>)

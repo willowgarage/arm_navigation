@@ -41,35 +41,21 @@ namespace ompl_ros_interface
 
   OmplRos::OmplRos(void): node_handle_("~")
 {
-  collision_models_ = new planning_environment::CollisionModels("robot_description");
-  planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);    
-  planning_monitor_->waitForState();
-  planning_monitor_->startEnvironmentMonitor();    
+  collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
 }
 
 /** Free the memory */
 OmplRos::~OmplRos(void)
 {
-  delete planning_monitor_;
-  delete collision_models_;
+  delete collision_models_interface_;
 }
 
 void OmplRos::run(void)
 {
-  if(!initialize(planning_monitor_,node_handle_.getNamespace()))
+  if(!initialize(node_handle_.getNamespace()))
     return;
-  if (collision_models_->loadedModels())
+  if (collision_models_interface_->loadedModels())
   {
-    bool verbose_collisions;	
-    node_handle_.param("verbose_collisions", verbose_collisions, false);
-    if (verbose_collisions)
-    {
-      planning_monitor_->getEnvironmentModel()->setVerbose(true);
-      ROS_WARN("Verbose collisions is enabled");
-    }
-    else
-      planning_monitor_->getEnvironmentModel()->setVerbose(false);
-    node_handle_.param<std::string>("default_planner_id",default_planner_id_,"SBLkConfig1");
     plan_path_service_ = node_handle_.advertiseService("plan_kinematic_path", &OmplRos::computePlan, this);
     node_handle_.param<bool>("publish_diagnostics", publish_diagnostics_,false);
     if(publish_diagnostics_)
@@ -79,8 +65,7 @@ void OmplRos::run(void)
     ROS_ERROR("Collision models not loaded.");
 }
 
-bool OmplRos::initialize(planning_environment::PlanningMonitor *planning_monitor,
-                         const std::string &param_server_prefix)
+bool OmplRos::initialize(const std::string &param_server_prefix)
 {
   std::vector<std::string> group_names;
   if(!getGroupNamesFromParamServer(param_server_prefix,group_names))
@@ -88,13 +73,28 @@ bool OmplRos::initialize(planning_environment::PlanningMonitor *planning_monitor
     ROS_ERROR("Could not find groups for planning under %s",param_server_prefix.c_str());
     return false;
   }
-
   if(!initializePlanningMap(param_server_prefix,group_names))
   {
     ROS_ERROR("Could not initialize planning groups from the param server");
     return false;
   }
 
+  if(!node_handle_.hasParam("default_planner_config"))
+  {
+    ROS_ERROR("No default planner configuration defined under 'default_planner_config'. A default planner must be defined from among the configured planners");
+    return false;
+  }
+
+  node_handle_.param<std::string>("default_planner_config",default_planner_config_,"SBLkConfig1");
+  for(unsigned int i=0; i < group_names.size(); i++)
+  {
+    std::string location = default_planner_config_ + "[" + group_names[i] + "]";
+    if(planner_map_.find(location) == planner_map_.end())
+    {
+      ROS_ERROR("The default planner configuration %s has not been defined for group %s. The default planner must be configured for every group in your ompl_planning.yaml file", default_planner_config_.c_str(), group_names[i].c_str());
+      return false;
+    }
+  }
 
   return true;
 };
@@ -112,7 +112,7 @@ bool OmplRos::getGroupNamesFromParamServer(const std::string &param_server_prefi
   {
     ROS_ERROR("Group list should be of XmlRpc Array type");
     return false;
-  }
+  } 
   for (int32_t i = 0; i < group_list.size(); ++i) 
   {
     if(group_list[i].getType() != XmlRpc::XmlRpcValue::TypeString)
@@ -121,7 +121,7 @@ bool OmplRos::getGroupNamesFromParamServer(const std::string &param_server_prefi
       return false;
     }
     group_names.push_back(static_cast<std::string>(group_list[i]));
-    ROS_INFO("Adding group: %s",group_names.back().c_str());
+    ROS_DEBUG("Adding group: %s",group_names.back().c_str());
   }
   return true;
 };
@@ -153,7 +153,7 @@ bool OmplRos::initializePlanningMap(const std::string &param_server_prefix,
       }
       else
       {
-        ROS_INFO("Adding planning group config: %s",(planner_config+"["+group_names[i]+"]").c_str());
+        ROS_DEBUG("Adding planning group config: %s",(planner_config+"["+group_names[i]+"]").c_str());
       }
     }    
   } 
@@ -173,7 +173,7 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
 
   if(!node_handle_.hasParam(param_server_prefix+"/"+group_name+"/planner_type"))
   {
-    ROS_ERROR("Planner type not defined for group %s",group_name.c_str());
+    ROS_ERROR_STREAM("Planner type not defined for group " << group_name << " param name " << param_server_prefix+"/"+group_name+"/planner_type");
     return false;
   }
 
@@ -183,7 +183,7 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
   {
     boost::shared_ptr<ompl_ros_interface::OmplRosJointPlanner> new_planner;
     new_planner.reset(new ompl_ros_interface::OmplRosJointPlanner());
-    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,planning_monitor_))
+    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,collision_models_interface_))
     {
       new_planner.reset();
       ROS_ERROR("Could not configure planner for group %s with config %s",group_name.c_str(),planner_config_name.c_str());
@@ -195,7 +195,7 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
   {
     boost::shared_ptr<ompl_ros_interface::OmplRosRPYIKTaskSpacePlanner> new_planner;
     new_planner.reset(new ompl_ros_interface::OmplRosRPYIKTaskSpacePlanner());
-    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,planning_monitor_))
+    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,collision_models_interface_))
     {
       new_planner.reset();
       ROS_ERROR("Could not configure planner for group %s with config %s",group_name.c_str(),planner_config_name.c_str());
@@ -206,45 +206,57 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
   else
   {
     ROS_ERROR("No planner type %s available",planner_type.c_str());
+    std::string cast;
+    node_handle_.getParam(param_server_prefix+"/"+group_name, cast);
+    ROS_ERROR_STREAM("Here " << cast);
     return false;
   }
 
   return true;
 };
 
-bool OmplRos::computePlan(motion_planning_msgs::GetMotionPlan::Request &request, 
-                          motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRos::computePlan(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                          arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   std::string location;
   std::string planner_id;
   if(request.motion_plan_request.planner_id == "")
-    planner_id = default_planner_id_;
+    planner_id = default_planner_config_;
   else
     planner_id = request.motion_plan_request.planner_id; 
   location = planner_id + "[" +request.motion_plan_request.group_name + "]";
   if(planner_map_.find(location) == planner_map_.end())
   {
     ROS_ERROR("Could not find requested planner %s", location.c_str());
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_PLANNER_ID;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_PLANNER_ID;
     return true;
   }
   else
   {
-    ROS_INFO("Using planner config %s",location.c_str());
+    ROS_DEBUG("Using planner config %s",location.c_str());
   }
   planner_map_[location]->computePlan(request,response);
   if(publish_diagnostics_)
   {
     ompl_ros_interface::OmplPlannerDiagnostics msg;
-    if(response.error_code.val != motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS)
+    if(response.error_code.val != arm_navigation_msgs::ArmNavigationErrorCodes::SUCCESS) {
       msg.summary = "Planning Failed";
+      std::string filename = "planning_failure_";
+      std::string str = boost::lexical_cast<std::string>(ros::Time::now().toSec());
+      filename += str;
+      collision_models_interface_->writePlanningSceneBag(filename,
+                                                         collision_models_interface_->getLastPlanningScene());
+      collision_models_interface_->appendMotionPlanRequestToPlanningSceneBag(filename,
+                                                                             "motion_plan_request",
+                                                                             request.motion_plan_request);
+    }
     else
       msg.summary = "Planning Succeeded";
 
     msg.group = request.motion_plan_request.group_name;
     msg.planner = planner_id;
-    msg.result =  motion_planning_msgs::armNavigationErrorCodeToString(response.error_code);
-    if(response.error_code.val == motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS)
+    msg.result =  arm_navigation_msgs::armNavigationErrorCodeToString(response.error_code);
+    if(response.error_code.val == arm_navigation_msgs::ArmNavigationErrorCodes::SUCCESS)
     {
       msg.planning_time = response.planning_time.toSec();
       msg.trajectory_size = response.trajectory.joint_trajectory.points.size();
@@ -267,7 +279,7 @@ boost::shared_ptr<ompl_ros_interface::OmplRosPlanningGroup>& OmplRos::getPlanner
   }
   else
   {
-    ROS_INFO("Using planner config %s",location.c_str());
+    ROS_DEBUG("Using planner config %s",location.c_str());
     return planner_map_[location];
   }
 };

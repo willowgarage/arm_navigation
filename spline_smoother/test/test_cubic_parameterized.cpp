@@ -35,7 +35,7 @@
 /** \author Sachin Chitta */
 
 #include <ros/ros.h>
-#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
+#include <arm_navigation_msgs/JointTrajectoryWithLimits.h>
 #include <spline_smoother/cubic_parameterized_trajectory.h>
 
 double gen_rand(double min, double max)
@@ -59,7 +59,7 @@ void run_test(int num_times)
   int length = 2;
   int joints = 1;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(joints);
   wpt.trajectory.joint_names[0] = std::string("test0");

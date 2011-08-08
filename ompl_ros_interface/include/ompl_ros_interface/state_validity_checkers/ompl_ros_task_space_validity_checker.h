@@ -56,9 +56,9 @@ public:
    * @param mapping - The mapping between the ompl state and the  kinematic state that the planning monitor will use
    */
   OmplRosTaskSpaceValidityChecker(ompl::base::SpaceInformation *si, 
-                                  planning_environment::PlanningMonitor *planning_monitor,
+                                  planning_environment::CollisionModelsInterface *cmi,
                                   const std::string &parent_frame):
-    ompl_ros_interface::OmplRosStateValidityChecker(si,planning_monitor),parent_frame_(parent_frame)
+    ompl_ros_interface::OmplRosStateValidityChecker(si,cmi),parent_frame_(parent_frame)
   {
   }
   ~OmplRosTaskSpaceValidityChecker(){}
@@ -100,11 +100,11 @@ public:
    */ 
   virtual void configureOnRequest(planning_models::KinematicState *kinematic_state,
                                   planning_models::KinematicState::JointStateGroup *joint_state_group,
-                                  const motion_planning_msgs::GetMotionPlan::Request &request);
+                                  const arm_navigation_msgs::GetMotionPlan::Request &request);
 
 protected:	
 
-  motion_planning_msgs::RobotState robot_state_msg_;
+  arm_navigation_msgs::RobotState robot_state_msg_;
   std::string parent_frame_;
   virtual bool initialize();
   boost::shared_ptr<ompl_ros_interface::OmplRosStateTransformer> state_transformer_;

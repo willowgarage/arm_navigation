@@ -33,7 +33,7 @@
 #include "rviz/display.h"
 #include "rviz/properties/forwards.h"
 
-#include <motion_planning_msgs/DisplayTrajectory.h>
+#include <arm_navigation_msgs/DisplayTrajectory.h>
 #include <std_msgs/Bool.h>
 
 #include <ros/ros.h>
@@ -160,7 +160,7 @@ protected:
   /**
    * \brief ROS callback for an incoming kinematic path message
    */
-  void incomingJointPath(const motion_planning_msgs::DisplayTrajectory::ConstPtr& msg);
+  void incomingJointPath(const arm_navigation_msgs::DisplayTrajectory::ConstPtr& msg);
 
   /**
    * \brief Uses libTF to set the robot's position, given the target frame and the planning frame
@@ -178,9 +178,9 @@ protected:
   ros::Subscriber sub_;
   std::string kinematic_path_topic_;
   planning_environment::RobotModels* env_models_;
-  boost::shared_ptr<planning_models::KinematicModel> kinematic_model_;
-  motion_planning_msgs::DisplayTrajectory::ConstPtr incoming_kinematic_path_message_;
-  motion_planning_msgs::DisplayTrajectory::ConstPtr displaying_kinematic_path_message_;
+  const planning_models::KinematicModel* kinematic_model_;
+  arm_navigation_msgs::DisplayTrajectory::ConstPtr incoming_kinematic_path_message_;
+  arm_navigation_msgs::DisplayTrajectory::ConstPtr displaying_kinematic_path_message_;
   bool new_kinematic_path_;
   bool animating_path_;
   int current_state_;

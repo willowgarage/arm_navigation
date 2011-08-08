@@ -40,10 +40,9 @@
 // ROS
 #include <ros/console.h>
 #include <ros/ros.h>
-#include <tf/tf.h>
 
 // Planning environment and models
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 
 // OMPL ROS Interface
 #include <ompl_ros_interface/planners/ompl_ros_rpy_ik_task_space_planner.h>
@@ -83,8 +82,8 @@ private:
     @brief Planning - choose the correct planner and then call it
     with the request.
  */
-  bool computePlan(motion_planning_msgs::GetMotionPlan::Request &request,
-                   motion_planning_msgs::GetMotionPlan::Response &response);
+  bool computePlan(arm_navigation_msgs::GetMotionPlan::Request &request,
+                   arm_navigation_msgs::GetMotionPlan::Response &response);
 
  /**
     @brief Get the names of all groups we will be planning for
@@ -92,8 +91,7 @@ private:
   bool getGroupNamesFromParamServer(const std::string &param_server_prefix,
                                     std::vector<std::string> &group_names);
   
-  bool initialize(planning_environment::PlanningMonitor *planning_monitor,
-                  const std::string &param_server_prefix);
+  bool initialize(const std::string &param_server_prefix);
   
   bool initializePlanningMap(const std::string &param_server_prefix,
                              const std::vector<std::string> &group_names);
@@ -109,11 +107,9 @@ private:
   // ROS interface 
   boost::shared_ptr<ompl_ros_interface::OmplRosPlanningGroup> empty_ptr;
   ros::ServiceServer                     plan_path_service_;
-  planning_environment::CollisionModels *collision_models_;
-  planning_environment::PlanningMonitor *planning_monitor_;
+  planning_environment::CollisionModelsInterface *collision_models_interface_;
   ros::NodeHandle                        node_handle_;
-  tf::TransformListener                  tf_;
-  std::string default_planner_id_;
+  std::string default_planner_config_;
   bool publish_diagnostics_;
   ros::Publisher diagnostic_publisher_;
 

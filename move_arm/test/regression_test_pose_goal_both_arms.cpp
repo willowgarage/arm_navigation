@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,9 +47,9 @@
 #include <ros/ros.h>
 #include <gtest/gtest.h>
 
-#include <geometric_shapes_msgs/Shape.h>
+#include <arm_navigation_msgs/Shape.h>
 
-typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
+typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
 
 void spinThread()
 {
@@ -60,14 +60,14 @@ TEST(MoveArm, goToPoseGoal)
 {
   ros::NodeHandle nh;
   ros::NodeHandle private_handle("~");
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_right_arm(nh, "move_right_arm");
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_left_arm(nh, "move_left_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_right_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_left_arm(nh, "move_left_arm");
   boost::thread spin_thread(&spinThread);
 
   move_right_arm.waitForServer();
   move_left_arm.waitForServer();
   ROS_INFO("Connected to servers");
-  move_arm_msgs::MoveArmGoal goalLeft, goalRight;
+  arm_navigation_msgs::MoveArmGoal goalLeft, goalRight;
 
   goalRight.motion_plan_request.group_name = "right_arm";
   goalRight.motion_plan_request.num_planning_attempts = 1;
@@ -85,7 +85,7 @@ TEST(MoveArm, goToPoseGoal)
   goalRight.motion_plan_request.goal_constraints.position_constraints[0].position.y = -0.188;
   goalRight.motion_plan_request.goal_constraints.position_constraints[0].position.z = 0;
     
-  goalRight.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
+  goalRight.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
   goalRight.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalRight.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalRight.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
@@ -127,7 +127,7 @@ TEST(MoveArm, goToPoseGoal)
   goalLeft.motion_plan_request.goal_constraints.position_constraints[0].position.y = 0.188;
   goalLeft.motion_plan_request.goal_constraints.position_constraints[0].position.z = 0;
     
-  goalLeft.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = geometric_shapes_msgs::Shape::BOX;
+  goalLeft.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
   goalLeft.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalLeft.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);
   goalLeft.motion_plan_request.goal_constraints.position_constraints[0].constraint_region_shape.dimensions.push_back(0.02);

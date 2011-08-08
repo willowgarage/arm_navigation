@@ -43,7 +43,7 @@
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
 #include <sensor_msgs/JointState.h>
-#include <motion_planning_msgs/RobotState.h>
+#include <arm_navigation_msgs/RobotState.h>
 #include <boost/bind.hpp>
 #include <vector>
 #include <string>
@@ -81,23 +81,15 @@ public:
   /** \brief Check if the state monitor is currently started */
   bool isStateMonitorStarted(void) const
   {
-    return stateMonitorStarted_;
+    return state_monitor_started_;
   }	
   
-  /** Once everything is functional this advertises any services that the monitor may offer*/
-  virtual void advertiseServices() {
-    //kmsm doesn't have services to advertise
-  }
-
-
-  /** \brief Define a callback for when the state is changed */
-  void setOnStateUpdateCallback(const boost::function<void(void)> &callback)
-  {
-    onStateUpdate_ = callback;
+  void addOnStateUpdateCallback(const boost::function<void(const sensor_msgs::JointStateConstPtr &joint_state)> &callback) {
+    on_state_update_callback_ = callback;
   }
 
   /** \brief Get the kinematic model that is being used to check for validity */
-  boost::shared_ptr<planning_models::KinematicModel> getKinematicModel(void) const
+  const planning_models::KinematicModel* getKinematicModel(void) const
   {
     return kmodel_;
   }
@@ -108,46 +100,28 @@ public:
     return rm_;
   }
 
-  /** \brief Return the maintained robot velocity (square root of sum of squares of velocity at each joint)*/
-  double getTotalVelocity(void) const
-  {
-    return robotVelocity_;
-  }
-
   /** \brief Return the transform listener */
   tf::TransformListener *getTransformListener(void) const
   {
     return tf_;
   }
 	
-  /** \brief Return the frame id of the state */
-  const std::string& getRobotFrameId(void) const
-  {
-    return robot_frame_;
-  }
-
-  /** \brief Return the world frame id */
-  const std::string& getWorldFrameId(void) const
-  {
-    return kmodel_->getRoot()->getParentFrameId();
-  }
-
   /** \brief Return true if a full joint state has been received (including pose, if pose inclusion is enabled) */
   bool haveState(void) const
   {
-    return haveJointState_ && havePose_;
+    return have_joint_state_ && have_pose_;
   }
 	
   /** \brief Return the time of the last state update */
   const ros::Time& lastJointStateUpdate(void) const
   {
-    return lastJointStateUpdate_;
+    return last_joint_state_update_;
   }
 
   /** \brief Return the time of the last pose update */
   const ros::Time& lastPoseUpdate(void) const
   {
-    return lastPoseUpdate_;
+    return last_pose_update_;
   }
 	
   /** \brief Wait until a full joint state is received (including pose, if pose inclusion is enabled) */
@@ -167,16 +141,10 @@ public:
   /** \brief Sets the model used for collision/valditity checking to the current state values*/
   void setStateValuesFromCurrentValues(planning_models::KinematicState& state) const;
 
-  void setRobotStateAndComputeTransforms(const motion_planning_msgs::RobotState &robot_state,
-                                         planning_models::KinematicState& state) const;
-
-  bool getCurrentRobotState(motion_planning_msgs::RobotState &robot_state) const;
+  bool getCurrentRobotState(arm_navigation_msgs::RobotState &robot_state) const;
 
   bool setKinematicStateToTime(const ros::Time& time,
                                planning_models::KinematicState& state) const;
-
-  bool convertKinematicStateToRobotState(const planning_models::KinematicState& state, 
-                                         motion_planning_msgs::RobotState &robot_state) const;
 
   bool getCachedJointStateValues(const ros::Time& time, std::map<std::string, double>& ret_map) const;
 
@@ -193,7 +161,7 @@ public:
 protected:
 
   void setupRSM(void);
-  void jointStateCallback(const sensor_msgs::JointStateConstPtr &jointState);
+  void jointStateCallback(const sensor_msgs::JointStateConstPtr &joint_state);
 
   std::list<std::pair<ros::Time, std::map<std::string, double> > >joint_state_map_cache_;
 
@@ -205,30 +173,27 @@ protected:
   double joint_state_cache_time_;
   double joint_state_cache_allowed_difference_;
 
-  RobotModels                     *rm_;
+  RobotModels *rm_;
       
-  boost::shared_ptr<planning_models::KinematicModel> kmodel_;
-  std::string                      planarJoint_;
-  std::string                      floatingJoint_;
+  const planning_models::KinematicModel* kmodel_;
 
-  bool                             stateMonitorStarted_;
+  bool state_monitor_started_;
   bool printed_out_of_date_;
 	
-  ros::NodeHandle                  nh_;
-  ros::NodeHandle                  root_handle_;
-  ros::Subscriber                  jointStateSubscriber_;
-  tf::TransformListener           *tf_;
+  ros::NodeHandle nh_;
+  ros::NodeHandle root_handle_;
+  ros::Subscriber joint_state_subscriber_;
+  tf::TransformListener *tf_;
 
-  double                           robotVelocity_;
-  tf::Pose                         pose_;
-  std::string                      robot_frame_;
+  tf::Pose pose_;
+  std::string robot_frame_;
 
-  boost::function<void(void)>      onStateUpdate_;
+  boost::function<void(const sensor_msgs::JointStateConstPtr &joint_state)> on_state_update_callback_;
 
-  bool                             havePose_;
-  bool                             haveJointState_;
-  ros::Time                        lastJointStateUpdate_;
-  ros::Time                        lastPoseUpdate_;
+  bool have_pose_;
+  bool have_joint_state_;
+  ros::Time last_joint_state_update_;
+  ros::Time last_pose_update_;
 };
 
 }

@@ -42,11 +42,11 @@
 #include <ros/console.h>
 
 // ROS msgs
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <motion_planning_msgs/RobotTrajectory.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/RobotTrajectory.h>
 
 // Planning environment and models
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
 
@@ -66,7 +66,9 @@
 #include <ompl/geometric/planners/sbl/SBL.h>
 #include <ompl/geometric/planners/sbl/pSBL.h>
 #include <ompl/geometric/planners/kpiece/KPIECE1.h>
+#include <ompl/geometric/planners/kpiece/BKPIECE1.h>
 #include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
+#include <ompl/contrib/rrt_star/RRTstar.h>
 
 namespace ompl_ros_interface
 {
@@ -90,7 +92,7 @@ namespace ompl_ros_interface
     bool initialize(const ros::NodeHandle &node_handle,
                     const std::string &group_name,
                     const std::string &planner_config_name,
-                    planning_environment::PlanningMonitor *planning_monitor);
+                    planning_environment::CollisionModelsInterface *cmi);
         
     /*
       @brief Return the name of the group this planner is operating on
@@ -105,7 +107,7 @@ namespace ompl_ros_interface
      */
     std::string getFrameId()
     {
-      return planning_monitor_->getWorldFrameId();
+      return collision_models_interface_->getWorldFrameId();
     }
 
     /*
@@ -113,8 +115,8 @@ namespace ompl_ros_interface
       @param The motion planning request
       @param The motion planner response
      */
-    bool computePlan(motion_planning_msgs::GetMotionPlan::Request &request, 
-                     motion_planning_msgs::GetMotionPlan::Response &response);
+    bool computePlan(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                     arm_navigation_msgs::GetMotionPlan::Response &response);
 
     /**
        @brief The underlying planner to be used for planning
@@ -128,24 +130,24 @@ namespace ompl_ros_interface
       @param The motion planning request
       @param The motion planner response
      */
-    virtual bool isRequestValid(motion_planning_msgs::GetMotionPlan::Request &request,
-                                motion_planning_msgs::GetMotionPlan::Response &response) = 0;
+    virtual bool isRequestValid(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                arm_navigation_msgs::GetMotionPlan::Response &response) = 0;
 
     /*
       @brief Set the start. This function must be implemented by every derived class.
       @param The motion planning request
       @param The motion planner response
      */
-    virtual bool setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                          motion_planning_msgs::GetMotionPlan::Response &response) = 0;
+    virtual bool setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                          arm_navigation_msgs::GetMotionPlan::Response &response) = 0;
 
     /*
       @brief Set the start. This function must be implemented by every derived class.
       @param The motion planning request
       @param The motion planner response
      */
-    virtual bool setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                         motion_planning_msgs::GetMotionPlan::Response &response) = 0;
+    virtual bool setGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                         arm_navigation_msgs::GetMotionPlan::Response &response) = 0;
 
     /**
      * @brief Initialize the state validity checker. This function must allocate and instantiate a state validity checker
@@ -159,7 +161,7 @@ namespace ompl_ros_interface
 
     std::string group_name_;///the name of the group
 
-    planning_environment::PlanningMonitor *planning_monitor_;///A pointer to an instance of the planning monitor
+    planning_environment::CollisionModelsInterface* collision_models_interface_;///A pointer to an instance of the planning monitor
 
     ompl::base::StateSpacePtr state_space_;///possibly abstract state
 
@@ -182,12 +184,12 @@ namespace ompl_ros_interface
     /**
       @brief Returns the solution path
      */
-    virtual motion_planning_msgs::RobotTrajectory getSolutionPath() = 0;
+    virtual arm_navigation_msgs::RobotTrajectory getSolutionPath() = 0;
 
   protected:
     ros::NodeHandle node_handle_;
     bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path, 
-                                            motion_planning_msgs::RobotTrajectory &robot_trajectory);
+                                            arm_navigation_msgs::RobotTrajectory &robot_trajectory);
     bool finish(const bool &result);
 
   private:
@@ -214,17 +216,19 @@ namespace ompl_ros_interface
     bool initializeLazyRRTPlanner();
     bool initializeLBKPIECEPlanner();
     bool initializeRRTConnectPlanner();
+    bool initializeRRTStarPlanner();
+    bool initializeBKPIECEPlanner();
 
 
-    bool configurePlanningMonitor(motion_planning_msgs::GetMotionPlan::Request &request,
-                                  motion_planning_msgs::GetMotionPlan::Response &response,
-                                  planning_models::KinematicState *kinematic_state);
+    bool configureStateValidityChecker(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                       arm_navigation_msgs::GetMotionPlan::Response &response,
+                                       planning_models::KinematicState *kinematic_state);
 
-    bool transformConstraints(motion_planning_msgs::GetMotionPlan::Request &request,
-                              motion_planning_msgs::GetMotionPlan::Response &response);
+    bool transformConstraints(arm_navigation_msgs::GetMotionPlan::Request &request,
+                              arm_navigation_msgs::GetMotionPlan::Response &response);
 
-    bool setStartAndGoalStates(motion_planning_msgs::GetMotionPlan::Request &request, 
-                               motion_planning_msgs::GetMotionPlan::Response &response);
+    bool setStartAndGoalStates(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                               arm_navigation_msgs::GetMotionPlan::Response &response);
 
     
   };

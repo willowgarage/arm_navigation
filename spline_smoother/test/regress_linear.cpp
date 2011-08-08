@@ -35,7 +35,7 @@
 /** \author Sachin Chitta */
 
 #include <gtest/gtest.h>
-#include <motion_planning_msgs/JointTrajectoryWithLimits.h>
+#include <arm_navigation_msgs/JointTrajectoryWithLimits.h>
 #include <spline_smoother/linear_trajectory.h>
 
 using namespace spline_smoother;
@@ -48,7 +48,7 @@ TEST(TestLinearTrajectory, TestLinearTrajectory)
   int length = 4;
   int joints = 2;
 
-  motion_planning_msgs::JointTrajectoryWithLimits wpt;
+  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
   wpt.trajectory.points.resize(length);
   wpt.trajectory.joint_names.resize(joints);
   wpt.trajectory.joint_names[0] = std::string("test0");

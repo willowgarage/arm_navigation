@@ -39,113 +39,113 @@
 
 std::vector<std::string> collision_space::EnvironmentObjects::getNamespaces(void) const
 {
-    std::vector<std::string> ns;
-    for (std::map<std::string, NamespaceObjects>::const_iterator it = m_objects.begin() ; it != m_objects.end() ; ++it)
-	ns.push_back(it->first);
-    return ns;
+  std::vector<std::string> ns;
+  for (std::map<std::string, NamespaceObjects>::const_iterator it = objects_.begin() ; it != objects_.end() ; ++it)
+    ns.push_back(it->first);
+  return ns;
 }
 
 const collision_space::EnvironmentObjects::NamespaceObjects& collision_space::EnvironmentObjects::getObjects(const std::string &ns) const
 {
-    std::map<std::string, NamespaceObjects>::const_iterator it = m_objects.find(ns);
-    if (it == m_objects.end())
-	return m_empty;
-    else
-	return it->second;
+  std::map<std::string, NamespaceObjects>::const_iterator it = objects_.find(ns);
+  if (it == objects_.end())
+    return empty_;
+  else
+    return it->second;
 }
 
 collision_space::EnvironmentObjects::NamespaceObjects& collision_space::EnvironmentObjects::getObjects(const std::string &ns)
 {
-    return m_objects[ns];
+  return objects_[ns];
 }
 
 void collision_space::EnvironmentObjects::addObject(const std::string &ns, shapes::StaticShape *shape)
 {
-    m_objects[ns].staticShape.push_back(shape);
+  objects_[ns].static_shape.push_back(shape);
 }
 
 void collision_space::EnvironmentObjects::addObject(const std::string &ns, shapes::Shape *shape, const btTransform &pose)
 {
-    m_objects[ns].shape.push_back(shape);
-    m_objects[ns].shapePose.push_back(pose);
+  objects_[ns].shape.push_back(shape);
+  objects_[ns].shape_pose.push_back(pose);
 }
 
 bool collision_space::EnvironmentObjects::removeObject(const std::string &ns, const shapes::Shape *shape)
 {
-    std::map<std::string, NamespaceObjects>::iterator it = m_objects.find(ns);
-    if (it != m_objects.end())
-    { 
-	unsigned int n = it->second.shape.size();
-	for (unsigned int i = 0 ; i < n ; ++i)
-	    if (it->second.shape[i] == shape)
-	    {
-		it->second.shape.erase(it->second.shape.begin() + i);
-		it->second.shapePose.erase(it->second.shapePose.begin() + i);
-		return true;
-	    }
-    }
-    return false;
+  std::map<std::string, NamespaceObjects>::iterator it = objects_.find(ns);
+  if (it != objects_.end())
+  { 
+    unsigned int n = it->second.shape.size();
+    for (unsigned int i = 0 ; i < n ; ++i)
+      if (it->second.shape[i] == shape)
+      {
+        it->second.shape.erase(it->second.shape.begin() + i);
+        it->second.shape_pose.erase(it->second.shape_pose.begin() + i);
+        return true;
+      }
+  }
+  return false;
 }
 
 bool collision_space::EnvironmentObjects::removeObject(const std::string &ns, const shapes::StaticShape *shape)
 {
-    std::map<std::string, NamespaceObjects>::iterator it = m_objects.find(ns);
-    if (it != m_objects.end())
-    { 
-	unsigned int n = it->second.staticShape.size();
-	for (unsigned int i = 0 ; i < n ; ++i)
-	    if (it->second.staticShape[i] == shape)
-	    {
-		it->second.staticShape.erase(it->second.staticShape.begin() + i);
-		return true;
-	    }
-    }
-    return false;
+  std::map<std::string, NamespaceObjects>::iterator it = objects_.find(ns);
+  if (it != objects_.end())
+  { 
+    unsigned int n = it->second.static_shape.size();
+    for (unsigned int i = 0 ; i < n ; ++i)
+      if (it->second.static_shape[i] == shape)
+      {
+        it->second.static_shape.erase(it->second.static_shape.begin() + i);
+        return true;
+      }
+  }
+  return false;
 }
 
 void collision_space::EnvironmentObjects::clearObjects(const std::string &ns)
 {
-    std::map<std::string, NamespaceObjects>::iterator it = m_objects.find(ns);
-    if (it != m_objects.end())
-    {
-	unsigned int n = it->second.staticShape.size();
-	for (unsigned int i = 0 ; i < n ; ++i)
-	    delete it->second.staticShape[i];
-	n = it->second.shape.size();
-	for (unsigned int i = 0 ; i < n ; ++i)
-	    delete it->second.shape[i];
-	m_objects.erase(it);
-    }
+  std::map<std::string, NamespaceObjects>::iterator it = objects_.find(ns);
+  if (it != objects_.end())
+  {
+    unsigned int n = it->second.static_shape.size();
+    for (unsigned int i = 0 ; i < n ; ++i)
+      delete it->second.static_shape[i];
+    n = it->second.shape.size();
+    for (unsigned int i = 0 ; i < n ; ++i)
+      delete it->second.shape[i];
+    objects_.erase(it);
+  }
 }
 
 void collision_space::EnvironmentObjects::clearObjects(void)
 {
-    std::vector<std::string> ns = getNamespaces();
-    for (unsigned int i = 0 ; i < ns.size() ; ++i)
-	clearObjects(ns[i]);
+  std::vector<std::string> ns = getNamespaces();
+  for (unsigned int i = 0 ; i < ns.size() ; ++i)
+    clearObjects(ns[i]);
 }
 
 void collision_space::EnvironmentObjects::addObjectNamespace(const std::string ns)
 {
-  if(m_objects.find(ns) == m_objects.end()) {
-    m_objects[ns] = NamespaceObjects();
+  if(objects_.find(ns) == objects_.end()) {
+    objects_[ns] = NamespaceObjects();
   }
-  //doesn't do anything if the object is already in m_objects
+  //doesn't do anything if the object is already in objects_
 }
 
 collision_space::EnvironmentObjects* collision_space::EnvironmentObjects::clone(void) const
 {
-    EnvironmentObjects *c = new EnvironmentObjects();
-    for (std::map<std::string, NamespaceObjects>::const_iterator it = m_objects.begin() ; it != m_objects.end() ; ++it)
-    {
-	NamespaceObjects &ns = c->m_objects[it->first];
-	unsigned int n = it->second.staticShape.size();
-	for (unsigned int i = 0 ; i < n ; ++i)
-	    ns.staticShape.push_back(shapes::cloneShape(it->second.staticShape[i]));
-	n = it->second.shape.size();
-	for (unsigned int i = 0 ; i < n ; ++i)
-	    ns.shape.push_back(shapes::cloneShape(it->second.shape[i]));
-	ns.shapePose = it->second.shapePose;
-    }
-    return c;
+  EnvironmentObjects *c = new EnvironmentObjects();
+  for (std::map<std::string, NamespaceObjects>::const_iterator it = objects_.begin() ; it != objects_.end() ; ++it)
+  {
+    NamespaceObjects &ns = c->objects_[it->first];
+    unsigned int n = it->second.static_shape.size();
+    for (unsigned int i = 0 ; i < n ; ++i)
+      ns.static_shape.push_back(shapes::cloneShape(it->second.static_shape[i]));
+    n = it->second.shape.size();
+    for (unsigned int i = 0 ; i < n ; ++i)
+      ns.shape.push_back(shapes::cloneShape(it->second.shape[i]));
+    ns.shape_pose = it->second.shape_pose;
+  }
+  return c;
 }

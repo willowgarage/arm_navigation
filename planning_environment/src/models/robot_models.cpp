@@ -40,52 +40,60 @@
 #include <boost/algorithm/string.hpp>
 #include <sstream>
 
+planning_environment::RobotModels::RobotModels(const std::string &description) : priv_nh_("~")
+{
+  description_ = nh_.resolveName(description);
+  loaded_models_ = false;
+  loadRobotFromParamServer();
+}
+
+planning_environment::RobotModels::RobotModels(boost::shared_ptr<urdf::Model> urdf,
+                                               planning_models::KinematicModel* kmodel) {
+  urdf_ = urdf;
+  kmodel_ = kmodel;
+  loaded_models_ = true;
+}
+
+
 void planning_environment::RobotModels::reload(void)
 {
-    kmodel_.reset();
-    urdf_.reset();
-    for(std::map<std::string, GroupConfig*>::iterator it = group_config_map_.begin();
-        it != group_config_map_.end();
-        it++) {
-      delete it->second;
-    }
-    group_config_map_.clear();
-    planning_group_joints_.clear();
-    planning_group_links_.clear();
-    group_joint_union_.clear();
-    group_link_union_.clear();
-
-    loadRobot();
+  urdf_.reset();
+  delete kmodel_;
+  loadRobotFromParamServer();
 }
 
-void planning_environment::RobotModels::loadRobot(void)
+void planning_environment::RobotModels::loadRobotFromParamServer(void)
 {
-    std::string content;
-    if (nh_.getParam(description_, content))
+  std::string content;
+  if (nh_.getParam(description_, content))
+  {
+    urdf_ = boost::shared_ptr<urdf::Model>(new urdf::Model());
+    if (urdf_->initString(content))
     {
-	urdf_ = boost::shared_ptr<urdf::Model>(new urdf::Model());
-	if (urdf_->initString(content))
-	{
-	    loaded_models_ = true;
-            readGroupConfigs();
-            bool hasMulti = readMultiDofConfigs();
-            if(hasMulti) {
-              kmodel_ = boost::shared_ptr<planning_models::KinematicModel>(new planning_models::KinematicModel(*urdf_, planning_group_joints_, multi_dof_configs_));
-            } else {
-              ROS_WARN("Can't do anything without a root transform");
-            }
-	}
-	else
-	{
-	    urdf_.reset();
-	    ROS_ERROR("Unable to parse URDF description!");
-	}
+      loaded_models_ = true;
+      std::vector<planning_models::KinematicModel::GroupConfig> group_configs;
+      std::vector<planning_models::KinematicModel::MultiDofConfig> multi_dof_configs;
+      bool hasMulti = loadMultiDofConfigsFromParamServer(multi_dof_configs);
+      loadGroupConfigsFromParamServer(multi_dof_configs, group_configs);
+      if(hasMulti) {
+        kmodel_ = new planning_models::KinematicModel(*urdf_, group_configs, multi_dof_configs);
+      } else {
+        ROS_WARN("Can't do anything without a root transform");
+      }
     }
     else
-	ROS_ERROR("Robot model '%s' not found! Did you remap 'robot_description'?", description_.c_str());
+    {
+      urdf_.reset();
+      ROS_ERROR("Unable to parse URDF description!");
+    }
+  }
+  else
+    ROS_ERROR("Robot model '%s' not found! Did you remap 'robot_description'?", description_.c_str());
 }
 
-bool planning_environment::RobotModels::readMultiDofConfigs() {
+bool planning_environment::RobotModels::loadMultiDofConfigsFromParamServer(std::vector<planning_models::KinematicModel::MultiDofConfig>& configs) 
+{
+  configs.clear();
   
   XmlRpc::XmlRpcValue multi_dof_joints;
   
@@ -135,16 +143,19 @@ bool planning_environment::RobotModels::readMultiDofConfigs() {
         mdc.name_equivalents[it->first] = std::string(it->second);
       }
     }
-    multi_dof_configs_.push_back(mdc);
+    configs.push_back(mdc);
   }
-  if(multi_dof_configs_.empty()) {
+  if(configs.empty()) {
     return false;
   }
   return true;
 }
 
-void planning_environment::RobotModels::readGroupConfigs() {
+void planning_environment::RobotModels::loadGroupConfigsFromParamServer(const std::vector<planning_models::KinematicModel::MultiDofConfig>& multi_dof_configs,
+                                                                        std::vector<planning_models::KinematicModel::GroupConfig>& configs) {
   
+  configs.clear();
+
   XmlRpc::XmlRpcValue all_groups;
   
   std::string group_name = description_ + "_planning/groups";
@@ -165,22 +176,49 @@ void planning_environment::RobotModels::readGroupConfigs() {
     ROS_WARN("No groups in groups");
     return;
   }
-  
+ 
   for(int i = 0; i < all_groups.size(); i++) {
     if(!all_groups[i].hasMember("name")) {
       ROS_WARN("All groups must have a name");
       continue;
     }
     std::string gname = all_groups[i]["name"];
-    GroupConfig* gc = new GroupConfig(gname);
-    std::map< std::string, GroupConfig*>::iterator group_iterator = group_config_map_.find(gname);
-    if(group_iterator != group_config_map_.end()) {
-      ROS_WARN_STREAM("Already have group name " << gname); 
-      delete gc;
+    bool already_have = false;
+    for(unsigned int j = 0; j < configs.size(); j++) {
+      if(configs[j].name_ == gname) {
+        ROS_WARN_STREAM("Already have group name " << gname); 
+        already_have = true;
+        break;
+      }
+    }
+    if(already_have) continue;
+    if((all_groups[i].hasMember("base_link") && !all_groups[i].hasMember("tip_link")) ||
+       (!all_groups[i].hasMember("base_link") && all_groups[i].hasMember("tip_link"))) {
+      ROS_WARN_STREAM("If using chain definition must have both base_link and tip_link defined");
       continue;
-    } 
-    group_config_map_[gname] = gc;
-    if(all_groups[i].hasMember("joints")) {
+    }
+    //only need to test one condition
+    if(all_groups[i].hasMember("base_link")) {
+      configs.push_back(planning_models::KinematicModel::GroupConfig(gname,
+                                                                            all_groups[i]["base_link"],
+                                                                            all_groups[i]["tip_link"])); 
+    } else {
+      if(!all_groups[i].hasMember("subgroups") && !all_groups[i].hasMember("joints")) {
+        ROS_WARN_STREAM("Group " << gname << " is not a valid chain and thus must have one or more joint or subgroups defined");
+        continue;
+      }
+
+      std::vector<std::string> subgroups;
+      std::string subgroup_list = std::string(all_groups[i]["subgroups"]);
+      std::stringstream subgroup_name_stream(subgroup_list);
+      while(subgroup_name_stream.good() && !subgroup_name_stream.eof()){
+        std::string sname; 
+        subgroup_name_stream >> sname;
+        if(sname.size() == 0) continue;
+        subgroups.push_back(sname);
+      }
+
+      std::vector<std::string> joints;
       std::string joint_list = std::string(all_groups[i]["joints"]);
       std::stringstream joint_name_stream(joint_list);
       while(joint_name_stream.good() && !joint_name_stream.eof()){
@@ -188,70 +226,25 @@ void planning_environment::RobotModels::readGroupConfigs() {
         joint_name_stream >> jname;
         if(jname.size() == 0) continue;
         if (urdf_->getJoint(jname)) {
-          group_config_map_[gname]->joint_names_.push_back(jname);
+          joints.push_back(jname);
         } else {
-          ROS_DEBUG_STREAM("Urdf doesn't have joint " << jname);
+          bool have_multi = false;
+          for(unsigned int i = 0; i < multi_dof_configs.size(); i++) {
+            if(jname == multi_dof_configs[i].name) {
+              joints.push_back(jname);
+              have_multi = true;
+              break;
+            }
+          }
+          if(!have_multi) {
+            ROS_WARN_STREAM("Urdf doesn't have joint " << jname << " and no multi-dof joint of that name");
+          }
         }
-      }                                          
+      }                                                
+      configs.push_back(planning_models::KinematicModel::GroupConfig(gname,
+                                                                     joints,
+                                                                     subgroups));
     }
-    if(all_groups[i].hasMember("links")) {
-      std::string link_list = std::string(all_groups[i]["links"]);
-      std::stringstream link_name_stream(link_list);
-      while(link_name_stream.good() && !link_name_stream.eof()){
-        std::string lname; 
-        link_name_stream >> lname;
-        if(lname.size() == 0) continue;
-        if (urdf_->getLink(lname)) {
-          group_config_map_[gname]->link_names_.push_back(lname);
-          ROS_DEBUG_STREAM("Urdf has link " << lname);
-        } else {
-          ROS_INFO_STREAM("Urdf doesn't have link " << lname);
-        }
-      }                                          
-    }
-    planning_group_joints_[gname] = group_config_map_[gname]->getJointNames();
-    for(std::vector<std::string>::iterator it = planning_group_joints_[gname].begin();
-        it != planning_group_joints_[gname].end();
-        it++) {
-      ROS_DEBUG_STREAM("Group " << gname << " joint " << (*it));
-    }
-    
-    planning_group_links_[gname] = group_config_map_[gname]->getLinkNames();
-  }
-
-  //want exclusivity in the union
-  std::map<std::string, bool> pmap;
-  group_joint_union_.clear();
-  for(std::map< std::string, std::vector<std::string> >::iterator it1 = planning_group_joints_.begin();
-      it1 != planning_group_joints_.end();
-      it1++) {
-    for(std::vector<std::string>::iterator it2 = it1->second.begin();
-        it2 != it1->second.end();
-        it2++) {
-      pmap[*it2] = true;
-    }
-  }
-  for(std::map<std::string, bool>::iterator it = pmap.begin();
-      it != pmap.end();
-      it++) {
-    group_joint_union_.push_back(it->first);
-  }
-
-  pmap.clear();
-  group_link_union_.clear();
-  for(std::map< std::string, std::vector<std::string> >::iterator it1 = planning_group_links_.begin();
-      it1 != planning_group_links_.end();
-      it1++) {
-    for(std::vector<std::string>::iterator it2 = it1->second.begin();
-        it2 != it1->second.end();
-        it2++) {
-      pmap[*it2] = true;
-    }
-  }
-  for(std::map<std::string, bool>::iterator it = pmap.begin();
-      it != pmap.end();
-      it++) {
-    group_link_union_.push_back(it->first);
   }
 }
 

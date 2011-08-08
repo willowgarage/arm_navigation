@@ -37,9 +37,9 @@
 #ifndef OMPL_ROS_STATE_VALIDITY_CHECKER_
 #define OMPL_ROS_STATE_VALIDITY_CHECKER_
 
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_environment/util/kinematic_state_constraint_evaluator.h>
-#include <motion_planning_msgs/GetMotionPlan.h>
+#include <arm_navigation_msgs/GetMotionPlan.h>
 
 #include <ompl_ros_interface/helpers/ompl_ros_conversions.h>
 
@@ -62,9 +62,9 @@ public:
    * @param planning_monitor - A pointer to the planning monitor instance used by this checker
    */
   OmplRosStateValidityChecker(ompl::base::SpaceInformation *si, 
-                              planning_environment::PlanningMonitor *planning_monitor) :
+                              planning_environment::CollisionModelsInterface *cmi) :
     ompl::base::StateValidityChecker(si), 
-    planning_monitor_(planning_monitor)
+    collision_models_interface_(cmi)
   {
   }
   
@@ -83,13 +83,13 @@ public:
    */
   virtual void configureOnRequest(planning_models::KinematicState *kinematic_state,
                                   planning_models::KinematicState::JointStateGroup *physical_joint_state_group,
-                                  const motion_planning_msgs::GetMotionPlan::Request &request);
+                                  const arm_navigation_msgs::GetMotionPlan::Request &request);
 
   /*
     @brief Return the error code for the last state checked. 
     @return The error code for the last state that was checked.
    */
-  motion_planning_msgs::ArmNavigationErrorCodes getLastErrorCode()
+  arm_navigation_msgs::ArmNavigationErrorCodes getLastErrorCode()
   {
     return error_code_;
   }
@@ -102,14 +102,14 @@ public:
 
 protected:	
   planning_models::KinematicState::JointStateGroup *joint_state_group_;
-  planning_environment::PlanningMonitor *planning_monitor_;
+  planning_environment::CollisionModelsInterface* collision_models_interface_;
   planning_models::KinematicState *kinematic_state_;
     
   planning_environment::KinematicConstraintEvaluatorSet path_constraint_evaluator_set_;
   planning_environment::KinematicConstraintEvaluatorSet goal_constraint_evaluator_set_;
-  motion_planning_msgs::ArmNavigationErrorCodes error_code_;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code_;
   sensor_msgs::JointState joint_state_;
-  motion_planning_msgs::Constraints getPhysicalConstraints(const motion_planning_msgs::Constraints &constraints);
+  arm_navigation_msgs::Constraints getPhysicalConstraints(const arm_navigation_msgs::Constraints &constraints);
 };
 
 typedef boost::shared_ptr<ompl_ros_interface::OmplRosStateValidityChecker> OmplRosStateValidityCheckerPtr;

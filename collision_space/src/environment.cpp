@@ -36,8 +36,289 @@
 
 #include "collision_space/environment.h"
 #include <ros/console.h>
+#include <iomanip>
 
-bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count)
+collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatrix(const std::vector<std::string>& names,
+                                                                                  bool allowed) 
+{
+  unsigned int ns = names.size();
+  allowed_entries_.resize(ns);
+  for(unsigned int i = 0; i < ns; i++) {
+    allowed_entries_[i].resize(ns,allowed);
+    allowed_entries_bimap_.insert(entry_type::value_type(names[i], i));
+  }
+  valid_ = true;
+}
+
+collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatrix(const std::vector<std::vector<bool> >& all_coll_vectors,
+                                                                                  const std::map<std::string, unsigned int>& all_coll_indices)
+{
+  unsigned int num_outer = all_coll_vectors.size();
+  valid_ = true;
+  if(all_coll_indices.size() != all_coll_vectors.size()) {
+    valid_ = false;
+    ROS_WARN_STREAM("Indices size " << all_coll_indices.size() << " not equal to num vecs " << all_coll_vectors.size());
+    return;
+  }
+  for(std::map<std::string, unsigned int>::const_iterator it = all_coll_indices.begin();
+      it != all_coll_indices.end();
+      it++) {
+    allowed_entries_bimap_.insert(entry_type::value_type(it->first, it->second));
+  }
+  
+  if(allowed_entries_bimap_.left.size() != all_coll_indices.size()) {
+    valid_ = false;
+    ROS_WARN_STREAM("Some strings or values in allowed collision matrix are repeated");
+  }
+  if(allowed_entries_bimap_.right.begin()->first != 0) {
+    valid_ = false;
+    ROS_WARN_STREAM("No entry with index 0 in map");
+  }
+  if(allowed_entries_bimap_.right.rbegin()->first != num_outer-1) {
+    valid_ = false;
+    ROS_WARN_STREAM("Last index should be " << num_outer << " but instead is " << allowed_entries_bimap_.right.rbegin()->first);
+  }
+  
+  for(unsigned int i = 0; i < num_outer; i++) {
+    if(num_outer != all_coll_vectors[i].size()) {
+      valid_ = false;
+      ROS_WARN_STREAM("Entries size for " << allowed_entries_bimap_.right.at(i) << " is " << all_coll_vectors[i].size() << " instead of " << num_outer);
+    }
+  }
+  allowed_entries_ = all_coll_vectors;
+}
+
+collision_space::EnvironmentModel::AllowedCollisionMatrix::AllowedCollisionMatrix(const AllowedCollisionMatrix& acm)
+{
+  valid_ = acm.valid_;
+  allowed_entries_ = acm.allowed_entries_;
+  allowed_entries_bimap_ = acm.allowed_entries_bimap_;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::getAllowedCollision(const std::string& name1, 
+                                                                                    const std::string& name2,
+                                                                                    bool& allowed_collision) const
+{
+  entry_type::left_const_iterator it1 = allowed_entries_bimap_.left.find(name1);
+  if(it1 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  entry_type::left_const_iterator it2 = allowed_entries_bimap_.left.find(name2);
+  if(it2 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  if(it1->second > allowed_entries_.size()) {
+    ROS_INFO_STREAM("Something wrong with acm entry for " << name1);
+    return false;
+  } 
+  if(it2->second > allowed_entries_[it1->second].size()) {
+    ROS_INFO_STREAM("Something wrong with acm entry for " << name2);
+    return false;
+  }
+  allowed_collision = allowed_entries_[it1->second][it2->second];
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::getAllowedCollision(unsigned int i, unsigned int j,
+                                                                                    bool& allowed_collision) const
+{
+  if(i > allowed_entries_.size() || j > allowed_entries_[i].size()) {
+    return false;
+  }
+  allowed_collision = allowed_entries_[i][j];
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::hasEntry(const std::string& name) const
+{
+  return(allowed_entries_bimap_.left.find(name) != allowed_entries_bimap_.left.end());
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::getEntryIndex(const std::string& name,
+                                                                              unsigned int& index) const
+{
+  entry_type::left_const_iterator it1 = allowed_entries_bimap_.left.find(name);
+  if(it1 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  index = it1->second;
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::getEntryName(const unsigned int ind,
+                                                                             std::string& name) const
+{
+  entry_type::right_const_iterator it1 = allowed_entries_bimap_.right.find(ind);
+  if(it1 == allowed_entries_bimap_.right.end()) {
+    return false;
+  }
+  name = it1->second;
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::removeEntry(const std::string& name) {
+  if(allowed_entries_bimap_.left.find(name) == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  unsigned int last_index = allowed_entries_bimap_.size()-1;
+  unsigned int ind = allowed_entries_bimap_.left.find(name)->second;
+  allowed_entries_.erase(allowed_entries_.begin()+ind);
+  for(unsigned int i = 0; i < allowed_entries_.size(); i++) {
+    allowed_entries_[i].erase(allowed_entries_[i].begin()+ind);
+  }
+  allowed_entries_bimap_.left.erase(name);
+  //if this is last ind, no need to decrement
+  if(ind != last_index) {
+    //sanity checks
+    entry_type::right_iterator it = allowed_entries_bimap_.right.find(last_index);
+    if(it == allowed_entries_bimap_.right.end()) {
+      ROS_INFO_STREAM("Something wrong with last index " << last_index << " ind " << ind);
+    }
+    //now we need to decrement the index for everything after this
+    for(unsigned int i = ind+1; i <= last_index; i++) {
+      entry_type::right_iterator it = allowed_entries_bimap_.right.find(i);
+      if(it == allowed_entries_bimap_.right.end()) {
+        ROS_WARN_STREAM("Problem in replace " << i);
+        return false;
+      }
+      bool successful_replace = allowed_entries_bimap_.right.replace_key(it, i-1);
+      if(!successful_replace) {
+        ROS_WARN_STREAM("Can't replace");
+        return false;
+      } 
+    }
+  }
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::addEntry(const std::string& name,
+                                                                         bool allowed)
+{
+  if(allowed_entries_bimap_.left.find(name) != allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  unsigned int ind = allowed_entries_.size();
+  allowed_entries_bimap_.insert(entry_type::value_type(name,ind));
+  std::vector<bool> new_entry(ind+1, allowed);
+  allowed_entries_.resize(ind+1);
+  allowed_entries_[ind] = new_entry;
+  for(unsigned int i = 0; i < ind; i++) {
+    allowed_entries_[i].resize(ind+1);
+    allowed_entries_[i][ind] = allowed;
+  }
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(bool allowed)
+{
+  for(unsigned int i = 0; i < allowed_entries_.size(); i++) {
+    for(unsigned int j = 0; j < allowed_entries_[i].size(); j++) {
+      allowed_entries_[i][j] = allowed;
+      allowed_entries_[j][i] = allowed;
+    }
+  }
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::string& name1,
+                                                                            const std::string& name2,
+                                                                            bool allowed) {
+  entry_type::left_const_iterator it1 = allowed_entries_bimap_.left.find(name1);
+  if(it1 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  entry_type::left_const_iterator it2 = allowed_entries_bimap_.left.find(name2);
+  if(it2 == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  allowed_entries_[it1->second][it2->second] = allowed;
+  allowed_entries_[it2->second][it1->second] = allowed;
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(unsigned int i, unsigned int j,
+                                                                            bool allowed) 
+{
+  if(i > allowed_entries_.size() || j > allowed_entries_[i].size()) {
+    return false;
+  }
+  allowed_entries_[i][j] = allowed;
+  allowed_entries_[j][i] = allowed;
+  return true;
+}
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::string& name, 
+                                                                            bool allowed)
+{
+  if(allowed_entries_bimap_.left.find(name) == allowed_entries_bimap_.left.end()) {
+    return false;
+  }
+  unsigned int ind = allowed_entries_bimap_.left.find(name)->second;
+  for(unsigned int i = 0; i < allowed_entries_.size(); i++) {
+    allowed_entries_[i][ind] = allowed;
+    allowed_entries_[ind][i] = allowed;
+  }
+  return true;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::string& name, 
+                                                                            const std::vector<std::string>& change_names,
+                                                                            bool allowed)
+{
+  bool ok = true;
+  if(allowed_entries_bimap_.left.find(name) == allowed_entries_bimap_.left.end()) {
+    ROS_DEBUG_STREAM("No entry for " << name);
+    ok = false;
+    return ok;
+  }
+  unsigned int ind_1 = allowed_entries_bimap_.left.find(name)->second;
+  for(unsigned int i = 0; i < change_names.size(); i++) {
+    if(allowed_entries_bimap_.left.find(change_names[i]) == allowed_entries_bimap_.left.end()) {
+      ROS_DEBUG_STREAM("No entry for " << change_names[i]);
+      ok = false;
+      continue;
+    }
+    unsigned int ind_2 = allowed_entries_bimap_.left.find(change_names[i])->second;
+    if(ind_1 >= allowed_entries_.size()) {
+      ROS_ERROR_STREAM("Got an index entry for name " << name << " ind "  << ind_1 << " but only have " 
+                       << allowed_entries_.size() << " in allowed collision matrix.");
+      return false;
+    }
+    if(ind_2 >= allowed_entries_[ind_1].size()) {
+      ROS_ERROR_STREAM("Got an index entry for name " << change_names[i] << " index " << ind_2 << " but only have " << 
+                       allowed_entries_[ind_1].size() << " in allowed collision matrix.");
+      return false;
+    }
+    allowed_entries_[ind_1][ind_2] = allowed;
+    allowed_entries_[ind_2][ind_1] = allowed;
+  }
+  return ok;
+}
+
+bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(const std::vector<std::string>& change_names_1,
+                                                                            const std::vector<std::string>& change_names_2,
+                                                                            bool allowed)
+{
+  bool ok = true;
+  for(unsigned int i = 0; i < change_names_1.size(); i++) {
+    if(!changeEntry(change_names_1[i], change_names_2, allowed)) {
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+void collision_space::EnvironmentModel::AllowedCollisionMatrix::print(std::ostream& out) const {
+  for(entry_type::right_const_iterator it = allowed_entries_bimap_.right.begin(); it != allowed_entries_bimap_.right.end(); it++) {
+    out << std::setw(40) << it->second;
+    out << " | ";
+    for(entry_type::right_const_iterator it2 = allowed_entries_bimap_.right.begin(); it2 != allowed_entries_bimap_.right.end(); it2++) {
+      out << std::setw(3) << allowed_entries_[it->first][it2->first];
+    }
+    out << std::endl;
+  }
+}
+
+bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count) const
 {
   std::vector<AllowedContact> allowed;
   return getCollisionContacts(allowed, contacts, max_count);
@@ -45,163 +326,121 @@ bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact
 
 bool collision_space::EnvironmentModel::getVerbose(void) const
 {
-  return m_verbose;
+  return verbose_;
 }
 
 void collision_space::EnvironmentModel::setVerbose(bool verbose)
 {
-  m_verbose = verbose;
+  verbose_ = verbose;
 }
 
 const collision_space::EnvironmentObjects* collision_space::EnvironmentModel::getObjects(void) const
 {
-  return m_objects;
+  return objects_;
 }
 
-const boost::shared_ptr<const planning_models::KinematicModel>& collision_space::EnvironmentModel::getRobotModel(void) const
+const planning_models::KinematicModel* collision_space::EnvironmentModel::getRobotModel(void) const
 {
-  return m_robotModel;
+  return robot_model_;
 }
 
 double collision_space::EnvironmentModel::getRobotScale(void) const
 {
-  return m_robotScale;
+  return robot_scale_;
 }
 
 double collision_space::EnvironmentModel::getRobotPadding(void) const
 {
-  return m_robotPadd;
+  return default_robot_padding_;
 }
 	
-void collision_space::EnvironmentModel::setRobotModel(const boost::shared_ptr<const planning_models::KinematicModel> &model, 
-                                                      const std::vector<std::string> &links, 
+void collision_space::EnvironmentModel::setRobotModel(const planning_models::KinematicModel* model, 
+                                                      const AllowedCollisionMatrix& acm,
                                                       const std::map<std::string, double>& link_padding_map,
                                                       double default_padding,
                                                       double scale) 
 {
-  m_robotModel = model;
-  m_collisionLinks = links;
-  m_selfCollisionTest.resize(links.size());
-  for (unsigned int i = 0 ; i < links.size() ; ++i)
-  {
-    m_selfCollisionTest[i].resize(links.size(), true);
-    m_collisionLinkIndex[links[i]] = i;
-  }
-  m_robotScale = scale;
-  m_robotPadd = default_padding;
+  robot_model_ = model;
+  default_collision_matrix_ = acm;
+  robot_scale_ = scale;
+  default_robot_padding_ = default_padding;
+  default_link_padding_map_ = link_padding_map;
 }
 
-void collision_space::EnvironmentModel::addSelfCollisionGroup(const std::vector<std::string>& group1,
-                                                              const std::vector<std::string>& group2) 
+void collision_space::EnvironmentModel::lock(void) const
 {
-  for(std::vector<std::string>::const_iterator stit1 = group1.begin();
-      stit1 != group1.end();
-      stit1++) {
-    if (m_collisionLinkIndex.find(*stit1) == m_collisionLinkIndex.end())
-    {
-      ROS_WARN("Unknown link '%s'", (*stit1).c_str());
-      continue;
-    }
-    for(std::vector<std::string>::const_iterator stit2 = group2.begin();
-        stit2 != group2.end();
-        stit2++) {
-      if (m_collisionLinkIndex.find(*stit2) == m_collisionLinkIndex.end())
-      {
-        ROS_WARN("Unknown link '%s'", (*stit2).c_str());
-        continue;
-      }
-      m_selfCollisionTest[m_collisionLinkIndex[*stit1]][m_collisionLinkIndex[*stit2]] = false;
-      m_selfCollisionTest[m_collisionLinkIndex[*stit2]][m_collisionLinkIndex[*stit1]] = false;
-    }
-  }
+  lock_.lock();
 }
 
-void collision_space::EnvironmentModel::removeSelfCollisionGroup(const std::vector<std::string>& group1,
-                                                                 const std::vector<std::string>& group2) 
+void collision_space::EnvironmentModel::unlock(void) const
 {
-  for(std::vector<std::string>::const_iterator stit1 = group1.begin();
-      stit1 != group1.end();
-      stit1++) {
-    if (m_collisionLinkIndex.find(*stit1) == m_collisionLinkIndex.end())
-    {
-      ROS_WARN("Unknown link '%s'", (*stit1).c_str());
-      continue;
-    }
-    for(std::vector<std::string>::const_iterator stit2 = group2.begin();
-        stit2 != group2.end();
-        stit2++) {
-      if (m_collisionLinkIndex.find(*stit2) == m_collisionLinkIndex.end())
-      {
-        ROS_WARN("Unknown link '%s'", (*stit2).c_str());
-        continue;
-      }
-      m_selfCollisionTest[m_collisionLinkIndex[*stit1]][m_collisionLinkIndex[*stit2]] = true;
-      m_selfCollisionTest[m_collisionLinkIndex[*stit2]][m_collisionLinkIndex[*stit1]] = true;
-    }
-  }
+  lock_.unlock();
 }
 
-void collision_space::EnvironmentModel::lock(void)
+const collision_space::EnvironmentModel::AllowedCollisionMatrix& 
+collision_space::EnvironmentModel::getDefaultAllowedCollisionMatrix() const
 {
-  m_lock.lock();
+  return default_collision_matrix_;
 }
 
-void collision_space::EnvironmentModel::unlock(void)
-{
-  m_lock.unlock();
+const collision_space::EnvironmentModel::AllowedCollisionMatrix& 
+collision_space::EnvironmentModel::getCurrentAllowedCollisionMatrix() const {
+  if(use_altered_collision_matrix_) {
+    return altered_collision_matrix_;
+  } 
+  return default_collision_matrix_;
 }
 
-void collision_space::EnvironmentModel::setSelfCollision(bool selfCollision)
-{
-  m_selfCollision = selfCollision;
+void collision_space::EnvironmentModel::setAlteredCollisionMatrix(const AllowedCollisionMatrix& acm) {
+  use_altered_collision_matrix_ = true;
+  altered_collision_matrix_ = acm;
 }
 
-bool collision_space::EnvironmentModel::getSelfCollision(void) const
-{
-  return m_selfCollision;
+void collision_space::EnvironmentModel::revertAlteredCollisionMatrix() {
+  use_altered_collision_matrix_ = false;
 }
 
-void collision_space::EnvironmentModel::setAllowedCollisionMatrix(const std::vector<std::vector<bool> > &matrix,
-                                                                  const std::map<std::string, unsigned int> &ind){
-  use_set_collision_matrix_ = true;
-  set_collision_matrix_ = matrix;
-  set_collision_ind_ = ind;
-}
-
-void collision_space::EnvironmentModel::revertAllowedCollisionMatrix() {
-  use_set_collision_matrix_ = false;
-  set_collision_matrix_.clear();
-  set_collision_ind_.clear();
-}
-
-void collision_space::EnvironmentModel::getCurrentAllowedCollisionMatrix(std::vector<std::vector<bool> > &matrix,
-                                                                         std::map<std::string, unsigned int> &ind) const {
-  if(use_set_collision_matrix_) {
-    matrix = set_collision_matrix_;
-    ind = set_collision_ind_;
-  } else {
-    getDefaultAllowedCollisionMatrix(matrix, ind);
-  }
-}
-
-void collision_space::EnvironmentModel::setRobotLinkPadding(const std::map<std::string, double>& new_link_padding) {
+void collision_space::EnvironmentModel::setAlteredLinkPadding(const std::map<std::string, double>& new_link_padding) {
+  altered_link_padding_map_.clear();
   for(std::map<std::string, double>::const_iterator it = new_link_padding.begin();
       it != new_link_padding.end();
       it++) {
-    altered_link_padding_[it->first] = it->second;
+    if(default_link_padding_map_.find(it->first) == default_link_padding_map_.end()) {
+      //don't have this currently
+      continue;
+    }
+    //only putting in altered padding if it's different
+    if(default_link_padding_map_.find(it->first)->second != it->second) {
+      altered_link_padding_map_[it->first] = it->second;
+    }
   }
+  use_altered_link_padding_map_ = true;
 }
 
-void collision_space::EnvironmentModel::revertRobotLinkPadding() {
-  altered_link_padding_.clear();
+void collision_space::EnvironmentModel::revertAlteredLinkPadding() {
+  altered_link_padding_map_.clear();
+  use_altered_link_padding_map_ = false;
+}
+
+const std::map<std::string, double>& collision_space::EnvironmentModel::getDefaultLinkPaddingMap() const {
+  return default_link_padding_map_;
+}
+
+std::map<std::string, double> collision_space::EnvironmentModel::getCurrentLinkPaddingMap() const {
+  std::map<std::string, double> ret_map = default_link_padding_map_;
+  for(std::map<std::string, double>::const_iterator it = altered_link_padding_map_.begin();
+      it != altered_link_padding_map_.end();
+      it++) {
+    ret_map[it->first] = it->second;
+  }
+  return ret_map;
 }
 
 double collision_space::EnvironmentModel::getCurrentLinkPadding(std::string name) const {
-  if(altered_link_padding_.find(name) != altered_link_padding_.end()) {
-    return altered_link_padding_.find(name)->second;
-  }
-  if(link_padding_map_.find(name) != link_padding_map_.end()) {
-    return link_padding_map_.find(name)->second;
+  if(altered_link_padding_map_.find(name) != altered_link_padding_map_.end()) {
+    return altered_link_padding_map_.find(name)->second;
+  } else if(default_link_padding_map_.find(name) != default_link_padding_map_.end()) {
+    return default_link_padding_map_.find(name)->second;
   }
   return 0.0;
 }

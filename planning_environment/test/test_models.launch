@@ -1,0 +1,9 @@
+<launch>
+
+  <!-- send parameters for multidof -->
+  <rosparam command="load" ns="robot_description_planning" file="$(find planning_environment)/test/config/pr2_planning_description.yaml" />
+
+  <test test-name="test_robot_models" pkg="planning_environment" type="test_robot_models" />
+  <test test-name="test_collision_models" pkg="planning_environment" type="test_collision_models"/>
+  
+</launch>

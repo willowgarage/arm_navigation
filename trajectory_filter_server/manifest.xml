@@ -9,7 +9,7 @@
   <depend package="filters" />
   <depend package="roscpp" />
   <depend package="trajectory_msgs" />
-  <depend package="motion_planning_msgs" />
+  <depend package="arm_navigation_msgs" />
   <depend package="spline_smoother" />
   <depend package="joint_normalization_filters" />
   <depend package="urdf" />

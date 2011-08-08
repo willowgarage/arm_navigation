@@ -4,7 +4,7 @@ PKG = 'move_arm'
 
 import roslib; roslib.load_manifest(PKG)
 import rospy
-import planning_environment_msgs.srv
+import arm_navigation_msgs.srv
 import sys
 import unittest
 import actionlib
@@ -14,13 +14,13 @@ import math
 import sensor_msgs.msg
 import mapping_msgs.msg
 from mapping_msgs.msg import CollisionObject
-from motion_planning_msgs.msg import CollisionOperation
-from geometric_shapes_msgs.msg import Shape
+from arm_navigation_msgs.msg import CollisionOperation
+from arm_navigation_msgs.msg import Shape
 from geometry_msgs.msg import Pose, PointStamped
 from move_arm_msgs.msg import MoveArmGoal, MoveArmAction
 from tf import TransformListener
-from motion_planning_msgs.msg import JointConstraint
-from planning_environment_msgs import planning_environment_msgs_utils
+from arm_navigation_msgs.msg import JointConstraint
+from arm_navigation_msgs import arm_navigation_msgs_utils
 
 padd_name = "ompl_planning/robot_padd"
 extra_buffer = .1

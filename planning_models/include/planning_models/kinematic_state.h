@@ -72,6 +72,10 @@ public:
 
     /** \brief Sets the internal values from the joint_value_map */
     bool setJointStateValues(const std::map<std::string, double>& joint_value_map);
+
+    /** \brief Sets the internal values from the joint_value_map, returning states that aren't being set */
+    bool setJointStateValues(const std::map<std::string, double>& joint_value_map,
+                             std::vector<std::string>& missing_states);
     
     /** \brief Sets the internal values from the supplied vector, which are assumed to be in the required order*/
     bool setJointStateValues(const std::vector<double>& joint_value_vector);
@@ -291,7 +295,10 @@ public:
       return joint_model_group_;
     }
 
-    const std::string& getName() const;
+    const std::string& getName() const 
+    {
+      return joint_model_group_->getName();
+    }
 
     unsigned int getDimension() const
     {
@@ -377,15 +384,18 @@ public:
     std::vector<LinkState*> updated_links_;	    
   };
 
-  KinematicState(const boost::shared_ptr<const KinematicModel> kinematic_model);
+  KinematicState(const KinematicModel* kinematic_model);
   
-  KinematicState(const KinematicState* state);
+  KinematicState(const KinematicState& state);
 
   ~KinematicState(void);
 
   bool setKinematicState(const std::vector<double>& joint_state_values);
   
   bool setKinematicState(const std::map<std::string, double>& joint_state_map);
+
+  bool setKinematicState(const std::map<std::string, double>& joint_state_map,
+                         std::vector<std::string>& missing_links);
 
   void getKinematicStateValues(std::vector<double>& joint_state_values) const;
 
@@ -395,7 +405,7 @@ public:
 
   bool updateKinematicStateWithLinkAt(const std::string& link_name, const btTransform& transform);
 
-  const boost::shared_ptr<const KinematicModel> getKinematicModel() const 
+  const KinematicModel* getKinematicModel() const 
   {
     return kinematic_model_;
   } 
@@ -475,12 +485,14 @@ public:
   void printTransforms(std::ostream &out = std::cout) const;
 
   void printTransform(const std::string &st, const btTransform &t, std::ostream &out = std::cout) const;
+
+  const btTransform& getRootTransform() const;
   
 private:
 
   void setLinkStatesParents();
 
-  const boost::shared_ptr<const KinematicModel> kinematic_model_;
+  const KinematicModel* kinematic_model_;
 
   unsigned int dimension_;
   std::map<std::string, unsigned int> kinematic_state_index_map_;

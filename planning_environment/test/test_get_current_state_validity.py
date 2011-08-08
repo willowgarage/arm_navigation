@@ -4,19 +4,19 @@ PKG = 'planning_environment'
 
 import roslib; roslib.load_manifest(PKG)
 import rospy
-import planning_environment_msgs.srv
+import arm_navigation_msgs.srv
 import sys
 import unittest
 
 import sensor_msgs.msg
 import mapping_msgs.msg
-from planning_environment_msgs import planning_environment_msgs_utils
+from arm_navigation_msgs import arm_navigation_msgs_utils
 from mapping_msgs.msg import CollisionObject
 from mapping_msgs.msg import AttachedCollisionObject
-from motion_planning_msgs.msg import CollisionOperation, ArmNavigationErrorCodes, AllowedContactSpecification
-from geometric_shapes_msgs.msg import Shape
+from arm_navigation_msgs.msg import CollisionOperation, ArmNavigationErrorCodes, AllowedContactSpecification
+from arm_navigation_msgs.msg import Shape
 from geometry_msgs.msg import Pose, PointStamped
-from planning_environment_msgs.srv import GetRobotState, GetStateValidity, GetRobotStateRequest, GetStateValidityRequest, GetGroupInfoRequest, GetGroupInfo
+from arm_navigation_msgs.srv import GetRobotState, GetStateValidity, GetRobotStateRequest, GetStateValidityRequest, GetGroupInfoRequest, GetGroupInfo
 from tf import TransformListener
 
 default_prefix = "/environment_server"
@@ -120,7 +120,7 @@ class TestGetStateValidity(unittest.TestCase):
         
         self.failIf(len(group_res.link_names) == 0)
 
-        state_req.ordered_collision_operations.collision_operations = planning_environment_msgs_utils.make_disable_allowed_collisions_with_exclusions(group_res.link_names,
+        state_req.ordered_collision_operations.collision_operations = arm_navigation_msgs_utils.make_disable_allowed_collisions_with_exclusions(group_res.link_names,
                                                                                                                                                       right_arm_links)
 
         for i in state_req.ordered_collision_operations.collision_operations:

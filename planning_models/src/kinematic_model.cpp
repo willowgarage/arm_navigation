@@ -48,7 +48,7 @@
 
 /* ------------------------ KinematicModel ------------------------ */
 planning_models::KinematicModel::KinematicModel(const urdf::Model &model, 
-                                                const std::map< std::string, std::vector<std::string> > &groups,
+                                                const std::vector<GroupConfig>& group_configs,
                                                 const std::vector<MultiDofConfig>& multi_dof_configs)
 {    
   model_name_ = model.getName();
@@ -56,7 +56,7 @@ planning_models::KinematicModel::KinematicModel(const urdf::Model &model,
   {
     const urdf::Link *root = model.getRoot().get();
     root_ = buildRecursive(NULL, root, multi_dof_configs);
-    buildGroups(groups);
+    buildGroups(group_configs);
   }
   else
   {
@@ -117,50 +117,176 @@ void planning_models::KinematicModel::copyFrom(const KinematicModel &source)
 
     const std::map<std::string, JointModelGroup*>& source_group_map = source.getJointModelGroupMap();
     std::map< std::string, std::vector<std::string> > groupContent;
+    std::vector<GroupConfig> group_configs;
+    std::vector<std::string> empty_strings;
     for(std::map<std::string, JointModelGroup*>::const_iterator it = source_group_map.begin();
         it != source_group_map.end();
         it++) {
-      groupContent[it->second->getName()] = it->second->getJointModelNames();
+      group_configs.push_back(GroupConfig(it->first, it->second->getJointModelNames(), empty_strings));
     }
-    buildGroups(groupContent);
+    buildGroups(group_configs);
   } else 
   {
     root_ = NULL;
   }
 }
 
-void planning_models::KinematicModel::buildGroups(const std::map< std::string, std::vector<std::string> > &groups)
+void planning_models::KinematicModel::buildGroups(const std::vector<GroupConfig>& group_configs) 
 {
-  for (std::map< std::string, std::vector<std::string> >::const_iterator it = groups.begin() ; it != groups.end() ; ++it)
-  {
-    std::vector<const JointModel*> jointv;
-    for (unsigned int i = 0 ; i < it->second.size() ; ++i)
-    {
-      std::map<std::string, JointModel*>::iterator p = joint_model_map_.find(it->second[i]);
-      if (p == joint_model_map_.end())
-      {
-        ROS_ERROR("Unknown joint '%s'. Not adding to group '%s'", it->second[i].c_str(), it->first.c_str());
-        jointv.clear();
-        break;
+  //the only thing tricky is dealing with subgroups
+  std::vector<bool> processed(group_configs.size(), false);
+  while(true) {
+    //going to make passes until we can't do anything else
+    bool added = false;
+    for(unsigned int i = 0; i < group_configs.size(); i++) {
+      if(!processed[i]) {
+        //if we haven't processed, check and see if the dependencies are met yet
+        bool all_subgroups_added = true;
+        for(unsigned int j = 0; j < group_configs[i].subgroups_.size(); j++) {
+          if(joint_model_group_map_.find(group_configs[i].subgroups_[j]) ==
+             joint_model_group_map_.end()) {
+            all_subgroups_added = false;
+            break;
+          }
+        }
+        if(all_subgroups_added) {
+          //only get one chance to do it right
+          if(addModelGroup(group_configs[i])) {
+            processed[i] = true;
+            added = true;
+          } else {
+            ROS_WARN_STREAM("Failed to add group " << group_configs[i].name_);
+          }
+        }
       }
-      else
-        jointv.push_back(p->second);
     }
-    
-    if (jointv.empty())
-      ROS_DEBUG("Skipping group '%s'", it->first.c_str());
-    else
-    {
-      ROS_DEBUG("Adding group '%s'", it->first.c_str());
-      joint_model_group_map_[it->first] = new JointModelGroup(it->first, jointv);
+    if(!added) {
+      for(unsigned int i = 0; i < processed.size(); i++) {
+        if(!processed[i]) {
+          ROS_WARN_STREAM("Could not process group " << group_configs[i].name_ << " due to unmet subgroup dependencies");
+        }
+      }
+      return;
     }
   }
+}
+
+void planning_models::KinematicModel::removeModelGroup(const std::string& group) {
+  if(!hasModelGroup(group)) return;
+  delete joint_model_group_map_[group];
+  joint_model_group_map_.erase(group);
+  joint_model_group_config_map_.erase(group);
+}
+
+bool planning_models::KinematicModel::addModelGroup(const planning_models::KinematicModel::GroupConfig& gc)
+{
+  if(joint_model_group_map_.find(gc.name_) != joint_model_group_map_.end()) {
+    ROS_WARN_STREAM("Already have a model group named " << gc.name_ <<". Not adding.");
+    return false;
+  }
+  std::vector<const JointModel*> jointv;
+  std::vector<const JointModel*> fixed_jointv;
+  if(!gc.tip_link_.empty() && !gc.base_link_.empty()) {
+    if(!gc.subgroups_.empty()) {
+      ROS_WARN_STREAM("Ignoring subgroups as tip and base are defined for group " << gc.name_);
+    }
+    //if this is not a physical robot link but is the world link
+    bool base_link_is_world_link = (gc.base_link_ == getRoot()->getParentFrameId() &&
+                                    getLinkModel(gc.base_link_) == NULL);
+    const LinkModel* base_link = NULL;
+    if(!base_link_is_world_link) {
+      base_link = getLinkModel(gc.base_link_);
+      if(base_link == NULL) {
+        ROS_WARN_STREAM("Group config " << gc.name_ << " has invalid base link " << gc.base_link_);
+        return false;
+      }
+    }
+    const LinkModel* tip_link = getLinkModel(gc.tip_link_);
+    if(tip_link == NULL) {
+      ROS_WARN_STREAM("Group config " << gc.name_ << " has invalid tip link " << gc.tip_link_);
+      return false;
+    }
+    const LinkModel* lm = tip_link;
+    bool ok = false;
+    while(true) {
+      if(lm == NULL) {
+        if(base_link_is_world_link) {
+          ok = true;
+        }
+        break;
+      }
+      if(lm == base_link) {
+        ok = true;
+        break;
+      }
+      if(lm->getParentJointModel() == NULL) {
+        break;
+      }
+      //only adding non-fixed joint models
+      const FixedJointModel* fjm = dynamic_cast<const FixedJointModel*>(lm->getParentJointModel());
+      if(fjm == NULL) {
+        jointv.push_back(lm->getParentJointModel());
+      } else {
+        fixed_jointv.push_back(fjm);
+      }
+      lm = lm->getParentJointModel()->getParentLinkModel();
+    }
+    if(!ok) {
+      ROS_WARN_STREAM("For group " << gc.name_ 
+                      << " base link " << gc.base_link_ 
+                      << " does not appear to be a direct descendent of " << gc.tip_link_);
+      return false;
+    }
+    //need to reverse jointv to get things in right order
+    std::reverse(jointv.begin(), jointv.end());
+  } else {
+    if(!gc.subgroups_.empty()) {
+      std::set<const JointModel*> joint_set;
+      for(unsigned int i = 0; i < gc.subgroups_.size(); i++) {
+        if(joint_model_group_map_.find(gc.subgroups_[i]) == joint_model_group_map_.end()) {
+          ROS_INFO_STREAM("Subgroup " << gc.subgroups_[i] << " not defined so can't add group " << gc.name_);
+          return false;
+        }
+        const JointModelGroup* jmg = joint_model_group_map_.find(gc.subgroups_[i])->second;
+        for(unsigned int j = 0; j < jmg->getJointModels().size(); j++) {
+          joint_set.insert(jmg->getJointModels()[j]);
+        }
+      }
+      for(std::set<const JointModel*>::iterator it = joint_set.begin();
+          it != joint_set.end();
+          it++) {
+        jointv.push_back((*it));
+      }
+    }
+    if(gc.joints_.size() == 0 && gc.subgroups_.empty()) {
+      ROS_WARN_STREAM("Group " << gc.name_ << " must have tip/base links, subgroups, or one or more joints");
+      return false;
+    }
+    for(unsigned int j = 0; j < gc.joints_.size(); j++) {
+      const JointModel* joint = getJointModel(gc.joints_[j]);
+      if(joint == NULL) {
+        ROS_ERROR_STREAM("Group " << gc.name_ << " has invalid joint " << gc.joints_[j]);
+        return false;
+      }
+      jointv.push_back(joint);
+    }
+  }
+  if(jointv.size() == 0) {
+    ROS_WARN_STREAM("Group " << gc.name_ << " must have at least one valid joint");
+    return false;
+  }
+  joint_model_group_map_[gc.name_] = new JointModelGroup(gc.name_, jointv, fixed_jointv, this);
+  joint_model_group_config_map_[gc.name_] = gc;
+  return true;
 }
 
 planning_models::KinematicModel::JointModel* planning_models::KinematicModel::buildRecursive(LinkModel *parent, const urdf::Link *link, 
                                                                                              const std::vector<MultiDofConfig>& multi_dof_configs)
 {  
   JointModel *joint = constructJointModel(link->parent_joint.get(), link, multi_dof_configs);
+  if(joint == NULL) {
+    return NULL;
+  }
   joint_model_map_[joint->name_] = joint;
   for(JointModel::js_type::const_iterator it = joint->getJointStateEquivalents().begin();
       it != joint->getJointStateEquivalents().end();
@@ -174,11 +300,18 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::bu
     joint->child_link_model_->joint_origin_transform_.setIdentity();
   link_model_map_[joint->child_link_model_->name_] = joint->child_link_model_;
   link_model_vector_.push_back(joint->child_link_model_);
+  if(joint->child_link_model_->shape_ != NULL) {
+    link_models_with_collision_geometry_vector_.push_back(joint->child_link_model_);
+  }
   joint->child_link_model_->parent_joint_model_ = joint;
   
-  for (unsigned int i = 0 ; i < link->child_links.size() ; ++i)
-    joint->child_link_model_->child_joint_models_.push_back(buildRecursive(joint->child_link_model_, link->child_links[i].get(), multi_dof_configs));
-  
+  for (unsigned int i = 0 ; i < link->child_links.size() ; ++i) {
+    JointModel* jm = buildRecursive(joint->child_link_model_, link->child_links[i].get(), multi_dof_configs);
+    if(jm != NULL) {
+      joint->child_link_model_->child_joint_models_.push_back(jm);
+    }
+  }
+
   return joint;
 }
 
@@ -226,13 +359,13 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
       {
         RevoluteJointModel *j = new RevoluteJointModel(urdf_joint->name, joint_config);
         if(urdf_joint->safety)
-        {
-          j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
-        }
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
+	  }
         else
-        {
-          j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
-        }
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
+	  }
         j->continuous_ = false;
         j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
         result = j;
@@ -251,15 +384,15 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
       {
         PrismaticJointModel *j = new PrismaticJointModel(urdf_joint->name, joint_config);
         if(urdf_joint->safety)
-        {
-          j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
-        }
-        else
-        {
-          j->setVariableBounds(j->name_, urdf_joint->limits->upper, urdf_joint->limits->lower);
-        }
-        j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
-        result = j;
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->safety->soft_lower_limit, urdf_joint->safety->soft_upper_limit);
+	  }
+	else
+	  {
+	    j->setVariableBounds(j->name_, urdf_joint->limits->lower, urdf_joint->limits->upper);
+	  }
+	j->axis_.setValue(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z);
+	result = j;
       }
       break;
     case urdf::Joint::FLOATING:
@@ -308,9 +441,7 @@ planning_models::KinematicModel::LinkModel* planning_models::KinematicModel::con
   if(urdf_link->collision) {
     result->shape_ = constructShape(urdf_link->collision->geometry.get());
   } else {
-    shapes::Shape *tmp_shape = NULL;
-    tmp_shape = new shapes::Sphere(0.0001);
-    result->shape_ = tmp_shape;   
+    result->shape_ = NULL;
   } 
   return result;
 }
@@ -542,6 +673,7 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
 void planning_models::KinematicModel::getChildLinkModels(const KinematicModel::LinkModel *parent, 
                                                          std::vector<const KinematicModel::LinkModel*> &links) const
 {
+  links.push_back(parent);
   std::queue<const KinematicModel::LinkModel*> q;
   q.push(parent);
   while (!q.empty())
@@ -559,6 +691,91 @@ void planning_models::KinematicModel::getChildLinkModels(const KinematicModel::L
   }
 }
 
+void planning_models::KinematicModel::getChildLinkModels(const KinematicModel::JointModel *parent, 
+                                                         std::vector<const KinematicModel::LinkModel*> &links) const
+{
+  getChildLinkModels(parent->child_link_model_, links);
+}
+
+void planning_models::KinematicModel::getChildJointModels(const KinematicModel::LinkModel *parent, 
+                                                          std::vector<const KinematicModel::JointModel*> &joints) const
+{
+  const KinematicModel::LinkModel* t = parent;
+
+  std::queue<const KinematicModel::LinkModel*> q;
+  while(1) {
+    for (unsigned int i = 0 ; i < t->child_joint_models_.size() ; ++i) {
+      joints.push_back(t->child_joint_models_[i]);
+      if (t->child_joint_models_[i]->child_link_model_)
+      {
+        q.push(t->child_joint_models_[i]->child_link_model_);
+      }
+    }
+    if(q.empty()) {
+      break;
+    }
+    t = q.front();
+    q.pop();
+  } while (!q.empty());
+}
+
+void planning_models::KinematicModel::getChildJointModels(const KinematicModel::JointModel *parent, 
+                                                          std::vector<const KinematicModel::JointModel*> &joints) const
+{
+  joints.push_back(parent);
+  if(parent->child_link_model_) {
+    getChildJointModels(parent->child_link_model_, joints);
+  }
+}
+
+std::vector<std::string> 
+planning_models::KinematicModel::getChildLinkModelNames(const KinematicModel::LinkModel *parent) const
+{
+  std::vector<const KinematicModel::LinkModel*> links;
+  getChildLinkModels(parent, links);
+  std::vector<std::string> ret_vec(links.size());
+  for(unsigned int i = 0; i < links.size(); i++) {
+    ret_vec[i] = links[i]->getName();
+  }
+  return ret_vec;
+}
+
+std::vector<std::string> 
+planning_models::KinematicModel::getChildLinkModelNames(const KinematicModel::JointModel *parent) const
+{
+  std::vector<const KinematicModel::LinkModel*> links;
+  getChildLinkModels(parent,links);
+  std::vector<std::string> ret_vec(links.size());
+  for(unsigned int i = 0; i < links.size(); i++) {
+    ret_vec[i] = links[i]->getName();
+  }
+  return ret_vec;
+}
+
+std::vector<std::string> 
+planning_models::KinematicModel::getChildJointModelNames(const KinematicModel::LinkModel *parent) const
+{
+  std::vector<const KinematicModel::JointModel*> joints;
+  getChildJointModels(parent,joints);
+  std::vector<std::string> ret_vec(joints.size());
+  for(unsigned int i = 0; i < joints.size(); i++) {
+    ret_vec[i] = joints[i]->getName();
+  }
+  return ret_vec;
+}
+
+std::vector<std::string> 
+planning_models::KinematicModel::getChildJointModelNames(const KinematicModel::JointModel *parent) const
+{
+  std::vector<const KinematicModel::JointModel*> joints;
+  getChildJointModels(parent,joints);
+  std::vector<std::string> ret_vec(joints.size());
+  for(unsigned int i = 0; i < joints.size(); i++) {
+    ret_vec[i] = joints[i]->getName();
+  }
+  return ret_vec;
+}
+
 void planning_models::KinematicModel::clearAllAttachedBodyModels()
 {
   exclusiveLock();
@@ -566,6 +783,16 @@ void planning_models::KinematicModel::clearAllAttachedBodyModels()
     link_model_vector_[i]->clearAttachedBodyModels();
   }
   exclusiveUnlock();
+}
+
+std::vector<const planning_models::KinematicModel::AttachedBodyModel*> planning_models::KinematicModel::getAttachedBodyModels(void) const
+{
+  std::vector<const planning_models::KinematicModel::AttachedBodyModel*> ret_vec;
+  for(unsigned int i =0; i < link_model_vector_.size(); i++) {
+    ret_vec.insert(ret_vec.end(), link_model_vector_[i]->getAttachedBodyModels().begin(),
+                   link_model_vector_[i]->getAttachedBodyModels().end());
+  }
+  return ret_vec;
 }
 
 void planning_models::KinematicModel::clearLinkAttachedBodyModels(const std::string& link_name)
@@ -666,7 +893,7 @@ planning_models::KinematicModel::JointModel::~JointModel(void)
     delete child_link_model_;
 }
 
-std::string planning_models::KinematicModel::JointModel::getEquiv(const std::string name) const {
+std::string planning_models::KinematicModel::JointModel::getEquiv(const std::string& name) const {
   js_type::left_const_iterator lit = joint_state_equivalents_.left.find(name);
   if(lit != joint_state_equivalents_.left.end()) {
     return lit->second;
@@ -675,25 +902,57 @@ std::string planning_models::KinematicModel::JointModel::getEquiv(const std::str
   }
 }
 
-void planning_models::KinematicModel::JointModel::setVariableBounds(std::string variable, double low, double high) {
+bool planning_models::KinematicModel::JointModel::setVariableBounds(const std::string& variable, double low, double high) {
   if(joint_state_equivalents_.right.find(variable) == joint_state_equivalents_.right.end()) {
     ROS_WARN_STREAM("Can't find variable " << variable << " to set bounds");
-    return;
+    return false;
   }
   joint_state_bounds_[joint_state_equivalents_.right.at(variable)] = std::pair<double,double>(low, high);
+  return true;
 }
 
-std::pair<double, double> planning_models::KinematicModel::JointModel::getVariableBounds(std::string variable) const{
+bool planning_models::KinematicModel::JointModel::getVariableBounds(const std::string& variable, std::pair<double, double>& bounds) const{
   if(joint_state_equivalents_.right.find(variable) == joint_state_equivalents_.right.end()) {
     ROS_WARN_STREAM("Can't find variable " << variable << " to get bounds");
-    return std::pair<double,double>(0.0,0.0);
+    return false;
   }
   std::string config_name = joint_state_equivalents_.right.find(variable)->second;
   if(joint_state_bounds_.find(config_name) == joint_state_bounds_.end()) {
     ROS_WARN_STREAM("No joint bounds for " << config_name);
-    return std::pair<double,double>(0.0,0.0);
+    return false;
   }
-  return joint_state_bounds_.find(config_name)->second;
+  bounds = joint_state_bounds_.find(config_name)->second;
+  return true;
+}
+
+void planning_models::KinematicModel::JointModel::getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const
+{
+  for(std::map<std::string, std::pair<double, double> >::const_iterator it = joint_state_bounds_.begin();
+      it != joint_state_bounds_.end();
+      it++) {
+    //zero is a valid value
+    if(it->second.first <= 0.0 && it->second.second >= 0.0) {
+      ret_map[it->first] = 0.0;
+    } else {
+      ret_map[it->first] = (it->second.first + it->second.second)/2.0;
+    }
+  }
+}
+
+bool planning_models::KinematicModel::JointModel::isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const 
+{
+  std::pair<double, double> bounds;
+  if(!getVariableBounds(variable, bounds)) {
+    return false;
+  }
+  if(value < bounds.first || value > bounds.second) {
+    ROS_DEBUG_STREAM("Violates bounds: Value " << value << " lower " << bounds.first << " upper " << bounds.second);
+    within_bounds = false;
+  } else {
+    ROS_DEBUG_STREAM("Satisfies bounds: Value " << value << " lower " << bounds.first << " upper " << bounds.second);
+    within_bounds = true;
+  }
+  return true;
 }
 
 planning_models::KinematicModel::PlanarJointModel::PlanarJointModel(const std::string& name, const MultiDofConfig* multi_dof_config) 
@@ -775,6 +1034,9 @@ btTransform planning_models::KinematicModel::FloatingJointModel::computeTransfor
   }
   variable_transform.setOrigin(btVector3(joint_values[0], joint_values[1], joint_values[2]));
   variable_transform.setRotation(btQuaternion(joint_values[3], joint_values[4], joint_values[5], joint_values[6]));
+  if(joint_values[3] == 0.0 && joint_values[4] == 0.0 && joint_values[5] == 0.0 && joint_values[6] == 0.0) {
+    ROS_INFO("Setting quaternion with all zeros");
+  }                  
   return variable_transform;
 }
 
@@ -789,6 +1051,18 @@ std::vector<double> planning_models::KinematicModel::FloatingJointModel::compute
   ret.push_back(transform.getRotation().z());
   ret.push_back(transform.getRotation().w());
   return ret;
+}
+
+void planning_models::KinematicModel::FloatingJointModel::getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const 
+{
+  //the only reasonable default quaternion is (0,0,0,1) - doesn't matter what the bounds are
+  ret_map[getEquiv("floating_trans_x")] = 0.0;
+  ret_map[getEquiv("floating_trans_y")] = 0.0;
+  ret_map[getEquiv("floating_trans_z")] = 0.0;
+  ret_map[getEquiv("floating_rot_x")] = 0.0;
+  ret_map[getEquiv("floating_rot_y")] = 0.0;
+  ret_map[getEquiv("floating_rot_z")] = 0.0;
+  ret_map[getEquiv("floating_rot_w")] = 1.0;
 }
 
 planning_models::KinematicModel::PrismaticJointModel::PrismaticJointModel(const std::string& name,
@@ -848,8 +1122,37 @@ btTransform planning_models::KinematicModel::RevoluteJointModel::computeTransfor
 std::vector<double> planning_models::KinematicModel::RevoluteJointModel::computeJointStateValues(const btTransform& transform) const
 {
   std::vector<double> ret;
-  ret.push_back(transform.getRotation().getAngle()*transform.getRotation().getAxis().dot(axis_));
+  ROS_DEBUG_STREAM("Transform angle is " << transform.getRotation().getAngle() 
+                   << " axis x " << transform.getRotation().getAxis().x()
+                   << " axis y " << transform.getRotation().getAxis().y()
+                   << " axis z " << transform.getRotation().getAxis().z());
+  double val = transform.getRotation().getAngle()*transform.getRotation().getAxis().dot(axis_);
+  while(val < -M_PI) {
+    if(val < -M_PI) {
+      val += 2*M_PI;
+    }
+  }
+  while(val > M_PI) {
+    if(val > M_PI) {
+      val -= 2*M_PI;
+    }
+  }
+  ret.push_back(val);
   return ret;
+}
+
+bool planning_models::KinematicModel::RevoluteJointModel::isValueWithinVariableBounds(const std::string& variable, 
+                                                                                      const double& value, 
+                                                                                      bool& within_bounds) const 
+{
+  if(!continuous_) {
+    return JointModel::isValueWithinVariableBounds(variable, value, within_bounds);
+  }
+  if(!hasVariable(variable)) {
+    return false;
+  }
+  within_bounds = true;
+  return true;
 }
 
 /* ------------------------ LinkModel ------------------------ */
@@ -869,7 +1172,11 @@ planning_models::KinematicModel::LinkModel::LinkModel(const LinkModel* link_mode
   joint_origin_transform_(link_model->joint_origin_transform_),
   collision_origin_transform_(link_model->collision_origin_transform_)
 {
-  shape_ = shapes::cloneShape(link_model->shape_);
+  if(link_model->shape_) {
+    shape_ = shapes::cloneShape(link_model->shape_);
+  } else {
+    shape_ = NULL;
+  }
   for (unsigned int i = 0 ; i < link_model->attached_body_models_.size() ; ++i)
   {
     std::vector<shapes::Shape*> shapes;
@@ -956,53 +1263,89 @@ planning_models::KinematicModel::AttachedBodyModel::~AttachedBodyModel(void)
 
 /* ------------------------ JointModelGroup ------------------------ */
 planning_models::KinematicModel::JointModelGroup::JointModelGroup(const std::string& group_name,
-                                                                  const std::vector<const JointModel*> &group_joints) :
-
+                                                                  const std::vector<const JointModel*> &group_joints,
+                                                                  const std::vector<const JointModel*> &fixed_group_joints,
+                                                                  const KinematicModel* parent_model) :
   name_(group_name)
 {
+  ROS_DEBUG_STREAM("Group " << group_name);
+
   joint_model_vector_ = group_joints;
+  fixed_joint_model_vector_ = fixed_group_joints;
   joint_model_name_vector_.resize(group_joints.size());
-    
+
+  ROS_DEBUG_STREAM("Joints:");    
   for (unsigned int i = 0 ; i < group_joints.size() ; ++i)
   {
+    ROS_DEBUG_STREAM(group_joints[i]->getName());
     joint_model_name_vector_[i] = group_joints[i]->getName();
     joint_model_map_[group_joints[i]->getName()] = group_joints[i];
   }
-    
-  for (unsigned int i = 0 ; i < group_joints.size() ; ++i)
+
+  ROS_DEBUG_STREAM("Fixed joints:");    
+  for (unsigned int i = 0 ; i < fixed_joint_model_vector_.size() ; ++i)
+  {
+    ROS_DEBUG_STREAM(fixed_joint_model_vector_[i]->getName());
+  }
+
+  std::vector<const JointModel*> all_joints = group_joints;
+  all_joints.insert(all_joints.end(), fixed_group_joints.begin(), fixed_group_joints.end());
+
+  //now we need to find all the set of joints within this group
+  //that root distinct subtrees
+  std::map<std::string, bool> is_root;
+  for (unsigned int i = 0 ; i < all_joints.size() ; ++i)
   {
     bool found = false;
-    const JointModel *joint = joint_model_vector_[i];
-    while (joint->parent_link_model_)
+    const JointModel *joint = all_joints[i];
+    //if we find that an ancestor is also in the group, then the joint is not a root
+    while (joint->getParentLinkModel() != NULL)
     {
       joint = joint->getParentLinkModel()->getParentJointModel();
       if (hasJointModel(joint->name_))
       {
         found = true;
-        break;
       }
     }
 	
-    if (!found)
-      joint_roots_.push_back(joint_model_vector_[i]);
+    if(!found) {
+      joint_roots_.push_back(all_joints[i]);
+      is_root[all_joints[i]->getName()] = true;
+    } else {
+      is_root[all_joints[i]->getName()] = false;
+    }
   }
 
+  //now we need to make another pass for group links
+  std::set<const LinkModel*> group_links_set;
+  for(unsigned int i = 0; i < all_joints.size(); i++) {
+    const JointModel *joint = all_joints[i];
+    //push children in directly
+    group_links_set.insert(joint->getChildLinkModel());
+    while (joint->getParentLinkModel() != NULL)
+    {
+      if(is_root.find(joint->getName()) != is_root.end() &&
+         is_root[joint->getName()]) {
+        break;
+      }
+      group_links_set.insert(joint->getParentLinkModel());
+      joint = joint->getParentLinkModel()->getParentJointModel();
+    }
+  }
+
+  ROS_DEBUG("Group links:");
+  for(std::set<const LinkModel*>::iterator it = group_links_set.begin();
+      it != group_links_set.end();
+      it++) {
+    group_link_model_vector_.push_back(*it);
+    ROS_DEBUG_STREAM((*it)->getName());
+  }
+  //these subtrees are distinct, so we can stack their updated links on top of each other
   for (unsigned int i = 0 ; i < joint_roots_.size() ; ++i)
   {
-    std::queue<const LinkModel*> links;
-    links.push(joint_roots_[i]->getChildLinkModel());
-	
-    while (!links.empty())
-    {
-      const LinkModel *link = links.front();
-      if(link == NULL) {
-        ROS_WARN("Null link in group creation");
-      }
-      links.pop();
-      updated_link_model_vector_.push_back(link);
-      for (unsigned int i = 0 ; i < link->getChildJointModels().size() ; ++i)
-        links.push(link->getChildJointModels()[i]->getChildLinkModel());
-    }
+    std::vector<const LinkModel*> links;
+    parent_model->getChildLinkModels(joint_roots_[i], links);
+    updated_link_model_vector_.insert(updated_link_model_vector_.end(), links.begin(), links.end());
   }
 }
 

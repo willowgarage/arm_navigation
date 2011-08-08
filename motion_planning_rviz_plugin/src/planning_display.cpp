@@ -421,7 +421,7 @@ void PlanningDisplay::calculateRobotPosition()
   robot_->setOrientation(orientation);
 }
 
-void PlanningDisplay::incomingJointPath(const motion_planning_msgs::DisplayTrajectory::ConstPtr& msg)
+void PlanningDisplay::incomingJointPath(const arm_navigation_msgs::DisplayTrajectory::ConstPtr& msg)
 {
   incoming_kinematic_path_message_ = msg;
   new_kinematic_path_ = true;
@@ -460,7 +460,7 @@ void PlanningDisplay::createProperties()
   topic_property_ = property_manager_->createProperty<rviz::ROSTopicStringProperty> ("Topic", property_prefix_, boost::bind(&PlanningDisplay::getTopic, this),
                                                                                boost::bind(&PlanningDisplay::setTopic, this, _1), parent_category_, this);
   rviz::ROSTopicStringPropertyPtr topic_prop = topic_property_.lock();
-  topic_prop->setMessageType(motion_planning_msgs::DisplayTrajectory::__s_getDataType());
+  topic_prop->setMessageType(arm_navigation_msgs::DisplayTrajectory::__s_getDataType());
 
   robot_->setPropertyManager(property_manager_, parent_category_);
 }

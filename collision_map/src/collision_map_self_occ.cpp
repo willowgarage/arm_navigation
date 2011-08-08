@@ -37,7 +37,7 @@
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
 #include <sensor_msgs/PointCloud.h>
-#include <mapping_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/CollisionMap.h>
 #include <tf/transform_listener.h>
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
@@ -49,12 +49,8 @@
 #include <set>
 #include <iterator>
 #include <cstdlib>
-#include <collision_environment_msgs/MakeStaticCollisionMapAction.h>
+#include <arm_navigation_msgs/MakeStaticCollisionMapAction.h>
 #include <actionlib/server/simple_action_server.h>
-
-#include <collision_environment_msgs/SetCloudSettings.h>
-#include <collision_environment_msgs/GetCloudSettings.h>
-
 
 struct CloudInfo 
 {
@@ -136,9 +132,9 @@ public:
     //self_filter_ = new filters::SelfFilter<sensor_msgs::PointCloud>(priv);
 
     // advertise our topics: full map and updates
-    cmapPublisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_occ", 1, true);
-    cmapUpdPublisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_occ_update", 1);
-    static_map_publisher_ = root_handle_.advertise<mapping_msgs::CollisionMap>("collision_map_occ_static", 1);
+    cmapPublisher_ = root_handle_.advertise<arm_navigation_msgs::CollisionMap>("collision_map_occ", 1, true);
+    cmapUpdPublisher_ = root_handle_.advertise<arm_navigation_msgs::CollisionMap>("collision_map_occ_update", 1);
+    static_map_publisher_ = root_handle_.advertise<arm_navigation_msgs::CollisionMap>("collision_map_occ_static", 1);
         
     if(!priv.hasParam("cloud_sources")) {
       ROS_WARN("No links specified for self filtering.");
@@ -208,7 +204,7 @@ public:
             mn_cloud_tf_fil_vector_.back()->registerCallback(boost::bind(&CollisionMapperOcc::cloudCallback, this, _1, cps.cloud_name_));
             // if (publishOcclusion_) {
             //   std::string name = std::string("collision_map_occ_occlusion_")+cps.cloud_name_;
-            //   occPublisherMap_[cps.cloud_name_] = root_handle_.advertise<mapping_msgs::CollisionMap>(name, 1);
+            //   occPublisherMap_[cps.cloud_name_] = root_handle_.advertise<arm_navigation_msgs::CollisionMap>(name, 1);
             // }
             static_map_published_[cps.cloud_name_] = false;
             ROS_INFO_STREAM("Source name " << cps.cloud_name_);
@@ -233,12 +229,8 @@ public:
     //mnCloudIncremental_->setTargetFrame(frames);
     resetService_ = priv.advertiseService("reset", &CollisionMapperOcc::reset, this);
 
-    action_server_.reset(new actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", 
+    action_server_.reset(new actionlib::SimpleActionServer<arm_navigation_msgs::MakeStaticCollisionMapAction>(root_handle_, "make_static_collision_map", 
                                                                                                                     boost::bind(&CollisionMapperOcc::makeStaticCollisionMap, this, _1)));
-    set_settings_server_ = root_handle_.advertiseService<collision_environment_msgs::SetCloudSettings::Request,collision_environment_msgs::SetCloudSettings::Response>("set_collision_map_cloud_settings", boost::bind(&CollisionMapperOcc::setCloudSettings, this, _1, _2));
-
-    get_settings_server_ = root_handle_.advertiseService<collision_environment_msgs::GetCloudSettings::Request,collision_environment_msgs::GetCloudSettings::Response>("get_collision_map_cloud_settings", boost::bind(&CollisionMapperOcc::getCloudSettings, this, _1, _2));
-
   }
   
   ~CollisionMapperOcc(void)
@@ -325,117 +317,7 @@ private:
     double real_minX, real_minY, real_minZ;
     double real_maxX, real_maxY, real_maxZ;
   };
-
-  bool getCloudSettings(collision_environment_msgs::GetCloudSettings::Request  &req, collision_environment_msgs::GetCloudSettings::Response &res )
-  {
-    if(cloud_source_map_.find(req.cloud_name) != cloud_source_map_.end())
-    {
-      CloudInfo settings =  cloud_source_map_[req.cloud_name];
-
-      res.settings.cloud_name = settings.cloud_name_;
-
-      res.settings.dynamic_publish = (settings.dynamic_publish_) ? int(res.settings.INCLUDE) : int(res.settings.EXCLUDE);
-      res.settings.static_publish = (settings.static_publish_) ? int(res.settings.INCLUDE) : int(res.settings.EXCLUDE);
-
-      res.value = res.SUCCESS;
-
-    }
-    else
-    {
-      res.value = res.NAME_NONEXISTANT;
-    }
-
-    return true;
-  }
 			
-
-  bool setCloudSettings(collision_environment_msgs::SetCloudSettings::Request  &req, collision_environment_msgs::SetCloudSettings::Response &res )
-  {
-    if(cloud_source_map_.find(req.settings.cloud_name) != cloud_source_map_.end())
-    {
-      CloudInfo settings =  cloud_source_map_[req.settings.cloud_name];
-
-      if(req.settings.dynamic_publish)
-      {
-        if(req.settings.dynamic_publish == req.settings.INCLUDE)
-        {
-          settings.dynamic_publish_ = true;
-        }
-        else
-        {	
-          settings.dynamic_publish_ = false;
-        }
-      }
-
-      if(req.settings.static_publish)
-      {
-        if(req.settings.static_publish == req.settings.INCLUDE)
-        {
-          settings.static_publish_ = true;
-        }
-        else
-        {	
-          settings.static_publish_ = false;
-        }        
-      }
-
-
-      if(!settings.dynamic_publish_)
-      {
-        std::map<std::string, std::list<StampedCMap*> >::iterator it = currentMaps_.find(settings.cloud_name_+"_dynamic");
-        if(it != currentMaps_.end()) 
-        {
-          for(std::list<StampedCMap*>::iterator itbuff = it->second.begin(); itbuff != it->second.end(); itbuff++)
-          {
-            delete (*itbuff);
-          }
-
-          it->second.clear();
-
-        }
-      }
-
-      if(!settings.static_publish_)
-      {
-        std::map<std::string, std::list<StampedCMap*> >::iterator it = currentMaps_.find(settings.cloud_name_+"_static");
-        if(it != currentMaps_.end()) 
-        {
-          for(std::list<StampedCMap*>::iterator itbuff = it->second.begin(); itbuff != it->second.end(); itbuff++)
-          {
-            delete (*itbuff);
-          }
-
-          it->second.clear();
-
-        }
-      }
-
-      cloud_source_map_[req.settings.cloud_name] = settings;
-
-      res.value = res.SUCCESS;
-
-      ROS_DEBUG_STREAM("Changed settings for " << req.settings.cloud_name);
-      ROS_DEBUG_STREAM("  Publish dynamic: " << ((settings.dynamic_publish_) ? "true" : "false"));
-      ROS_DEBUG_STREAM("  Publish static: " << ((settings.static_publish_) ? "true" : "false"));
-      ROS_DEBUG_STREAM("Other settings: ");
-      ROS_DEBUG_STREAM("  Frame subsample: " << settings.frame_subsample_);
-      ROS_DEBUG_STREAM("  Point subsample: " << settings.point_subsample_);
-      ROS_DEBUG_STREAM("  Dynamic buffer size: " << settings.dynamic_buffer_size_);
-      ROS_DEBUG_STREAM("  Dynamic buffer duration: " << settings.dynamic_buffer_duration_);
-      ROS_DEBUG_STREAM("  Static buffer size: " << settings.static_buffer_size_);
-      ROS_DEBUG_STREAM("  Static buffer duration: " << settings.static_buffer_duration_);
-
-    }
-
-    else
-    {
-      res.value = res.NAME_NONEXISTANT;
-    }
-
-    return true;
-  }
-
-    
   void cloudIncrementalCallback(const sensor_msgs::PointCloudConstPtr &cloud)
   {
     if (!mapProcessing_.try_lock())
@@ -873,7 +755,7 @@ private:
                            const ros::Time &stamp,
                            ros::Publisher &pub) const
   {
-    mapping_msgs::CollisionMap cmap;
+    arm_navigation_msgs::CollisionMap cmap;
     cmap.header.frame_id = frame_id;
     cmap.header.stamp = stamp;
     const unsigned int ms = map.size();
@@ -881,7 +763,7 @@ private:
     for (CMap::const_iterator it = map.begin() ; it != map.end() ; ++it)
     {
       const CollisionPoint &cp = *it;
-      mapping_msgs::OrientedBoundingBox box;
+      arm_navigation_msgs::OrientedBoundingBox box;
       box.extents.x = box.extents.y = box.extents.z = bi_.resolution;
       box.axis.x = box.axis.y = 0.0; box.axis.z = 1.0;
       box.angle = 0.0;
@@ -895,7 +777,7 @@ private:
     ROS_DEBUG("Published collision map with %u boxes", ms);
   }
 
-  void makeStaticCollisionMap(const collision_environment_msgs::MakeStaticCollisionMapGoalConstPtr& goal) {
+  void makeStaticCollisionMap(const arm_navigation_msgs::MakeStaticCollisionMapGoalConstPtr& goal) {
     
     if(cloud_source_map_.find(goal->cloud_source) == cloud_source_map_.end())
     {
@@ -912,7 +794,7 @@ private:
       return;
     }
 
-    static_map_goal_ = new collision_environment_msgs::MakeStaticCollisionMapGoal(*goal);
+    static_map_goal_ = new arm_navigation_msgs::MakeStaticCollisionMapGoal(*goal);
     cloud_count_ = 0;
     making_static_collision_map_ = true;
     disregard_first_message_ = true;
@@ -969,7 +851,7 @@ private:
   ros::ServiceServer                            resetService_;
   bool                                          publishOcclusion_;
     
-  collision_environment_msgs::MakeStaticCollisionMapGoal *static_map_goal_;
+  arm_navigation_msgs::MakeStaticCollisionMapGoal *static_map_goal_;
   bool making_static_collision_map_;
   bool publish_over_dynamic_map_;
   bool disregard_first_message_;
@@ -985,7 +867,7 @@ private:
 
   std::map<std::string,CloudInfo> cloud_source_map_;
   std::map<std::string,bool> static_map_published_;
-  boost::shared_ptr<actionlib::SimpleActionServer<collision_environment_msgs::MakeStaticCollisionMapAction> > action_server_;	
+  boost::shared_ptr<actionlib::SimpleActionServer<arm_navigation_msgs::MakeStaticCollisionMapAction> > action_server_;	
   
   ros::ServiceServer get_settings_server_;
   ros::ServiceServer set_settings_server_;

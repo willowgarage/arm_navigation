@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 #include <arm_control_msgs/TrajectoryStart.h>
 
 #include <stdio.h>
@@ -48,7 +48,7 @@
 #include <ros/ros.h>
 #include <gtest/gtest.h>
 
-typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
+typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
 
 void spinThread()
 {
@@ -116,12 +116,12 @@ TEST(MoveArm, goToPoseGoal)
 {
   ros::NodeHandle nh;
   ros::NodeHandle private_handle("~");
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
   boost::thread spin_thread(&spinThread);
 
   move_arm.waitForServer();
   ROS_INFO("Connected to server");
-  move_arm_msgs::MoveArmGoal goalA;
+  arm_navigation_msgs::MoveArmGoal goalA;
 
   goalA.group_name = "right_arm";
   goalA.num_planning_attempts = 1;

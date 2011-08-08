@@ -1,0 +1,14 @@
+<launch>
+
+   <include file="$(find planning_environment)/test/testing_infrastructure.launch"/>
+
+   <node pkg="planning_environment" type="environment_server" output="screen" name="environment_server"/>       
+  
+   <node pkg="ompl_ros_interface" type="ompl_ros" name="ompl_planning" output="screen">
+     <param name="default_planner_config" type="string" value="SBLkConfig1"/>
+     <rosparam command="load" file="$(find ompl_ros_interface)/test/ompl_planning.yaml" />
+   </node>
+
+   <test test-name="test_ompl_planning" pkg="ompl_ros_interface" type="test_ompl_planning" />
+  
+</launch>

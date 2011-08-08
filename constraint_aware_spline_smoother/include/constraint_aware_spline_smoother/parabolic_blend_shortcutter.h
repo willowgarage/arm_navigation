@@ -41,10 +41,11 @@
 #include <tf/tf.h>
 #include <spline_smoother/spline_smoother.h>
 #include <spline_smoother/cubic_trajectory.h>
-#include <planning_environment/monitors/planning_monitor.h>
-#include <motion_planning_msgs/RobotState.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <motion_planning_msgs/LinkPadding.h>
+#include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/models/model_utils.h>
+#include <arm_navigation_msgs/RobotState.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/LinkPadding.h>
 
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 
@@ -62,10 +63,9 @@ public:
   virtual bool ConfigFeasible(const Vector& x);
   virtual bool SegmentFeasible(const Vector& a,const Vector& b);
   bool setInitial(const trajectory_msgs::JointTrajectory &trajectory,
-                  const motion_planning_msgs::OrderedCollisionOperations &ordered_collision_operations,
-                  const std::vector<motion_planning_msgs::AllowedContactSpecification> &allowed_contact_regions,
-                  const std::vector<motion_planning_msgs::LinkPadding> &link_padding,
-                  const motion_planning_msgs::Constraints &path_constraints);
+                  const std::string& group_name, 
+                  const arm_navigation_msgs::RobotState& start_state, 
+                  const arm_navigation_msgs::Constraints &path_constraints);
   void resetRequest();
   bool isActive();
   void initialize();
@@ -73,13 +73,12 @@ private:
   std::vector<std::string> joint_names_;
   bool active_;
   double discretization_;
-  tf::TransformListener tf_;
   ros::NodeHandle node_handle_;
   bool setupCollisionEnvironment();
-  planning_environment::CollisionModels *collision_models_;
-  planning_environment::PlanningMonitor *planning_monitor_;    
+  planning_environment::CollisionModelsInterface *collision_models_interface_;
   void discretizeTrajectory(const trajectory_msgs::JointTrajectory &trajectory, 
                             trajectory_msgs::JointTrajectory &trajectory_out);
+  arm_navigation_msgs::Constraints path_constraints_;
 };
 
 FeasibilityChecker::FeasibilityChecker() : FeasibilityCheckerBase(), node_handle_("~")
@@ -107,37 +106,33 @@ void FeasibilityChecker::initialize()
 }
 
 bool FeasibilityChecker::setInitial(const trajectory_msgs::JointTrajectory &trajectory,
-                                    const motion_planning_msgs::OrderedCollisionOperations &ordered_collision_operations,
-                                    const std::vector<motion_planning_msgs::AllowedContactSpecification> &allowed_contact_regions,
-                                    const std::vector<motion_planning_msgs::LinkPadding> &link_padding,
-                                    const motion_planning_msgs::Constraints &path_constraints)
+                                    const std::string& group_name, 
+                                    const arm_navigation_msgs::RobotState &start_state,
+                                    const arm_navigation_msgs::Constraints &path_constraints)
 {
   std::vector<std::string> child_links;
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  motion_planning_msgs::OrderedCollisionOperations operations;
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  arm_navigation_msgs::OrderedCollisionOperations operations;
 
   joint_names_ = trajectory.joint_names;
 
-  motion_planning_msgs::Constraints emp;
-  
-  planning_monitor_->prepareForValidityChecks(joint_names_,
-                                              ordered_collision_operations,
-                                              allowed_contact_regions,
-                                              path_constraints,
-                                              emp,
-                                              link_padding, 
-                                              error_code); 
-  if(error_code.val != error_code.SUCCESS)
-  {
-    ROS_ERROR("Could not set path constraints");
+  if(!collision_models_interface_->isPlanningSceneSet()) {
+    ROS_INFO("Planning scene not set, can't do anything");
     return false;
   }
+
+  collision_models_interface_->disableCollisionsForNonUpdatedLinks(group_name);
+  
+  planning_environment::setRobotStateAndComputeTransforms(start_state,
+                                                         *collision_models_interface_->getPlanningSceneState());
+
+  path_constraints_ = path_constraints;
+
   return true;
 }
 
 void FeasibilityChecker::resetRequest()
 {
-  planning_monitor_->revertToDefaultState();
 }
 
 bool FeasibilityChecker::setupCollisionEnvironment()
@@ -146,18 +141,8 @@ bool FeasibilityChecker::setupCollisionEnvironment()
   node_handle_.param<bool>("use_collision_map", use_collision_map, true);
   
   // monitor robot
-  collision_models_ = new planning_environment::CollisionModels("robot_description");
-  planning_monitor_ = new planning_environment::PlanningMonitor(collision_models_, &tf_);
-  planning_monitor_->setUseCollisionMap(use_collision_map);
-  if(!collision_models_->loadedModels())
-    return false;
-  if (planning_monitor_->getExpectedJointStateUpdateInterval() > 1e-3)
-    planning_monitor_->waitForState();
+  collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
 
-  planning_monitor_->startEnvironmentMonitor();
-
-  if (planning_monitor_->getExpectedMapUpdateInterval() > 1e-3 && use_collision_map)
-    planning_monitor_->waitForMap();
   return true;
 }
 
@@ -195,28 +180,31 @@ void FeasibilityChecker::discretizeTrajectory(const trajectory_msgs::JointTrajec
 
 bool FeasibilityChecker::ConfigFeasible(const Vector& x)
 {
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-  motion_planning_msgs::RobotState robot_state;
-  planning_monitor_->getCurrentRobotState(robot_state);
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
 
   trajectory_msgs::JointTrajectory joint_traj;
   joint_traj.joint_names = joint_names_;
   joint_traj.header.stamp = ros::Time::now();
   joint_traj.points.resize(1);
   joint_traj.points[0].positions = x;
-  return planning_monitor_->isTrajectoryValid(joint_traj,robot_state,0,joint_traj.points.size(),
-                                              planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST,
-                                              false,error_code,trajectory_error_codes);    
+
+  arm_navigation_msgs::Constraints empty_goal_constraints;
+  
+  return(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                             joint_traj,
+                                                             empty_goal_constraints,
+                                                             path_constraints_,
+                                                             error_code,
+                                                             trajectory_error_codes,
+                                                             false));
 }
 
 bool FeasibilityChecker::SegmentFeasible(const Vector& a,const Vector& b)
 {
-  motion_planning_msgs::ArmNavigationErrorCodes error_code;
-  std::vector<motion_planning_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
-  motion_planning_msgs::RobotState robot_state;
-  //empty state is ok
-
+  arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+  std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> trajectory_error_codes;
+ 
   trajectory_msgs::JointTrajectory joint_traj_in, joint_traj;
   joint_traj_in.joint_names = joint_names_;
   joint_traj.header.stamp = ros::Time::now();
@@ -225,9 +213,15 @@ bool FeasibilityChecker::SegmentFeasible(const Vector& a,const Vector& b)
   joint_traj_in.points[1].positions = b;
   joint_traj.joint_names = joint_traj_in.joint_names;
   discretizeTrajectory(joint_traj_in,joint_traj);
-  return planning_monitor_->isTrajectoryValid(joint_traj,robot_state,0,joint_traj.points.size(),
-                                              planning_environment::PlanningMonitor::COLLISION_TEST | planning_environment::PlanningMonitor::PATH_CONSTRAINTS_TEST,
-                                              false,error_code,trajectory_error_codes);
+
+  arm_navigation_msgs::Constraints empty_goal_constraints;
+  return(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                             joint_traj,
+                                                             empty_goal_constraints,
+                                                             path_constraints_,
+                                                             error_code,
+                                                             trajectory_error_codes,
+                                                             false));
 }
 
 /**
@@ -297,9 +291,8 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
   }
   
   feasibility_checker_->setInitial(trajectory_in.trajectory,
-                                   trajectory_in.ordered_collision_operations,
-                                   trajectory_in.allowed_contacts,
-                                   trajectory_in.link_padding,
+                                   trajectory_in.group_name,
+                                   trajectory_in.start_state,
                                    trajectory_in.path_constraints);
   std::vector<Vector> path;        //the sequence of milestones
   Vector vmax,amax;           //velocity and acceleration bounds, respectively

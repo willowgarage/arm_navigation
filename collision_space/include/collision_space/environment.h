@@ -62,29 +62,29 @@ class EnvironmentModel
 {
 public:
 	
+  enum BodyType {
+    LINK,
+    ATTACHED,
+    OBJECT
+  };
+
   /** \brief Definition of a contact point */
   struct Contact
   {
     /** \brief contact position */
-    btVector3                              pos;     
+    btVector3 pos;     
     /** \brief normal unit vector at contact */
-    btVector3                              normal;  
+    btVector3 normal;  
     /** \brief depth (penetration between bodies) */
-    double                                 depth;
-    /** \brief first link involved in contact */
-    const planning_models::KinematicModel::LinkModel *link1; 
+    double depth;
 
-    /** \brief if the contact with link1 is with an attached body this index will be non-zero*/
-    unsigned int link1_attached_body_index;
-    
-    /** \brief if the contact is between two links, this is not NULL */
-    const planning_models::KinematicModel::LinkModel *link2; 
+    /** \brief The first body involved in the contact */
+    std::string body_name_1;
+    BodyType body_type_1;
 
-    /** \brief if the contact with link2 is with an attached body this index will be non-zero*/
-    unsigned int link2_attached_body_index;
-
-    //if the contact is with an object, this will be non-empty, and link2 should be NULL
-    std::string object_name; 
+    /** \brief The first body involved in the contact */
+    std::string body_name_2;
+    BodyType body_type_2;
   };
 
   /** \brief Definition of a contact that is allowed */
@@ -94,64 +94,117 @@ public:
     boost::shared_ptr<bodies::Body> bound;
 	    
     /// the set of link names that are allowed to make contact
-    std::vector<std::string>        links;
+    std::vector<std::string> links;
 
     /// tha maximum depth for the contact
-    double                          depth;
+    double depth;
   };
+
+  /** \brief Definition of a structure for the allowed collision matrix */
+  /* False means that no collisions are allowed, true means ok */
+  class AllowedCollisionMatrix
+  {
+  public:
     
+    AllowedCollisionMatrix(){
+      valid_ = true;
+    }
+
+    AllowedCollisionMatrix(const std::vector<std::string>& names,
+                           bool allowed = false);
+
+    AllowedCollisionMatrix(const std::vector<std::vector<bool> >& all_coll_vectors,
+                           const std::map<std::string, unsigned int>& all_coll_indices);
+    
+    AllowedCollisionMatrix(const AllowedCollisionMatrix& acm);
+
+    bool getAllowedCollision(const std::string& name1, const std::string& name2,
+                             bool& allowed_collision) const;
+
+    bool getAllowedCollision(unsigned int i, unsigned int j,
+                             bool& allowed_collision) const;
+
+    bool hasEntry(const std::string& name) const;
+
+    bool getEntryIndex(const std::string& name,
+                               unsigned int& index) const;
+    
+    bool getEntryName(const unsigned int ind,
+                      std::string& name) const;
+
+    bool removeEntry(const std::string& name);
+
+    bool addEntry(const std::string& name, bool allowed);
+
+    bool changeEntry(bool allowed);
+    
+    bool changeEntry(const std::string& name, bool allowed);
+
+    bool changeEntry(const std::string& name1,
+                     const std::string& name2,
+                     bool allowed);
+
+    bool changeEntry(const unsigned int ind_1,
+                     const unsigned int ind_2,
+                     bool allowed);
+
+    bool changeEntry(const std::string& name, 
+                     const std::vector<std::string>& change_names,
+                     bool allowed);
+
+    bool changeEntry(const std::vector<std::string>& change_names_1,
+                     const std::vector<std::string>& change_names_2,
+                     bool allowed);
+
+    bool getValid() const {
+      return valid_;
+    };
+
+    unsigned int getSize() const {
+      return allowed_entries_.size();
+    }
+
+    typedef boost::bimap<std::string, unsigned int> entry_type;
+
+    const entry_type& getEntriesBimap() const {
+      return allowed_entries_bimap_;
+    }
+
+    void print(std::ostream& out) const;
+    
+  private:
+
+    bool valid_;
+    std::vector<std::vector<bool> > allowed_entries_;
+
+    entry_type allowed_entries_bimap_;
+  };
+
   EnvironmentModel(void)
   {
-    m_selfCollision = true;
-    m_verbose = false;
-    m_objects = new EnvironmentObjects();
-    use_set_collision_matrix_ = false;
+    verbose_ = false;
+    objects_ = new EnvironmentObjects();
+    use_altered_collision_matrix_ = false;
   }
 	
   virtual ~EnvironmentModel(void)
   {
-    if (m_objects)
-      delete m_objects;
+    if (objects_)
+      delete objects_;
   }
 
   /**********************************************************************/
   /* Collision Environment Configuration                                */
   /**********************************************************************/
 	
-  /** \brief Set the status of self collision */
-  void setSelfCollision(bool selfCollision);
-	
-  /** \brief Check if self collision is enabled */
-  bool getSelfCollision(void) const;
-			
-  /** \brief Enable self-collision between all links in group 1 and all links in group 2 */
-  virtual void addSelfCollisionGroup(const std::vector<std::string> &group1,
-                                     const std::vector<std::string> &group2);
-
-  /** \brief Disable self-collision between all links in group 1 and all links in group 2 */
-  virtual void removeSelfCollisionGroup(const std::vector<std::string> &group1,
-                                        const std::vector<std::string> &group2);
-
-  /** \brief Enable/Disable collision checking for specific links. Return the previous value of the state (1 or 0) if succesful; -1 otherwise */
-  virtual int setCollisionCheck(const std::string &link, bool state) = 0;
-
-  /** \brief Enable/Disable collision checking for a set of links.*/
-  virtual void setCollisionCheckLinks(const std::vector<std::string> &links, bool state) = 0;
-
-  /** \brief Set collision checking for the set of links to state, set collision checking for all other links to !state */
-  virtual void setCollisionCheckOnlyLinks(const std::vector<std::string> &links, bool state) = 0;
-
-  /** \brief Set collision checking for all links to state */
-  virtual void setCollisionCheckAll(bool state) = 0;
-
   /** \brief Add a robot model. Ignore robot links if their name is not
       specified in the string vector. The scale argument can be
       used to increase or decrease the size of the robot's
       bodies (multiplicative factor). The padding can be used to
       increase or decrease the robot's bodies with by an
       additive term */
-  virtual void setRobotModel(const boost::shared_ptr<const planning_models::KinematicModel> &model, 
-                             const std::vector<std::string> &links,
+  virtual void setRobotModel(const planning_models::KinematicModel* model, 
+                             const AllowedCollisionMatrix& acm,
                              const std::map<std::string, double>& link_padding_map,
                              double default_padding = 0.0,
                              double scale = 1.0);
@@ -169,22 +222,29 @@ public:
   virtual void updateAttachedBodies() = 0;
 		
   /** \brief Get the robot model */
-  const boost::shared_ptr<const planning_models::KinematicModel>& getRobotModel(void) const;
+  const planning_models::KinematicModel* getRobotModel(void) const;
 	
   /**********************************************************************/
   /* Collision Checking Routines                                        */
   /**********************************************************************/
 	
 
-  /** \brief Check if a model is in collision. Contacts are not computed */
-  virtual bool isCollision(void) = 0;
+  /** \brief Check if a model is in collision with environment and self. Contacts are not computed */
+  virtual bool isCollision(void) const = 0;
 	
   /** \brief Check for self collision. Contacts are not computed */
-  virtual bool isSelfCollision(void) = 0;
+  virtual bool isSelfCollision(void) const = 0;
+
+  /** \brief Check whether the model is in collision with the environment.  Self collisions are not checked */
+  virtual bool isEnvironmentCollision(void) const = 0;
 	
   /** \brief Get the list of contacts (collisions). The maximum number of contacts to be returned can be specified. If the value is 0, all found contacts are returned. */
-  virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) = 0;
-  bool getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count = 1);
+  virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) const = 0;
+
+  /** \brief This function will get the complete list of contacts between any two potentially colliding bodies.  The num per contacts specifies the number of contacts per pair that will be returned */
+  virtual bool getAllCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int num_per_contact = 1) const = 0;
+
+  bool getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count = 1) const;
 	
   /**********************************************************************/
   /* Collision Bodies                                                   */
@@ -195,6 +255,9 @@ public:
 	
   /** \brief Remove objects from a specific namespace in the collision model */
   virtual void clearObjects(const std::string &ns) = 0;
+
+  /** \brief Tells whether or not there is an object with the given name in the collision model */
+  virtual bool hasObject(const std::string& ns) const = 0;
 	
   /** \brief Add a static collision object to the map. The user releases ownership of the passed object. Memory allocated for the shape is freed by the collision environment. */
   virtual void addObject(const std::string &ns, shapes::StaticShape *shape) = 0;
@@ -205,51 +268,42 @@ public:
   /** \brief Add a set of collision objects to the map. The user releases ownership of the passed objects. Memory allocated for the shapes is freed by the collision environment.*/
   virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses) = 0;
 
-  /** \brief Remove objects in the collision space that are collising with the object supplied as argument. */
-  virtual void removeCollidingObjects(const shapes::StaticShape *shape) = 0;
-
-  /** \brief Remove objects in the collision space that are collising with the object supplied as argument. */
-  virtual void removeCollidingObjects(const shapes::Shape *shape, const btTransform &pose) = 0;
-
-  /** \brief Gets a vector of all the bodies currently attached to the robot.*/
-  virtual const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> getAttachedBodies(void) const = 0;
-
-  /** \brief Gets a vector of all the bodies currently attached to a link.*/
-  virtual const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> getAttachedBodies(const std::string link_name) const = 0;
+  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const = 0;
 
   /** \briefs Sets a temporary robot padding on the indicated links */
-  virtual void setRobotLinkPadding(const std::map<std::string, double>& link_padding_map);
+  virtual void setAlteredLinkPadding(const std::map<std::string, double>& link_padding_map);
 
   /** \briefs Reverts link padding to that set at robot initialization */
-  virtual void revertRobotLinkPadding();
+  virtual void revertAlteredLinkPadding();
+
+  const std::map<std::string,double>& getDefaultLinkPaddingMap() const;
+
+  std::map<std::string,double> getCurrentLinkPaddingMap() const;
 
   double getCurrentLinkPadding(std::string name) const;
 		
   /** \brief Get the objects currently contained in the model */
   const EnvironmentObjects* getObjects(void) const;
   
-  virtual void getDefaultAllowedCollisionMatrix(std::vector<std::vector<bool> > &matrix,
-                                                std::map<std::string, unsigned int> &ind) const = 0;
-
-  virtual void getCurrentAllowedCollisionMatrix(std::vector<std::vector<bool> > &matrix,
-                                                std::map<std::string, unsigned int> &ind) const;
+  const AllowedCollisionMatrix& getDefaultAllowedCollisionMatrix() const;
   
+  const AllowedCollisionMatrix& getCurrentAllowedCollisionMatrix() const;
+
   /** \brief set the matrix for collision touch to use in lieu of the default settings */
-  virtual void setAllowedCollisionMatrix(const std::vector<std::vector<bool> > &matrix,
-                                 const std::map<std::string, unsigned int > &ind);
+  virtual void setAlteredCollisionMatrix(const AllowedCollisionMatrix& acm);
 
   /** \brief reverts to using default settings for allowed collisions */  
-  virtual void revertAllowedCollisionMatrix();
+  virtual void revertAlteredCollisionMatrix();
 
   /**********************************************************************/
   /* Miscellaneous Routines                                             */
   /**********************************************************************/
 
   /** \brief Provide interface to a lock. Use carefully! */
-  void lock(void);
+  void lock(void) const;
 	
   /** \brief Provide interface to a lock. Use carefully! */
-  void unlock(void);
+  void unlock(void) const;
 
   /** \brief Enable/disable verbosity */
   void setVerbose(bool verbose);
@@ -263,43 +317,32 @@ public:
 protected:
         
   /** \brief Mutex used to lock the datastructure */
-  boost::recursive_mutex                                             m_lock;
+  mutable boost::recursive_mutex lock_;
 
-  /** \brief List of links (names) from the robot model that are considered for collision checking */
-  std::vector<std::string>                                 m_collisionLinks;
-
-  /** \brief Map used internally to find the index of a link that we do collision checking for */
-  std::map<std::string, unsigned int>                      m_collisionLinkIndex;
-
-  /** \brief Matrix of booleans indicating whether pairs of links can self collide */
-  /* true means they can collide */
-  std::vector< std::vector<bool> >                         m_selfCollisionTest;
-	
-  /** \brief Flag to indicate whether self collision checking is enabled */
-  bool                                                     m_selfCollision;
-	
   /** \brief Flag to indicate whether verbose mode is on */
-  bool                                                     m_verbose;
+  bool verbose_;
 
   /** \brief Loaded robot model */	
-  boost::shared_ptr<const planning_models::KinematicModel>       m_robotModel;
+  const planning_models::KinematicModel* robot_model_;
 
   /** \brief List of objects contained in the environment */
-  EnvironmentObjects                                      *m_objects;
+  EnvironmentObjects *objects_;
 	
   /** \brief Scaling used for robot links */
-  double                                                   m_robotScale;
+  double robot_scale_;
 
-  /** \brief Padding used for robot links */
-  double                                                   m_robotPadd;	
+  /** \brief padding used for robot links */
+  double default_robot_padding_;	
 
-  std::vector<std::vector<bool> > set_collision_matrix_;
-  std::map<std::string, unsigned int> set_collision_ind_;
+  AllowedCollisionMatrix default_collision_matrix_;
+  AllowedCollisionMatrix altered_collision_matrix_;
 
-  bool use_set_collision_matrix_;
+  bool use_altered_collision_matrix_;
 
-  std::map<std::string, double> link_padding_map_;
-  std::map<std::string, double> altered_link_padding_;
+  std::map<std::string, double> default_link_padding_map_;
+  std::map<std::string, double> altered_link_padding_map_;
+
+  bool use_altered_link_padding_map_;
 	
 };
 }

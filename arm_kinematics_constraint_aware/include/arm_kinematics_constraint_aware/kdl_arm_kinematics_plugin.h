@@ -56,7 +56,7 @@
 #include <kinematics_msgs/GetPositionFK.h>
 #include <kinematics_msgs/GetPositionIK.h>
 #include <kinematics_msgs/GetKinematicSolverInfo.h>
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
 
 // Plugin
 #include <kinematics_base/kinematics_base.h>
@@ -195,11 +195,11 @@ class KDLArmKinematicsPlugin : public kinematics::KinematicsBase
       
       void desiredPoseCallback(const KDL::JntArray& jnt_array, 
       const KDL::Frame& ik_pose,
-      motion_planning_msgs::ArmNavigationErrorCodes& error_code);
+      arm_navigation_msgs::ArmNavigationErrorCodes& error_code);
       
       void jointSolutionCallback(const KDL::JntArray& jnt_array, 
       const KDL::Frame& ik_pose,
-      motion_planning_msgs::ArmNavigationErrorCodes& error_code);
+      arm_navigation_msgs::ArmNavigationErrorCodes& error_code);
     */
   };
 }
