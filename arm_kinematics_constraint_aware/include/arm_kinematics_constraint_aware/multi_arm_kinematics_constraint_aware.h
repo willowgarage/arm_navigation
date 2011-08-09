@@ -46,6 +46,7 @@
 #include <arm_navigation_msgs/PlanningScene.h>
 #include <arm_navigation_msgs/Constraints.h>
 #include <arm_navigation_msgs/LinkPadding.h>
+#include <arm_navigation_msgs/JointLimits.h>
 
 // MISC
 #include <planning_environment/models/collision_models_interface.h>
@@ -53,6 +54,7 @@
 #include <kdl/jntarray.hpp>
 #include <angles/angles.h>
 #include <urdf/model.h>
+#include <spline_smoother/linear_trajectory.h>
 
 // plugin
 #include <pluginlib/class_loader.h>
@@ -90,10 +92,26 @@ public:
                      std::vector<std::vector<double> > &solutions,
                      std::vector<int> &error_codes);
 
+  bool checkJointStates(const std::map<std::string, double> &joint_values,
+                        const arm_navigation_msgs::Constraints &constraints,
+                        double &timeout,
+                        int &error_code);
+  
+  bool checkJointStates(const std::vector<double>  &solutions,
+                        const arm_navigation_msgs::Constraints &constraints,
+                        double &timeout,
+                        int &error_code);
+
   bool checkJointStates(const std::vector<std::vector<double> > &solutions,
                         const arm_navigation_msgs::Constraints &constraints,
                         double &timeout,
                         int &error_code);
+
+  bool checkMotion(const std::vector<std::vector<double> > &start,
+                   const std::vector<std::vector<double> > &end,
+                   const arm_navigation_msgs::Constraints &constraints,
+                   double &timeout,
+                   int &error_code);
 
   bool checkEndEffectorStates(const std::vector<geometry_msgs::Pose> &poses,
                               double &timeout,
@@ -137,6 +155,12 @@ public:
                                        const double &max_distance=0.0);
   std::string getBaseFrame(){return base_frame_;};
 private:
+
+  spline_smoother::LinearTrajectory linear_trajectory_solver_;
+  std::vector<arm_navigation_msgs::JointLimits> joint_limits_;//only used for linear trajectory, does not contain right velocity limits;
+  trajectory_msgs::JointTrajectory linear_trajectory_;
+  std::vector<double> linear_trajectory_waypoint_times_;
+
   bool initialize(const std::vector<std::string> &group_names, 
                   const std::vector<std::string> &kinematics_solver_names,
                   const std::vector<std::string> &end_effector_link_names,
@@ -162,6 +186,9 @@ private:
 
   std::vector<std::vector<std::pair<double,double> > > bounds_;
   bool collision_models_interface_generated_;
+
+  unsigned int total_num_joints_;
+  double collision_discretization_;
 };
 } // namespace
 

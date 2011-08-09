@@ -71,7 +71,7 @@ bool MultiArmKinematicsConstraintAware::initialize(const std::vector<std::string
   kinematics_solver_names_ = kinematics_solver_names;
   end_effector_link_names_ = end_effector_link_names;
   collision_models_interface_ = collision_models_interface;
-
+  total_num_joints_ = 0;
   srand ( time(NULL) ); // initialize random seed
   if(group_names_.empty())
     return false;
@@ -122,6 +122,7 @@ bool MultiArmKinematicsConstraintAware::initialize(const std::vector<std::string
 
     std::vector<string> joint_names = kinematics_solvers_[i]->getJointNames();
     bounds_[i].resize(joint_names.size());
+    total_num_joints_ += joint_names.size();
     for(unsigned int j=0; j < joint_names.size(); j++)
     {
       if(!joint_model_group->hasJointModel(joint_names[i]))
@@ -131,10 +132,37 @@ bool MultiArmKinematicsConstraintAware::initialize(const std::vector<std::string
       }
       const planning_models::KinematicModel::JointModel* joint_model = ((planning_models::KinematicModel::JointModelGroup*) (joint_model_group))->getJointModel(joint_names[j]);
       joint_model->getVariableBounds(joint_names[j],bounds_[i][j]);
+   
+      arm_navigation_msgs::JointLimits limit;
+      limit.joint_name = joint_names[j];      
+      const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = 
+        dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint_model);
+      if (revolute_joint && revolute_joint->continuous_)
+        limit.has_position_limits = false;
+      else
+        limit.has_position_limits = true;
+      limit.min_position = bounds_[i][j].first;
+      limit.max_position = bounds_[i][j].second;
+      limit.has_velocity_limits = true;
+      limit.has_acceleration_limits = false;
+      limit.max_velocity = FLT_MAX;
+      joint_limits_.push_back(limit);
+      linear_trajectory_.joint_names.push_back(joint_names[j]);
     }
+  }
+  linear_trajectory_.points.resize(2);
+  linear_trajectory_.points[0].positions.resize(total_num_joints_);
+  linear_trajectory_.points[1].positions.resize(total_num_joints_);
+  collision_discretization_ = 0.01;
+  unsigned int counter = 0;
+  while(counter * collision_discretization_ <= 1.0)
+  {
+    linear_trajectory_waypoint_times_.push_back(counter * collision_discretization_);
+    counter++;
   }
   return true;
 }
+
 
 bool MultiArmKinematicsConstraintAware::setup(const arm_navigation_msgs::PlanningScene& planning_scene,
                                               const arm_navigation_msgs::OrderedCollisionOperations &collision_operations)
@@ -247,24 +275,12 @@ bool MultiArmKinematicsConstraintAware::getPositionIK(const std::vector<geometry
   return true;
 }
 
-bool MultiArmKinematicsConstraintAware::checkJointStates(const std::vector<std::vector<double> > &solutions,
+bool MultiArmKinematicsConstraintAware::checkJointStates(const std::map<std::string, double> &joint_values,
                                                          const arm_navigation_msgs::Constraints &constraints,
                                                          double &timeout,
                                                          int &error_code)
 {
   ros::Time start_time = ros::Time::now();
-  if(solutions.size() != num_groups_)
-  {
-    ROS_ERROR("Number of solutions %d does not match number of groups: %d",(int)solutions.size(),(int)num_groups_);
-    timeout -= (ros::Time::now()-start_time).toSec();  
-    return false;
-  }
-  std::map<std::string, double> joint_values;
-
-  for(unsigned int i=0; i < num_groups_; i++)
-    for(unsigned int j=0; j < kinematics_solvers_[i]->getJointNames().size(); j++)
-      joint_values[(kinematics_solvers_[i]->getJointNames())[j]] = solutions[i][j];
-
   collision_models_interface_->getPlanningSceneState()->setKinematicState(joint_values);
   if(collision_models_interface_->getPlanningSceneState() == NULL) {
     ROS_INFO_STREAM("Messed up");
@@ -290,14 +306,85 @@ bool MultiArmKinematicsConstraintAware::checkJointStates(const std::vector<std::
   return true;
 }
 
+bool MultiArmKinematicsConstraintAware::checkJointStates(const std::vector<double>  &solutions,
+                                                         const arm_navigation_msgs::Constraints &constraints,
+                                                         double &timeout,
+                                                         int &error_code)
+{
+  ros::Time start_time = ros::Time::now();
+  if(solutions.size() != total_num_joints_)
+  {
+    ROS_ERROR("Number of solutions %d does not match number of groups: %d",(int)solutions.size(),(int)num_groups_);
+    timeout -= (ros::Time::now()-start_time).toSec();  
+    return false;
+  }
+  std::map<std::string, double> joint_values;
+
+  unsigned int counter = 0;
+  for(unsigned int i=0; i < num_groups_; i++)
+    for(unsigned int j=0; j < kinematics_solvers_[i]->getJointNames().size(); j++)
+      joint_values[(kinematics_solvers_[i]->getJointNames())[j]] = solutions[counter++];
+
+  return checkJointStates(joint_values,constraints,timeout,error_code);
+}
+
+
+bool MultiArmKinematicsConstraintAware::checkJointStates(const std::vector<std::vector<double> > &solutions,
+                                                         const arm_navigation_msgs::Constraints &constraints,
+                                                         double &timeout,
+                                                         int &error_code)
+{
+  ros::Time start_time = ros::Time::now();
+  if(solutions.size() != num_groups_)
+  {
+    ROS_ERROR("Number of solutions %d does not match number of groups: %d",(int)solutions.size(),(int)num_groups_);
+    timeout -= (ros::Time::now()-start_time).toSec();  
+    return false;
+  }
+  std::map<std::string, double> joint_values;
+
+  for(unsigned int i=0; i < num_groups_; i++)
+    for(unsigned int j=0; j < kinematics_solvers_[i]->getJointNames().size(); j++)
+      joint_values[(kinematics_solvers_[i]->getJointNames())[j]] = solutions[i][j];
+
+  return checkJointStates(joint_values,constraints,timeout,error_code);
+}
+
 bool MultiArmKinematicsConstraintAware::checkMotion(const std::vector<std::vector<double> > &start,
-                                                    const std::vector<std::vector<double> > &end)
+                                                    const std::vector<std::vector<double> > &end,
+                                                    const arm_navigation_msgs::Constraints &constraints,
+                                                    double &timeout,
+                                                    int &error_code)
 {
   if(start.size() != num_groups_ || end.size() != num_groups_)
   {
     ROS_ERROR("Vectors must have same size as number of groups");
     return false;
   }
+  linear_trajectory_.points[0].positions.clear();
+  linear_trajectory_.points[1].positions.clear();
+  for(unsigned int i=0; i < num_groups_; i++)
+  {
+    for(unsigned int j=0; j < start[i].size(); j++)
+    {
+      linear_trajectory_.points[0].positions.push_back(start[i][j]);
+      linear_trajectory_.points[1].positions.push_back(end[i][j]);
+    }
+  }
+  linear_trajectory_.points[0].time_from_start = ros::Duration(0.0);
+  linear_trajectory_.points[1].time_from_start = ros::Duration(1.0);
+
+  spline_smoother::SplineTrajectory spline;
+  linear_trajectory_solver_.parameterize(linear_trajectory_,joint_limits_,spline);
+
+  trajectory_msgs::JointTrajectory trajectory_out;
+  spline_smoother::sampleSplineTrajectory(spline,linear_trajectory_waypoint_times_,trajectory_out);
+
+  for(unsigned int i =0; i < trajectory_out.points.size(); i++)
+    if(!checkJointStates(trajectory_out.points[i].positions,constraints,timeout,error_code))
+      return false;
+
+  return true;
 }
 
 bool MultiArmKinematicsConstraintAware::checkEndEffectorStates(const std::vector<geometry_msgs::Pose> &poses,
