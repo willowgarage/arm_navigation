@@ -624,6 +624,8 @@ bool MultiArmKinematicsConstraintAware::searchConstraintAwarePositionIK(const st
     }
     generateRandomState(seed_states_random);
   }
+  for(unsigned int j=0; j < error_codes.size(); j++)
+    error_codes[j] = kinematics::TIMED_OUT;
   return false;
 }
 
