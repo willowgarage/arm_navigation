@@ -205,6 +205,19 @@ std::vector<std::string> MultiArmKinematicsConstraintAware::getJointNames()
   return joint_names;  
 }
 
+std::vector<std::vector<std::string> > MultiArmKinematicsConstraintAware::getJointNamesByGroup()
+{
+  std::vector<std::vector<std::string> > joint_names;
+  joint_names.resize(num_groups_);
+  for(unsigned int i=0; i < num_groups_; i++)
+  {
+    std::vector<std::string> jn = kinematics_solvers_[i]->getJointNames();
+    for(unsigned int j=0; j < jn.size(); j++)
+      joint_names[i].push_back(jn[j]);
+  }
+  return joint_names;  
+}
+
 bool MultiArmKinematicsConstraintAware::checkRequest(const std::vector<geometry_msgs::Pose> &poses,
                                                      const std::vector<std::vector<double> > &seed_states,
                                                      std::vector<std::vector<double> > &solutions,

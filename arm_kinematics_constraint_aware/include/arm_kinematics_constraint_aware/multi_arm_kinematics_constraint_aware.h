@@ -129,6 +129,8 @@ public:
 
   std::vector<std::string> getJointNames();
 
+  std::vector<std::vector<std::string> > getJointNamesByGroup();
+
   bool searchConstraintAwarePositionIK(const std::vector<geometry_msgs::Pose> &poses,
                                        const std::vector<std::vector<double> > &seed_states,
                                        double &timeout,
@@ -170,6 +172,7 @@ private:
                     const std::vector<std::vector<double> > &seed_states,
                     std::vector<std::vector<double> > &solutions,
                     std::vector<int> &error_codes);
+  
 
   void sendEndEffectorPoseToVisualizer(const planning_models::KinematicState* state, bool valid);
   void generateRandomState(std::vector<std::vector<double> > &state);
