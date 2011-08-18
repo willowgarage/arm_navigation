@@ -265,7 +265,7 @@ shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &source)
   return mesh;
 }
 
-shapes::Mesh* createMeshFromAsset(const aiMesh* a, const btVector3& scale)
+shapes::Mesh* createMeshFromAsset(const aiMesh* a, const aiMatrix4x4& transform, const btVector3& scale)
 {
   if (!a->HasFaces())
   {
@@ -292,9 +292,14 @@ shapes::Mesh* createMeshFromAsset(const aiMesh* a, const btVector3& scale)
   // copy vertices
   for (unsigned int i = 0 ; i < a->mNumVertices ; ++i)
   {
-    mesh->vertices[3 * i    ] = a->mVertices[i].x*scale.x();
-    mesh->vertices[3 * i + 1] = a->mVertices[i].y*scale.y();
-    mesh->vertices[3 * i + 2] = a->mVertices[i].z*scale.z();
+    aiVector3D p;
+    p.x = a->mVertices[i].x;
+    p.y = a->mVertices[i].y;
+    p.z = a->mVertices[i].z;
+    p *= transform;
+    mesh->vertices[3 * i    ] = p.x*scale.x();
+    mesh->vertices[3 * i + 1] = p.y*scale.y();
+    mesh->vertices[3 * i + 2] = p.z*scale.z();
   }
 	
   // copy triangles
