@@ -78,7 +78,7 @@ static const double HAND_TRANS_SPEED = .05;
 static const double HAND_ROT_SPEED = .15;
 
 static const string SET_PLANNING_SCENE_DIFF_NAME = "/environment_server/set_planning_scene_diff";
-static const string PLANNER_SERVICE_NAME = "/chomp_planner_longrange/plan_path";
+static const string PLANNER_SERVICE_NAME = "/ompl_planning/plan_kinematic_path";
 static const string TRAJECTORY_FILTER_SERVICE_NAME = "/trajectory_filter_server/filter_trajectory_with_constraints";
 
 typedef map<MenuHandler::EntryHandle, string> MenuEntryMap;
@@ -1457,7 +1457,7 @@ class PlanningComponentsVisualizer
               kinematic_model->getChildLinkModelNames(kinematic_model->getLinkModel(gc.ik_link_name_));
 
           cm_->getRobotMarkersGivenState(*gc.getState(ik_control_type_), arr, bad_color,
-                                                     current_group_name_, ros::Duration(0.1), &lnames);
+                                         current_group_name_, ros::Duration(0.1), &lnames);
           cm_->getAttachedCollisionObjectMarkers(*gc.getState(ik_control_type_), arr, current_group_name_, bad_color,
                                                  ros::Duration(.2));
 
@@ -1482,7 +1482,7 @@ class PlanningComponentsVisualizer
               lnames[i] = updated_links[i]->getName();
             }
             cm_->getRobotMarkersGivenState(*(it->second.state_), arr, it->second.color_,
-                                                       it->first + "_trajectory", ros::Duration(0.1), &lnames);
+                                           it->first + "_trajectory", ros::Duration(0.1), &lnames);
 
             cm_->getAttachedCollisionObjectMarkers(*(it->second.state_), arr, it->first + "_trajectory",
                                                    it->second.color_, ros::Duration(0.1));
