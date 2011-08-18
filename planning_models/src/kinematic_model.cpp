@@ -428,21 +428,27 @@ planning_models::KinematicModel::LinkModel* planning_models::KinematicModel::con
   LinkModel *result = new LinkModel(this);
   result->name_ = urdf_link->name;
 
-  if(urdf_link->collision)
+  if(urdf_link->collision && urdf_link->collision->geometry) {
     result->collision_origin_transform_ = urdfPose2btTransform(urdf_link->collision->origin);
-  else
-    result->collision_origin_transform_.setIdentity();
-
-  if (urdf_link->parent_joint.get())
-    result->joint_origin_transform_ = urdfPose2btTransform(urdf_link->parent_joint->parent_to_joint_origin_transform);
-  else
-    result->joint_origin_transform_.setIdentity();
-    
-  if(urdf_link->collision) {
     result->shape_ = constructShape(urdf_link->collision->geometry.get());
+  } else if(urdf_link->visual && urdf_link->visual->geometry){
+    result->collision_origin_transform_ = urdfPose2btTransform(urdf_link->visual->origin);
+    result->shape_ = constructShape(urdf_link->visual->geometry.get());
   } else {
+    result->collision_origin_transform_.setIdentity();
     result->shape_ = NULL;
-  } 
+  }
+
+  if (urdf_link->parent_joint.get()) {
+    result->joint_origin_transform_ = urdfPose2btTransform(urdf_link->parent_joint->parent_to_joint_origin_transform);
+    ROS_DEBUG_STREAM("Setting joint origin for " << result->name_ << " to " 
+                    << result->joint_origin_transform_.getOrigin().x() << " " 
+                    << result->joint_origin_transform_.getOrigin().y() << " " 
+                    << result->joint_origin_transform_.getOrigin().z());
+  } else {
+    ROS_DEBUG_STREAM("Setting joint origin to identity for " << result->name_);
+    result->joint_origin_transform_.setIdentity();
+  }
   return result;
 }
 
@@ -512,13 +518,30 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
                                                                aiProcess_JoinIdenticalVertices  |
                                                                aiProcess_SortByPType, hint.c_str());
             btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
+            ROS_DEBUG_STREAM("Scale for " << mesh->filename << " is " << mesh->scale.x << " " << mesh->scale.y << " " << mesh->scale.z);
             if (scene)
             {
               if (scene->HasMeshes())
               {
-                if (scene->mNumMeshes > 1)
-                  ROS_WARN("More than one mesh specified in resource. Using first one");
-                result = shapes::createMeshFromAsset(scene->mMeshes[0], scale);
+                if(scene->mNumMeshes > 1) {
+                  ROS_WARN_STREAM("Mesh loaded from " << mesh->filename << " has " << scene->mNumMeshes << " but only the first one will be used");
+                }
+
+                aiNode *node = scene->mRootNode;
+
+                if(node->mNumMeshes > 0) {
+                  ROS_DEBUG_STREAM("Node has meshes");
+                } else {
+                  for (uint32_t i=0; i < node->mNumChildren; ++i) {
+                    if(node->mChildren[i]->mNumMeshes > 0) {
+                      ROS_DEBUG_STREAM("Child " << i << " has meshes");
+                      node = node->mChildren[i];
+                      break;
+                    }
+                  }
+                }
+                aiMatrix4x4 transform = node->mTransformation;
+                result = shapes::createMeshFromAsset(scene->mMeshes[node->mMeshes[0]], transform, scale);
               }
               else
                 ROS_ERROR("There is no mesh specified in the indicated resource");
