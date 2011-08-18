@@ -132,14 +132,25 @@ namespace robot_self_filter
                 btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
                 if (scene)
                 {
-                  if (scene->HasMeshes())
-                  {
-                    if (scene->mNumMeshes > 1)
-                      ROS_WARN("More than one mesh specified in resource. Using first one");
-                    result = shapes::createMeshFromAsset(scene->mMeshes[0], scale);
+                  if(scene->mNumMeshes > 1) {
+                    ROS_WARN_STREAM("Mesh loaded from " << mesh->filename << " has " << scene->mNumMeshes << " but only the first one will be used");
                   }
-                  else
-                    ROS_ERROR("There is no mesh specified in the indicated resource");
+                  
+                  aiNode *node = scene->mRootNode;
+                  
+                  if(node->mNumMeshes > 0) {
+                    ROS_DEBUG_STREAM("Node has meshes");
+                  } else {
+                    for (uint32_t i=0; i < node->mNumChildren; ++i) {
+                      if(node->mChildren[i]->mNumMeshes > 0) {
+                        ROS_DEBUG_STREAM("Child " << i << " has meshes");
+                        node = node->mChildren[i];
+                        break;
+                      }
+                    }
+                  }
+                  aiMatrix4x4 transform = node->mTransformation;
+                  result = shapes::createMeshFromAsset(scene->mMeshes[node->mMeshes[0]], transform, scale);
                 }
                 else
                 {
