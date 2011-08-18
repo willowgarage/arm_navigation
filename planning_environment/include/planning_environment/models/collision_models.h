@@ -39,7 +39,7 @@
 
 #include "planning_environment/models/robot_models.h"
 #include <tf/tf.h>
-#include <collision_space/environment.h>
+#include <collision_space/environmentODE.h>
 #include <arm_navigation_msgs/PlanningScene.h>
 #include <arm_navigation_msgs/Shape.h>
 #include <geometric_shapes/bodies.h>
@@ -196,8 +196,11 @@ public:
 
   bool setAlteredAllowedCollisionMatrix(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm);
 
-  bool computeAllowedContact(const arm_navigation_msgs::AllowedContactSpecification& al,
-                             collision_space::EnvironmentModel::AllowedContact& allowed_contact) const;
+  void clearAllowedContacts() {
+    ode_collision_model_->lock();
+    ode_collision_model_->clearAllowedContacts();
+    ode_collision_model_->unlock();
+  }
 
   //
   // Collision space accessors

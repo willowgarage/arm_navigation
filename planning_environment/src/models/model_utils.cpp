@@ -35,6 +35,8 @@
 /** \author E. Gil Jones */
 
 #include <planning_environment/models/model_utils.h>
+#include <geometric_shapes/bodies.h>
+#include <planning_environment/util/construct_object.h>
 
 //returns true if the joint_state_map sets all the joints in the state, 
 bool planning_environment::setRobotStateAndComputeTransforms(const arm_navigation_msgs::RobotState &robot_state,
@@ -107,9 +109,9 @@ bool planning_environment::setRobotStateAndComputeTransforms(const arm_navigatio
 }
 
 void planning_environment::convertKinematicStateToRobotState(const planning_models::KinematicState& kinematic_state,
-                                       const ros::Time& timestamp,
-                                       const std::string& header_frame,
-                                       arm_navigation_msgs::RobotState &robot_state)
+                                                             const ros::Time& timestamp,
+                                                             const std::string& header_frame,
+                                                             arm_navigation_msgs::RobotState &robot_state)
 {
   robot_state.joint_state.position.clear();
   robot_state.joint_state.name.clear();
@@ -146,7 +148,7 @@ void planning_environment::convertKinematicStateToRobotState(const planning_mode
 }
 
 void planning_environment::applyOrderedCollisionOperationsToMatrix(const arm_navigation_msgs::OrderedCollisionOperations &ord,
-                                             collision_space::EnvironmentModel::AllowedCollisionMatrix& acm) {
+                                                                   collision_space::EnvironmentModel::AllowedCollisionMatrix& acm) {
   if(ord.collision_operations.size() == 0) {
     ROS_INFO_STREAM("No allowed collision operations");
   }
@@ -156,7 +158,7 @@ void planning_environment::applyOrderedCollisionOperationsToMatrix(const arm_nav
     bool allowed = (ord.collision_operations[i].operation == arm_navigation_msgs::CollisionOperation::DISABLE);
 
     ROS_INFO_STREAM("Setting collision operation between " << ord.collision_operations[i].object1
-                     << " and " << ord.collision_operations[i].object2 << " allowed " << allowed);
+                    << " and " << ord.collision_operations[i].object2 << " allowed " << allowed);
 
     if(ord.collision_operations[i].object1 == ord.collision_operations[i].COLLISION_SET_ALL &&
        ord.collision_operations[i].object2 == ord.collision_operations[i].COLLISION_SET_ALL) {
@@ -178,8 +180,8 @@ void planning_environment::applyOrderedCollisionOperationsToMatrix(const arm_nav
     } else {
       //third case - must be both objects
       bool ok = acm.changeEntry(ord.collision_operations[i].object1,
-                                 ord.collision_operations[i].object2,
-                                 allowed);
+                                ord.collision_operations[i].object2,
+                                allowed);
       if(!ok) {
         ROS_WARN_STREAM("No entry in allowed collision matrix for at least one of " 
                         << ord.collision_operations[i].object1 << " and " 
@@ -190,7 +192,7 @@ void planning_environment::applyOrderedCollisionOperationsToMatrix(const arm_nav
 }
 
 void planning_environment::convertFromACMToACMMsg(const collision_space::EnvironmentModel::AllowedCollisionMatrix& acm,
-                            arm_navigation_msgs::AllowedCollisionMatrix& matrix) {
+                                                  arm_navigation_msgs::AllowedCollisionMatrix& matrix) {
   if(!acm.getValid()) return;
   matrix.link_names.resize(acm.getSize());
   matrix.entries.resize(acm.getSize());
@@ -212,7 +214,8 @@ void planning_environment::convertFromACMToACMMsg(const collision_space::Environ
   }
 }
 
-collision_space::EnvironmentModel::AllowedCollisionMatrix planning_environment::convertFromACMMsgToACM(const arm_navigation_msgs::AllowedCollisionMatrix& matrix)
+collision_space::EnvironmentModel::AllowedCollisionMatrix 
+planning_environment::convertFromACMMsgToACM(const arm_navigation_msgs::AllowedCollisionMatrix& matrix)
 {
   std::map<std::string, unsigned int> indices;
   std::vector<std::vector<bool> > vecs;
@@ -236,10 +239,10 @@ collision_space::EnvironmentModel::AllowedCollisionMatrix planning_environment::
 }
 
 bool planning_environment::applyOrderedCollisionOperationsListToACM(const arm_navigation_msgs::OrderedCollisionOperations& ordered_coll,
-                                                     const std::vector<std::string>& object_names,
-                                                     const std::vector<std::string>& att_names,
-                                                     const planning_models::KinematicModel* model,
-                                                     collision_space::EnvironmentModel::AllowedCollisionMatrix& matrix)
+                                                                    const std::vector<std::string>& object_names,
+                                                                    const std::vector<std::string>& att_names,
+                                                                    const planning_models::KinematicModel* model,
+                                                                    collision_space::EnvironmentModel::AllowedCollisionMatrix& matrix)
 {
   bool all_ok = true;
   for(std::vector<arm_navigation_msgs::CollisionOperation>::const_iterator it = ordered_coll.collision_operations.begin();
@@ -353,8 +356,8 @@ planning_environment::applyOrderedCollisionOperationsToCollisionsModel(const pla
 }
 
 bool planning_environment::doesKinematicStateObeyConstraints(const planning_models::KinematicState& state,
-                                       const arm_navigation_msgs::Constraints& constraints,
-                                       bool verbose) {
+                                                             const arm_navigation_msgs::Constraints& constraints,
+                                                             bool verbose) {
   planning_environment::KinematicConstraintEvaluatorSet constraint_evaluator;
   
   constraint_evaluator.add(constraints.joint_constraints);
@@ -508,7 +511,7 @@ void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, vis
         pt1.x = vec1.x();
         pt1.y = vec1.y();
         pt1.z = vec1.z();
-        
+
         geometry_msgs::Point pt2;
         pt2.x = vec2.x();
         pt2.y = vec2.y();
@@ -538,7 +541,7 @@ void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, vis
 }
 
 void planning_environment::convertFromLinkPaddingMapToLinkPaddingVector(const std::map<std::string, double>& link_padding_map,
-                                                         std::vector<arm_navigation_msgs::LinkPadding>& link_padding_vector)
+                                                                        std::vector<arm_navigation_msgs::LinkPadding>& link_padding_vector)
 {
   for(std::map<std::string, double>::const_iterator it = link_padding_map.begin();
       it != link_padding_map.end();
@@ -567,3 +570,30 @@ void planning_environment::getAllKinematicStateStampedTransforms(const planning_
   }
 } 
 
+void planning_environment::convertAllowedContactSpecificationMsgToAllowedContactVector(const std::vector<arm_navigation_msgs::AllowedContactSpecification>& acmv,
+                                                                                       std::vector<collision_space::EnvironmentModel::AllowedContact>& acv)
+{
+  //assumes that poses are in the global frame
+  acv.clear();
+  for(unsigned int i = 0; i < acmv.size(); i++) {
+    const arm_navigation_msgs::AllowedContactSpecification& acs = acmv[i];
+    if(acs.link_names.size() != 2) {
+      ROS_WARN_STREAM("Allowed collision specification has link_names size " << acs.link_names.size()
+                      << " while the only supported size is 2");
+      continue;
+    }
+    shapes::Shape* shape = constructObject(acs.shape);
+    boost::shared_ptr<bodies::Body> bodysp(bodies::createBodyFromShape(shape));
+    delete shape;
+    btTransform trans;
+    tf::poseMsgToTF(acs.pose_stamped.pose, trans);
+    bodysp->setPose(trans);
+
+    collision_space::EnvironmentModel::AllowedContact allc;
+    allc.bound = bodysp;
+    allc.body_name_1 = acs.link_names[0];
+    allc.body_name_2 = acs.link_names[1];
+    allc.depth = acs.penetration_depth;
+    acv.push_back(allc);
+  }
+}

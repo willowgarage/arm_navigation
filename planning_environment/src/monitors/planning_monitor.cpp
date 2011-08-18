@@ -235,6 +235,8 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const arm_n
   
   convertFromACMToACMMsg(acm, planning_scene.allowed_collision_matrix);
 
+  planning_scene.allowed_contacts = planning_diff.allowed_contacts;
+
   return true;
 }   
 

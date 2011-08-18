@@ -86,32 +86,6 @@ void getAllKinematicStateStampedTransforms(const planning_models::KinematicState
                                            std::vector<geometry_msgs::TransformStamped>& trans_vector,
                                            const ros::Time& stamp); 
        
-/*
-void printAllowedCollisionMatrix(const std::vector<std::vector<bool> > &curAllowed,
-                                 const std::map<std::string, unsigned int> &vecIndices) {
-  size_t all_size = curAllowed.size();
-  for(unsigned int i = 0; i < vecIndices.size(); i++) {
-    std::string n;
-    for(std::map<std::string, unsigned int>::const_iterator it = vecIndices.begin();
-        it != vecIndices.end();
-        it++) {
-      if(it->second == i) {
-        n = it->first; 
-      }
-    }
-    if(n.empty()) {
-      ROS_WARN_STREAM("Can't find index " << i << " in vecIndex");
-      return;
-    }
-    std::cout << std::setw(40) << n;
-    std::cout << " | ";
-    for(size_t j = 0; j < all_size; j++) {
-      std::cout << std::setw(3) << curAllowed[i][j];
-    }
-    std::cout << std::endl;
-  }
-}
-*/
 bool doesKinematicStateObeyConstraints(const planning_models::KinematicState& state,
                                        const arm_navigation_msgs::Constraints& constraints,
                                        bool verbose = false);
@@ -122,5 +96,8 @@ void setMarkerShapeFromShape(const shapes::Shape *obj, visualization_msgs::Marke
 
 void convertFromLinkPaddingMapToLinkPaddingVector(const std::map<std::string, double>& link_padding_map,
                                                   std::vector<arm_navigation_msgs::LinkPadding>& link_padding_vector);
+
+void convertAllowedContactSpecificationMsgToAllowedContactVector(const std::vector<arm_navigation_msgs::AllowedContactSpecification>& acmv,
+                                                                 std::vector<collision_space::EnvironmentModel::AllowedContact>& acv);
 }
 #endif

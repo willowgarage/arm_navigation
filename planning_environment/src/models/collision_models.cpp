@@ -208,7 +208,7 @@ void planning_environment::CollisionModels::loadCollisionFromParamServer()
     ROS_WARN("~bounding_planes must be a list of 4-tuples (a b c d) that define planes ax+by+cz+d=0");
     bounding_planes_.resize(bounding_planes_.size() - (bounding_planes_.size() % 4));
   }
-    
+
   if (loadedModels())
   {
     ode_collision_model_ = new collision_space::EnvironmentModelODE();
@@ -237,6 +237,7 @@ planning_environment::CollisionModels::setPlanningScene(const arm_navigation_msg
   deleteAllAttachedObjects();
   revertAllowedCollisionToDefault();
   revertCollisionSpacePaddingToDefault();
+  clearAllowedContacts();
 
   scene_transform_map_.clear();
 
@@ -303,11 +304,34 @@ planning_environment::CollisionModels::setPlanningScene(const arm_navigation_msg
   if(planning_scene.link_padding.size() > 0) {
     applyLinkPaddingToCollisionSpace(planning_scene.link_padding);
   }
-  ode_collision_model_->lock();
-  if(!planning_scene.allowed_collision_matrix.link_names.empty()) {
-    ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
+
+  std::vector<arm_navigation_msgs::AllowedContactSpecification> acmv = planning_scene.allowed_contacts;
+  for(unsigned int i = 0; i < planning_scene.allowed_contacts.size(); i++) {
+    
+    if(!convertPoseGivenWorldTransform(*state, 
+                                       getWorldFrameId(),
+                                       planning_scene.allowed_contacts[i].pose_stamped.header,
+                                       planning_scene.allowed_contacts[i].pose_stamped.pose,
+                                       acmv[i].pose_stamped)) {
+      ROS_WARN_STREAM("Can't transform allowed contact from frame " << planning_scene.allowed_contacts[i].pose_stamped.header.frame_id
+                      << " into " << getWorldFrameId());
+    }
   }
-  ode_collision_model_->unlock();
+
+  if(!planning_scene.allowed_contacts.empty()) {
+    std::vector<collision_space::EnvironmentModel::AllowedContact> acv;
+    convertAllowedContactSpecificationMsgToAllowedContactVector(acmv, 
+                                                              acv);
+    ode_collision_model_->lock();    
+    ode_collision_model_->setAllowedContacts(acv);
+    ode_collision_model_->unlock();    
+  }
+
+  if(!planning_scene.allowed_collision_matrix.link_names.empty()) {
+    ode_collision_model_->lock();
+    ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
+    ode_collision_model_->unlock();
+  }
 
   planning_scene_set_ = true;
   return state;
@@ -321,6 +345,7 @@ void planning_environment::CollisionModels::revertPlanningScene(planning_models:
   deleteAllAttachedObjects();
   revertAllowedCollisionToDefault();
   revertCollisionSpacePaddingToDefault();
+  clearAllowedContacts();
   bodiesUnlock();
 }
 
@@ -1162,29 +1187,6 @@ const collision_space::EnvironmentModel::AllowedCollisionMatrix& planning_enviro
   return ode_collision_model_->getDefaultAllowedCollisionMatrix();
 }
 
-bool planning_environment::CollisionModels::computeAllowedContact(const arm_navigation_msgs::AllowedContactSpecification& allowed_contact,
-                                                                  collision_space::EnvironmentModel::AllowedContact& allowedContact) const
-{
-  shapes::Shape *shape = constructObject(allowed_contact.shape);
-  if (shape)
-  {
-    boost::shared_ptr<bodies::Body> body(bodies::createBodyFromShape(shape));
-    geometry_msgs::PoseStamped pose;
-    //assumes the allowed contact is in the correct frame
-    //tf_->transformPose(getWorldFrameId(), allowed_contact.pose_stamped, pose);
-    btTransform tr;
-    tf::poseMsgToTF(allowed_contact.pose_stamped.pose, tr);
-    body->setPose(tr);
-    allowedContact.bound = body;
-    allowedContact.links = allowed_contact.link_names;
-    allowedContact.depth = allowed_contact.penetration_depth;
-    delete shape;
-    return true;
-  }
-  else
-    return false;
-}
-
 void planning_environment::CollisionModels::getLastCollisionMap(arm_navigation_msgs::CollisionMap& cmap) const
 {
   bodiesLock();
@@ -1377,11 +1379,9 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
 {
   ode_collision_model_->lock();
   ode_collision_model_->updateRobotModel(&state);
-  std::vector<collision_space::EnvironmentModel::AllowedContact> allowed_contacts;
   std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
   ros::WallTime n1 = ros::WallTime::now();
-  ode_collision_model_->getAllCollisionContacts(allowed_contacts,
-                                                coll_space_contacts,
+  ode_collision_model_->getAllCollisionContacts(coll_space_contacts,
                                                 num_per_pair);
   ros::WallTime n2 = ros::WallTime::now();
   ROS_DEBUG_STREAM("Got " << coll_space_contacts.size() << " collisions in " << (n2-n1).toSec());
@@ -1910,14 +1910,18 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
       continue;
     }
 
-    if(!urdf_link->collision)
+    if(show_collision_models && !urdf_link->collision && !urdf_link->visual)
     {
       continue;
     }
-    const urdf::Geometry *geom;
-    if(show_collision_models) {
+    if(!show_collision_models && !urdf_link->visual)
+    {
+      continue;
+    }
+    const urdf::Geometry *geom = NULL;
+    if(show_collision_models && urdf_link->collision) {
       geom = urdf_link->collision->geometry.get();
-    } else {
+    } else if(urdf_link->visual) {
       geom = urdf_link->visual->geometry.get();
     }
 

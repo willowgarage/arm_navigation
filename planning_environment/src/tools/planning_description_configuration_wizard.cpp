@@ -255,6 +255,7 @@ PlanningDescriptionConfigurationWizard::addGroup(const KinematicModel::GroupConf
     confirm_group_text_->setText(t);
     int val = confirm_group_replace_dialog_->exec();
     if(val == QDialog::Rejected) {
+      lock_.unlock();
       return GroupAddCancel;
     } 
     kmodel_->removeModelGroup(group_config.name_);
@@ -941,9 +942,8 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
           ex_list.push_back(updated_link_model_names[i]);
         }
       }
-      //first n will be actually in group
       cm_->getRobotMarkersGivenState(*robot_state_, arr, color, current_show_group_ + "_updated_links",
-                                            ros::Duration(.2), &ex_list);
+                                     ros::Duration(.2), &ex_list);
       vis_marker_array_publisher_.publish(arr);
     }
     else
@@ -959,8 +959,8 @@ void PlanningDescriptionConfigurationWizard::sendMarkers()
     default_color.b = 1.0;
     
     vector<string> single_link_name(1, current_show_link_);
-    cm_->getRobotMarkersGivenState(*robot_state_, arr, default_color, current_show_link_, ros::Duration(.2),
-                                   &single_link_name, 1.03);
+    cm_->getRobotPaddedMarkersGivenState(*robot_state_, arr, default_color, current_show_link_, ros::Duration(.2),
+                                         &single_link_name);
     vis_marker_array_publisher_.publish(arr);
   }
   lock_.unlock();
@@ -1376,9 +1376,8 @@ void PlanningDescriptionConfigurationWizard::visualizeCollision(vector<Collision
 
   collision_markers_.markers.clear();
 
-  vector<EnvironmentModel::AllowedContact> allowed_contacts;
   vector<EnvironmentModel::Contact> coll_space_contacts;
-  cm_->getCollisionSpace()->getAllCollisionContacts(allowed_contacts, coll_space_contacts, 1);
+  cm_->getCollisionSpace()->getAllCollisionContacts(coll_space_contacts, 1);
 
   Marker marker;
   Marker marker2;

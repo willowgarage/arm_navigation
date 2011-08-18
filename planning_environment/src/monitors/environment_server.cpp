@@ -119,15 +119,13 @@ private:
       delete sync_planning_scene_clients_[callerid];
     }
     sync_planning_scene_clients_[callerid] = new actionlib::SimpleActionClient<arm_navigation_msgs::SyncPlanningSceneAction>(callerid+"/"+SYNC_PLANNING_SCENE_NAME, true);
-    while(ros::ok()) {
-      if(!sync_planning_scene_clients_[callerid]->waitForServer(ros::Duration(1.0))) {
-        ROS_INFO_STREAM("Couldn't connect back to action server for " << callerid << ". Removing from list");
-        delete sync_planning_scene_clients_[callerid];
-        sync_planning_scene_clients_.erase(callerid);
-      } else {
-        break;
-      }
-    }
+    if(!sync_planning_scene_clients_[callerid]->waitForServer(ros::Duration(10.0))) {
+      ROS_INFO_STREAM("Couldn't connect back to action server for " << callerid << ". Removing from list");
+      delete sync_planning_scene_clients_[callerid];
+      sync_planning_scene_clients_.erase(callerid);
+      register_lock_.unlock();
+      return false;
+    } 
     ROS_INFO_STREAM("Successfully connected to planning scene action server for " << callerid);
     register_lock_.unlock();
     return true;
