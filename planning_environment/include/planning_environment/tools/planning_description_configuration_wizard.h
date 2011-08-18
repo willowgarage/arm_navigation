@@ -44,6 +44,31 @@ class JointCollectionWizardPage;
 class SetupGroupsWizardPage;
 class CollisionsWizardPage;
 
+inline std::vector<int> getSelectedRows(QTableWidget* table) {
+  QList<QTableWidgetItem*> selected = table->selectedItems();
+  
+  std::vector<int> rows;
+  for(int i = 0; i < selected.size(); i++)
+  {
+    bool rowExists = false;
+    int r = selected[i]->row();
+    for(size_t j = 0; j < rows.size(); j++)
+    {
+      if((int)j == r)
+      {
+        rowExists = true;
+      }
+    }
+
+    if(!rowExists)
+    {
+      rows.push_back(r);
+    }
+  }
+  return rows;
+}
+
+
 class PlanningDescriptionConfigurationWizard: public QWizard
 {
   Q_OBJECT
@@ -155,6 +180,7 @@ public slots:
   void veryFastButtonToggled(bool checkState);
 
   void dofSelectionTableChanged();
+  void dofTogglePushed();
   void writeFiles();
   void autoConfigure();
   void update();
@@ -409,7 +435,6 @@ public slots:
 protected:
 
   virtual bool validatePage();
-  std::vector<int> getSelectedRows(QTableWidget* table);
   PlanningDescriptionConfigurationWizard *parent_;
   QTableWidget* collision_table_;
   planning_environment::CollisionOperationsGenerator::DisableType disable_type_;

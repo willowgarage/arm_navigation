@@ -203,7 +203,6 @@ void planning_environment::RobotModels::loadGroupConfigsFromParamServer(const st
                                                                      all_groups[i]["base_link"],
                                                                      all_groups[i]["tip_link"])); 
     } else {
-      ROS_INFO_STREAM("Processing " << gname);
       if(!all_groups[i].hasMember("subgroups") && !all_groups[i].hasMember("joints")) {
         ROS_WARN_STREAM("Group " << gname << " is not a valid chain and thus must have one or more joint or subgroups defined");
         continue;

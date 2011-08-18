@@ -995,6 +995,30 @@ string PlanningDescriptionConfigurationWizard::getRobotName()
   return urdf_->getName();
 }
 
+void PlanningDescriptionConfigurationWizard::dofTogglePushed()
+{
+  ROS_INFO_STREAM("Pushed");
+  unsigned int column = 3;
+  vector<int> rows = getSelectedRows(dof_selection_table_);
+  for(size_t i = 0; i < rows.size(); i++)
+  {
+    QCheckBox* box = dynamic_cast<QCheckBox*> (dof_selection_table_->cellWidget(rows[i], column));
+
+    if(box != NULL)
+    {
+      if(box->isChecked())
+      {
+        box->setChecked(false);
+      }
+      else
+      {
+        box->setChecked(true);
+      }
+    }
+  }
+  dofSelectionTableChanged();
+}
+
 void PlanningDescriptionConfigurationWizard::dofSelectionTableChanged()
 {
   int xind = 0;
@@ -1634,9 +1658,8 @@ void PlanningDescriptionConfigurationWizard::initSelectDofPage()
   layout->addWidget(toggleSelected);
   toggleSelected->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
-  connect(toggleSelected, SIGNAL(clicked()), SLOT(dofTogglePushed()));
+  connect(toggleSelected, SIGNAL(clicked()), this, SLOT(dofTogglePushed()));
 
-  //addPage(select_dof_page_);
   setPage(SelectDOFPage, select_dof_page_);
   select_dof_page_->setLayout(layout);
 
@@ -1736,7 +1759,7 @@ SetupGroupsWizardPage::SetupGroupsWizardPage(PlanningDescriptionConfigurationWiz
   groupBoxLayout->addWidget(deleteButton);
   deleteButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
   
-  connect(current_group_table_, SIGNAL(itemClicked(QTableWidgetItem*)), SLOT(groupTableClicked()));
+  connect(current_group_table_, SIGNAL(itemClicked(QTableWidgetItem*)), this, SLOT(groupTableClicked()));
   connect(deleteButton, SIGNAL(clicked()), this, SLOT(deleteGroupButtonClicked()));
 
   QGroupBox* modeBox = new QGroupBox(this);
@@ -2450,31 +2473,6 @@ void CollisionsWizardPage::generateCollisionTable() {
     }
   }
   tableChanged();
-}
-
-vector<int> CollisionsWizardPage::getSelectedRows(QTableWidget* table)
-{
-  QList<QTableWidgetItem*> selected = table->selectedItems();
-
-  vector<int> rows;
-  for(int i = 0; i < selected.size(); i++)
-  {
-    bool rowExists = false;
-    int r = selected[i]->row();
-    for(size_t j = 0; j < rows.size(); j++)
-    {
-      if((int)j == r)
-      {
-        rowExists = true;
-      }
-    }
-
-    if(!rowExists)
-    {
-      rows.push_back(r);
-    }
-  }
-  return rows;
 }
 
 void CollisionsWizardPage::toggleTable()
