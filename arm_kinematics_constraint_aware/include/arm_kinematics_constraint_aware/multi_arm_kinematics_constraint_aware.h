@@ -49,7 +49,7 @@
 #include <arm_navigation_msgs/JointLimits.h>
 
 // MISC
-#include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/models/collision_models.h>
 #include <arm_kinematics_constraint_aware/arm_kinematics_constraint_aware_utils.h>
 #include <kdl/jntarray.hpp>
 #include <angles/angles.h>
@@ -72,12 +72,12 @@ public:
   MultiArmKinematicsConstraintAware(const std::vector<std::string> &group_names, 
                                     const std::vector<std::string> &kinematics_solver_names,
                                     const std::vector<std::string> &end_effector_link_names,
-                                    planning_environment::CollisionModelsInterface *collision_models_interface);
+                                    planning_environment::CollisionModels *collision_models);
 
   ~MultiArmKinematicsConstraintAware()
   {
-    if(collision_models_interface_generated_)
-      delete collision_models_interface_;
+    if(collision_models_generated_)
+      delete collision_models_;
   }
 
   bool setup(const arm_navigation_msgs::PlanningScene& planning_scene,
@@ -95,26 +95,31 @@ public:
   bool checkJointStates(const std::map<std::string, double> &joint_values,
                         const arm_navigation_msgs::Constraints &constraints,
                         double &timeout,
+                        planning_models::KinematicState *kinematic_state,
                         int &error_code);
   
   bool checkJointStates(const std::vector<double>  &solutions,
                         const arm_navigation_msgs::Constraints &constraints,
                         double &timeout,
+                        planning_models::KinematicState *kinematic_state,
                         int &error_code);
 
   bool checkJointStates(const std::vector<std::vector<double> > &solutions,
                         const arm_navigation_msgs::Constraints &constraints,
                         double &timeout,
+                        planning_models::KinematicState *kinematic_state,
                         int &error_code);
 
   bool checkMotion(const std::vector<std::vector<double> > &start,
                    const std::vector<std::vector<double> > &end,
                    const arm_navigation_msgs::Constraints &constraints,
                    double &timeout,
+                   planning_models::KinematicState *kinematic_state,
                    int &error_code);
 
   bool checkEndEffectorStates(const std::vector<geometry_msgs::Pose> &poses,
                               double &timeout,
+                              planning_models::KinematicState *kinematic_state,
                               std::vector<int> &error_codes);
   
   bool searchPositionIK(const std::vector<geometry_msgs::Pose> &poses,
@@ -134,17 +139,20 @@ public:
   bool searchConstraintAwarePositionIK(const std::vector<geometry_msgs::Pose> &poses,
                                        const std::vector<std::vector<double> > &seed_states,
                                        double &timeout,
+                                       planning_models::KinematicState *kinematic_state,
                                        std::vector<std::vector<double> > &solutions,
                                        std::vector<int> &error_codes,
                                        const double &max_distance=0.0);
   bool searchConstraintAwarePositionIK(const std::vector<geometry_msgs::Pose> &poses,
                                        double &timeout,
+                                       planning_models::KinematicState *kinematic_state,
                                        std::vector<std::vector<double> > &solutions,
                                        std::vector<int> &error_codes,
                                        const double &max_distance=0.0);  
   bool searchConstraintAwarePositionIK(const std::vector<geometry_msgs::Pose> &poses,
                                        const arm_navigation_msgs::Constraints &constraints,
                                        double &timeout,
+                                       planning_models::KinematicState *kinematic_state,
                                        std::vector<std::vector<double> > &solutions,
                                        std::vector<int> &error_codes,
                                        const double &max_distance=0.0);
@@ -152,6 +160,7 @@ public:
                                        const std::vector<std::vector<double> > &seed_states,
                                        const arm_navigation_msgs::Constraints &constraints,
                                        double &timeout,
+                                       planning_models::KinematicState *kinematic_state,
                                        std::vector<std::vector<double> > &solutions,
                                        std::vector<int> &error_codes,
                                        const double &max_distance=0.0);
@@ -166,7 +175,7 @@ private:
   bool initialize(const std::vector<std::string> &group_names, 
                   const std::vector<std::string> &kinematics_solver_names,
                   const std::vector<std::string> &end_effector_link_names,
-                  planning_environment::CollisionModelsInterface *collision_models_interface);
+                  planning_environment::CollisionModels *collision_models);
 
   bool checkRequest(const std::vector<geometry_msgs::Pose> &poses,
                     const std::vector<std::vector<double> > &seed_states,
@@ -185,10 +194,10 @@ private:
   std::vector<std::vector<std::string> >  end_effector_collision_links_;
   std::string base_frame_;
   planning_models::KinematicState* original_state_;
-  planning_environment::CollisionModelsInterface *collision_models_interface_;
+  planning_environment::CollisionModels *collision_models_;
 
   std::vector<std::vector<std::pair<double,double> > > bounds_;
-  bool collision_models_interface_generated_;
+  bool collision_models_generated_;
 
   unsigned int total_num_joints_;
   double collision_discretization_;

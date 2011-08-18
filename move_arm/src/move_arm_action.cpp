@@ -46,7 +46,7 @@ MoveArm::MoveArm() :  private_handle_("~"),planning_visualizer_(DISPLAY_PATH_TOP
   private_handle_.param<double>("ik_allowed_time",ik_allowed_time_, 2.0);
   private_handle_.param<double>("move_arm_frequency",move_arm_frequency_, 50.0);
   private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
-  collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
+  collision_models_ = new planning_environment::CollisionModels("robot_description");
 
   planning_scene_state_ = NULL;
   num_planning_attempts_ = 0;
@@ -59,7 +59,7 @@ MoveArm::MoveArm() :  private_handle_("~"),planning_visualizer_(DISPLAY_PATH_TOP
   filter_trajectory_client_ = root_handle_.serviceClient<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER);      
   get_state_client_ = root_handle_.serviceClient<arm_navigation_msgs::GetRobotState>("/environment_server/get_robot_state");      
   set_planning_scene_diff_client_ = root_handle_.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_NAME);
-  action_server_.reset(new actionlib::SimpleActionServer<arm_navigation_msgs::MoveArmAction>(root_handle_, "move_arms", boost::bind(&MoveArm::execute, this, _1), false));
+  action_server_.reset(new actionlib::SimpleActionServer<arm_navigation_msgs::MoveArmAction>(root_handle_, "move_arm", boost::bind(&MoveArm::execute, this, _1), false));
   action_server_->start();
 
   stats_publisher_ = private_handle_.advertise<arm_navigation_msgs::MoveArmStatistics>("statistics",1,true);
@@ -68,7 +68,7 @@ MoveArm::MoveArm() :  private_handle_("~"),planning_visualizer_(DISPLAY_PATH_TOP
 MoveArm::~MoveArm()
 {
   revertPlanningScene();
-  delete collision_models_interface_;
+  delete collision_models_;
 }
 
 bool MoveArm::initialize()
@@ -81,7 +81,7 @@ bool MoveArm::loadGroups()
   XmlRpc::XmlRpcValue group_list;
   std::vector<std::string> group_names;
 
-  if(!private_handle_.getParam("/groups", group_list))
+  if(!private_handle_.getParam("groups", group_list))
   {
     ROS_ERROR("Could not find groups on param server");
     return false;
@@ -100,7 +100,7 @@ bool MoveArm::loadGroups()
     }
     group_names.push_back(static_cast<std::string>(group_list[i]));
     ROS_DEBUG("Adding group: %s",group_names.back().c_str());
-    group_map_[group_names.back()].reset(new move_arm::MoveGroup(group_names.back(),collision_models_interface_));
+    group_map_[group_names.back()].reset(new move_arm::MoveGroup(group_names.back(),collision_models_));
     if(!group_map_[group_names.back()]->initialize())
     {
       ROS_ERROR("Could not initialize group %s",group_names.back().c_str());
@@ -140,7 +140,7 @@ bool MoveArm::filterTrajectory(const trajectory_msgs::JointTrajectory &trajector
   resetToStartState(kinematic_state);
   planning_environment::convertKinematicStateToRobotState(*kinematic_state,
                                                           ros::Time::now(),
-                                                          collision_models_interface_->getWorldFrameId(),
+                                                          collision_models_->getWorldFrameId(),
                                                           request.start_state);
   request.group_name = current_group_->getPhysicalGroupName();
   request.path_constraints = path_constraints;
@@ -179,8 +179,8 @@ bool MoveArm::getRobotState(planning_models::KinematicState* state)
   return true;
 }
 
-bool MoveArm::moveArmGoalToPlannerRequest(const arm_navigation_msgs::MoveArmGoalConstPtr& goal, 
-                                          arm_navigation_msgs::GetMotionPlan::Request &request)
+bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal, 
+                    arm_navigation_msgs::GetMotionPlan::Request &request)
 {
   request.motion_plan_request.workspace_parameters.workspace_region_pose.header.stamp = ros::Time::now();
   request.motion_plan_request = goal->motion_plan_request;
@@ -190,24 +190,32 @@ bool MoveArm::moveArmGoalToPlannerRequest(const arm_navigation_msgs::MoveArmGoal
   planner_service_name_ = goal->planner_service_name;
   planning_visualizer_.visualize(goal->planning_scene_diff.allowed_contacts);
 
+  if(!findGroup(request.motion_plan_request.group_name,current_group_))
+  {
+    ROS_ERROR("Could not find group %s for move arm to act on",request.motion_plan_request.group_name.c_str());
+    move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
+    return false;
+  }
+
   if(!getAndSetPlanningScene(goal->planning_scene_diff, goal->operations)) 
   {
     ROS_ERROR("Problem setting planning scene");
     move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
-    action_server_->setAborted(move_arm_action_result_);
     return false;
   }
 
-  collision_models_interface_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
+  collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
                                                               request.motion_plan_request.goal_constraints);
-  collision_models_interface_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
+  collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
                                                               request.motion_plan_request.path_constraints);
   //overwriting start state - move arm only deals with current state
   planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
                                                           ros::Time::now(),
-                                                          collision_models_interface_->getWorldFrameId(),
+                                                          collision_models_->getWorldFrameId(),
                                                           request.motion_plan_request.start_state);
   original_goal_constraints_ = request.motion_plan_request.goal_constraints;
+  current_group_->original_goal_constraints_ = original_goal_constraints_;
+  ROS_DEBUG("Finished setup");
   return true;
 }
 
@@ -216,13 +224,16 @@ void MoveArm::setAborted(arm_navigation_msgs::GetMotionPlan::Response &response)
   setAborted(response.error_code);
 }
 
-bool MoveArm::setAborted(arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
+void MoveArm::setAborted(arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
+{
+  move_arm_action_result_.error_code = error_code;
+  setAborted();
+}
+
+void MoveArm::setAborted()
 {
   resetStateMachine();
-  resetToStartState(planning_scene_state_);
-  move_arm_action_result_.error_code = error_code;
   action_server_->setAborted(move_arm_action_result_);
-  return true;
 }
 
 bool MoveArm::visualizeCollisions(const planning_models::KinematicState *kinematic_state)
@@ -233,7 +244,7 @@ bool MoveArm::visualizeCollisions(const planning_models::KinematicState *kinemat
   point_color.r = 1.0;
   point_color.g = .8;
   point_color.b = 0.04;
-  collision_models_interface_->getAllCollisionPointMarkers(*kinematic_state,array,point_color,ros::Duration(0.0)); 
+  collision_models_->getAllCollisionPointMarkers(*kinematic_state,array,point_color,ros::Duration(0.0)); 
   planning_visualizer_.visualize(array);
   return true;
 }
@@ -245,7 +256,7 @@ bool MoveArm::createPlan(arm_navigation_msgs::GetMotionPlan::Request &request,
   ros::Time planning_time = ros::Time::now();
   while(!ros::service::waitForService(planner_service_name_, ros::Duration(1.0))) 
   {
-    ROS_INFO_STREAM("Waiting for requested service " << planner_service_name_);
+    ROS_DEBUG_STREAM("Waiting for requested service " << planner_service_name_);
   }
   ros::ServiceClient planning_client = root_handle_.serviceClient<arm_navigation_msgs::GetMotionPlan>(planner_service_name_);
   move_arm_stats_.planner_service_name = planner_service_name_;
@@ -294,7 +305,7 @@ void MoveArm::fillTrajectoryMsg(const trajectory_msgs::JointTrajectory &trajecto
   std::map<std::string, bool> continuous;
   for(unsigned int j = 0; j < trajectory_in.joint_names.size(); j++) {
     std::string name = trajectory_in.joint_names[j];
-    boost::shared_ptr<const urdf::Joint> joint = collision_models_interface_->getParsedDescription()->getJoint(name);
+    boost::shared_ptr<const urdf::Joint> joint = collision_models_->getParsedDescription()->getJoint(name);
     if (joint.get() == NULL)
     {
       ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
@@ -353,7 +364,7 @@ bool MoveArm::jointTrajectoryValid(trajectory_msgs::JointTrajectory &joint_traje
 {
   std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> traj_error_codes;
   resetToStartState(planning_scene_state_);
-  if(!collision_models_interface_->isJointTrajectoryValid(*planning_scene_state_,
+  if(!collision_models_->isJointTrajectoryValid(*planning_scene_state_,
                                                           joint_trajectory, 
                                                           goal_constraints,
                                                           path_constraints,
@@ -398,19 +409,39 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       move_arm_action_feedback_.state = "planning";
       move_arm_action_feedback_.time_to_completion = ros::Duration(request.motion_plan_request.allowed_planning_time);
       action_server_->publishFeedback(move_arm_action_feedback_);
-
-      if(!disable_ik_)
-        if(!current_group_->runIKOnRequest(request,response,planning_scene_state_))
-          return true;
-
-      if(!current_group_->checkRequest(request,response,planning_scene_state_))
+      
+      resetToStartState(planning_scene_state_);
+      if(current_group_->checkState(original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
+      {
+        ROS_INFO("We are already at goal");
+        move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
+        resetStateMachine();
+        action_server_->setSucceeded(move_arm_action_result_);
         return true;
+      }
+        
+      resetToStartState(planning_scene_state_);
+      if(!disable_ik_ && arm_navigation_msgs::isPoseGoal(request))
+        if(!current_group_->runIKOnRequest(request,response,planning_scene_state_,ik_allowed_time_))
+        {
+          setAborted(response.error_code);
+          return true;
+        }
+
+      resetToStartState(planning_scene_state_);
+      if(!current_group_->checkRequest(request,response,planning_scene_state_))
+      {
+        setAborted(response.error_code);
+        return true;
+      }
 
       planning_visualizer_.visualize(request,planning_scene_state_);
         
+      resetToStartState(planning_scene_state_);
       if(createPlan(request,response))
       {
         ROS_DEBUG("createPlan succeeded");
+        resetToStartState(planning_scene_state_);
         if(!jointTrajectoryValid(response.trajectory.joint_trajectory,original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,response.error_code))
         {
           num_planning_attempts_++;
@@ -426,7 +457,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
         else
         {
           current_trajectory_ = response.trajectory.joint_trajectory;
-          planning_visualizer_.visualize(current_trajectory_,planning_scene_state_);
+          //          planning_visualizer_.visualize(current_trajectory_,planning_scene_state_);
           state_ = START_CONTROL;
           ROS_DEBUG("Done planning. Transitioning to filtering.");
         }
@@ -460,6 +491,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       if(filterTrajectory(current_trajectory_,filtered_trajectory,original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
       {
         ROS_DEBUG("Checking filtered trajectory");
+        resetToStartState(planning_scene_state_);
         if(!jointTrajectoryValid(filtered_trajectory,original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
         {
           ROS_ERROR("Move arm will abort this goal.  Will replan");
@@ -552,7 +584,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
             ROS_WARN("Though trajectory is done current state does not seem to be at goal");
           }
           setAborted(state_error_code);
-          ROS_INFO("Monitor done but not in good state");
+          ROS_DEBUG("Monitor done but not in good state");
           return true;              
         }
       }
@@ -560,7 +592,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
     }
   default:
     {
-      ROS_INFO("Should not be here.");
+      ROS_DEBUG("Should not be here.");
       break;
     }
   }   
@@ -587,17 +619,15 @@ void MoveArm::resetActionResult()
 void MoveArm::execute(const arm_navigation_msgs::MoveArmGoalConstPtr& goal)
 {
   arm_navigation_msgs::GetMotionPlan::Request request;	    
-  if(!moveArmGoalToPlannerRequest(goal,request))
-    return;
-  ros::Rate move_arm_rate(move_arm_frequency_);
+  resetStateMachine();
   resetActionResult();
   resetStats();
-  if(!findGroup(request.motion_plan_request.group_name,current_group_))
-  {
-    ROS_ERROR("Could not find group %s for move arm to act on",request.motion_plan_request.group_name.c_str());
+  if(!setup(goal,request))
+  {    
+    setAborted();
     return;
   }
-
+  ros::Rate move_arm_rate(move_arm_frequency_);
   while(private_handle_.ok())
   {	    	    
     if (action_server_->isPreemptRequested())
@@ -612,13 +642,16 @@ void MoveArm::execute(const arm_navigation_msgs::MoveArmGoalConstPtr& goal)
         resetActionResult();
         const arm_navigation_msgs::MoveArmGoalConstPtr& new_goal = action_server_->acceptNewGoal();
         ROS_DEBUG("Received new goal, will preempt previous goal");
-        if(!moveArmGoalToPlannerRequest(new_goal,request))
+        if(!setup(new_goal,request))
+        {
+          setAborted();
           return;
+        }
         state_ = PLANNING;
       }
       else               //if we've been preempted explicitly we need to shut things down
       {
-        ROS_DEBUG("The move arm action was preempted by the action client. Preempting this goal.");
+        ROS_INFO("The move arm action was preempted by the action client. Preempting this goal.");
         revertPlanningScene();
         resetStateMachine();
         action_server_->setPreempted();
@@ -664,9 +697,11 @@ bool MoveArm::getAndSetPlanningScene(const arm_navigation_msgs::PlanningScene& p
 
   current_planning_scene_ = planning_scene_response.planning_scene;
 
-  planning_scene_state_ = collision_models_interface_->setPlanningScene(current_planning_scene_);
+  planning_scene_state_ = collision_models_->setPlanningScene(current_planning_scene_);
 
-  collision_models_interface_->disableCollisionsForNonUpdatedLinks(current_group_->getPhysicalGroupName());
+  ROS_DEBUG("Done setting planning scene");
+
+  collision_models_->disableCollisionsForNonUpdatedLinks(current_group_->getPhysicalGroupName());
 
   if(planning_scene_state_ == NULL) {
     ROS_WARN("Problems setting local state");
@@ -684,7 +719,7 @@ bool MoveArm::revertPlanningScene()
 {
   if(planning_scene_state_ != NULL) 
   {
-    collision_models_interface_->revertPlanningScene(planning_scene_state_);
+    collision_models_->revertPlanningScene(planning_scene_state_);
     planning_scene_state_ = NULL;
   }
   return true;
@@ -710,21 +745,3 @@ void MoveArm::publishStats()
 }
 
 }
-/*
-int main(int argc, char** argv)
-{
-  ros::init(argc, argv, "move_arm");  
-  ros::AsyncSpinner spinner(1); // Use 1 thread
-  spinner.start();
-  move_arm::MoveArm move_arm();
-  if(!move_arm.initialize())
-  {
-    ROS_ERROR("Could not configure move arm, exiting");
-    ros::shutdown();
-    return 1;
-  }
-  ROS_INFO("Move arm action started");
-  ros::waitForShutdown();
-    
-  return 0;
-}*/

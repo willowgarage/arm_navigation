@@ -40,20 +40,25 @@
 namespace move_arm
 {
 
-MoveGroup::MoveGroup(const std::string &group_name, planning_environment::CollisionModelsInterface *collision_models_interface) : private_handle_("~"),group_name_(group_name)
+MoveGroup::MoveGroup(const std::string &group_name, planning_environment::CollisionModels *collision_models) : private_handle_("~"),group_name_(group_name),default_joint_tolerance_(0.04)
 {
-  if(!collision_models_interface)
-    collision_models_interface_ = new planning_environment::CollisionModelsInterface("robot_description");
+  if(!collision_models)
+    collision_models_ = new planning_environment::CollisionModels("robot_description");
   else
-    collision_models_interface_ = collision_models_interface;
+    collision_models_ = collision_models;
 
   ik_solver_initialized_ = false;
 }	
+
+MoveGroup::~MoveGroup()
+{
+}
 
 bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
                                        std::vector<std::string> &kinematics_solver_names,
                                        std::vector<std::string> &end_effector_link_names)
 {
+  std::string prefix = "";
   if(arm_names.empty())
   {
     XmlRpc::XmlRpcValue arm_list;
@@ -77,26 +82,27 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
       arm_names.push_back(static_cast<std::string>(arm_list[i]));
       ROS_DEBUG("Adding group: %s",arm_names.back().c_str());
     }
+    prefix = group_name_+"/";
   }
 
   for(unsigned int i=0; i < arm_names.size(); i++)
   {
     std::string kinematics_solver_name;
-    if(!private_handle_.hasParam(group_name_+"/"+arm_names[i]+"/kinematics_solver"))
+    if(!private_handle_.hasParam(prefix+arm_names[i]+"/kinematics_solver"))
     {
-      ROS_ERROR("Kinematics solver not defined for group %s in namespace %s",arm_names[i].c_str(),private_handle_.getNamespace().c_str());
+      ROS_ERROR("Kinematics solver not defined for group %s in namespace %s",(prefix+"/"+arm_names[i]).c_str(),private_handle_.getNamespace().c_str());
       continue;
     }
-    private_handle_.getParam(group_name_+"/"+arm_names[i]+"/kinematics_solver",kinematics_solver_name);
+    private_handle_.getParam(prefix+arm_names[i]+"/kinematics_solver",kinematics_solver_name);
     kinematics_solver_names.push_back(kinematics_solver_name);
 
     std::string tip_name;
-    if(!private_handle_.hasParam(group_name_+"/"+arm_names[i]+"/tip_name"))
+    if(!private_handle_.hasParam(prefix+arm_names[i]+"/tip_name"))
     {
       ROS_ERROR("End effector not defined for group %s in namespace %s",arm_names[i].c_str(),private_handle_.getNamespace().c_str());
       continue;
     }
-    private_handle_.getParam(group_name_+"/"+arm_names[i]+"/tip_name",tip_name);
+    private_handle_.getParam(prefix+arm_names[i]+"/tip_name",tip_name);
     end_effector_link_names.push_back(tip_name);
   }
   num_arms_ = arm_names.size();
@@ -115,14 +121,14 @@ bool MoveGroup::initialize()
     ROS_ERROR("No 'group' parameter specified. Without the name of the group of joints to plan for, action cannot start");
     return false;
   }
-  const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(group_name_);
+  const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_->getKinematicModel()->getModelGroup(group_name_);
   physical_group_name_ = group_name_;
   if(joint_model_group == NULL) 
   {
     std::string physical_group_name;
     ROS_WARN_STREAM("No joint group " << group_name_);
     private_handle_.param<std::string>(group_name_+"/physical_group",physical_group_name,group_name_);
-    joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(physical_group_name);
+    joint_model_group = collision_models_->getKinematicModel()->getModelGroup(physical_group_name);
     if(joint_model_group == NULL)
     {
       ROS_ERROR("No physical joint group %s exists",physical_group_name.c_str());
@@ -136,11 +142,10 @@ bool MoveGroup::initialize()
   }
   getConfigurationParams(arm_names_,kinematics_solver_names_,end_effector_link_names_);
   group_joint_names_ = joint_model_group->getJointModelNames();
-  group_link_names_ = joint_model_group->getGroupLinkNames();
 
   try
   {  
-    kinematics_solver_ = new arm_kinematics_constraint_aware::MultiArmKinematicsConstraintAware(arm_names_,kinematics_solver_names_,end_effector_link_names_,collision_models_interface_);
+    kinematics_solver_ = new arm_kinematics_constraint_aware::MultiArmKinematicsConstraintAware(arm_names_,kinematics_solver_names_,end_effector_link_names_,collision_models_);
   }
   catch (MultiArmKinematicsException &e)
   {
@@ -150,34 +155,91 @@ bool MoveGroup::initialize()
   ik_solver_initialized_ = true;
   return true;
 }
-	
-bool MoveGroup::createJointGoalFromPoseGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
-                                          arm_navigation_msgs::GetMotionPlan::Response &response,
-                                          planning_models::KinematicState *kinematic_state)
+
+arm_navigation_msgs::ArmNavigationErrorCodes MoveGroup::kinematicsErrorCodeToArmNavigationErrorCode(const int& error_code)
 {
-  arm_navigation_msgs::Constraints constraints = arm_navigation_msgs::getPoseConstraintsForGroup(end_effector_names_,request.motion_plan_request.goal_constraints);
+  arm_navigation_msgs::ArmNavigationErrorCodes ec;
+  switch(error_code)
+  {
+  case kinematics::SUCCESS:
+    ec.val = ec.SUCCESS;
+    break;
+  case kinematics::TIMED_OUT:
+    ec.val = ec.TIMED_OUT;
+    break;
+  case kinematics::NO_IK_SOLUTION:
+    ec.val = ec.NO_IK_SOLUTION;
+    break;
+  case kinematics::FRAME_TRANSFORM_FAILURE:
+    ec.val = ec.FRAME_TRANSFORM_FAILURE;
+    break;
+  case kinematics::IK_LINK_INVALID:
+    ec.val = ec.INVALID_LINK_NAME;
+    break;
+  case kinematics::IK_LINK_IN_COLLISION:
+    ec.val = ec.IK_LINK_IN_COLLISION;
+    break;
+  case kinematics::STATE_IN_COLLISION:
+    ec.val = ec.KINEMATICS_STATE_IN_COLLISION;
+    break;
+  case kinematics::INVALID_LINK_NAME:
+    ec.val = ec.INVALID_LINK_NAME;
+    break;
+    //  case kinematics::GOAL_CONSTRAINTS_VIOLATED:
+    //    ec.val = ec.GOAL_CONSTRAINTS_VIOLATED;
+    //    break;
+  case kinematics::INACTIVE:
+    ec.val = ec.NO_IK_SOLUTION;
+    break;
+  default:
+    ec.val = ec.PLANNING_FAILED;
+    break;
+  }
+  return ec;
+}
+
+bool MoveGroup::createJointGoalFromPoseGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                            arm_navigation_msgs::GetMotionPlan::Response &response,
+                                            planning_models::KinematicState *kinematic_state,
+                                            double &ik_allowed_time)
+{
+  arm_navigation_msgs::Constraints constraints = arm_navigation_msgs::getPoseConstraintsForGroup(end_effector_link_names_,request.motion_plan_request.goal_constraints);
   unsigned int num_constraints = constraints.position_constraints.size();
+  ROS_INFO("Num constraints: %d",num_constraints);
   arm_navigation_msgs::ArmNavigationErrorCodes error_code;
   if(num_constraints != constraints.orientation_constraints.size())
   {
     ROS_ERROR("Number of position and orientation constraints should be the same");
     return false;
   }
-  arm_navigation_msgs::printConstraints(constraints,false,true,true);
+  if(!collision_models_->convertConstraintsGivenNewWorldTransform(*kinematic_state,constraints,kinematics_solver_->getBaseFrame()))
+  {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
+    return false;
+  }
+  arm_navigation_msgs::printConstraints(constraints,true,true,true);
   std::vector<geometry_msgs::Pose> poses;
   std::vector<std::vector<double> > solutions;
   std::vector<int> error_codes;
+  solutions.resize(num_arms_);
+  error_codes.resize(num_arms_);
   if(!arm_navigation_msgs::constraintsToPoseVector(constraints,poses))
     return false;
-  if(!kinematics_solver_->searchConstraintAwarePositionIK(poses,ik_allowed_time_,solutions,error_codes))
+  if(!kinematics_solver_->searchConstraintAwarePositionIK(poses,ik_allowed_time,kinematic_state,solutions,error_codes))
+  {
+    for(unsigned int i=0; i < error_codes.size(); i++)
+      ROS_INFO("Error code: %s",arm_navigation_msgs::armNavigationErrorCodeToString(kinematicsErrorCodeToArmNavigationErrorCode(error_codes[i])).c_str());
     return false;
+  }
+  else
+    ROS_DEBUG("Found IK solution");
   request.motion_plan_request.goal_constraints.joint_constraints = arm_navigation_msgs::getJointConstraints(solutions,kinematics_solver_->getJointNamesByGroup(),default_joint_tolerance_);
 
   std::map<string, double> joint_values;
   arm_navigation_msgs::getJointValueMap(request.motion_plan_request.goal_constraints.joint_constraints,joint_values);
 
   kinematic_state->setKinematicState(joint_values);
-  if(!collision_models_interface_->isKinematicStateValid(*kinematic_state,
+  if(!collision_models_->isKinematicStateValid(*kinematic_state,
                                                          group_joint_names_,
                                                          error_code,
                                                          original_goal_constraints_,
@@ -193,16 +255,17 @@ bool MoveGroup::createJointGoalFromPoseGoal(arm_navigation_msgs::GetMotionPlan::
       ROS_WARN_STREAM("Some other problem with ik solution " << error_code.val);
     }
   }
-  arm_navigation_msgs::clearPoseConstraintsForGroup(request.motion_plan_request.goal_constraints,end_effector_names_);
+  arm_navigation_msgs::clearPoseConstraintsForGroup(request.motion_plan_request.goal_constraints,end_effector_link_names_);
+  arm_navigation_msgs::printConstraints(request.motion_plan_request.goal_constraints);
   return true;
 }
 
 bool MoveGroup::checkState(arm_navigation_msgs::Constraints &goal_constraints,
-                         arm_navigation_msgs::Constraints &path_constraints,
-                         const planning_models::KinematicState *kinematic_state,
-                         arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
+                           arm_navigation_msgs::Constraints &path_constraints,
+                           const planning_models::KinematicState *kinematic_state,
+                           arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
 {
-  if(!collision_models_interface_->isKinematicStateValid(*kinematic_state,
+  if(!collision_models_->isKinematicStateValid(*kinematic_state,
                                                          group_joint_names_,
                                                          error_code,
                                                          goal_constraints,
@@ -224,7 +287,8 @@ bool MoveGroup::checkRequest(arm_navigation_msgs::GetMotionPlan::Request &reques
     ROS_ERROR("Can't do pre-planning checks without planning state");
     return false;
   }
-  if(!checkStartState(request.motion_plan_request.goal_constraints,
+  arm_navigation_msgs::Constraints empty_goal_constraints;
+  if(!checkStartState(empty_goal_constraints,
                       request.motion_plan_request.path_constraints,
                       kinematic_state,
                       response.error_code) && check_start_state)
@@ -240,7 +304,6 @@ bool MoveGroup::checkStartState(arm_navigation_msgs::Constraints &goal_constrain
                                 const planning_models::KinematicState *kinematic_state,
                                 arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
 {
-  arm_navigation_msgs::Constraints empty_goal_constraints;
   if(!checkState(goal_constraints,path_constraints,kinematic_state,error_code))
   {
     if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) 
@@ -304,7 +367,8 @@ bool MoveGroup::checkGoalState(arm_navigation_msgs::GetMotionPlan::Request &requ
 
 bool MoveGroup::runIKOnRequest(arm_navigation_msgs::GetMotionPlan::Request &request,  
                                arm_navigation_msgs::GetMotionPlan::Response &response,
-                               planning_models::KinematicState *kinematic_state)
+                               planning_models::KinematicState *kinematic_state,
+                               double &ik_allowed_time)
 {
   ROS_DEBUG("Planning to a pose goal");
   if(!ik_solver_initialized_)
@@ -313,7 +377,7 @@ bool MoveGroup::runIKOnRequest(arm_navigation_msgs::GetMotionPlan::Request &requ
     return false;
   }
   original_goal_constraints_ = request.motion_plan_request.goal_constraints;
-  if(!createJointGoalFromPoseGoal(request,response,kinematic_state))
+  if(!createJointGoalFromPoseGoal(request,response,kinematic_state,ik_allowed_time))
   {
     ROS_ERROR("Aborting pose goal since IK failed");
     response.error_code.val = response.error_code.NO_IK_SOLUTION;

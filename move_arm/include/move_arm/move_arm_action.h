@@ -101,12 +101,14 @@ private:
 
   bool getRobotState(planning_models::KinematicState* state);
 
-  bool moveArmGoalToPlannerRequest(const arm_navigation_msgs::MoveArmGoalConstPtr& goal, 
-                                   arm_navigation_msgs::GetMotionPlan::Request &req);
+  bool setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal, 
+             arm_navigation_msgs::GetMotionPlan::Request &req);
 
   void setAborted(arm_navigation_msgs::GetMotionPlan::Response &response);
 
-  bool setAborted(arm_navigation_msgs::ArmNavigationErrorCodes &error_code);
+  void setAborted(arm_navigation_msgs::ArmNavigationErrorCodes &error_code);
+
+  void setAborted();
 
   bool visualizeCollisions(const planning_models::KinematicState *kinematic_state);
 
@@ -154,7 +156,7 @@ private:
   arm_navigation_msgs::MoveArmFeedback move_arm_action_feedback_;
 
   // Planning scene
-  planning_environment::CollisionModelsInterface* collision_models_interface_;
+  planning_environment::CollisionModels* collision_models_;
   arm_navigation_msgs::PlanningScene current_planning_scene_;
   planning_models::KinematicState* planning_scene_state_;
   arm_navigation_msgs::Constraints original_goal_constraints_;

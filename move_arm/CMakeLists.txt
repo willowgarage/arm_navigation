@@ -39,3 +39,6 @@ rosbuild_add_library(move_group
   src/move_arm_action.cpp
   src/move_group.cpp)
 rosbuild_link_boost(move_group thread)
+
+rosbuild_add_executable(move_arm src/main.cpp)
+target_link_libraries(move_arm move_group)

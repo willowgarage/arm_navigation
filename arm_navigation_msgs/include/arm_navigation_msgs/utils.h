@@ -186,7 +186,7 @@ inline void printOrientationConstraint(const arm_navigation_msgs::OrientationCon
   ROS_DEBUG("OC(%d):: Tolerance(RPY): %f %f %f ",constraint_number,oc.absolute_roll_tolerance,oc.absolute_pitch_tolerance,oc.absolute_yaw_tolerance);
 }
 
-inline void printConstraints(const arm_navigation_msgs::Constraints &constraints, const bool &print_joint=true, const bool print_position=true, const bool &print_orientation=true)
+inline void printConstraints(const arm_navigation_msgs::Constraints &constraints, const bool &print_joint=true, const bool &print_position=true, const bool &print_orientation=true)
 {
   ROS_DEBUG("Number constraints (Joint,Position, Orientation): %d %d %d",
             (int) constraints.joint_constraints.size(),
@@ -196,10 +196,10 @@ inline void printConstraints(const arm_navigation_msgs::Constraints &constraints
     for(unsigned int i=0; i < constraints.joint_constraints.size(); i++)
       printJointConstraint(constraints.joint_constraints[i],i);
   if(print_position)
-    for(unsigned int i=0; i < constraints.joint_constraints.size(); i++)
+    for(unsigned int i=0; i < constraints.position_constraints.size(); i++)
       printPositionConstraint(constraints.position_constraints[i],i);
   if(print_orientation)
-    for(unsigned int i=0; i < constraints.joint_constraints.size(); i++)
+    for(unsigned int i=0; i < constraints.orientation_constraints.size(); i++)
       printOrientationConstraint(constraints.orientation_constraints[i],i);
 }
 
@@ -228,15 +228,21 @@ inline void clearPoseConstraintsForGroup(arm_navigation_msgs::Constraints &const
         it != constraints.position_constraints.end(); 
         it++)
     {
-      if(it->link_name == link_names[i])
+      if((*it).link_name == link_names[i])
+      {
         constraints.position_constraints.erase(it);
+        break;
+      }
     }
     for(std::vector<arm_navigation_msgs::OrientationConstraint>::iterator it=constraints.orientation_constraints.begin(); 
         it != constraints.orientation_constraints.end(); 
         it++)
     {
-      if(it->link_name == link_names[i])
+      if((*it).link_name == link_names[i])
+      {
         constraints.orientation_constraints.erase(it);  
+        break;
+      }
     }
   }
 }
@@ -273,6 +279,7 @@ inline std::vector<arm_navigation_msgs::JointConstraint> getJointConstraints(con
       jc.tolerance_above = tolerance;
       jc.tolerance_below = tolerance;
       jc.joint_name = joint_names[i][j];
+      constraints.push_back(jc);
     }
   }
   return constraints;

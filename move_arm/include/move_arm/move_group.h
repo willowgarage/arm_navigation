@@ -67,7 +67,7 @@
 // arm navigation
 #include <arm_kinematics_constraint_aware/multi_arm_kinematics_constraint_aware.h>
 #include <arm_kinematics_constraint_aware/multi_arm_kinematics_exception.h>
-#include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/model_utils.h>
 #include <geometric_shapes/bodies.h>
@@ -93,7 +93,7 @@ class MoveGroup
 {
 public:	
 
-  MoveGroup(const std::string &group_name, planning_environment::CollisionModelsInterface *collision_models);
+  MoveGroup(const std::string &group_name, planning_environment::CollisionModels *collision_models);
 
   virtual ~MoveGroup();
 
@@ -106,7 +106,8 @@ public:
 
   bool runIKOnRequest(arm_navigation_msgs::GetMotionPlan::Request  &request,  
                       arm_navigation_msgs::GetMotionPlan::Response &response,
-                      planning_models::KinematicState *kinematic_state);
+                      planning_models::KinematicState *kinematic_state,
+                      double &ik_allowed_time);
 
   bool sendTrajectory(trajectory_msgs::JointTrajectory &current_trajectory);
 
@@ -121,7 +122,13 @@ public:
   {	
     return physical_group_name_;
   }
+
+  // Planning
+  arm_navigation_msgs::Constraints original_goal_constraints_;
+
 private:
+
+  arm_navigation_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToArmNavigationErrorCode(const int& error_code);
 
   bool loadGroups();
 
@@ -132,8 +139,9 @@ private:
                               std::vector<std::string> &end_effector_link_names);
 
   bool createJointGoalFromPoseGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
-                                 arm_navigation_msgs::GetMotionPlan::Response &response,
-                                 planning_models::KinematicState *kinematic_state);
+                                   arm_navigation_msgs::GetMotionPlan::Response &response,
+                                   planning_models::KinematicState *kinematic_state,
+                                   double &ik_allowed_time);
 
   bool checkStartState(arm_navigation_msgs::Constraints &goal_constraints,
                        arm_navigation_msgs::Constraints &path_constraints,
@@ -152,21 +160,17 @@ private:
 
   // ROS
   ros::NodeHandle private_handle_, root_handle_;
-  planning_environment::CollisionModelsInterface* collision_models_interface_;
+  planning_environment::CollisionModels* collision_models_;
   
   // Group Information
   std::string group_name_,physical_group_name_;
   std::vector<std::string> group_joint_names_;
-  std::vector<std::string> group_link_names_;
-  std::vector<std::string> end_effector_names_;
-  std::vector<std::string> all_link_names_;
 
   std::vector<std::string> arm_names_;
   std::vector<std::string> kinematics_solver_names_;
   std::vector<std::string> end_effector_link_names_;
   
   // Planning
-  arm_navigation_msgs::Constraints original_goal_constraints_;
   double default_joint_tolerance_;
   
   // Control
@@ -178,7 +182,6 @@ private:
   arm_kinematics_constraint_aware::MultiArmKinematicsConstraintAware* kinematics_solver_;
   unsigned int num_arms_;
   bool ik_solver_initialized_;
-  double ik_allowed_time_;
 };
 }
 
