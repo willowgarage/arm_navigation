@@ -35,8 +35,14 @@
  *  \author Sachin Chitta
  *********************************************************************/
 
+#ifndef ARM_NAVIGATION_PLANNING_VISUALIZER_H_
+#define ARM_NAVIGATION_PLANNING_VISUALIZER_H_
+
 #include <ros/ros.h>
+#include <trajectory_msgs/JointTrajectory.h>
+#include <arm_navigation_msgs/RobotState.h>
 #include <arm_navigation_msgs/DisplayTrajectory.h>
+#include <arm_navigation_msgs/GetMotionPlan.h>
 
 namespace arm_navigation_msgs
 { 
@@ -51,8 +57,8 @@ public:
     marker_publisher_ = root_handle_.advertise<arm_navigation_msgs::DisplayTrajectory>(marker_topic_name, 1, true);
   }
 
-  void visualizePlan(const trajectory_msgs::JointTrajectory &trajectory,
-                     const arm_navigation_msgs::RobotState &robot_state)
+  void visualize(const trajectory_msgs::JointTrajectory &trajectory,
+                 const arm_navigation_msgs::RobotState &robot_state)
   {
     arm_navigation_msgs::DisplayTrajectory display_trajectory;
     display_trajectory.trajectory.joint_trajectory = trajectory;
@@ -60,8 +66,8 @@ public:
     display_trajectory_publisher_.publish(display_trajectory);
   }
 
-  void visualizePlan(const sensor_msgs::JointState &joint_state,
-                     const arm_navigation_msgs::RobotState &robot_state)
+  void visualize(const sensor_msgs::JointState &joint_state,
+                 const arm_navigation_msgs::RobotState &robot_state)
   {
     arm_navigation_msgs::DisplayTrajectory display_trajectory;
     display_trajectory.trajectory.joint_trajectory.points.push_back(arm_navigation_msgs::jointStateToJointTrajectoryPoint(joint_state));
@@ -69,7 +75,46 @@ public:
     display_trajectory_publisher_.publish(display_trajectory);
   }
 
-  void visualizeAllowedContactRegions(const std::vector<arm_navigation_msgs::AllowedContactSpecification> &allowed_contacts)
+  void visualize(const trajectory_msgs::JointTrajectory &trajectory,
+                 const planning_models::KinematicState *kinematic_state)
+  {
+    arm_navigation_msgs::RobotState robot_state;
+    planning_environment::convertKinematicStateToRobotState(*kinematic_state,
+                                                            trajectory.header.stamp,
+                                                            trajectory.header.frame_id,
+                                                            robot_state);
+    visualize(trajectory,robot_state);
+  }
+
+  void visualize(const sensor_msgs::JointState &joint_state,
+                 const planning_models::KinematicState *kinematic_state)
+  {
+    arm_navigation_msgs::RobotState robot_state;
+    planning_environment::convertKinematicStateToRobotState(*kinematic_state,
+                                                            joint_state.header.stamp,
+                                                            joint_state.header.frame_id,
+                                                            robot_state);
+    visualize(joint_state,robot_state);
+  }
+
+  void visualize(arm_navigation_msgs::GetMotionPlan::Request &request,
+                 const planning_models::KinematicState *kinematic_state)
+  {
+    arm_navigation_msgs::RobotState robot_state;
+    trajectory_msgs::JointTrajectory joint_trajectory = arm_navigation_msgs::jointConstraintsToJointTrajectory(request.motion_plan_request.goal_constraints.joint_constraints);
+    planning_environment::convertKinematicStateToRobotState(*kinematic_state,
+                                                            joint_trajectory.header.stamp,
+                                                            joint_trajectory.header.frame_id,
+                                                            robot_state);
+    visualize(joint_trajectory,robot_state);
+  }
+
+  void visualize(const visualization_msgs::MarkerArray &marker_array)
+  {
+    marker_publisher_.publish(marker_array);
+  }
+
+  void visualize(const std::vector<arm_navigation_msgs::AllowedContactSpecification> &allowed_contacts)
   {
     visualization_msgs::MarkerArray mk;
     mk.markers.resize(allowed_contacts.size());
@@ -138,7 +183,6 @@ public:
     marker_publisher_.publish(mk);
   }
 
-
 private:
   ros::NodeHandle root_handle_;
   ros::Publisher display_trajectory_publisher_, marker_publisher_;
@@ -147,3 +191,5 @@ private:
 };
 
 }
+
+#endif
