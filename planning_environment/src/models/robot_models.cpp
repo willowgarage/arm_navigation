@@ -200,47 +200,53 @@ void planning_environment::RobotModels::loadGroupConfigsFromParamServer(const st
     //only need to test one condition
     if(all_groups[i].hasMember("base_link")) {
       configs.push_back(planning_models::KinematicModel::GroupConfig(gname,
-                                                                            all_groups[i]["base_link"],
-                                                                            all_groups[i]["tip_link"])); 
+                                                                     all_groups[i]["base_link"],
+                                                                     all_groups[i]["tip_link"])); 
     } else {
+      ROS_INFO_STREAM("Processing " << gname);
       if(!all_groups[i].hasMember("subgroups") && !all_groups[i].hasMember("joints")) {
         ROS_WARN_STREAM("Group " << gname << " is not a valid chain and thus must have one or more joint or subgroups defined");
         continue;
       }
 
       std::vector<std::string> subgroups;
-      std::string subgroup_list = std::string(all_groups[i]["subgroups"]);
-      std::stringstream subgroup_name_stream(subgroup_list);
-      while(subgroup_name_stream.good() && !subgroup_name_stream.eof()){
-        std::string sname; 
-        subgroup_name_stream >> sname;
-        if(sname.size() == 0) continue;
-        subgroups.push_back(sname);
+      if(all_groups[i].hasMember("subgroups")) {
+        XmlRpc::XmlRpcValue subgroups_seq = all_groups[i]["subgroups"];
+        if(subgroups_seq.getType() != XmlRpc::XmlRpcValue::TypeArray) {
+          ROS_WARN_STREAM("Group " << gname << " subgroups not an array");
+          continue;
+        }
+        for(unsigned int j = 0; j < (unsigned int) subgroups_seq.size(); j++) {
+          subgroups.push_back(std::string(subgroups_seq[j]));
+        }
       }
 
       std::vector<std::string> joints;
-      std::string joint_list = std::string(all_groups[i]["joints"]);
-      std::stringstream joint_name_stream(joint_list);
-      while(joint_name_stream.good() && !joint_name_stream.eof()){
-        std::string jname; 
-        joint_name_stream >> jname;
-        if(jname.size() == 0) continue;
-        if (urdf_->getJoint(jname)) {
-          joints.push_back(jname);
-        } else {
-          bool have_multi = false;
-          for(unsigned int i = 0; i < multi_dof_configs.size(); i++) {
-            if(jname == multi_dof_configs[i].name) {
-              joints.push_back(jname);
-              have_multi = true;
-              break;
+      if(all_groups[i].hasMember("joints")) {
+        XmlRpc::XmlRpcValue joints_seq = all_groups[i]["joints"];
+        if(joints_seq.getType() != XmlRpc::XmlRpcValue::TypeArray) {
+          ROS_WARN_STREAM("Group " << gname << " joints not an array");
+          continue;
+        }
+        for(unsigned int j = 0; j < (unsigned int) joints_seq.size(); j++) {
+          std::string jname = std::string(joints_seq[j]);
+          if (urdf_->getJoint(jname)) {
+            joints.push_back(jname);
+          } else {
+            bool have_multi = false;
+            for(unsigned int i = 0; i < multi_dof_configs.size(); i++) {
+              if(jname == multi_dof_configs[i].name) {
+                joints.push_back(jname);
+                have_multi = true;
+                break;
+              }
+            }
+            if(!have_multi) {
+              ROS_WARN_STREAM("Urdf doesn't have joint " << jname << " and no multi-dof joint of that name");
             }
           }
-          if(!have_multi) {
-            ROS_WARN_STREAM("Urdf doesn't have joint " << jname << " and no multi-dof joint of that name");
-          }
         }
-      }                                                
+      }
       configs.push_back(planning_models::KinematicModel::GroupConfig(gname,
                                                                      joints,
                                                                      subgroups));
