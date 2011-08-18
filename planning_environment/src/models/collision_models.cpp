@@ -1679,7 +1679,7 @@ void planning_environment::CollisionModels::getCollisionMapAsMarkers(visualizati
 {
   visualization_msgs::Marker mark;
   mark.type = visualization_msgs::Marker::CUBE_LIST;
-  mark.color = color;
+  mark.color.a = 1.0;
   mark.lifetime = lifetime;
   mark.ns = "collision_map_markers";
   mark.id = 0;
@@ -1701,6 +1701,11 @@ void planning_environment::CollisionModels::getCollisionMapAsMarkers(visualizati
       point.x = c.x();
       point.y = c.y();
       point.z = c.z();
+      std_msgs::ColorRGBA color;      
+      color.r = fmin(fmax(fabs(point.z)/0.5, 0.10), 1.0);
+      color.g = fmin(fmax(fabs(point.z)/1.0, 0.20), 1.0);
+      color.b = fmin(fmax(fabs(point.z)/1.5, 0.50), 1.0);
+      mark.colors.push_back(color);
       mark.points.push_back(point);
     }
   }
