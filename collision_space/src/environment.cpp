@@ -318,12 +318,6 @@ void collision_space::EnvironmentModel::AllowedCollisionMatrix::print(std::ostre
   }
 }
 
-bool collision_space::EnvironmentModel::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_count) const
-{
-  std::vector<AllowedContact> allowed;
-  return getCollisionContacts(allowed, contacts, max_count);
-}
-
 bool collision_space::EnvironmentModel::getVerbose(void) const
 {
   return verbose_;
@@ -443,4 +437,18 @@ double collision_space::EnvironmentModel::getCurrentLinkPadding(std::string name
     return default_link_padding_map_.find(name)->second;
   }
   return 0.0;
+}
+
+void collision_space::EnvironmentModel::setAllowedContacts(const std::vector<AllowedContact>& allowed_contacts)
+{
+  allowed_contact_map_.clear();
+  allowed_contacts_ = allowed_contacts;
+  for(unsigned int i = 0; i < allowed_contacts.size(); i++) {
+    allowed_contact_map_[allowed_contacts_[i].body_name_1][allowed_contacts_[i].body_name_2].push_back(allowed_contacts_[i]);
+    allowed_contact_map_[allowed_contacts_[i].body_name_2][allowed_contacts_[i].body_name_1].push_back(allowed_contacts_[i]);
+  }
+}
+
+const std::vector<collision_space::EnvironmentModel::AllowedContact>& collision_space::EnvironmentModel::getAllowedContacts() const {
+  return allowed_contacts_;
 }

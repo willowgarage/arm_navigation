@@ -46,6 +46,14 @@
 static const std::string rel_path = "/test_urdf/robot.xml";
 
 class TestCollisionSpace : public testing::Test {
+public:
+
+  void spinThread() {
+    lock_.lock();
+    coll_space_->isCollision();
+    lock_.unlock();
+  }
+
 protected:
   
   virtual void SetUp() {
@@ -81,8 +89,9 @@ protected:
     delete kinematic_model_;
     delete coll_space_;
   }
-
 protected:
+
+  boost::mutex lock_;
 
   urdf::Model urdf_model_;
   bool urdf_ok_;
@@ -146,10 +155,9 @@ TEST_F(TestCollisionSpace, TestACM) {
     ASSERT_TRUE(coll_space_->isCollision());
 
     //now we get the full set of collisions in the default state
-    std::vector<collision_space::EnvironmentModel::AllowedContact> ac;
     std::vector<collision_space::EnvironmentModel::Contact> contacts;
       
-    coll_space_->getAllCollisionContacts(ac, contacts, 1);
+    coll_space_->getAllCollisionContacts(contacts, 1);
 
     ASSERT_TRUE(contacts.size() > 1);
     //now we change all these pairwise to true
@@ -186,10 +194,9 @@ TEST_F(TestCollisionSpace, TestAttachedObjects)
     coll_space_->updateRobotModel(&state);
 
     //now we get the full set of collisions in the default state
-    std::vector<collision_space::EnvironmentModel::AllowedContact> ac;
     std::vector<collision_space::EnvironmentModel::Contact> contacts;
       
-    coll_space_->getAllCollisionContacts(ac, contacts, 1);
+    coll_space_->getAllCollisionContacts(contacts, 1);
 
     //now we change all these pairwise to true
     for(unsigned int i = 0; i < contacts.size(); i++) {
@@ -376,10 +383,9 @@ TEST_F(TestCollisionSpace, TestStaticObjects)
   ASSERT_TRUE(coll_space_->isEnvironmentCollision());
 
   //now we get the full set of collisions in the default state
-  std::vector<collision_space::EnvironmentModel::AllowedContact> ac;
   std::vector<collision_space::EnvironmentModel::Contact> contacts;
   
-  coll_space_->getAllCollisionContacts(ac, contacts, 1);
+  coll_space_->getAllCollisionContacts(contacts, 1);
 
   //now we change all these pairwise to true
   for(unsigned int i = 0; i < contacts.size(); i++) {
@@ -432,7 +438,7 @@ TEST_F(TestCollisionSpace, TestStaticObjects)
   EXPECT_FALSE(coll_space_->isEnvironmentCollision());
   contacts.clear();
 
-  coll_space_->getAllCollisionContacts(ac, contacts, 1);
+  coll_space_->getAllCollisionContacts(contacts, 1);
 
   //now we change all these pairwise to true
   for(unsigned int i = 0; i < contacts.size(); i++) {
@@ -447,6 +453,125 @@ TEST_F(TestCollisionSpace, TestStaticObjects)
   }
 
 }
+
+TEST_F(TestCollisionSpace, TestAllowedContacts)
+{
+  std::vector<std::string> links;
+  kinematic_model_->getLinkModelNames(links);
+  std::map<std::string, double> link_padding_map;
+  
+  collision_space::EnvironmentModel::AllowedCollisionMatrix acm(links, true);
+  coll_space_->setRobotModel(kinematic_model_, acm, link_padding_map);  
+  
+  {
+    //indented cause the state needs to cease to exist before we add the attached body
+    planning_models::KinematicState state(kinematic_model_);
+    state.setKinematicStateToDefault();
+    
+    coll_space_->updateRobotModel(&state);
+  }
+
+  ASSERT_FALSE(coll_space_->isEnvironmentCollision());
+
+  shapes::Sphere* sphere1 = new shapes::Sphere(.2);
+  shapes::Box* box1 = new shapes::Box(.4, .4, .4);
+  shapes::Box* box1a = new shapes::Box(.4, .4, .4);
+
+  btTransform pose;
+  pose.setIdentity();
+
+  std::vector<btTransform> poses;
+  poses.push_back(pose);
+
+  std::vector<shapes::Shape*> shape_vector_1;
+  shape_vector_1.push_back(sphere1);
+
+  coll_space_->addObjects("obj1", shape_vector_1, poses);
+
+  std::vector<shapes::Shape*> shape_vector_2;
+  shape_vector_2.push_back(box1);
+  shape_vector_2.push_back(box1a);
+  pose.getOrigin().setX(.25);
+  poses.push_back(pose);
+
+  coll_space_->addObjects("obj2", shape_vector_2, poses);
+
+  ASSERT_TRUE(coll_space_->isEnvironmentCollision());
+
+  std::vector<collision_space::EnvironmentModel::Contact> contacts;
+  ASSERT_TRUE(coll_space_->getAllCollisionContacts(contacts));
+
+  std::vector<collision_space::EnvironmentModel::AllowedContact> allowed;
+
+  for(unsigned int i = 0; i < contacts.size(); i++) {
+    //now we place an allowed contact region around this sphere for each contact
+
+    if(contacts[i].body_name_1 == "obj1" || contacts[i].body_name_2 == "obj1") {
+
+      shapes::Sphere* sphere2 = new shapes::Sphere(.3);
+
+      btTransform trans(btQuaternion(0,0,0,1.0), contacts[i].pos);
+      
+      boost::shared_ptr<bodies::Sphere> bodysp(new bodies::Sphere(sphere2));
+      bodysp->setPose(trans);
+
+      delete sphere2;
+
+      collision_space::EnvironmentModel::AllowedContact allc;
+
+      allc.bound = bodysp;
+      allc.body_name_1 = contacts[i].body_name_1;
+      allc.body_name_2 = contacts[i].body_name_2;
+      allc.depth = 100.0;//contacts[i].depth;
+
+      allowed.push_back(allc);
+    }
+    if(contacts[i].body_name_1 == "obj2" || contacts[i].body_name_2 == "obj2") {
+
+      shapes::Box* box2 = new shapes::Box(.01, .01, .01);
+
+      btTransform trans(btQuaternion(0,0,0,1.0), contacts[i].pos);
+
+      ROS_DEBUG_STREAM("Making allowed contact for " << contacts[i].body_name_1 
+                       << " and " << contacts[i].body_name_2 
+                       << " at " << contacts[i].pos.x() << " " 
+                       << contacts[i].pos.y() << " " << contacts[i].pos.z());      
+
+      
+      boost::shared_ptr<bodies::Box> bodysp(new bodies::Box(box2));
+      bodysp->setPose(trans);
+
+      delete box2;
+
+      collision_space::EnvironmentModel::AllowedContact allc;
+
+      allc.bound = bodysp;
+      allc.body_name_1 = contacts[i].body_name_1;
+      allc.body_name_2 = contacts[i].body_name_2;
+      allc.depth = 100.0;//contacts[i].depth;
+
+      allowed.push_back(allc);
+    }
+  }
+  coll_space_->setAllowedContacts(allowed);
+
+  ASSERT_FALSE(coll_space_->isEnvironmentCollision());
+
+  coll_space_->clearAllowedContacts();
+}
+
+TEST_F(TestCollisionSpace, TestThreading)
+{
+  boost::thread thread1(boost::bind(&TestCollisionSpace::spinThread, this));
+  boost::thread thread2(boost::bind(&TestCollisionSpace::spinThread, this));
+  boost::thread thread3(boost::bind(&TestCollisionSpace::spinThread, this));
+  boost::thread thread4(boost::bind(&TestCollisionSpace::spinThread, this));
+  thread1.join();
+  thread2.join();
+  thread3.join();
+  thread4.join();
+}
+
 
 int main(int argc, char **argv)
 {

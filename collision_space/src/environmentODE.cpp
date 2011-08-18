@@ -52,7 +52,8 @@ static boost::mutex                     ODEThreadMapLock;
 
 //all the threading stuff is necessary to check collision from different threads
 
-static const unsigned int MAX_ODE_CONTACTS = 128;
+static const int MAX_ODE_CONTACTS = 128;
+static const int TEST_FOR_ALLOWED_NUM = 1;
 
 collision_space::EnvironmentModelODE::EnvironmentModelODE(void) : EnvironmentModel()
 {
@@ -80,6 +81,10 @@ collision_space::EnvironmentModelODE::~EnvironmentModelODE(void)
   freeMemory();
   ODEInitCountLock.lock();
   ODEInitCount--;
+  boost::thread::id id = boost::this_thread::get_id();
+  ODEThreadMapLock.lock();
+  ODEThreadMap.erase(id);
+  ODEThreadMapLock.unlock();
   if (ODEInitCount == 0)
   {
     ODEThreadMap.clear();
@@ -113,7 +118,8 @@ void collision_space::EnvironmentModelODE::checkThreadInit(void) const
   {
     ODEThreadMap[id] = 1;
     ROS_DEBUG("Initializing new thread (%d total)", (int)ODEThreadMap.size());
-    dAllocateODEDataForThread(dAllocateMaskAll);
+    int res = dAllocateODEDataForThread(dAllocateMaskAll);
+    ROS_DEBUG_STREAM("Init says " << res);
   } 
   ODEThreadMapLock.unlock();
 }
@@ -744,13 +750,15 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
 {
   EnvironmentModelODE::CollisionData *cdata = reinterpret_cast<EnvironmentModelODE::CollisionData*>(data);
   
-  if (cdata->done && !cdata->exhaustive) {
+  if (cdata->done) {
     return;
   }
   
   //first figure out what check is happening
   bool check_in_allowed_collision_matrix = true;
   
+  std::string object_name;
+
   std::map<dGeomID, std::pair<std::string, EnvironmentModelODE::BodyType> >::const_iterator it1 = cdata->geom_lookup_map->find(o1);
   std::map<dGeomID, std::pair<std::string, EnvironmentModelODE::BodyType> >::const_iterator it2 = cdata->geom_lookup_map->find(o2);
   
@@ -758,7 +766,18 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
     cdata->body_name_1 = it1->second.first;
     cdata->body_type_1 = it1->second.second;
   } else {
-    cdata->body_name_1 = "";
+    for(std::map<std::string, dSpaceID>::const_iterator it = cdata->dspace_lookup_map->begin();
+        it != cdata->dspace_lookup_map->end();
+        it++) {
+      if(dSpaceQuery(it->second, o1)) {
+        object_name = it->first;
+        break;
+      }
+    }
+    if(object_name == "") {
+      ROS_WARN_STREAM("Object does not have entry in dspace map");
+    }
+    cdata->body_name_1 = object_name;
     cdata->body_type_1 = EnvironmentModelODE::OBJECT;
     check_in_allowed_collision_matrix = false;
   }
@@ -767,7 +786,18 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
     cdata->body_name_2 = it2->second.first;
     cdata->body_type_2 = it2->second.second;
   } else {
-    cdata->body_name_2 = "";
+    for(std::map<std::string, dSpaceID>::const_iterator it = cdata->dspace_lookup_map->begin();
+        it != cdata->dspace_lookup_map->end();
+        it++) {
+      if(dSpaceQuery(it->second, o2)) {
+        object_name = it->first;
+        break;
+      }
+    }
+    if(object_name == "") {
+      ROS_WARN_STREAM("Object does not have entry in dspace map");
+    }
+    cdata->body_name_2 = object_name;
     cdata->body_type_2 = EnvironmentModelODE::OBJECT;
     check_in_allowed_collision_matrix = false;
   }
@@ -788,116 +818,146 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
   }
 
   //do the actual collision check to get the desired number of contacts
-  unsigned int num_contacts = 1;
+  int num_contacts = 1;
   if(cdata->contacts) {
-    num_contacts = std::min(MAX_ODE_CONTACTS, cdata->max_contacts);
+    num_contacts = std::min(MAX_ODE_CONTACTS, (int) cdata->max_contacts_pair);
+  } 
+  if(cdata->allowed) {
+    num_contacts = std::max(num_contacts, TEST_FOR_ALLOWED_NUM);
   }
-  num_contacts = std::max(num_contacts, (unsigned int)1);
+  num_contacts = std::max(num_contacts, 1);
   
-  //ROS_INFO_STREAM("Testing " << cdata->body_name_1
-  //                << " and " << cdata->body_name_2);
+  ROS_DEBUG_STREAM("Testing " << cdata->body_name_1
+                  << " and " << cdata->body_name_2 << " contact size " << num_contacts);
 
   dContactGeom contactGeoms[num_contacts];
   int numc = dCollide(o1, o2, num_contacts,
                       &(contactGeoms[0]), sizeof(dContactGeom));
   
-  if(!cdata->contacts) {
+  //no collisions, return
+  if(!numc) 
+    return;
+
+  if(!cdata->contacts && !cdata->allowed) {
     //we don't care about contact information, so just set to true if there's been collision
-    if (numc) {
-      ROS_DEBUG_STREAM("Detected collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
-      cdata->collides = true;      
-      cdata->done = true;
+    ROS_DEBUG_STREAM("Detected collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
+    cdata->collides = true;      
+    cdata->done = true;
+  } else {
+    unsigned int num_not_allowed = 0;
+    if(numc != num_contacts) {
+      ROS_INFO_STREAM("Asked for " << num_contacts << " but only got " << numc);
     }
-  } else if (numc) {
     for (int i = 0 ; i < numc ; ++i) {
-      
-      //already enough contacts, so just quit
-      if(!cdata->exhaustive && cdata->max_contacts > 0 && cdata->contacts->size() >= cdata->max_contacts) {
-        break;
-      }
+
       ROS_DEBUG_STREAM("Contact at " << contactGeoms[i].pos[0] << " " 
-                       << contactGeoms[i].pos[1] << " " << contactGeoms[i].pos[2]);
-      
+                       << contactGeoms[i].pos[1] << " " << contactGeoms[i].pos[2]);    
+      const dReal *pos1 = dGeomGetPosition(o1);
+      dQuaternion quat1, quat2;
+      dGeomGetQuaternion(o1, quat1);
+      const dReal *pos2 = dGeomGetPosition(o2);
+      dGeomGetQuaternion(o2, quat2);
+
+      ROS_DEBUG_STREAM("Body pos 1 " << pos1[0] << " " << pos1[1] << " " << pos1[2]);
+      ROS_DEBUG_STREAM("Body quat 1 " << quat1[1] << " " << quat1[2] << " " << quat1[3] << " " << quat1[0]);
+      ROS_DEBUG_STREAM("Body pos 2 " << pos2[0] << " " << pos2[1] << " " << pos2[2]);
+      ROS_DEBUG_STREAM("Body quat 2 " << quat2[1] << " " << quat2[2] << " " << quat2[3] << " " << quat2[0]);
+
       btVector3 pos(contactGeoms[i].pos[0], contactGeoms[i].pos[1], contactGeoms[i].pos[2]);
       
       //figure out whether the contact is allowed
       //allowed contacts only allowed with objects for now
-      if (cdata->allowed 
-          && (cdata->body_type_1 == EnvironmentModelODE::OBJECT || cdata->body_type_2 == EnvironmentModelODE::OBJECT)) {
-        std::string body_name;
-        if(cdata->body_type_1 != EnvironmentModelODE::OBJECT) {
-          body_name = cdata->body_name_1;
-        } else {
-          body_name = cdata->body_name_2;
-        }
-        bool allow = false;
-        for (unsigned int j = 0 ; !allow && j < cdata->allowed->size() ; ++j) {
-          if (cdata->allowed->at(j).bound->containsPoint(pos) && cdata->allowed->at(j).depth > fabs(contactGeoms[i].depth)) {
-            for (unsigned int k = 0 ; k < cdata->allowed->at(j).links.size() ; ++k) {
-              if (cdata->allowed->at(j).links[k] == body_name) {
-                allow = true;
-                break;
-              }	
-            }				
+      bool allowed = false;
+      if(cdata->allowed) { 
+        EnvironmentModel::AllowedContactMap::const_iterator it1 = cdata->allowed->find(cdata->body_name_1);
+        if(it1 != cdata->allowed->end()) {
+          std::map<std::string, std::vector<EnvironmentModel::AllowedContact> >::const_iterator it2 = it1->second.find(cdata->body_name_2);
+          if(it2 != it1->second.end()) {
+            ROS_DEBUG_STREAM("Testing allowed contact for " << cdata->body_name_1 << " and " << cdata->body_name_2 << " num " << i);
+            ROS_DEBUG_STREAM("Contact at " << contactGeoms[i].pos[0] << " " 
+                            << contactGeoms[i].pos[1] << " " << contactGeoms[i].pos[2]);      
+            
+            const std::vector<EnvironmentModel::AllowedContact>& av = it2->second;
+            for(unsigned int j = 0; j < av.size(); j++) {
+              if(av[j].bound->containsPoint(pos)) {
+                if(av[j].depth >= fabs(contactGeoms[i].depth)) {
+                  allowed = true;
+                  ROS_DEBUG_STREAM("Contact allowed by allowed collision region");
+                  break;
+                } else {
+                  ROS_DEBUG_STREAM("Depth check failing " << av[j].depth << " detected " << contactGeoms[i].depth);
+                }
+              }
+            }
           }
         }
-        
-        if (allow)
-          continue;
       }
-    
-      cdata->collides = true;
-      
-      collision_space::EnvironmentModelODE::Contact add;
-      
-      add.pos = pos;
-      
-      add.normal.setX(contactGeoms[i].normal[0]);
-      add.normal.setY(contactGeoms[i].normal[1]);
-      add.normal.setZ(contactGeoms[i].normal[2]);
-      
-      add.depth = contactGeoms[i].depth;
-      
-      add.body_name_1 = cdata->body_name_1;
-      add.body_name_2 = cdata->body_name_2;
-      add.body_type_1 = cdata->body_type_1;
-      add.body_type_2 = cdata->body_type_2;
-      
-      cdata->contacts->push_back(add);
+      if(!allowed) {
+
+        cdata->collides = true;
+        num_not_allowed++;
+
+        if(cdata->contacts != NULL) {
+          if(num_not_allowed <= cdata->max_contacts_pair) {
+            collision_space::EnvironmentModelODE::Contact add;
+            
+            add.pos = pos;
+            
+            add.normal.setX(contactGeoms[i].normal[0]);
+            add.normal.setY(contactGeoms[i].normal[1]);
+            add.normal.setZ(contactGeoms[i].normal[2]);
+            
+            add.depth = contactGeoms[i].depth;
+            
+            add.body_name_1 = cdata->body_name_1;
+            add.body_name_2 = cdata->body_name_2;
+            add.body_type_1 = cdata->body_type_1;
+            add.body_type_2 = cdata->body_type_2;
+            
+            cdata->contacts->push_back(add);
+            if(cdata->contacts->size() >= cdata->max_contacts_total) {
+              cdata->done = true;
+            }
+          }
+        } else {
+          cdata->done = true;    
+        }
+      }
     }
-    if (!cdata->exhaustive && cdata->max_contacts > 0 && cdata->contacts->size() >= cdata->max_contacts)
-      cdata->done = true;    
   }
 }
 }
 
-bool collision_space::EnvironmentModelODE::getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count) const
+bool collision_space::EnvironmentModelODE::getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_total, unsigned int max_per_pair) const
 {
   contacts.clear();
   CollisionData cdata;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
   cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
   cdata.contacts = &contacts;
-  cdata.max_contacts = max_count;
-  if (!allowedContacts.empty())
-    cdata.allowed = &allowedContacts;
+  cdata.max_contacts_total = max_total;
+  cdata.max_contacts_pair = max_per_pair;
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
   contacts.clear();
   checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
 }
 
-bool collision_space::EnvironmentModelODE::getAllCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int num_contacts_per_pair) const
+bool collision_space::EnvironmentModelODE::getAllCollisionContacts(std::vector<Contact> &contacts, unsigned int num_contacts_per_pair) const
 {
   contacts.clear();
   CollisionData cdata;
   cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
   cdata.contacts = &contacts;
-  cdata.max_contacts = num_contacts_per_pair;
-  if (!allowedContacts.empty())
-    cdata.allowed = &allowedContacts;
-  cdata.exhaustive = true;
+  cdata.max_contacts_total = UINT_MAX;
+  cdata.max_contacts_pair = num_contacts_per_pair;
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
   contacts.clear();
   checkThreadInit();
   testCollision(&cdata);
@@ -909,6 +969,13 @@ bool collision_space::EnvironmentModelODE::isCollision(void) const
   CollisionData cdata;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
   cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
+  if (!allowed_contacts_.empty()) {
+    cdata.allowed = &allowed_contact_map_;
+    ROS_DEBUG_STREAM("Got contacts size " << cdata.allowed->size());
+  } else {
+    ROS_DEBUG_STREAM("No allowed contacts");
+  }
   checkThreadInit();
   testCollision(&cdata);
   return cdata.collides;
@@ -918,7 +985,10 @@ bool collision_space::EnvironmentModelODE::isSelfCollision(void) const
 {
   CollisionData cdata; 
   cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
   checkThreadInit();
   testSelfCollision(&cdata);
   return cdata.collides;
@@ -928,7 +998,10 @@ bool collision_space::EnvironmentModelODE::isEnvironmentCollision(void) const
 {
   CollisionData cdata; 
   cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
   cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
   checkThreadInit();
   testEnvironmentCollision(&cdata);
   return cdata.collides;
@@ -942,7 +1015,7 @@ void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespac
   }
   
   cn->collide2.setup();
-  for (int i = model_geom_.link_geom.size() - 1 ; i >= 0 && (!cdata->done || cdata->exhaustive); --i) {
+  for (int i = model_geom_.link_geom.size() - 1 ; i >= 0 && !cdata->done; --i) {
     LinkGeom *lg = model_geom_.link_geom[i];
     
     bool allowed = false;
@@ -1059,6 +1132,7 @@ void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, con
   if (it == coll_namespaces_.end())
   {
     cn = new CollisionNamespace(ns);
+    dspace_lookup_map_[ns] = cn->space;
     coll_namespaces_[ns] = cn;
     default_collision_matrix_.addEntry(ns, false);
   }
@@ -1089,6 +1163,7 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
   if (it == coll_namespaces_.end())
   {
     cn = new CollisionNamespace(ns);
+    dspace_lookup_map_[ns] = cn->space;
     coll_namespaces_[ns] = cn;
     default_collision_matrix_.addEntry(ns, false);
   }
@@ -1111,6 +1186,7 @@ void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shap
   if (it == coll_namespaces_.end())
   {
     cn = new CollisionNamespace(ns);
+    dspace_lookup_map_[ns] = cn->space;
     coll_namespaces_[ns] = cn;
     default_collision_matrix_.addEntry(ns, false);
   }
@@ -1130,6 +1206,7 @@ void collision_space::EnvironmentModelODE::clearObjects(void)
     default_collision_matrix_.removeEntry(it->first);
     delete it->second;
   }
+  dspace_lookup_map_.clear();
   coll_namespaces_.clear();
   objects_->clearObjects();
 }
@@ -1141,6 +1218,7 @@ void collision_space::EnvironmentModelODE::clearObjects(const std::string &ns)
     default_collision_matrix_.removeEntry(ns);
     delete it->second;
     coll_namespaces_.erase(ns);
+    dspace_lookup_map_.erase(ns);
   }
   objects_->clearObjects(ns);
 }
@@ -1245,6 +1323,7 @@ collision_space::EnvironmentModel* collision_space::EnvironmentModelODE::clone(v
     // copy the collision namespace structure, geom by geom
     CollisionNamespace *cn = new CollisionNamespace(it->first);
     env->coll_namespaces_[it->first] = cn;
+    env->dspace_lookup_map_[cn->name] = cn->space;
     n = it->second->geoms.size();
     cn->geoms.reserve(n);
     for (unsigned int i = 0 ; i < n ; ++i)

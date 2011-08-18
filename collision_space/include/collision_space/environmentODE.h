@@ -55,11 +55,11 @@ public:
   EnvironmentModelODE(void);
   virtual ~EnvironmentModelODE(void);
 
-  /** \brief Get the list of contacts (collisions) */
-  virtual bool getCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int max_count = 1) const;
+  /** \brief Get the list of contacts (collisions). The maximum total number of contacts to be returned can be specified, and the max per pair of objects that's in collision*/
+  virtual bool getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_total = 1, unsigned int max_per_pair = 1) const;
 
   /** \brief This function will get the complete list of contacts between any two potentially colliding bodies.  The num per contacts specifies the number of contacts per pair that will be returned */
-  virtual bool getAllCollisionContacts(const std::vector<AllowedContact> &allowedContacts, std::vector<Contact> &contacts, unsigned int num_per_contact = 1) const;
+  virtual bool getAllCollisionContacts(std::vector<Contact> &contacts, unsigned int num_per_contact = 1) const;
 
   /** \brief Check if a model is in collision */
   virtual bool isCollision(void) const;
@@ -376,19 +376,20 @@ protected:
     {
       done = false;
       collides = false;
-      max_contacts = 0;
+      max_contacts_total = 0;
+      max_contacts_pair = 0;
       contacts = NULL;
       allowed_collision_matrix = NULL;
       allowed = NULL;
-      exhaustive = false;
     }
 
     //these are parameters
-    unsigned int max_contacts;
+    unsigned int max_contacts_total;
+    unsigned int max_contacts_pair;
     const AllowedCollisionMatrix *allowed_collision_matrix;
     const std::map<dGeomID, std::pair<std::string, BodyType> >* geom_lookup_map;
-    const std::vector<AllowedContact> *allowed;
-    bool exhaustive;
+    const std::map<std::string, dSpaceID>* dspace_lookup_map;
+    const AllowedContactMap *allowed;
 	    
     //these are for return info
     bool done;
@@ -439,10 +440,11 @@ protected:
   std::map<std::string, CollisionNamespace*> coll_namespaces_;
 
   std::map<dGeomID, std::pair<std::string, BodyType> > geom_lookup_map_;
+  std::map<std::string, dSpaceID> dspace_lookup_map_;
 
   bool previous_set_robot_model_;
 
-  void    checkThreadInit(void) const;  	
+  void checkThreadInit(void) const;  	
 };
 }
 
