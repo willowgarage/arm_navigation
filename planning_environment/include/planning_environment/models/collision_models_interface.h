@@ -38,6 +38,7 @@
 #define PLANNING_ENVIRONMENT_MODELS_COLLISION_MODELS_INTERFACE_
 
 #include "planning_environment/models/collision_models.h"
+#include "planning_environment/models/robot_models.h"
 #include <arm_navigation_msgs/SyncPlanningSceneAction.h>
 #include <actionlib/server/simple_action_server.h>
 
@@ -97,8 +98,7 @@ protected:
 
   actionlib::SimpleActionServer<arm_navigation_msgs::SyncPlanningSceneAction> *action_server_;
 };
-    
-	
+
 }
 
 #endif
