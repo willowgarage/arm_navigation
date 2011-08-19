@@ -845,8 +845,19 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
   //the poses will be totally incorrect until they are updated with a state
   link_attached_objects_[link_name][object_name] = new bodies::BodyVector(shapes, poses, padding);  
 
-  std::vector<std::string> modded_touch_links = touch_links;
-  if(find(touch_links.begin(), touch_links.end(), link_name) == touch_links.end()) {
+  std::vector<std::string> modded_touch_links;
+  
+  //first doing group expansion of touch links
+  for(unsigned int i = 0; i < touch_links.size(); i++) {
+    if(kmodel_->getModelGroup(touch_links[i])) {
+      std::vector<std::string> links = kmodel_->getModelGroup(touch_links[i])->getGroupLinkNames();
+      modded_touch_links.insert(modded_touch_links.end(), links.begin(), links.end());
+    } else {
+    modded_touch_links.push_back(touch_links[i]);
+    }
+  }
+
+  if(find(modded_touch_links.begin(), modded_touch_links.end(), link_name) == modded_touch_links.end()) {
     modded_touch_links.push_back(link_name);
   }
   planning_models::KinematicModel::AttachedBodyModel* ab = 

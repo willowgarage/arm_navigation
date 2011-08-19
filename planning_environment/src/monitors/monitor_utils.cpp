@@ -38,6 +38,7 @@
 #include <planning_environment/util/construct_object.h>
 #include <robot_self_filter/self_mask.h>
 #include <pcl_ros/transforms.h>
+#include <angles/angles.h>
 
 bool planning_environment::getLatestIdentityTransform(const std::string& to_frame,
                                                       const std::string& from_frame,
@@ -381,3 +382,138 @@ bool planning_environment::computeAttachedObjectPointCloudMask(const pcl::PointC
   }
   return true;
 }
+
+int planning_environment::closestStateOnTrajectory(const boost::shared_ptr<urdf::Model> &model,
+                                                   const trajectory_msgs::JointTrajectory &trajectory, 
+                                                   const sensor_msgs::JointState &joint_state, 
+                                                   unsigned int start, 
+                                                   unsigned int end)
+{
+  double dist = 0.0;
+  int    pos  = -1;
+  
+  std::map<std::string, double> current_state_map;
+  std::map<std::string, bool> continuous;
+  for(unsigned int i = 0; i < joint_state.name.size(); i++) {
+    current_state_map[joint_state.name[i]] = joint_state.position[i];
+  }
+
+  for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+    std::string name = trajectory.joint_names[j];
+    boost::shared_ptr<const urdf::Joint> joint = model->getJoint(name);
+    if (joint.get() == NULL)
+    {
+      ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
+      return false;
+    }
+    if (joint->type == urdf::Joint::CONTINUOUS) {
+      continuous[name] = true;
+    } else {
+      continuous[name] = false;
+    }
+
+  }
+
+  for (unsigned int i = start ; i <= end ; ++i)
+  {
+    double d = 0.0;
+    for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+      double diff; 
+      if(!continuous[trajectory.joint_names[j]]) {
+        diff = fabs(trajectory.points[i].positions[j] - current_state_map[trajectory.joint_names[j]]);
+      } else {
+        diff = angles::shortest_angular_distance(trajectory.points[i].positions[j],current_state_map[trajectory.joint_names[j]]);
+      }
+      d += diff * diff;
+    }
+	
+    if (pos < 0 || d < dist)
+    {
+      pos = i;
+      dist = d;
+    }
+  }    
+
+  // if(pos == 0) {
+  //   for(unsigned int i = 0; i < joint_state.name.size(); i++) {
+  //     ROS_INFO_STREAM("Current state for joint " << joint_state.name[i] << " is " << joint_state.position[i]);
+  //   }
+  //   for(unsigned int j = 0; j < trajectory.joint_names.size(); j++) {
+  //     ROS_INFO_STREAM("Trajectory zero has " << trajectory.points[0].positions[j] << " for joint " << trajectory.joint_names[j]);
+  //   }
+  // }
+
+  return pos;
+}
+
+bool planning_environment::removeCompletedTrajectory(const boost::shared_ptr<urdf::Model> &model,
+                                                     const trajectory_msgs::JointTrajectory &trajectory_in, 
+                                                     const sensor_msgs::JointState& current_state, 
+                                                     trajectory_msgs::JointTrajectory &trajectory_out, 
+                                                     bool zero_vel_acc)
+{
+
+  trajectory_out = trajectory_in;
+  trajectory_out.points.clear();
+
+  if(trajectory_in.points.empty())
+  {
+    ROS_WARN("No points in input trajectory");
+    return true;
+  }
+        
+  int current_position_index = 0;        
+  //Get closest state in given trajectory
+  current_position_index = closestStateOnTrajectory(model,
+                                                    trajectory_in, 
+                                                    current_state, 
+                                                    current_position_index, 
+                                                    trajectory_in.points.size() - 1);
+  if (current_position_index < 0)
+  {
+    ROS_ERROR("Unable to identify current state in trajectory");
+    return false;
+  } else {
+    ROS_DEBUG_STREAM("Closest state is " << current_position_index << " of " << trajectory_in.points.size());
+  }
+    
+  // Start one ahead of returned closest state index to make sure first trajectory point is not behind current state
+  for(unsigned int i = current_position_index+1; i < trajectory_in.points.size(); ++i)
+  {
+    trajectory_out.points.push_back(trajectory_in.points[i]);
+  }
+
+  if(trajectory_out.points.empty())
+  {
+    ROS_DEBUG("No points in output trajectory");
+    return false;
+  }	
+
+  ros::Duration first_time = trajectory_out.points[0].time_from_start;
+
+  if(first_time < ros::Duration(.1)) {
+    first_time = ros::Duration(0.0);
+  } else {
+    first_time -= ros::Duration(.1);
+  }
+
+  for(unsigned int i=0; i < trajectory_out.points.size(); ++i)
+  {
+    if(trajectory_out.points[i].time_from_start > first_time) {
+      trajectory_out.points[i].time_from_start -= first_time;
+    } else {
+      ROS_INFO_STREAM("Not enough time in time from start for trajectory point " << i);
+    }
+  }
+
+  if(zero_vel_acc) {
+    for(unsigned int i=0; i < trajectory_out.joint_names.size(); ++i) {
+      for(unsigned int j=0; j < trajectory_out.points.size(); ++j) {
+        trajectory_out.points[j].velocities[i] = 0;
+        trajectory_out.points[j].accelerations[i] = 0;
+      }
+    }
+  }
+  return true;
+}
+

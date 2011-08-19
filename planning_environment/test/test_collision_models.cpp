@@ -572,6 +572,22 @@ TEST_F(TestCollisionModels,TestAttachedObjectCollisions)
     EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(state));
     EXPECT_FALSE(cm.isKinematicStateInSelfCollision(state));
   }
+  
+  //Testing group touch links
+  pole.touch_links.clear();
+  pole.touch_links.push_back("r_end_effector");
+  cm.addAttachedObject(pole);
+
+  {
+    planning_models::KinematicState state(cm.getKinematicModel());
+    
+    state.setKinematicStateToDefault();  
+
+    EXPECT_TRUE(cm.isKinematicStateInCollision(state));
+    EXPECT_TRUE(cm.isKinematicStateInEnvironmentCollision(state));
+    EXPECT_FALSE(cm.isKinematicStateInSelfCollision(state));
+  }
+  
 }
 
 TEST_F(TestCollisionModels, TestTrajectoryValidity)
@@ -688,15 +704,10 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForObjects)
   att_obj.object.header.stamp = ros::Time::now();
   att_obj.object.header.frame_id = "r_gripper_r_finger_tip_link";
   att_obj.link_name = "r_gripper_palm_link";
-  att_obj.touch_links.push_back("r_gripper_palm_link");
-  att_obj.touch_links.push_back("r_gripper_r_finger_link");
-  att_obj.touch_links.push_back("r_gripper_l_finger_link");
-  att_obj.touch_links.push_back("r_gripper_r_finger_tip_link");
-  att_obj.touch_links.push_back("r_gripper_l_finger_tip_link");
+  att_obj.touch_links.push_back("r_end_effector");
   att_obj.touch_links.push_back("r_wrist_roll_link");
   att_obj.touch_links.push_back("r_wrist_flex_link");
   att_obj.touch_links.push_back("r_forearm_link");
-  att_obj.touch_links.push_back("r_gripper_motor_accelerometer_link");
   att_obj.object.id = "obj2";
   att_obj.object.shapes[0].type = arm_navigation_msgs::Shape::CYLINDER;
   att_obj.object.shapes[0].dimensions.resize(2);
