@@ -188,7 +188,7 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
   disable_ik_           = goal->disable_ik;
   allowed_planning_time_ = goal->motion_plan_request.allowed_planning_time.toSec();
   planner_service_name_ = goal->planner_service_name;
-  planning_visualizer_.visualize(goal->planning_scene_diff.allowed_contacts);
+  //  planning_visualizer_.visualize(goal->planning_scene_diff.allowed_contacts);
 
   if(!findGroup(request.motion_plan_request.group_name,current_group_))
   {
@@ -221,17 +221,20 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
 
 void MoveArm::setAborted(arm_navigation_msgs::GetMotionPlan::Response &response)
 {
+  ROS_ERROR("Aborting: 1");
   setAborted(response.error_code);
 }
 
 void MoveArm::setAborted(arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
 {
+  ROS_ERROR("Aborting: 2");
   move_arm_action_result_.error_code = error_code;
   setAborted();
 }
 
 void MoveArm::setAborted()
 {
+  ROS_ERROR("Aborting: 3");
   resetStateMachine();
   action_server_->setAborted(move_arm_action_result_);
 }
@@ -553,6 +556,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
         {
           move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
           resetStateMachine();
+          ROS_DEBUG("We think we are done");
           action_server_->setSucceeded(move_arm_action_result_);
           if(controller_error_code.val == controller_error_code.TRAJECTORY_CONTROLLER_FAILED) 
           {
@@ -640,6 +644,7 @@ void MoveArm::execute(const arm_navigation_msgs::MoveArmGoalConstPtr& goal)
       if(action_server_->isNewGoalAvailable())
       {
         resetActionResult();
+        resetStateMachine();
         const arm_navigation_msgs::MoveArmGoalConstPtr& new_goal = action_server_->acceptNewGoal();
         ROS_DEBUG("Received new goal, will preempt previous goal");
         if(!setup(new_goal,request))
@@ -652,7 +657,6 @@ void MoveArm::execute(const arm_navigation_msgs::MoveArmGoalConstPtr& goal)
       else               //if we've been preempted explicitly we need to shut things down
       {
         ROS_INFO("The move arm action was preempted by the action client. Preempting this goal.");
-        revertPlanningScene();
         resetStateMachine();
         action_server_->setPreempted();
         return;

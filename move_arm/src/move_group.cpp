@@ -42,11 +42,7 @@ namespace move_arm
 
 MoveGroup::MoveGroup(const std::string &group_name, planning_environment::CollisionModels *collision_models) : private_handle_("~"),group_name_(group_name),default_joint_tolerance_(0.04)
 {
-  if(!collision_models)
-    collision_models_ = new planning_environment::CollisionModels("robot_description");
-  else
-    collision_models_ = collision_models;
-
+  collision_models_ = collision_models;
   ik_solver_initialized_ = false;
 }	
 
@@ -205,7 +201,7 @@ bool MoveGroup::createJointGoalFromPoseGoal(arm_navigation_msgs::GetMotionPlan::
 {
   arm_navigation_msgs::Constraints constraints = arm_navigation_msgs::getPoseConstraintsForGroup(end_effector_link_names_,request.motion_plan_request.goal_constraints);
   unsigned int num_constraints = constraints.position_constraints.size();
-  ROS_INFO("Num constraints: %d",num_constraints);
+  ROS_DEBUG("Num constraints: %d",num_constraints);
   arm_navigation_msgs::ArmNavigationErrorCodes error_code;
   if(num_constraints != constraints.orientation_constraints.size())
   {
