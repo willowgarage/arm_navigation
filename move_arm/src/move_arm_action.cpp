@@ -188,7 +188,6 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
   disable_ik_           = goal->disable_ik;
   allowed_planning_time_ = goal->motion_plan_request.allowed_planning_time.toSec();
   planner_service_name_ = goal->planner_service_name;
-  //  planning_visualizer_.visualize(goal->planning_scene_diff.allowed_contacts);
 
   if(!findGroup(request.motion_plan_request.group_name,current_group_))
   {
@@ -213,6 +212,7 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
                                                           ros::Time::now(),
                                                           collision_models_->getWorldFrameId(),
                                                           request.motion_plan_request.start_state);
+  planning_visualizer_.visualize(goal->planning_scene_diff.allowed_contacts);
   original_goal_constraints_ = request.motion_plan_request.goal_constraints;
   current_group_->original_goal_constraints_ = original_goal_constraints_;
   ROS_DEBUG("Finished setup");
@@ -438,7 +438,12 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
         return true;
       }
 
-      planning_visualizer_.visualize(request,planning_scene_state_);
+      arm_navigation_msgs::RobotState robot_state;
+      planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                              ros::Time::now(),
+                                                              collision_models_->getWorldFrameId(),
+                                                              robot_state);
+      planning_visualizer_.visualize(request,robot_state);
         
       resetToStartState(planning_scene_state_);
       if(createPlan(request,response))
@@ -460,7 +465,12 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
         else
         {
           current_trajectory_ = response.trajectory.joint_trajectory;
-          //          planning_visualizer_.visualize(current_trajectory_,planning_scene_state_);
+          arm_navigation_msgs::RobotState robot_state;
+          planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
+                                                                  ros::Time::now(),
+                                                                  collision_models_->getWorldFrameId(),
+                                                                  robot_state);
+          planning_visualizer_.visualize(current_trajectory_,robot_state);
           state_ = START_CONTROL;
           ROS_DEBUG("Done planning. Transitioning to filtering.");
         }
