@@ -1,0 +1,16 @@
+## the list of groups for which motion planning can be performed
+groups: 
+  - right_arm 
+  - left_arm
+
+right_arm:
+  tip_name: r_wrist_roll_link
+  root_name: torso_lift_link
+  kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
+  controller_action_name: /r_arm_controller/follow_joint_trajectory
+  
+left_arm:
+  tip_name: l_wrist_roll_link
+  root_name: torso_lift_link
+  kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
+  controller_action_name: /l_arm_controller/follow_joint_trajectory
