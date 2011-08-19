@@ -504,6 +504,8 @@ private:
 						 true)) {
       if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
         move_arm_action_result_.error_code.val = error_code.START_STATE_IN_COLLISION;
+        collision_models_->getAllCollisionsForState(*planning_scene_state_,
+                                                    move_arm_action_result_.contacts);
         ROS_ERROR("Starting state is in collision, can't plan");
         visualization_msgs::MarkerArray arr;
         std_msgs::ColorRGBA point_color_;
@@ -566,6 +568,8 @@ private:
 	} else if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) {
 	  ROS_ERROR("Will not plan to requested joint goal since it is in collision");
 	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_IN_COLLISION;
+          collision_models_->getAllCollisionsForState(*planning_scene_state_,
+                                                      move_arm_action_result_.contacts);
 	} else if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
 	  ROS_ERROR("Will not plan to requested joint goal since it violates goal constraints");
 	  move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
@@ -1035,6 +1039,8 @@ private:
           {
             if(state_error_code.val == state_error_code.COLLISION_CONSTRAINTS_VIOLATED) {
               move_arm_action_result_.error_code.val = state_error_code.START_STATE_IN_COLLISION;
+              collision_models_->getAllCollisionsForState(*planning_scene_state_,
+                                                          move_arm_action_result_.contacts);
               ROS_WARN("Though trajectory is done current state is in collision");
             } else if (state_error_code.val == state_error_code.PATH_CONSTRAINTS_VIOLATED) {
               ROS_WARN("Though trajectory is done current state violates path constraints");
