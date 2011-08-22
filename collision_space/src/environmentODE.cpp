@@ -398,8 +398,12 @@ void collision_space::EnvironmentModelODE::addAttachedBody(LinkGeom* lg,
   default_collision_matrix_.getEntryIndex(attm->getName(), attg->index);
   //setting touch links
   for(unsigned int i = 0; i < attm->getTouchLinks().size(); i++) {
-    if(!default_collision_matrix_.changeEntry(attm->getName(), attm->getTouchLinks()[i], true)) {
-      ROS_WARN_STREAM("No entry in allowed collision matrix for " << attm->getName() << " and " << attm->getTouchLinks()[i]);
+    if(default_collision_matrix_.hasEntry(attm->getTouchLinks()[i])) {
+      if(!default_collision_matrix_.changeEntry(attm->getName(), attm->getTouchLinks()[i], true)) {
+        ROS_WARN_STREAM("No entry in allowed collision matrix for " << attm->getName() << " and " << attm->getTouchLinks()[i]);
+      } else {
+        ROS_DEBUG_STREAM("Adding touch link for " << attm->getName() << " and " << attm->getTouchLinks()[i]);
+      }
     }
   }
   for(unsigned int i = 0; i < attm->getShapes().size(); i++) {
