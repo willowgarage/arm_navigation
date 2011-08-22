@@ -36,6 +36,12 @@
 	      Generates position trajectories that conform to velocity limits
       </description>
     </class>
+    <class name="SimpleSplineSmootherFilterJointTrajectoryWithLimits" type="spline_smoother::SimpleSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>" 
+	    base_class_type="filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>">
+      <description>
+	      Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
 
 
 
@@ -72,6 +78,12 @@
       </description>
     </class>
     <class name="CubicParameterizedSplineVelocityScalerFilterJointTrajectory" type="spline_smoother::CubicParameterizedSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectory::Request>" 
+	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
+      <description>
+	      Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
+    <class name="SimpleSplineSmootherFilterJointTrajectory" type="spline_smoother::SimpleSplineSmoother<arm_navigation_msgs::FilterJointTrajectory::Request>" 
 	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
       <description>
 	      Generates position trajectories that conform to velocity limits
@@ -115,6 +127,12 @@
       </description>
     </class>
     <class name="CubicParameterizedSplineVelocityScalerFilterJointTrajectoryWithConstraints" type="spline_smoother::CubicParameterizedSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+      <description>
+	      Generates position trajectories that conform to velocity limits
+      </description>
+    </class>
+    <class name="SimpleSplineSmootherFilterJointTrajectoryWithConstraints" type="spline_smoother::SimpleSplineSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
 	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
       <description>
 	      Generates position trajectories that conform to velocity limits

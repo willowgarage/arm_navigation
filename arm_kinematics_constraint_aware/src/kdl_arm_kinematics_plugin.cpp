@@ -284,6 +284,16 @@ bool KDLArmKinematicsPlugin::getPositionIK(const geometry_msgs::Pose &ik_pose,
 bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose,
                                               const std::vector<double> &ik_seed_state,
                                               const double &timeout,
+                                              const double &max_distance,
+                                              std::vector<double> &solution,
+                                              int &error_code)
+{
+  return searchPositionIK(ik_pose,ik_seed_state,timeout,solution,error_code);
+}
+
+bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose,
+                                              const std::vector<double> &ik_seed_state,
+                                              const double &timeout,
                                               std::vector<double> &solution,
                                               int &error_code)
 {

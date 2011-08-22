@@ -113,6 +113,12 @@ class KDLArmKinematicsPlugin : public kinematics::KinematicsBase
                           const double &timeout,
                           std::vector<double> &solution,
                           int &error_code);      
+    bool searchPositionIK(const geometry_msgs::Pose &ik_pose,
+                          const std::vector<double> &ik_seed_state,
+                          const double &timeout,
+                          const double &max_distance,
+                          std::vector<double> &solution,
+                          int &error_code);      
     /**
      * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
      * This particular method is intended for "searching" for a solutions by stepping through the redundancy

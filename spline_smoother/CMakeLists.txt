@@ -40,6 +40,7 @@ rosbuild_add_library(spline_smoother
   src/linear_trajectory.cpp
   src/lspb_trajectory.cpp
   src/spline_smoother_utils.cpp
+  src/simple_spline_smoother.cpp
   src/cubic_parameterized_trajectory.cpp
   src/cubic_parameterized_spline_velocity_scaler.cpp
 )

@@ -203,6 +203,19 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
     }
     planner_map_[location] = new_planner;
   }
+  else if(planner_type == "MultiArmRPYIKTaskSpacePlanner")
+  {
+    boost::shared_ptr<ompl_ros_interface::OmplRosMultiArmRPYIKTaskSpacePlanner> new_planner;
+    new_planner.reset(new ompl_ros_interface::OmplRosMultiArmRPYIKTaskSpacePlanner());
+    if(!new_planner->initialize(ros::NodeHandle(param_server_prefix),group_name,planner_config_name,collision_models_interface_))
+    {
+      new_planner.reset();
+      ROS_ERROR("Could not configure planner for group %s with config %s",group_name.c_str(),planner_config_name.c_str());
+      return false;
+    }
+    ROS_INFO("Successfully initialized new multi arm planner");
+    planner_map_[location] = new_planner;
+  }
   else
   {
     ROS_ERROR("No planner type %s available",planner_type.c_str());

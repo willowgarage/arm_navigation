@@ -335,12 +335,11 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
 
   /**
      @brief Extract pose information from a position and orientation constraint into a pose stamped message
-     @param The input position constraint
-     @param The input orientation constraint
+     @param The input constraints
      @return The nominal position and orientation from the constraints are encoded into the output pose message
    */
-  inline  bool constraintsToPoseStampedVector(const arm_navigation_msgs::Constraints &constraints,
-                                              std::vector<geometry_msgs::PoseStamped> &poses)
+  inline bool constraintsToPoseStampedVector(const arm_navigation_msgs::Constraints &constraints,
+                                             std::vector<geometry_msgs::PoseStamped> &poses)
   {
     if(constraints.position_constraints.size() != constraints.orientation_constraints.size())
     {
@@ -352,6 +351,29 @@ inline void printJointState(const sensor_msgs::JointState &joint_state)
       geometry_msgs::PoseStamped pose = poseConstraintsToPoseStamped(constraints.position_constraints[i],
                                                                      constraints.orientation_constraints[i]);
       poses.push_back(pose);
+    }
+    return true;
+  }
+
+  /**
+     @brief Extract pose information from a position and orientation constraint into a pose stamped message
+     @param The input position constraint
+     @param The input orientation constraint
+     @return The nominal position and orientation from the constraints are encoded into the output pose message
+   */
+  inline bool constraintsToPoseVector(const arm_navigation_msgs::Constraints &constraints,
+                                    std::vector<geometry_msgs::Pose> &poses)
+  {
+    if(constraints.position_constraints.size() != constraints.orientation_constraints.size())
+    {
+      ROS_ERROR("Number of position constraints does not match number of orientation constraints");
+      return false;
+    }
+    for(unsigned int i =0; i < constraints.position_constraints.size(); i++)
+    {
+      geometry_msgs::PoseStamped pose = poseConstraintsToPoseStamped(constraints.position_constraints[i],
+                                                                     constraints.orientation_constraints[i]);
+      poses.push_back(pose.pose);
     }
     return true;
   }

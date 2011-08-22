@@ -39,11 +39,14 @@ rosbuild_add_library(ompl_ros_interface
   src/ik/ompl_ros_ik_sampler.cpp
   src/state_transformers/ompl_ros_ik_state_transformer.cpp
   src/state_transformers/ompl_ros_rpy_ik_state_transformer.cpp
+  src/state_transformers/ompl_ros_multi_arm_ik_state_transformer.cpp
+  src/state_transformers/ompl_ros_multi_arm_rpy_ik_state_transformer.cpp
   src/state_validity_checkers/ompl_ros_joint_state_validity_checker.cpp
   src/state_validity_checkers/ompl_ros_task_space_validity_checker.cpp
   src/planners/ompl_ros_joint_planner.cpp
   src/planners/ompl_ros_task_space_planner.cpp
   src/planners/ompl_ros_rpy_ik_task_space_planner.cpp
+  src/planners/ompl_ros_multi_arm_rpy_ik_task_space_planner.cpp
 )
 
 rosbuild_link_boost(ompl_ros_interface thread)

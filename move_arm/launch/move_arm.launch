@@ -1,0 +1,20 @@
+<launch>
+  <node pkg="move_arm" type="move_arm" output="screen" name="move_arm">    
+    <rosparam command="load" file="$(find move_arm)/launch/move_arm.yaml" />
+  </node>
+
+  <!-- load perception -->
+  <include file="$(find pr2_arm_navigation_perception)/launch/laser-perception.launch"/>
+
+  <!-- load planning_environment -->
+  <include file="$(find planning_environment)/launch/environment_server.launch"/>
+
+  <!-- load planning -->
+  <include file="$(find pr2_arm_navigation_planning)/launch/ompl_planning.launch"/>
+
+  <!-- load filters -->
+  <include file="$(find pr2_arm_navigation_filtering)/launch/trajectory_filter.launch"/>
+
+
+</launch>
+

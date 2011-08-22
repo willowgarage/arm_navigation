@@ -33,6 +33,7 @@ rosbuild_add_library(arm_kinematics_constraint_aware_lib
   src/kdl_arm_kinematics_plugin.cpp
   src/arm_kinematics_constraint_aware_utils.cpp
   src/arm_kinematics_constraint_aware.cpp
+  src/multi_arm_kinematics_constraint_aware.cpp
 )
 
 rosbuild_add_executable(arm_kinematics_constraint_aware src/main.cpp)
