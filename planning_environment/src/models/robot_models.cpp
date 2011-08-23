@@ -246,6 +246,7 @@ void planning_environment::RobotModels::loadGroupConfigsFromParamServer(const st
           }
         }
       }
+      ROS_INFO("Pushing back group with gname: %s",gname.c_str());
       configs.push_back(planning_models::KinematicModel::GroupConfig(gname,
                                                                      joints,
                                                                      subgroups));

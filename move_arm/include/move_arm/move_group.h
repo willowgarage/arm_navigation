@@ -154,6 +154,8 @@ private:
   
   bool initializeControllerInterface();
 
+  bool connectToControllerServer(const unsigned int &num_tries);
+
   bool stopTrajectory();
 
   void controllerTransitionCallback(JointExecutorActionClient::GoalHandle gh);
@@ -169,11 +171,14 @@ private:
   std::vector<std::string> arm_names_;
   std::vector<std::string> kinematics_solver_names_;
   std::vector<std::string> end_effector_link_names_;
+  std::map<std::string, planning_models::KinematicModel::GroupConfig> arm_config_map_;
   
   // Planning
   double default_joint_tolerance_;
   
   // Control
+  bool controller_connected_;
+  std::string controller_action_name_;
   ControllerStatus controller_status_;
   JointExecutorActionClient* controller_action_client_;
   JointExecutorActionClient::GoalHandle controller_goal_handle_;

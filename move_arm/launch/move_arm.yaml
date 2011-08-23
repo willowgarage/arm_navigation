@@ -2,15 +2,19 @@
 groups: 
   - right_arm 
   - left_arm
+  - both_arms_cartesian
 
 right_arm:
-  tip_name: r_wrist_roll_link
-  root_name: torso_lift_link
   kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
   controller_action_name: /r_arm_controller/follow_joint_trajectory
   
 left_arm:
-  tip_name: l_wrist_roll_link
-  root_name: torso_lift_link
   kinematics_solver: pr2_arm_kinematics/PR2ArmKinematicsPlugin
   controller_action_name: /l_arm_controller/follow_joint_trajectory
+
+both_arms_cartesian:
+  physical_group: arms
+  arms: 
+    - right_arm
+    - left_arm
+  controller_action_name: /both_arms_controller/follow_joint_trajectory

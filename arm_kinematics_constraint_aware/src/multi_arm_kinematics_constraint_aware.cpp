@@ -74,11 +74,20 @@ bool MultiArmKinematicsConstraintAware::initialize(const std::vector<std::string
   total_num_joints_ = 0;
   srand ( time(NULL) ); // initialize random seed
   if(group_names_.empty())
+  {
+    ROS_ERROR("Group names empty");
     return false;
+  }
   if(kinematics_solver_names_.size() != group_names_.size())
+  {
+    ROS_ERROR("Solver names empty");
     return false;
+  }
   if(end_effector_link_names_.size() != group_names_.size())
+  {
+    ROS_ERROR("End effector names empty");
     return false;
+  }
   num_groups_ = group_names_.size();
   end_effector_collision_links_.resize(num_groups_);
   kinematics_solvers_.resize(num_groups_);

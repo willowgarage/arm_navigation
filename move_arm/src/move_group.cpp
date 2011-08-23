@@ -40,7 +40,7 @@
 namespace move_arm
 {
 
-MoveGroup::MoveGroup(const std::string &group_name, planning_environment::CollisionModels *collision_models) : private_handle_("~"),group_name_(group_name),default_joint_tolerance_(0.04)
+MoveGroup::MoveGroup(const std::string &group_name, planning_environment::CollisionModels *collision_models) : private_handle_("~"),group_name_(group_name),default_joint_tolerance_(0.04),controller_connected_(false)
 {
   collision_models_ = collision_models;
   ik_solver_initialized_ = false;
@@ -57,7 +57,20 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
   std::string prefix = "";
   if(arm_names.empty())
   {
-    XmlRpc::XmlRpcValue arm_list;
+    //look in physical_group_name for subgroups;
+    if(arm_config_map_.find(physical_group_name_) == arm_config_map_.end())
+    {
+      ROS_ERROR("Could not find arm %s",physical_group_name_.c_str());
+      return false;
+    }
+    arm_names = arm_config_map_[physical_group_name_].subgroups_;
+    if(arm_names.empty())
+    {
+      // Physical group consists of a single arm
+      arm_names.push_back(physical_group_name_);
+    }
+
+    /*    XmlRpc::XmlRpcValue arm_list;
     if(!private_handle_.getParam(group_name_+"/arms", arm_list))
     {
       ROS_ERROR("Could not find arms on param server");
@@ -77,28 +90,33 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
       }
       arm_names.push_back(static_cast<std::string>(arm_list[i]));
       ROS_DEBUG("Adding group: %s",arm_names.back().c_str());
-    }
-    prefix = group_name_+"/";
+      }*/
+    // prefix = group_name_+"/";
   }
 
   for(unsigned int i=0; i < arm_names.size(); i++)
   {
     std::string kinematics_solver_name;
-    if(!private_handle_.hasParam(prefix+arm_names[i]+"/kinematics_solver"))
+    if(!private_handle_.hasParam(arm_names[i]+"/kinematics_solver"))
     {
-      ROS_ERROR("Kinematics solver not defined for group %s in namespace %s",(prefix+"/"+arm_names[i]).c_str(),private_handle_.getNamespace().c_str());
+      ROS_ERROR("Kinematics solver not defined for group %s in namespace %s",(arm_names[i]).c_str(),private_handle_.getNamespace().c_str());
       continue;
     }
-    private_handle_.getParam(prefix+arm_names[i]+"/kinematics_solver",kinematics_solver_name);
+    private_handle_.getParam(arm_names[i]+"/kinematics_solver",kinematics_solver_name);
     kinematics_solver_names.push_back(kinematics_solver_name);
 
-    std::string tip_name;
-    if(!private_handle_.hasParam(prefix+arm_names[i]+"/tip_name"))
+    //    if(!private_handle_.hasParam(prefix+arm_names[i]+"/tip_name"))
+    //    {
+    //      ROS_ERROR("End effector not defined for group %s in namespace %s",arm_names[i].c_str(),private_handle_.getNamespace().c_str());
+    //      continue;
+    //    }
+    //    private_handle_.getParam(prefix+arm_names[i]+"/tip_name",tip_name);
+    if(arm_config_map_.find(arm_names[i]) == arm_config_map_.end())
     {
-      ROS_ERROR("End effector not defined for group %s in namespace %s",arm_names[i].c_str(),private_handle_.getNamespace().c_str());
-      continue;
+      ROS_ERROR("Could not find arm %s",arm_names[i].c_str());
+      return false;
     }
-    private_handle_.getParam(prefix+arm_names[i]+"/tip_name",tip_name);
+    std::string tip_name = arm_config_map_[arm_names[i]].tip_link_;
     end_effector_link_names.push_back(tip_name);
   }
   num_arms_ = arm_names.size();
@@ -107,11 +125,13 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
 
 bool MoveGroup::initialize()
 {
-  if(!initializeControllerInterface())
-  {
-    ROS_ERROR("Could not initialize controller interface");
-    return false;
-  }
+
+  /*  std::vector<std::string> arm_names;
+  collision_models_->getKinematicModel()->getModelGroupNames(arm_names);
+  for(unsigned int i=0; i < arm_names.size(); i++)
+    ROS_INFO("arm name: %d, %s",i,arm_names[i].c_str());
+  */
+
   if (group_name_.empty())
   {
     ROS_ERROR("No 'group' parameter specified. Without the name of the group of joints to plan for, action cannot start");
@@ -136,6 +156,8 @@ bool MoveGroup::initialize()
   {
     arm_names_.push_back(group_name_);
   }
+
+  arm_config_map_ = collision_models_->getKinematicModel()->getJointModelGroupConfigMap();
   getConfigurationParams(arm_names_,kinematics_solver_names_,end_effector_link_names_);
   group_joint_names_ = joint_model_group->getJointModelNames();
 
@@ -149,6 +171,13 @@ bool MoveGroup::initialize()
     return true;
   }
   ik_solver_initialized_ = true;
+
+  if(!initializeControllerInterface())
+  {
+    ROS_ERROR("Could not initialize controller interface");
+    return false;
+  }
+
   return true;
 }
 
@@ -384,24 +413,38 @@ bool MoveGroup::runIKOnRequest(arm_navigation_msgs::GetMotionPlan::Request &requ
 
 bool MoveGroup::initializeControllerInterface()
 {
-  std::string controller_action_name;
-  private_handle_.param<std::string>(group_name_+"/controller_action_name", controller_action_name, "action");
-  ROS_INFO("Connecting to controller using action: %s",controller_action_name.c_str());
-  controller_action_client_ = new JointExecutorActionClient(controller_action_name);
+  private_handle_.param<std::string>(group_name_+"/controller_action_name", controller_action_name_, "action");
+  ROS_INFO("Connecting to controller using action: %s",controller_action_name_.c_str());
+  controller_action_client_ = new JointExecutorActionClient(controller_action_name_);
   if(!controller_action_client_) 
   {
     ROS_ERROR("Controller action client hasn't been initialized yet");
     return false;
   }
-  while(!controller_action_client_->waitForActionServerToStart(ros::Duration(1.0)))
+  if(!connectToControllerServer(5))
+    return false;
+  return true;
+}
+
+bool MoveGroup::connectToControllerServer(const unsigned int &num_tries)
+{
+  controller_connected_ = false;
+  unsigned int counter = 0;
+  while(true)
   {
-    ROS_INFO("Waiting for the joint_trajectory_action server to come up.");
-    if(!root_handle_.ok()) 
+    if(counter++ > num_tries)
+      break;
+    if(controller_action_client_->waitForActionServerToStart(ros::Duration(1.0)))
     {
-      return false;
+      controller_connected_ = true;
+      break;
     }
+    if(!root_handle_.ok()) 
+      return false;
+    ROS_INFO("Waiting for the joint_trajectory_action server to come up.");
   }
-  ROS_INFO("Connected to the controller");
+  if(!controller_connected_)
+    ROS_WARN("Could not connect to controller. Will try to connect online");
   return true;
 }
 
@@ -416,6 +459,14 @@ bool MoveGroup::stopTrajectory()
 
 bool MoveGroup::sendTrajectory(trajectory_msgs::JointTrajectory &current_trajectory)
 {
+  if(!controller_connected_)
+  {
+    if(!connectToControllerServer(1))
+      return false;
+  }
+  if(!controller_connected_)
+    return false;
+
   current_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.2);
   control_msgs::FollowJointTrajectoryGoal goal;  
   goal.trajectory = current_trajectory;
