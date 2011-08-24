@@ -54,7 +54,7 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
                                        std::vector<std::string> &kinematics_solver_names,
                                        std::vector<std::string> &end_effector_link_names)
 {
-  std::string prefix = "";
+  //  std::string prefix = "";
   if(arm_names.empty())
   {
     //look in physical_group_name for subgroups;
@@ -539,5 +539,47 @@ bool MoveGroup::isControllerDone(arm_navigation_msgs::ArmNavigationErrorCodes& e
     return false;
   }
 }
+
+/*bool MoveGroup::correctForJointLimits(arm_navigation_msgs::PlanningScene &planning_scene)
+{
+  const planning_models::KinematicModel::JointModelGroup* joint_model_group = collision_models_interface_->getKinematicModel()->getModelGroup(goal->group_name);
+  const std::vector<std::string>& joint_names = joint_model_group->getJointModelNames();
+  ROS_INFO_STREAM("Group name " << goal->group_name);
+  if(state.areJointsWithinBounds(joint_names)) 
+  {
+    return;
+  }
+  trajectory_msgs::JointTrajectory traj;
+  traj.joint_names = joint_names;
+  traj.header.stamp = ros::Time::now();
+  traj.header.frame_id = collision_models_interface_->getWorldFrameId();
+  traj.points.resize(1);
+  traj.points[0].positions.resize(joint_names.size());
+  traj.points[0].velocities.resize(joint_names.size());
+  traj.points[0].time_from_start = ros::Duration(.4);
+  
+  std::map<std::string, double> joint_values;
+  state.getKinematicStateValues(joint_values);
+  
+  for(unsigned int j = 0; j < joint_names.size(); j++) 
+  {
+    if(!state.isJointWithinBounds(joint_names[j])) {
+      std::pair<double, double> bounds; 
+      state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j], bounds);
+      ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
+                      " value: " << state.getJointState(joint_names[j])->getJointStateValues()[0] << 
+                      " low: " << bounds.first << " high: " << bounds.second);
+      if(joint_values[joint_names[j]] < bounds.first) {
+        traj.points[0].positions[j] = bounds.first+JOINT_BOUNDS_MARGIN;
+        ROS_INFO_STREAM("Setting joint " << joint_names[j] << " inside lower bound " << traj.points[0].positions[j]);
+      } else {
+        traj.points[0].positions[j] = bounds.second-JOINT_BOUNDS_MARGIN;
+        ROS_INFO_STREAM("Setting joint " << joint_names[j] << " inside upper bound " << traj.points[0].positions[j]);
+      }
+    } else {
+      traj.points[0].positions[j] = joint_values[joint_names[j]];
+    }
+  }
+  }*/
 
 }

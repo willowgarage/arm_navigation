@@ -711,6 +711,12 @@ bool MoveArm::getAndSetPlanningScene(const arm_navigation_msgs::PlanningScene& p
 
   current_planning_scene_ = planning_scene_response.planning_scene;
 
+  /*  if(!current_group_.correctForJointLimits(current_planning_scene_))
+  {
+    ROS_ERROR("Start state violates joint limits. Cannot correct.");
+    return false;
+    }*/
+
   planning_scene_state_ = collision_models_->setPlanningScene(current_planning_scene_);
 
   ROS_DEBUG("Done setting planning scene");

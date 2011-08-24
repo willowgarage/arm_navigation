@@ -156,6 +156,7 @@ bool OmplRos::initializePlanningMap(const std::string &param_server_prefix,
         ROS_DEBUG("Adding planning group config: %s",(planner_config+"["+group_names[i]+"]").c_str());
       }
     }    
+    ROS_INFO("Added planners for group %s",group_names[i].c_str());
   } 
   return true;
 };
@@ -213,7 +214,7 @@ bool OmplRos::initializePlanningInstance(const std::string &param_server_prefix,
       ROS_ERROR("Could not configure planner for group %s with config %s",group_name.c_str(),planner_config_name.c_str());
       return false;
     }
-    ROS_INFO("Successfully initialized new multi arm planner");
+    ROS_DEBUG("Successfully initialized new multi arm planner");
     planner_map_[location] = new_planner;
   }
   else
