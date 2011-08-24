@@ -208,10 +208,13 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
   collision_models_->convertConstraintsGivenNewWorldTransform(*planning_scene_state_,
                                                               request.motion_plan_request.path_constraints);
   //overwriting start state - move arm only deals with current state
+  //first store any multi_dof_state in the request
+  arm_navigation_msgs::MultiDOFJointState multi_dof_state = request.motion_plan_request.start_state.multi_dof_joint_state;
   planning_environment::convertKinematicStateToRobotState(*planning_scene_state_,
                                                           ros::Time::now(),
                                                           collision_models_->getWorldFrameId(),
                                                           request.motion_plan_request.start_state);
+  request.motion_plan_request.start_state.multi_dof_joint_state = multi_dof_state;
   planning_visualizer_.visualize(goal->planning_scene_diff.allowed_contacts);
   original_goal_constraints_ = request.motion_plan_request.goal_constraints;
   current_group_->original_goal_constraints_ = original_goal_constraints_;
@@ -221,20 +224,17 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
 
 void MoveArm::setAborted(arm_navigation_msgs::GetMotionPlan::Response &response)
 {
-  ROS_ERROR("Aborting: 1");
   setAborted(response.error_code);
 }
 
 void MoveArm::setAborted(arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
 {
-  ROS_ERROR("Aborting: 2");
   move_arm_action_result_.error_code = error_code;
   setAborted();
 }
 
 void MoveArm::setAborted()
 {
-  ROS_ERROR("Aborting: 3");
   resetStateMachine();
   action_server_->setAborted(move_arm_action_result_);
 }
