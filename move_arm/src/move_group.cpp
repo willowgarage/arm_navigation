@@ -50,6 +50,36 @@ MoveGroup::~MoveGroup()
 {
 }
 
+bool MoveGroup::createPlan(arm_navigation_msgs::GetMotionPlan::Request &request,  
+                           arm_navigation_msgs::GetMotionPlan::Response &response)
+{
+  ros::Time planning_time = ros::Time::now();
+  while(!ros::service::waitForService(planner_service_name_, ros::Duration(1.0))) 
+  {
+    ROS_DEBUG_STREAM("Waiting for requested service " << planner_service_name_);
+  }
+  ros::ServiceClient planning_client = root_handle_.serviceClient<arm_navigation_msgs::GetMotionPlan>(planner_service_name_);
+  move_group_stats_.planner_service_name = planner_service_name_;
+  ROS_DEBUG("Issuing request for motion plan");		    
+  // call the planner and decide whether to use the path
+  if (planning_client.call(request, response))
+  {
+    move_group_stats_.planning_time = (ros::Time::now()-planning_time).toSec();
+    if (response.trajectory.joint_trajectory.points.empty())
+    {
+      ROS_WARN("Motion planner was unable to plan a path to goal");
+      return false;
+    }
+    ROS_DEBUG("Motion planning succeeded");
+    return true;
+  }
+  else
+  {
+    ROS_ERROR("Motion planning service failed on %s",planning_client.getService().c_str());
+    return false;
+  }
+}
+
 bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
                                        std::vector<std::string> &kinematics_solver_names,
                                        std::vector<std::string> &end_effector_link_names)
@@ -144,6 +174,9 @@ bool MoveGroup::initialize()
   ros::service::waitForService(trajectory_filter_service_name);
   filter_trajectory_client_ = root_handle_.serviceClient<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>(trajectory_filter_service_name);      
 
+  private_handle_.param<double>(group_name_+"ik_allowed_time",ik_allowed_time_, 2.0);
+  private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
+
   return true;
 }
 
@@ -232,11 +265,11 @@ bool MoveGroup::createJointGoalFromPoseGoal(arm_navigation_msgs::GetMotionPlan::
 
   kinematic_state->setKinematicState(joint_values);
   if(!collision_models_->isKinematicStateValid(*kinematic_state,
-                                                         group_joint_names_,
-                                                         error_code,
-                                                         original_goal_constraints_,
-                                                         request.motion_plan_request.path_constraints,
-                                                         true))
+                                               group_joint_names_,
+                                               error_code,
+                                               original_goal_constraints_,
+                                               request.motion_plan_request.path_constraints,
+                                               true))
   {
     ROS_INFO("IK returned joint state for goal that doesn't seem to be valid");
     if(error_code.val == error_code.GOAL_CONSTRAINTS_VIOLATED) {
@@ -258,11 +291,11 @@ bool MoveGroup::checkState(arm_navigation_msgs::Constraints &goal_constraints,
                            arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
 {
   if(!collision_models_->isKinematicStateValid(*kinematic_state,
-                                                         group_joint_names_,
-                                                         error_code,
-                                                         goal_constraints,
-                                                         path_constraints,
-                                                         true))
+                                               group_joint_names_,
+                                               error_code,
+                                               goal_constraints,
+                                               path_constraints,
+                                               true))
   {
     return false;
   } 
@@ -522,6 +555,116 @@ bool MoveGroup::isControllerDone(arm_navigation_msgs::ArmNavigationErrorCodes& e
     return false;
   }
 }
+
+bool MoveGroup::filterTrajectory(const trajectory_msgs::JointTrajectory &trajectory_in, 
+                                 trajectory_msgs::JointTrajectory &trajectory_out,
+                                 arm_navigation_msgs::Constraints &goal_constraints,
+                                 arm_navigation_msgs::Constraints &path_constraints,
+                                 planning_models::KinematicState *kinematic_state,
+                                 arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
+{
+  arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request  request;
+  arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Response response;
+  fillTrajectoryMsg(trajectory_in, request.trajectory);
+
+  if(trajectory_filter_allowed_time_ == 0.0)
+  {
+    trajectory_out = request.trajectory;
+    return true;
+  }
+  planning_environment::convertKinematicStateToRobotState(*kinematic_state,
+                                                          ros::Time::now(),
+                                                          collision_models_->getWorldFrameId(),
+                                                          request.start_state);
+  request.group_name = getPhysicalGroupName();
+  request.path_constraints = path_constraints;
+  request.goal_constraints = goal_constraints;
+  request.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
+  ros::Time smoothing_time = ros::Time::now();
+  if(filter_trajectory_client_.call(request,response))
+  {
+    move_group_stats_.trajectory_duration = (response.trajectory.points.back().time_from_start-response.trajectory.points.front().time_from_start).toSec();
+    move_group_stats_.smoothing_time = (ros::Time::now()-smoothing_time).toSec();
+    trajectory_out = response.trajectory;
+    error_code = response.error_code;
+    return true;
+  }
+  else
+  {
+    error_code = response.error_code;
+    ROS_ERROR("Service call to filter trajectory failed.");
+    return false;
+  }
+}
+
+void MoveGroup::fillTrajectoryMsg(const trajectory_msgs::JointTrajectory &trajectory_in, 
+                                  trajectory_msgs::JointTrajectory &trajectory_out,
+                                  planning_models::KinematicState *kinematic_state)
+{
+  trajectory_out = trajectory_in;
+  if(trajectory_in.points.empty())
+  {
+    ROS_WARN("No points in trajectory");
+    return;
+  }
+  // get the current state
+  double d = 0.0;
+
+
+  std::map<std::string, double> val_map;
+  kinematic_state->getKinematicStateValues(val_map);
+  sensor_msgs::JointState current;
+  current.name = trajectory_out.joint_names;
+  current.position.resize(trajectory_out.joint_names.size());
+  for(unsigned int i = 0; i < trajectory_out.joint_names.size(); i++) {
+    current.position[i] = val_map[trajectory_out.joint_names[i]];
+  }
+  std::map<std::string, bool> continuous;
+  for(unsigned int j = 0; j < trajectory_in.joint_names.size(); j++) {
+    std::string name = trajectory_in.joint_names[j];
+    boost::shared_ptr<const urdf::Joint> joint = collision_models_->getParsedDescription()->getJoint(name);
+    if (joint.get() == NULL)
+    {
+      ROS_ERROR("Joint name %s not found in urdf model", name.c_str());
+      return;
+    }
+    if (joint->type == urdf::Joint::CONTINUOUS) {
+      continuous[name] = true;
+    } else {
+      continuous[name] = false;
+    }
+  }
+  for (unsigned int i = 0 ; i < current.position.size() ; ++i)
+  {
+    double diff; 
+    if(!continuous[trajectory_in.joint_names[i]]) {
+      diff = fabs(trajectory_in.points[0].positions[i] - val_map[trajectory_in.joint_names[i]]);
+    } else {
+      diff = angles::shortest_angular_distance(trajectory_in.points[0].positions[i],val_map[trajectory_in.joint_names[i]]);
+    }
+    d += diff * diff;
+  }
+  d = sqrt(d);	    
+  // decide whether we place the current state in front of the trajectory_in
+  int include_first = (d > 0.1) ? 1 : 0;
+  double offset = 0.0;
+  trajectory_out.points.resize(trajectory_in.points.size() + include_first);
+
+  if (include_first)
+  {
+    ROS_INFO("Adding current state to front of trajectory");
+    trajectory_out.points[0].positions = arm_navigation_msgs::jointStateToJointTrajectoryPoint(current).positions;
+    trajectory_out.points[0].time_from_start = ros::Duration(0.0);
+    offset = 0.3 + d;
+  } 
+  for (unsigned int i = 0 ; i < trajectory_in.points.size() ; ++i)
+  {
+    trajectory_out.points[i+include_first].time_from_start = trajectory_in.points[i].time_from_start;
+    trajectory_out.points[i+include_first].positions = trajectory_in.points[i].positions;
+  }
+  trajectory_out.header.stamp = ros::Time::now();
+}
+
 
 /*bool MoveGroup::correctForJointLimits(arm_navigation_msgs::PlanningScene &planning_scene)
 {

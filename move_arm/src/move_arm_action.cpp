@@ -43,9 +43,7 @@ namespace move_arm
 MoveArm::MoveArm() :  private_handle_("~"),planning_visualizer_(DISPLAY_PATH_TOPIC,DISPLAY_MARKER_TOPIC)
 {
   private_handle_.param<bool>("publish_stats",publish_stats_, true);
-  private_handle_.param<double>("ik_allowed_time",ik_allowed_time_, 2.0);
   private_handle_.param<double>("move_arm_frequency",move_arm_frequency_, 50.0);
-  private_handle_.param<double>("trajectory_filter_allowed_time",trajectory_filter_allowed_time_, 2.0);
   collision_models_ = new planning_environment::CollisionModels("robot_description");
 
   planning_scene_state_ = NULL;
@@ -118,48 +116,6 @@ bool MoveArm::findGroup(std::string &group_name, boost::shared_ptr<move_arm::Mov
   }
   else
     return false;
-}
-
-bool MoveArm::filterTrajectory(const trajectory_msgs::JointTrajectory &trajectory_in, 
-                               trajectory_msgs::JointTrajectory &trajectory_out,
-                               arm_navigation_msgs::Constraints &goal_constraints,
-                               arm_navigation_msgs::Constraints &path_constraints,
-                               planning_models::KinematicState *kinematic_state,
-                               arm_navigation_msgs::ArmNavigationErrorCodes &error_code)
-{
-  arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request  request;
-  arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Response response;
-  fillTrajectoryMsg(trajectory_in, request.trajectory);
-
-  if(trajectory_filter_allowed_time_ == 0.0)
-  {
-    trajectory_out = request.trajectory;
-    return true;
-  }
-  resetToStartState(kinematic_state);
-  planning_environment::convertKinematicStateToRobotState(*kinematic_state,
-                                                          ros::Time::now(),
-                                                          collision_models_->getWorldFrameId(),
-                                                          request.start_state);
-  request.group_name = current_group_->getPhysicalGroupName();
-  request.path_constraints = path_constraints;
-  request.goal_constraints = goal_constraints;
-  request.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
-  ros::Time smoothing_time = ros::Time::now();
-  if(current_group_->getFilterTrajectoryClient().call(request,response))
-  {
-    move_arm_stats_.trajectory_duration = (response.trajectory.points.back().time_from_start-response.trajectory.points.front().time_from_start).toSec();
-    move_arm_stats_.smoothing_time = (ros::Time::now()-smoothing_time).toSec();
-    trajectory_out = response.trajectory;
-    error_code = response.error_code;
-    return true;
-  }
-  else
-  {
-    error_code = response.error_code;
-    ROS_ERROR("Service call to filter trajectory failed.");
-    return false;
-  }
 }
 
 bool MoveArm::getRobotState(planning_models::KinematicState* state)
@@ -250,36 +206,6 @@ bool MoveArm::visualizeCollisions(const planning_models::KinematicState *kinemat
   return true;
 }
 
-
-bool MoveArm::createPlan(arm_navigation_msgs::GetMotionPlan::Request &request,  
-                         arm_navigation_msgs::GetMotionPlan::Response &response)
-{
-  ros::Time planning_time = ros::Time::now();
-  while(!ros::service::waitForService(planner_service_name_, ros::Duration(1.0))) 
-  {
-    ROS_DEBUG_STREAM("Waiting for requested service " << planner_service_name_);
-  }
-  ros::ServiceClient planning_client = root_handle_.serviceClient<arm_navigation_msgs::GetMotionPlan>(planner_service_name_);
-  move_arm_stats_.planner_service_name = planner_service_name_;
-  ROS_DEBUG("Issuing request for motion plan");		    
-  // call the planner and decide whether to use the path
-  if (planning_client.call(request, response))
-  {
-    move_arm_stats_.planning_time = (ros::Time::now()-planning_time).toSec();
-    if (response.trajectory.joint_trajectory.points.empty())
-    {
-      ROS_WARN("Motion planner was unable to plan a path to goal");
-      return false;
-    }
-    ROS_DEBUG("Motion planning succeeded");
-    return true;
-  }
-  else
-  {
-    ROS_ERROR("Motion planning service failed on %s",planning_client.getService().c_str());
-    return false;
-  }
-}
 
 void MoveArm::fillTrajectoryMsg(const trajectory_msgs::JointTrajectory &trajectory_in, 
                                 trajectory_msgs::JointTrajectory &trajectory_out)
@@ -444,7 +370,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       planning_visualizer_.visualize(request,robot_state);
         
       resetToStartState(planning_scene_state_);
-      if(createPlan(request,response))
+      if(current_group_->createPlan(request,response))
       {
         ROS_DEBUG("createPlan succeeded");
         resetToStartState(planning_scene_state_);
@@ -499,7 +425,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       action_server_->publishFeedback(move_arm_action_feedback_);
       ROS_DEBUG("Filtering Trajectory");
       trajectory_msgs::JointTrajectory filtered_trajectory;
-      if(filterTrajectory(current_trajectory_,filtered_trajectory,current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
+      if(current_group_.filterTrajectory(current_trajectory_,filtered_trajectory,current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
       {
         ROS_DEBUG("Checking filtered trajectory");
         resetToStartState(planning_scene_state_);

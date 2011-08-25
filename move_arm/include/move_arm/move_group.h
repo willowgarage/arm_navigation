@@ -111,6 +111,9 @@ public:
                       planning_models::KinematicState *kinematic_state,
                       double &ik_allowed_time);
 
+  bool createPlan(arm_navigation_msgs::GetMotionPlan::Request &request,  
+                  arm_navigation_msgs::GetMotionPlan::Response &response);
+
   bool sendTrajectory(trajectory_msgs::JointTrajectory &current_trajectory);
 
   bool isControllerDone(arm_navigation_msgs::ArmNavigationErrorCodes& error_code);
@@ -131,6 +134,11 @@ public:
   }
   // Planning
   arm_navigation_msgs::Constraints original_goal_constraints_;
+
+  void getStats(arm_navigation_msgs::MoveArmStatistics &move_arm_stats)
+  {
+    move_arm
+  }
 
 private:
 
@@ -179,6 +187,7 @@ private:
   std::vector<std::string> end_effector_link_names_;
   std::map<std::string, planning_models::KinematicModel::GroupConfig> arm_config_map_;
   std::string commanded_frame_name_;
+  arm_navigation_msgs::MoveArmStatistics move_group_stats_;
   
   // Planning
   double default_joint_tolerance_;
