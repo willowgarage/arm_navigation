@@ -139,6 +139,11 @@ bool MoveGroup::initialize()
     return false;
   }
 
+  std::string trajectory_filter_service_name;
+  private_handle_.param<std::string>(group_name_+"trajectory_filter",trajectory_filter_service_name,TRAJECTORY_FILTER);
+  ros::service::waitForService(trajectory_filter_service_name);
+  filter_trajectory_client_ = root_handle_.serviceClient<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>(trajectory_filter_service_name);      
+
   return true;
 }
 

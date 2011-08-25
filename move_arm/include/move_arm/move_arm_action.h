@@ -68,7 +68,6 @@ enum MoveArmState {
   MONITOR
 };
   
-static const std::string TRAJECTORY_FILTER = "/trajectory_filter_server/filter_trajectory_with_constraints";
 static const std::string DISPLAY_PATH_TOPIC  = "display_path";
 static const std::string DISPLAY_MARKER_TOPIC  = "display_marker";
 static const std::string GET_STATE_SERVICE_NAME = "/environment_server/get_robot_state";
@@ -165,7 +164,6 @@ private:
   ros::Publisher stats_publisher_;
 
   ros::ServiceClient get_state_client_;
-  ros::ServiceClient filter_trajectory_client_;
   ros::ServiceClient set_planning_scene_diff_client_;
 
   arm_navigation_msgs::SetPlanningSceneDiff::Request set_planning_scene_diff_req_;

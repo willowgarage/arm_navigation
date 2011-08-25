@@ -56,7 +56,6 @@ MoveArm::MoveArm() :  private_handle_("~"),planning_visualizer_(DISPLAY_PATH_TOP
   ros::service::waitForService(GET_STATE_SERVICE_NAME);
   ros::service::waitForService(SET_PLANNING_SCENE_DIFF_NAME);
 
-  filter_trajectory_client_ = root_handle_.serviceClient<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER);      
   get_state_client_ = root_handle_.serviceClient<arm_navigation_msgs::GetRobotState>("/environment_server/get_robot_state");      
   set_planning_scene_diff_client_ = root_handle_.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_NAME);
   action_server_.reset(new actionlib::SimpleActionServer<arm_navigation_msgs::MoveArmAction>(root_handle_, "move_arm", boost::bind(&MoveArm::execute, this, _1), false));
@@ -147,7 +146,7 @@ bool MoveArm::filterTrajectory(const trajectory_msgs::JointTrajectory &trajector
   request.goal_constraints = goal_constraints;
   request.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
   ros::Time smoothing_time = ros::Time::now();
-  if(filter_trajectory_client_.call(request,response))
+  if(current_group_->getFilterTrajectoryClient().call(request,response))
   {
     move_arm_stats_.trajectory_duration = (response.trajectory.points.back().time_from_start-response.trajectory.points.front().time_from_start).toSec();
     move_arm_stats_.smoothing_time = (ros::Time::now()-smoothing_time).toSec();

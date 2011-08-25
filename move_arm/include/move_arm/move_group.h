@@ -82,6 +82,8 @@ namespace move_arm
 
 typedef actionlib::ActionClient<control_msgs::FollowJointTrajectoryAction> JointExecutorActionClient;
 
+static const std::string TRAJECTORY_FILTER = "/trajectory_filter_server/filter_trajectory_with_constraints";
+
 enum ControllerStatus {
   QUEUED,
   ACTIVE,
@@ -123,6 +125,10 @@ public:
     return physical_group_name_;
   }
 
+  ros::ServiceClient& getFilterTrajectoryClient()
+  {
+    return filter_trajectory_client_;
+  }
   // Planning
   arm_navigation_msgs::Constraints original_goal_constraints_;
 
@@ -176,6 +182,9 @@ private:
   
   // Planning
   double default_joint_tolerance_;
+
+  // Filtering 
+  ros::ServiceClient filter_trajectory_client_;
   
   // Control
   bool controller_connected_;
