@@ -55,6 +55,8 @@ static boost::mutex                     ODEThreadMapLock;
 static const int MAX_ODE_CONTACTS = 128;
 static const int TEST_FOR_ALLOWED_NUM = 1;
 
+static const std::string CONTACT_ONLY_NAME="contact_only";
+
 collision_space::EnvironmentModelODE::EnvironmentModelODE(void) : EnvironmentModel()
 {
   ODEInitCountLock.lock();
@@ -844,7 +846,7 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
 
   if(!cdata->contacts && !cdata->allowed) {
     //we don't care about contact information, so just set to true if there's been collision
-    ROS_DEBUG_STREAM("Detected collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
+    ROS_DEBUG_STREAM_NAMED(CONTACT_ONLY_NAME, "Detected collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
     cdata->collides = true;      
     cdata->done = true;
   } else {
@@ -900,6 +902,8 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
 
         cdata->collides = true;
         num_not_allowed++;
+
+        ROS_DEBUG_STREAM_NAMED(CONTACT_ONLY_NAME, "Detected collision between " << cdata->body_name_1 << " and " << cdata->body_name_2);
 
         if(cdata->contacts != NULL) {
           if(num_not_allowed <= cdata->max_contacts_pair) {
