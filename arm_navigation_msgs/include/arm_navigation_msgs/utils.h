@@ -219,6 +219,78 @@ inline arm_navigation_msgs::Constraints getPoseConstraintsForGroup(const std::ve
   return group_constraints;
 }
 
+inline void addConstraints(arm_navigation_msgs::Constraints &constraints,
+                           const arm_navigation_msgs::Constraints &new_constraints)
+{
+  for(unsigned int i=0; i < new_constraints.position_constraints.size(); i++)
+    constraints.position_constraints.push_back(new_constraints.position_constraints[i]);
+  for(unsigned int i=0; i < new_constraints.orientation_constraints.size(); i++)
+    constraints.orientation_constraints.push_back(new_constraints.orientation_constraints[i]);
+  for(unsigned int i=0; i < new_constraints.joint_constraints.size(); i++)
+    constraints.joint_constraints.push_back(new_constraints.joint_constraints[i]);
+}
+
+inline void applyTransformToPoseConstraint(const geometry_msgs::Pose &pose,
+                                           arm_navigation_msgs::PositionConstraint &pc,
+                                           arm_navigation_msgs::OrientationConstraint &oc)
+{
+  tf::Pose pose_tf;
+  tf::poseMsgToTF(pose,pose_tf);
+
+  tf::Point position_tf;
+  tf::pointMsgToTF(pc.position,position_tf);
+
+  tf::Quaternion quat_tf;
+  tf::quaternionMsgToTF(oc.orientation,quat_tf);
+
+  tf::Pose constraint_pose(quat_tf,position_tf);
+  constraint_pose = constraint_pose * pose_tf;
+
+  tf::pointTFToMsg(constraint_pose.getOrigin(),pc.position);
+  tf::quaternionTFToMsg(constraint_pose.getRotation(),oc.orientation);
+
+}
+
+inline void applyTransformToConstraints(const geometry_msgs::Pose &pose,
+                                        arm_navigation_msgs::Constraints &constraints,
+                                        const std::string &link_name)
+{
+  if(constraints.position_constraints.size() != constraints.orientation_constraints.size())
+  {
+    ROS_ERROR("Number of position constraints does not match number of orientation constraints");
+    return;
+  }
+  for(unsigned int i=0; i < constraints.position_constraints.size(); i++)
+  {
+    applyTransformToPoseConstraint(pose,constraints.position_constraints[i],constraints.orientation_constraints[i]);
+    constraints.position_constraints[i].link_name = link_name;
+    constraints.orientation_constraints[i].link_name = link_name;
+  }
+}
+
+inline arm_navigation_msgs::Constraints transformPoseConstraintsToEndEffectorConstraints(const std::string &object_name,
+                                                                                         const arm_navigation_msgs::Constraints &constraints,
+                                                                                         const arm_navigation_msgs::RobotState &robot_state, 
+                                                                                         const std::vector<std::string> &link_names)
+{
+  std::map<std::string, geometry_msgs::Pose> offset_poses;
+  for(unsigned int i=0; i < robot_state.multi_dof_joint_state.frame_ids.size(); i++)
+    if(robot_state.multi_dof_joint_state.frame_ids[i] == object_name)
+       offset_poses[robot_state.multi_dof_joint_state.child_frame_ids[i]] = robot_state.multi_dof_joint_state.poses[i];
+
+  arm_navigation_msgs::Constraints return_constraints;
+  for(unsigned int i=0; i < link_names.size(); i++)
+  {
+    if(offset_poses.find(link_names[i]) != offset_poses.end())
+    {
+      arm_navigation_msgs::Constraints new_constraints =  constraints;
+      applyTransformToConstraints(offset_poses[link_names[i]],new_constraints,link_names[i]);
+      addConstraints(return_constraints,new_constraints);
+    }
+  }
+  return return_constraints;
+}
+
 inline void clearPoseConstraintsForGroup(arm_navigation_msgs::Constraints &constraints,
                                          const std::vector<std::string> &link_names)
 {

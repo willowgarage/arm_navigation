@@ -40,7 +40,7 @@
 namespace move_arm
 {
 
-MoveGroup::MoveGroup(const std::string &group_name, planning_environment::CollisionModels *collision_models) : private_handle_("~"),group_name_(group_name),default_joint_tolerance_(0.04),controller_connected_(false)
+MoveGroup::MoveGroup(const std::string &group_name, planning_environment::CollisionModels *collision_models) : private_handle_("~"),group_name_(group_name),commanded_frame_name_(std::string("")),default_joint_tolerance_(0.04),controller_connected_(false)
 {
   collision_models_ = collision_models;
   ik_solver_initialized_ = false;
@@ -54,10 +54,8 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
                                        std::vector<std::string> &kinematics_solver_names,
                                        std::vector<std::string> &end_effector_link_names)
 {
-  //  std::string prefix = "";
   if(arm_names.empty())
   {
-    //look in physical_group_name for subgroups;
     if(arm_config_map_.find(physical_group_name_) == arm_config_map_.end())
     {
       ROS_ERROR("Could not find arm %s",physical_group_name_.c_str());
@@ -66,32 +64,8 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
     arm_names = arm_config_map_[physical_group_name_].subgroups_;
     if(arm_names.empty())
     {
-      // Physical group consists of a single arm
       arm_names.push_back(physical_group_name_);
     }
-
-    /*    XmlRpc::XmlRpcValue arm_list;
-    if(!private_handle_.getParam(group_name_+"/arms", arm_list))
-    {
-      ROS_ERROR("Could not find arms on param server");
-      return false;
-    }
-    if(arm_list.getType() != XmlRpc::XmlRpcValue::TypeArray)
-    {
-      ROS_ERROR("Arm list should be of XmlRpc Array type");
-      return false;
-    } 
-    for (int32_t i = 0; i < arm_list.size(); ++i) 
-    {
-      if(arm_list[i].getType() != XmlRpc::XmlRpcValue::TypeString)
-      {
-        ROS_ERROR("Arm names should be strings");
-        return false;
-      }
-      arm_names.push_back(static_cast<std::string>(arm_list[i]));
-      ROS_DEBUG("Adding group: %s",arm_names.back().c_str());
-      }*/
-    // prefix = group_name_+"/";
   }
 
   for(unsigned int i=0; i < arm_names.size(); i++)
@@ -104,13 +78,6 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
     }
     private_handle_.getParam(arm_names[i]+"/kinematics_solver",kinematics_solver_name);
     kinematics_solver_names.push_back(kinematics_solver_name);
-
-    //    if(!private_handle_.hasParam(prefix+arm_names[i]+"/tip_name"))
-    //    {
-    //      ROS_ERROR("End effector not defined for group %s in namespace %s",arm_names[i].c_str(),private_handle_.getNamespace().c_str());
-    //      continue;
-    //    }
-    //    private_handle_.getParam(prefix+arm_names[i]+"/tip_name",tip_name);
     if(arm_config_map_.find(arm_names[i]) == arm_config_map_.end())
     {
       ROS_ERROR("Could not find arm %s",arm_names[i].c_str());
@@ -125,13 +92,6 @@ bool MoveGroup::getConfigurationParams(std::vector<std::string> &arm_names,
 
 bool MoveGroup::initialize()
 {
-
-  /*  std::vector<std::string> arm_names;
-  collision_models_->getKinematicModel()->getModelGroupNames(arm_names);
-  for(unsigned int i=0; i < arm_names.size(); i++)
-    ROS_INFO("arm name: %d, %s",i,arm_names[i].c_str());
-  */
-
   if (group_name_.empty())
   {
     ROS_ERROR("No 'group' parameter specified. Without the name of the group of joints to plan for, action cannot start");
@@ -144,6 +104,7 @@ bool MoveGroup::initialize()
     std::string physical_group_name;
     ROS_WARN_STREAM("No joint group " << group_name_);
     private_handle_.param<std::string>(group_name_+"/physical_group",physical_group_name,group_name_);
+    private_handle_.param<std::string>(group_name_+"/commanded_frame_name",commanded_frame_name_,"two_arms_objects");
     joint_model_group = collision_models_->getKinematicModel()->getModelGroup(physical_group_name);
     if(joint_model_group == NULL)
     {
@@ -161,16 +122,16 @@ bool MoveGroup::initialize()
   getConfigurationParams(arm_names_,kinematics_solver_names_,end_effector_link_names_);
   group_joint_names_ = joint_model_group->getJointModelNames();
 
+  ik_solver_initialized_ = true;
   try
   {  
     kinematics_solver_ = new arm_kinematics_constraint_aware::MultiArmKinematicsConstraintAware(arm_names_,kinematics_solver_names_,end_effector_link_names_,collision_models_);
   }
   catch (MultiArmKinematicsException &e)
   {
-    ROS_ERROR("Could not initialize kinematics solver");
-    return true;
+    ROS_WARN("Could not initialize kinematics solver fro group %s",group_name_.c_str());
+    ik_solver_initialized_ = false;
   }
-  ik_solver_initialized_ = true;
 
   if(!initializeControllerInterface())
   {
@@ -229,6 +190,7 @@ bool MoveGroup::createJointGoalFromPoseGoal(arm_navigation_msgs::GetMotionPlan::
                                             double &ik_allowed_time)
 {
   arm_navigation_msgs::Constraints constraints = arm_navigation_msgs::getPoseConstraintsForGroup(end_effector_link_names_,request.motion_plan_request.goal_constraints);
+  
   unsigned int num_constraints = constraints.position_constraints.size();
   ROS_DEBUG("Num constraints: %d",num_constraints);
   arm_navigation_msgs::ArmNavigationErrorCodes error_code;
@@ -320,6 +282,20 @@ bool MoveGroup::checkRequest(arm_navigation_msgs::GetMotionPlan::Request &reques
     return false;
   if(!checkGoalState(request,response,kinematic_state))
     return false;
+
+  if(!commanded_frame_name_.empty())
+  {
+    ROS_DEBUG("Commanded frame name: %s",commanded_frame_name_.c_str());
+    std::vector<std::string> commanded_link_names;
+    commanded_link_names.push_back(commanded_frame_name_);
+    arm_navigation_msgs::Constraints constraints = arm_navigation_msgs::getPoseConstraintsForGroup(commanded_link_names,request.motion_plan_request.goal_constraints);
+    ROS_DEBUG("Pose constraints for group %s",commanded_frame_name_.c_str());
+    arm_navigation_msgs::printConstraints(constraints);
+    constraints = arm_navigation_msgs::transformPoseConstraintsToEndEffectorConstraints(commanded_frame_name_,constraints,request.motion_plan_request.start_state,end_effector_link_names_);
+    ROS_DEBUG("Transformed pose constraints for group %s",commanded_frame_name_.c_str());
+    arm_navigation_msgs::printConstraints(constraints);
+    original_goal_constraints_= constraints;
+  }
   return true;
 }
                                 
@@ -445,6 +421,8 @@ bool MoveGroup::connectToControllerServer(const unsigned int &num_tries)
   }
   if(!controller_connected_)
     ROS_WARN("Could not connect to controller. Will try to connect online");
+  else
+    ROS_INFO("Connected to the controller: %s",controller_action_name_.c_str());
   return true;
 }
 

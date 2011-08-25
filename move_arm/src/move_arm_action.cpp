@@ -216,8 +216,7 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
                                                           request.motion_plan_request.start_state);
   request.motion_plan_request.start_state.multi_dof_joint_state = multi_dof_state;
   planning_visualizer_.visualize(goal->planning_scene_diff.allowed_contacts);
-  original_goal_constraints_ = request.motion_plan_request.goal_constraints;
-  current_group_->original_goal_constraints_ = original_goal_constraints_;
+  current_group_->original_goal_constraints_ = request.motion_plan_request.goal_constraints;
   ROS_DEBUG("Finished setup");
   return true;
 }
@@ -368,12 +367,12 @@ bool MoveArm::jointTrajectoryValid(trajectory_msgs::JointTrajectory &joint_traje
   std::vector<arm_navigation_msgs::ArmNavigationErrorCodes> traj_error_codes;
   resetToStartState(planning_scene_state_);
   if(!collision_models_->isJointTrajectoryValid(*planning_scene_state_,
-                                                          joint_trajectory, 
-                                                          goal_constraints,
-                                                          path_constraints,
-                                                          error_code,
-                                                          traj_error_codes,
-                                                          true))
+                                                joint_trajectory, 
+                                                goal_constraints,
+                                                path_constraints,
+                                                error_code,
+                                                traj_error_codes,
+                                                true))
   {
     if(error_code.val == error_code.COLLISION_CONSTRAINTS_VIOLATED) 
     {
@@ -414,7 +413,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       action_server_->publishFeedback(move_arm_action_feedback_);
       
       resetToStartState(planning_scene_state_);
-      if(current_group_->checkState(original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
+      if(current_group_->checkState(current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
       {
         ROS_INFO("We are already at goal");
         move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.SUCCESS;
@@ -450,17 +449,17 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       {
         ROS_DEBUG("createPlan succeeded");
         resetToStartState(planning_scene_state_);
-        if(!jointTrajectoryValid(response.trajectory.joint_trajectory,original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,response.error_code))
+        if(!jointTrajectoryValid(response.trajectory.joint_trajectory,current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,response.error_code))
         {
           num_planning_attempts_++;
-          if(num_planning_attempts_ > request.motion_plan_request.num_planning_attempts)
+          if(num_planning_attempts_ >= request.motion_plan_request.num_planning_attempts)
           {
             ROS_INFO_STREAM("Aborting because we're out of planning attempts");
             response.error_code.val = response.error_code.PLANNING_FAILED;
             setAborted(response.error_code);
             return true;
           }
-          ROS_INFO("Attempt %d of %d: Joint trajectory invalid. Will try to plan again.",num_planning_attempts_-1,request.motion_plan_request.num_planning_attempts);
+          ROS_INFO("Attempt %d of %d: Joint trajectory invalid. Will try to plan again.",num_planning_attempts_,request.motion_plan_request.num_planning_attempts);
         }	    
         else
         {
@@ -479,13 +478,13 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       {
         num_planning_attempts_++;
         error_code.val = error_code.PLANNING_FAILED;
-        if(num_planning_attempts_ > request.motion_plan_request.num_planning_attempts)
+        if(num_planning_attempts_ >= request.motion_plan_request.num_planning_attempts)
         {
           ROS_INFO_STREAM("Setting aborted because we're out of planning attempts");
           setAborted(error_code);
           return true;
         }
-        ROS_INFO("Attempt %d of %d: Joint trajectory invalid. Will try to plan again.",num_planning_attempts_-1,request.motion_plan_request.num_planning_attempts);
+        ROS_INFO("Attempt %d of %d: Joint trajectory invalid. Will try to plan again.",num_planning_attempts_,request.motion_plan_request.num_planning_attempts);
       }
       else
       {
@@ -501,16 +500,16 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       action_server_->publishFeedback(move_arm_action_feedback_);
       ROS_DEBUG("Filtering Trajectory");
       trajectory_msgs::JointTrajectory filtered_trajectory;
-      if(filterTrajectory(current_trajectory_,filtered_trajectory,original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
+      if(filterTrajectory(current_trajectory_,filtered_trajectory,current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
       {
         ROS_DEBUG("Checking filtered trajectory");
         resetToStartState(planning_scene_state_);
-        if(!jointTrajectoryValid(filtered_trajectory,original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
+        if(!jointTrajectoryValid(filtered_trajectory,current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
         {
           ROS_ERROR("Move arm will abort this goal.  Will replan");
           state_ = PLANNING;
           num_planning_attempts_++;	    
-          if(num_planning_attempts_ > request.motion_plan_request.num_planning_attempts)
+          if(num_planning_attempts_ >= request.motion_plan_request.num_planning_attempts)
           {
             ROS_INFO_STREAM("Setting aborted because we're out of planning attempts");
             error_code.val = error_code.PLANNING_FAILED;
@@ -559,7 +558,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
         arm_navigation_msgs::ArmNavigationErrorCodes state_error_code;
         getRobotState(planning_scene_state_);
       
-        if(current_group_->checkState(original_goal_constraints_,
+        if(current_group_->checkState(current_group_->original_goal_constraints_,
                                       request.motion_plan_request.path_constraints,
                                       planning_scene_state_,
                                       state_error_code))

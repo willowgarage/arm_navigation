@@ -172,6 +172,7 @@ private:
   std::vector<std::string> kinematics_solver_names_;
   std::vector<std::string> end_effector_link_names_;
   std::map<std::string, planning_models::KinematicModel::GroupConfig> arm_config_map_;
+  std::string commanded_frame_name_;
   
   // Planning
   double default_joint_tolerance_;
