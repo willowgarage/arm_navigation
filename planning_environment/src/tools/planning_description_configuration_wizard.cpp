@@ -34,6 +34,7 @@
 #include <qt4/QtGui/qradiobutton.h>
 #include <qt4/QtGui/qdialogbuttonbox.h>
 #include <qt4/QtCore/qtextstream.h>
+#include <QHeaderView>
 #include <boost/thread.hpp>
 
 using namespace std;
@@ -47,6 +48,7 @@ PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(c
   QWizard(parent), inited_(false), world_joint_config_("world_joint"), urdf_package_(urdf_package),
   urdf_path_(urdf_path)
 {
+  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   emitter_ = NULL;
   progress_ = 0;
   package_directory_ = "";
@@ -214,7 +216,7 @@ void PlanningDescriptionConfigurationWizard::outputConfigAndLaunchRviz()
 {
 
   string template_name = ros::package::getPath("planning_environment")
-      + "/config/planning_description_configuration_wizard.vcg";
+    + "/config/planning_description_configuration_wizard.vcg";
 
   ifstream template_file(template_name.c_str());
 
@@ -316,7 +318,7 @@ void PlanningDescriptionConfigurationWizard::emitGroupYAML()
   const map<string, KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
 
   for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin(); it
-      != group_config_map.end(); it++)
+        != group_config_map.end(); it++)
   {
     (*emitter_) << YAML::BeginMap;
     (*emitter_) << YAML::Key << "name" << YAML::Value << it->first;
@@ -414,7 +416,7 @@ void PlanningDescriptionConfigurationWizard::outputJointLimitsYAML()
           emitter << YAML::Value << YAML::BeginMap;
           emitter << YAML::Key << "has_position_limits";
           const KinematicModel::RevoluteJointModel* rev =
-              dynamic_cast<const KinematicModel::RevoluteJointModel*> (jmv[i]);
+            dynamic_cast<const KinematicModel::RevoluteJointModel*> (jmv[i]);
           bool has_limits = (rev == NULL || !rev->continuous_);
           emitter << YAML::Value << has_limits;
           if(max_vel > 0.0) {
@@ -680,7 +682,7 @@ void PlanningDescriptionConfigurationWizard::outputKinematicsLaunchFiles()
   const map<string, KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
 
   for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin(); it
-      != group_config_map.end(); it++)
+        != group_config_map.end(); it++)
   {
     if(!it->second.base_link_.empty())
     {
@@ -728,7 +730,7 @@ void PlanningDescriptionConfigurationWizard::outputMoveGroupLaunchFiles()
   const map<string, KinematicModel::GroupConfig>& group_config_map = kmodel_->getJointModelGroupConfigMap();
 
   for(map<string, KinematicModel::GroupConfig>::const_iterator it = group_config_map.begin(); it
-      != group_config_map.end(); it++)
+        != group_config_map.end(); it++)
   {
     TiXmlElement *inc = new TiXmlElement("include");
     launch_root->LinkEndChild(inc);
@@ -1306,7 +1308,7 @@ int PlanningDescriptionConfigurationWizard::nextId() const
     return OutputFilesPage;
     
   case OutputFilesPage:
-      return -1;
+    return -1;
       
   default:
     return -1;
@@ -1409,7 +1411,7 @@ void PlanningDescriptionConfigurationWizard::visualizeCollision(vector<Collision
   {
     if((coll_space_contacts[j].body_name_1 == pairs[index].first && coll_space_contacts[j].body_name_2
         == pairs[index].second) || (coll_space_contacts[j].body_name_1 == pairs[index].second
-        && coll_space_contacts[j].body_name_2 == pairs[index].first))
+                                    && coll_space_contacts[j].body_name_2 == pairs[index].first))
     {
       marker = transformEnvironmentModelContactInfoMarker(coll_space_contacts[j]);
       marker2 = transformEnvironmentModelContactInfoMarker(coll_space_contacts[j]);
@@ -1508,7 +1510,7 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
 {
   start_page_ = new QWizardPage(this);
   start_page_->setTitle("Planning Components Configuration Wizard");
-  QHBoxLayout* layout = new QHBoxLayout(setup_groups_page_);
+  QHBoxLayout* layout = new QHBoxLayout(start_page_);
 
   QImage* image = new QImage();
   if(chdir(ros::package::getPath("planning_environment").c_str()) != 0)
@@ -1524,12 +1526,13 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
 
   QLabel* imageLabel = new QLabel(start_page_);
   imageLabel->setPixmap(QPixmap::fromImage(*image));
-  imageLabel->setMinimumHeight(image->height());
-  imageLabel->setMinimumWidth(image->width());
+  layout->addWidget(imageLabel);
+  imageLabel->setMinimumHeight(10);  
+  imageLabel->setMinimumWidth(10);  
   start_page_->setSubTitle(
-                           "Welcome to the ROS planning components configuration wizard! This wizard will guide you through"
-                             " creating a planning configuration for your robot.\nThe robot's URDF location should have been passed into the"
-                             " program as a command line on startup.");
+                                                    "Welcome to the ROS planning components configuration wizard! This wizard will guide you through"
+                           " creating a planning configuration for your robot.\nThe robot's URDF location should have been passed into the"
+                           " program as a command line on startup.");
 
   QGroupBox* descBox = new QGroupBox(start_page_);
 
@@ -1540,12 +1543,16 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
                  "\nautomatically generate a planning stack for your"
                  "\nrobot, and in no time your robot's arms will be "
                  "\nable to plan around obstacles efficiently!");
+  //label->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+  label->setMinimumWidth(1); 
+  label->setMinimumHeight(1);
+
   layout->addWidget(imageLabel);
   descLayout->addWidget(label);
 
   label->setAlignment(Qt::AlignTop);
 
-  descBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  //descBox->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Maximum);
   descBox->setAlignment(Qt::AlignTop);
 
   QGroupBox* modeGroupBox = new QGroupBox(descBox);
@@ -1553,8 +1560,10 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
 
   QVBoxLayout* modeGroupBoxLayout = new QVBoxLayout(modeGroupBox);
   QLabel* modeGroupBoxDesc = new QLabel(modeGroupBox);
+  modeGroupBoxDesc->setMinimumWidth(1);
+  modeGroupBoxDesc->setMinimumHeight(1);
   modeGroupBoxDesc->setText("In Easy mode, your robot will be automatically tested for self-collisions,\nand a planning"
-      " parameter file will be automatically generated.\nAdvanced mode allows you to manually configure collision checking.");
+                            " parameter file will be automatically generated.\nAdvanced mode allows you to manually configure collision checking.");
   modeGroupBoxLayout->addWidget(modeGroupBoxDesc);
 
   QRadioButton* easyButton = new QRadioButton(modeGroupBox);
@@ -1574,70 +1583,69 @@ void PlanningDescriptionConfigurationWizard::initStartPage()
   modeGroupBox->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
   descLayout->addWidget(modeGroupBox);
-  modeGroupBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
-
-
-
+  modeGroupBox->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Maximum);
 
   QGroupBox* safetyGroupBox = new QGroupBox(descBox);
-   safetyGroupBox->setTitle("Select Self-collision Sampling Density");
+  safetyGroupBox->setTitle("Select Self-collision Sampling Density");
 
-   QVBoxLayout* safetyGroupBoxLayout = new QVBoxLayout(safetyGroupBox);
-   QLabel* safetyGroupBoxDesc = new QLabel(safetyGroupBox);
-   safetyGroupBoxDesc->setText("Parameterizes the number of joint space samples used to "
-                               "\ndetermine whether certain robot poses are in collision."
-                               "\nDenser setting swill sample longer, while sparser settings" 
-                               "\nare more likely to give efficient collision checking that "
-                               "\nmay not detect rare self-collisions.");
+  QVBoxLayout* safetyGroupBoxLayout = new QVBoxLayout(safetyGroupBox);
+  QLabel* safetyGroupBoxDesc = new QLabel(safetyGroupBox);
+  safetyGroupBoxDesc->setText("Parameterizes the number of joint space samples used to "
+                              "\ndetermine whether certain robot poses are in collision."
+                              "\nDenser setting swill sample longer, while sparser settings" 
+                              "\nare more likely to give efficient collision checking that "
+                              "\nmay not detect rare self-collisions.");
 
-   safetyGroupBoxLayout->addWidget(safetyGroupBoxDesc);
+  safetyGroupBoxDesc->setMinimumWidth(1);
+  safetyGroupBoxDesc->setMinimumHeight(1);
+  safetyGroupBoxDesc->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+  safetyGroupBoxLayout->addWidget(safetyGroupBoxDesc);
 
-   QRadioButton* verySafeButton = new QRadioButton(safetyGroupBox);
-   verySafeButton->setText("Very Dense");
-   safetyGroupBoxLayout->addWidget(verySafeButton);
-   verySafeButton->setChecked(true);
+  QRadioButton* verySafeButton = new QRadioButton(safetyGroupBox);
+  verySafeButton->setText("Very Dense");
+  safetyGroupBoxLayout->addWidget(verySafeButton);
+  verySafeButton->setChecked(true);
 
-   connect(verySafeButton, SIGNAL(toggled(bool)), this, SLOT(verySafeButtonToggled(bool)));
+  connect(verySafeButton, SIGNAL(toggled(bool)), this, SLOT(verySafeButtonToggled(bool)));
 
-   QRadioButton* safeButton = new QRadioButton(safetyGroupBox);
-   safeButton->setText("Dense");
-   safetyGroupBoxLayout->addWidget(safeButton);
+  QRadioButton* safeButton = new QRadioButton(safetyGroupBox);
+  safeButton->setText("Dense");
+  safetyGroupBoxLayout->addWidget(safeButton);
 
-   connect(safeButton, SIGNAL(toggled(bool)), this, SLOT(safeButtonToggled(bool)));
+  connect(safeButton, SIGNAL(toggled(bool)), this, SLOT(safeButtonToggled(bool)));
 
-   QRadioButton* normalButton = new QRadioButton(safetyGroupBox);
-   normalButton->setText("Normal");
-   safetyGroupBoxLayout->addWidget(normalButton);
-   normalButton->setChecked(true);
+  QRadioButton* normalButton = new QRadioButton(safetyGroupBox);
+  normalButton->setText("Normal");
+  safetyGroupBoxLayout->addWidget(normalButton);
+  normalButton->setChecked(true);
 
-   connect(normalButton, SIGNAL(toggled(bool)), this, SLOT(normalButtonToggled(bool)));
+  connect(normalButton, SIGNAL(toggled(bool)), this, SLOT(normalButtonToggled(bool)));
 
-   QRadioButton* fastButton = new QRadioButton(safetyGroupBox);
-   fastButton->setText("Sparse");
-   safetyGroupBoxLayout->addWidget(fastButton);
+  QRadioButton* fastButton = new QRadioButton(safetyGroupBox);
+  fastButton->setText("Sparse");
+  safetyGroupBoxLayout->addWidget(fastButton);
 
-   connect(fastButton, SIGNAL(toggled(bool)), this, SLOT(fastButtonToggled(bool)));
+  connect(fastButton, SIGNAL(toggled(bool)), this, SLOT(fastButtonToggled(bool)));
 
-   QRadioButton* veryFastButton = new QRadioButton(safetyGroupBox);
-   veryFastButton->setText("Very Sparse");
-   safetyGroupBoxLayout->addWidget(veryFastButton);
+  QRadioButton* veryFastButton = new QRadioButton(safetyGroupBox);
+  veryFastButton->setText("Very Sparse");
+  safetyGroupBoxLayout->addWidget(veryFastButton);
 
-   connect(veryFastButton, SIGNAL(toggled(bool)), this, SLOT(veryFastButtonToggled(bool)));
+  connect(veryFastButton, SIGNAL(toggled(bool)), this, SLOT(veryFastButtonToggled(bool)));
 
 
-   safetyGroupBox->setLayout(safetyGroupBoxLayout);
-   safetyGroupBox->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+  safetyGroupBox->setLayout(safetyGroupBoxLayout);
+  safetyGroupBox->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-   descLayout->addWidget(safetyGroupBox);
-   safetyGroupBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
+  descLayout->addWidget(safetyGroupBox);
+  //safetyGroupBox->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Maximum);
 
   layout->addWidget(descBox);
 
-
   setPage(StartPage, start_page_);
   start_page_->setLayout(layout);
-  start_page_->setMinimumWidth(1000);
-  start_page_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  start_page_->setMinimumWidth(400);
+  start_page_->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 }
 
 void PlanningDescriptionConfigurationWizard::initSelectDofPage()
@@ -1890,6 +1898,8 @@ KinematicChainWizardPage::KinematicChainWizardPage(PlanningDescriptionConfigurat
   QLabel* imageLabel = new QLabel(this);
   imageLabel->setPixmap(QPixmap::fromImage(*image));
   imageLabel->setAlignment(Qt::AlignTop);
+  imageLabel->setMinimumHeight(10);  
+  imageLabel->setMinimumWidth(10);  
   layout->addWidget(imageLabel, 0, 0, 0, 1);
   QGroupBox* treeBox = new QGroupBox(this);
   treeBox->setTitle("Links");
@@ -2023,7 +2033,10 @@ void KinematicChainWizardPage::createLinkTree(const planning_models::KinematicMo
   addLinktoTreeRecursive(rootJoint->getChildLinkModel(), NULL);
 
   link_tree_->expandToDepth(0);
+  link_tree_->header()->setResizeMode(0, QHeaderView::ResizeToContents);
+  link_tree_->header()->setStretchLastSection(false);
 }
+
 
 
 void KinematicChainWizardPage::addLinktoTreeRecursive(const KinematicModel::LinkModel* link,
@@ -2095,6 +2108,9 @@ JointCollectionWizardPage::JointCollectionWizardPage(PlanningDescriptionConfigur
   QLabel* imageLabel = new QLabel(this);
   imageLabel->setPixmap(QPixmap::fromImage(*image));
   imageLabel->setAlignment(Qt::AlignTop);
+  imageLabel->setMinimumHeight(10);  
+  imageLabel->setMinimumWidth(10);  
+
   layout->addWidget(imageLabel, 0, 1, 1, 1);
 
   QGroupBox* jointBox = new QGroupBox(this);
@@ -2351,7 +2367,7 @@ void CollisionsWizardPage::generateCollisionTable() {
     parent_->getOperationsGenerator()->generateAdjacentInCollisionPairs(collision_pairs_);
   } else {
     parent_->getOperationsGenerator()->generateOccasionallyAndNeverInCollisionPairs(collision_pairs_, not_in_collision,
-                                                                       percentages, in_collision_joint_values_);
+                                                                                    percentages, in_collision_joint_values_);
   }
 
   if(disable_type_ == CollisionOperationsGenerator::NEVER ||
