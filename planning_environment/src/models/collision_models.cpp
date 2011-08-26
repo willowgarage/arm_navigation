@@ -331,8 +331,7 @@ planning_environment::CollisionModels::setPlanningScene(const arm_navigation_msg
     ode_collision_model_->lock();
     ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
     ode_collision_model_->unlock();
-  }
-
+  } 
   planning_scene_set_ = true;
   return state;
 }
@@ -1085,21 +1084,9 @@ bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCol
   ode_collision_model_->unlock();
 
   std::vector<std::string> o_strings;
-  for(std::map<std::string, bodies::BodyVector*>::const_iterator it = static_object_map_.begin();
-      it != static_object_map_.end();
-      it++) {
-    o_strings.push_back(it->first);
-  }
-  o_strings.push_back(COLLISION_MAP_NAME);
-  
-  kmodel_->sharedLock();  
+  getCollisionObjectNames(o_strings);
   std::vector<std::string> a_strings;
-  const std::vector<const planning_models::KinematicModel::AttachedBodyModel*>& att_vec = kmodel_->getAttachedBodyModels();
-  for(unsigned int i = 0; i < att_vec.size(); i++) 
-  {
-    a_strings.push_back(att_vec[i]->getName());
-  }
-  kmodel_->sharedUnlock();
+  getAttachedCollisionObjectNames(a_strings);
 
   bool ok = applyOrderedCollisionOperationsListToACM(ord, o_strings, a_strings, kmodel_, acm);
 
