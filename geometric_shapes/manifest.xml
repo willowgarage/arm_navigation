@@ -9,6 +9,7 @@
 
   <depend package="bullet" />
   <depend package="rosconsole" />
+  <depend package="resource_retriever"/>
 
   <rosdep name="assimp" />
 
