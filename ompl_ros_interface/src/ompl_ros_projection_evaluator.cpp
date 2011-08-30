@@ -61,7 +61,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSp
     for(unsigned int i=0; i < dimension_; i++)
       cellSizes_[i] = (b.high[i] - b.low[i]) / 10.0;
     mapping_type_ = ompl_ros_interface::REAL_VECTOR;
-    ROS_INFO("Choosing projection evaluator for real vector joints with dimension %d",dimension_);
+    ROS_DEBUG("Choosing projection evaluator for real vector joints with dimension %d",dimension_);
     return;
   }
 
@@ -73,7 +73,7 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSp
     dimension_ = 1;
     cellSizes_.resize(1);
     cellSizes_[0] = boost::math::constants::pi<double>() / 10.0;
-    ROS_INFO("Choosing projection evaluator for SO2 state space %s",evaluator_name.c_str());
+    ROS_DEBUG("Choosing projection evaluator for SO2 state space %s",evaluator_name.c_str());
   }
   else if(mapping_type_ == ompl_ros_interface::SE2)
   {
@@ -102,6 +102,11 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSp
     cellSizes_[1] = (b.high[1] - b.low[1]) / 10.0;
     cellSizes_[2] = (b.high[2] - b.low[2]) / 10.0;
     ROS_INFO("Choosing projection evaluator for SE3 state space %s",evaluator_name.c_str());
+  }
+  else
+  {
+    ROS_ERROR("Could not initialize projection evaluator. A projection evaluator needs to be defined as either a combination of revolute joints with joint limits, or a continuous, spherical, planar of floating joint. ");
+    throw new OMPLROSException();
   }
 };
 	

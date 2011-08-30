@@ -35,6 +35,7 @@
 /** \author Sachin Chitta, Ioan Sucan */
 
 #include <ompl_ros_interface/planners/ompl_ros_task_space_planner.h>
+#include <planning_environment/models/model_utils.h>
 
 namespace ompl_ros_interface
 {
@@ -63,6 +64,7 @@ bool OmplRosTaskSpacePlanner::initializePlanningStateSpace(ompl::base::StateSpac
     ROS_ERROR("State space list should be of XmlRpc Array type");
     return false;
   }
+
   int real_vector_index = -1;
   state_space.reset(new ompl::base::CompoundStateSpace());
   state_space->setName(group_name_);
@@ -76,12 +78,11 @@ bool OmplRosTaskSpacePlanner::initializePlanningStateSpace(ompl::base::StateSpac
     space_names.push_back(static_cast<std::string>(space_list[i]));
     ROS_INFO("Adding state space: %s",space_names.back().c_str());
 
-    if(planning_monitor_->getKinematicModel()->hasJointModel(space_names.back()))
-      //    if(planning_monitor_->getKinematicModel()->getJointModel(space_names.back()))
+    if(collision_models_interface_->getKinematicModel()->hasJointModel(space_names.back()))
     {
-      addToOmplStateSpace(planning_monitor_->getKinematicModel(),
-                             space_names.back(),
-                             state_space);
+      addToOmplStateSpace(collision_models_interface_->getKinematicModel(),
+                          space_names.back(),
+                          state_space);
       continue;
     }
 
@@ -181,8 +182,8 @@ bool OmplRosTaskSpacePlanner::getSpaceFromParamServer(const ros::NodeHandle &nod
   return true;
 }
 
-bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan::Request &request,
-                                             motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosTaskSpacePlanner::isRequestValid(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                             arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   if(request.motion_plan_request.group_name != group_name_)
   {
@@ -191,31 +192,29 @@ bool OmplRosTaskSpacePlanner::isRequestValid(motion_planning_msgs::GetMotionPlan
     return false;
   }
 
-
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_frame_id_,
-                                                     response.error_code))
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            request.motion_plan_request.goal_constraints))
+  {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
-
-
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_frame_id_,
-                                                     response.error_code))
+  }
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            request.motion_plan_request.path_constraints))
+  {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
- 
-  return true;
-
+  }
   if(request.motion_plan_request.allowed_planning_time.toSec() <= 0.0)
   {
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::INVALID_TIMEOUT;
     ROS_ERROR("Request does not specify correct allowed planning time %f",request.motion_plan_request.allowed_planning_time.toSec());
     return false;
   }
   return true;
 }
 
-bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Request &request,
-                                      motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosTaskSpacePlanner::setGoal(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                      arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> goal(state_space_);
   ompl::base::GoalPtr goal_states(new ompl::base::GoalStates(planner_->getSpaceInformation()));
@@ -223,6 +222,7 @@ bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Reque
   if(!constraintsToOmplState(request.motion_plan_request.goal_constraints,goal))
   {
     response.error_code.val = response.error_code.PLANNING_FAILED;
+    ROS_WARN("Problem converting constraints to ompl state");
     return false;
   }
   goal_states->as<ompl::base::GoalStates>()->addState(goal.get());
@@ -234,7 +234,7 @@ bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Reque
       response.error_code.val = response.error_code.GOAL_VIOLATES_PATH_CONSTRAINTS;
     else if(response.error_code.val == response.error_code.COLLISION_CONSTRAINTS_VIOLATED)
       response.error_code.val = response.error_code.GOAL_IN_COLLISION;
-    ROS_ERROR("Goal state is invalid. Reason: %s",motion_planning_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
+    ROS_ERROR("Goal state is invalid. Reason: %s",arm_navigation_msgs::armNavigationErrorCodeToString(response.error_code).c_str());
     return false;
   }  
   planner_->setGoal(goal_states);    
@@ -242,17 +242,24 @@ bool OmplRosTaskSpacePlanner::setGoal(motion_planning_msgs::GetMotionPlan::Reque
   return true;
 }
 
-bool OmplRosTaskSpacePlanner::constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
+bool OmplRosTaskSpacePlanner::constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints, 
                                                      ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal)
 {
   return ompl_ros_interface::constraintsToOmplState(constraints,goal);
 }
 
-bool OmplRosTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                                       motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosTaskSpacePlanner::setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                       arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> start(state_space_);
-  ompl_ros_interface::robotStateToOmplState(request.motion_plan_request.start_state,start,false);
+  arm_navigation_msgs::RobotState cur_state;
+  planning_environment::convertKinematicStateToRobotState(*collision_models_interface_->getPlanningSceneState(),
+                                                          ros::Time::now(),
+                                                          collision_models_interface_->getWorldFrameId(),
+                                                          cur_state);
+  
+  ompl_ros_interface::robotStateToOmplState(cur_state,start,false);
+
   ompl_ros_interface::OmplRosTaskSpaceValidityChecker *my_checker = dynamic_cast<ompl_ros_interface::OmplRosTaskSpaceValidityChecker*>(state_validity_checker_.get());  
   if(!my_checker->isStateValid(start.get()))
   {
@@ -271,7 +278,7 @@ bool OmplRosTaskSpacePlanner::setStart(motion_planning_msgs::GetMotionPlan::Requ
 bool OmplRosTaskSpacePlanner::initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker)
 {
   state_validity_checker.reset(new ompl_ros_interface::OmplRosTaskSpaceValidityChecker(planner_->getSpaceInformation().get(),
-                                                                                       planning_monitor_,
+                                                                                       collision_models_interface_,
                                                                                        planning_frame_id_));
   return true;
 }

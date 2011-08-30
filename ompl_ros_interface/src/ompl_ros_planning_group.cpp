@@ -35,15 +35,16 @@
 /** \author Sachin Chitta, Ioan Sucan */
 
 #include <ompl_ros_interface/ompl_ros_planning_group.h>
+#include <planning_environment/models/model_utils.h>
 
 namespace ompl_ros_interface
 {
 bool OmplRosPlanningGroup::initialize(const ros::NodeHandle &node_handle,
                                       const std::string &group_name,
                                       const std::string &planner_config_name,
-                                      planning_environment::PlanningMonitor *planning_monitor)
+                                      planning_environment::CollisionModelsInterface *cmi)
 {
-  planning_monitor_    = planning_monitor;
+  collision_models_interface_    = cmi;
   group_name_          = group_name;
   node_handle_         = node_handle;
   planner_config_name_ = planner_config_name;
@@ -82,9 +83,8 @@ bool OmplRosPlanningGroup::initialize(const ros::NodeHandle &node_handle,
 bool OmplRosPlanningGroup::initializePhysicalGroup()
 {
   std::string physical_group_name;
-  if(!planning_monitor_->getKinematicModel()->hasModelGroup(group_name_))
+  if(!collision_models_interface_->getKinematicModel()->hasModelGroup(group_name_))
   {
-    ROS_INFO("Joint group %s is an abstract group",group_name_.c_str());
     if(!node_handle_.hasParam(group_name_+"/physical_group"))
     {
       ROS_ERROR("No physical group specified for %s",group_name_.c_str());
@@ -97,7 +97,7 @@ bool OmplRosPlanningGroup::initializePhysicalGroup()
     physical_group_name = group_name_;
 
   //Setup the actual (physical) groups
-  physical_joint_group_ = planning_monitor_->getKinematicModel()->getModelGroup(physical_group_name);
+  physical_joint_group_ = collision_models_interface_->getKinematicModel()->getModelGroup(physical_group_name);
   return true;
 }
 
@@ -112,8 +112,15 @@ bool OmplRosPlanningGroup::initializeProjectionEvaluator()
   }
   node_handle_.getParam(group_name_+"/projection_evaluator",projection_evaluator);
   ompl::base::ProjectionEvaluatorPtr ompl_projection_evaluator;
-  ompl_projection_evaluator.reset(new ompl_ros_interface::OmplRosProjectionEvaluator(state_space_.get(),
-                                                                                     projection_evaluator));
+  try
+  {
+    ompl_projection_evaluator.reset(new ompl_ros_interface::OmplRosProjectionEvaluator(state_space_.get(),
+                                                                                       projection_evaluator));
+  }
+  catch(...)
+  {
+    return false;
+  }
   state_space_->registerDefaultProjection(ompl_projection_evaluator);
   return true;
 }
@@ -140,6 +147,10 @@ bool OmplRosPlanningGroup::initializePlanner()
     return initializeKPIECEPlanner();
   else if(planner_type == "kinematic::LBKPIECE")
     return initializeLBKPIECEPlanner();
+  else if(planner_type == "kinematic::RRTStar")
+    return initializeRRTStarPlanner();
+  else if(planner_type == "kinematic::BKPIECE")
+    return initializeBKPIECEPlanner();
 	else
   {
     ROS_WARN("Unknown planner type: %s", planner_type.c_str());
@@ -155,6 +166,38 @@ bool OmplRosPlanningGroup::initializeRRTPlanner()
   {
     new_planner->setGoalBias(planner_config_->getParamDouble("goal_bias",new_planner->getGoalBias()));
     ROS_DEBUG("RRTPlanner::Goal bias is set to %g", new_planner->getGoalBias());
+  }  
+  if (planner_config_->hasParam("range"))
+  {
+    new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
+    ROS_DEBUG("RRTPlanner::Range is set to %g", new_planner->getRange());
+  }  
+  return true;
+}
+
+bool OmplRosPlanningGroup::initializeRRTStarPlanner()
+{
+  ompl_planner_.reset(new ompl::geometric::RRTstar(planner_->getSpaceInformation()));
+  ompl::geometric::RRTstar* new_planner = dynamic_cast<ompl::geometric::RRTstar*>(ompl_planner_.get());
+  if (planner_config_->hasParam("goal_bias"))
+  {
+    new_planner->setGoalBias(planner_config_->getParamDouble("goal_bias",new_planner->getGoalBias()));
+    ROS_DEBUG("RRTStarPlanner::Goal bias is set to %g", new_planner->getGoalBias());
+  }  
+  if (planner_config_->hasParam("range"))
+  {
+    new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
+    ROS_DEBUG("RRTStarPlanner::Range is set to %g", new_planner->getRange());
+  }  
+  if (planner_config_->hasParam("ball_radius_constant"))
+  {
+    new_planner->setBallRadiusConstant(planner_config_->getParamDouble("ball_radius_constant",new_planner->getBallRadiusConstant()));
+    ROS_DEBUG("RRTStarPlanner::Ball radius constant is set to %g", new_planner->getBallRadiusConstant());
+  }  
+  if (planner_config_->hasParam("max_ball_radius"))
+  {
+    new_planner->setMaxBallRadius(planner_config_->getParamDouble("max_ball_radius",new_planner->getMaxBallRadius()));
+    ROS_DEBUG("RRTStarPlanner::Ball radius constant is set to %g", new_planner->getMaxBallRadius());
   }  
   return true;
 }
@@ -270,6 +313,45 @@ bool OmplRosPlanningGroup::initializeKPIECEPlanner()
     new_planner->setGoalBias(planner_config_->getParamDouble("goal_bias",new_planner->getGoalBias()));
     ROS_DEBUG("KPIECEPlanner::Goal bias is set to %g", new_planner->getGoalBias());
   }  
+  if (planner_config_->hasParam("min_valid_path_fraction"))
+  {
+    new_planner->setMinValidPathFraction(planner_config_->getParamDouble("min_valid_path_fraction",new_planner->getMinValidPathFraction()));
+    ROS_DEBUG("KPIECEPlanner::Min valid path fraction is set to %g", new_planner->getMinValidPathFraction());
+  }  
+  if (planner_config_->hasParam("good_cell_score_factor") && planner_config_->hasParam("bad_cell_score_factor"))
+  {
+    new_planner->setCellScoreFactor(planner_config_->getParamDouble("cell_score_factor",new_planner->getBorderFraction()),
+                                    planner_config_->getParamDouble("good_cell_score_factor",new_planner->getBorderFraction()));
+    ROS_DEBUG("KPIECEPlanner::Border score factor is set to (good,bad):(%g,%g)", new_planner->getGoodCellScoreFactor(),new_planner->getBadCellScoreFactor());
+  }  
+  return true;
+}
+
+bool OmplRosPlanningGroup::initializeBKPIECEPlanner()
+{
+  ompl_planner_.reset(new ompl::geometric::BKPIECE1(planner_->getSpaceInformation()));
+  ompl::geometric::BKPIECE1* new_planner = dynamic_cast<ompl::geometric::BKPIECE1*>(ompl_planner_.get());
+  if (planner_config_->hasParam("range"))
+  {
+    new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
+    ROS_DEBUG("BKPIECEPlanner::Range is set to %g", new_planner->getRange());
+  }  
+  if (planner_config_->hasParam("border_fraction"))
+  {
+    new_planner->setBorderFraction(planner_config_->getParamDouble("border_fraction",new_planner->getBorderFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Range is set to %g", new_planner->getBorderFraction());
+  }  
+  if (planner_config_->hasParam("good_cell_score_factor") && planner_config_->hasParam("bad_cell_score_factor"))
+  {
+    new_planner->setCellScoreFactor(planner_config_->getParamDouble("cell_score_factor",new_planner->getBorderFraction()),
+                                    planner_config_->getParamDouble("good_cell_score_factor",new_planner->getBorderFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Border score factor is set to (good,bad):(%g,%g)", new_planner->getGoodCellScoreFactor(),new_planner->getBadCellScoreFactor());
+  }  
+  if (planner_config_->hasParam("min_valid_path_fraction"))
+  {
+    new_planner->setMinValidPathFraction(planner_config_->getParamDouble("min_valid_path_fraction",new_planner->getMinValidPathFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Min valid path fraction is set to %g", new_planner->getMinValidPathFraction());
+  }  
   return true;
 }
 
@@ -282,28 +364,40 @@ bool OmplRosPlanningGroup::initializeLBKPIECEPlanner()
     new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
     ROS_DEBUG("LBKPIECEPlanner::Range is set to %g", new_planner->getRange());
   }  
+  if (planner_config_->hasParam("border_fraction"))
+  {
+    new_planner->setBorderFraction(planner_config_->getParamDouble("border_fraction",new_planner->getBorderFraction()));
+    ROS_DEBUG("LBKPIECEPlanner::Border fraction is set to %g", new_planner->getBorderFraction());
+  }  
+  if (planner_config_->hasParam("min_valid_path_fraction"))
+  {
+    new_planner->setMinValidPathFraction(planner_config_->getParamDouble("min_valid_path_fraction",new_planner->getMinValidPathFraction()));
+    ROS_DEBUG("BKPIECEPlanner::Min valid path fraction is set to %g", new_planner->getMinValidPathFraction());
+  }  
   return true;
 }
 
-bool OmplRosPlanningGroup::transformConstraints(motion_planning_msgs::GetMotionPlan::Request &request, 
-                                                motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosPlanningGroup::transformConstraints(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                                                arm_navigation_msgs::GetMotionPlan::Response &response)
 {
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_monitor_->getWorldFrameId(),
-                                                     response.error_code))
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            request.motion_plan_request.goal_constraints))
+  {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
+  }
 
-
-  if(!planning_monitor_->transformConstraintsToFrame(request.motion_plan_request.goal_constraints, 
-                                                     planning_monitor_->getWorldFrameId(),
-                                                     response.error_code))
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            request.motion_plan_request.path_constraints))
+  {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
- 
+  }
   return true;
 }
 
 bool OmplRosPlanningGroup::omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path, 
-                                                              motion_planning_msgs::RobotTrajectory &robot_trajectory)
+                                                              arm_navigation_msgs::RobotTrajectory &robot_trajectory)
 {
   if(!ompl_ros_interface::jointStateGroupToRobotTrajectory(physical_joint_state_group_,robot_trajectory))
     return false;
@@ -312,23 +406,35 @@ bool OmplRosPlanningGroup::omplPathGeometricToRobotTrajectory(const ompl::geomet
   return true;
 }
 
-bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Request &request, 
-                                       motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosPlanningGroup::computePlan(arm_navigation_msgs::GetMotionPlan::Request &request, 
+                                       arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   planner_->clear();
-  boost::scoped_ptr<planning_models::KinematicState> kinematic_state;
-  kinematic_state.reset(new planning_models::KinematicState(planning_monitor_->getKinematicModel()));
+  planning_models::KinematicState* kinematic_state = collision_models_interface_->getPlanningSceneState();
+  if(kinematic_state == NULL) {
+    ROS_ERROR_STREAM("Planning scene hasn't been set");
+    return finish(false);
+  }
+
+  //updating for new start state
+  planning_environment::setRobotStateAndComputeTransforms(request.motion_plan_request.start_state,
+                                                          *kinematic_state);
+
   physical_joint_state_group_ = kinematic_state->getJointStateGroup(physical_joint_group_->getName());
   if(!physical_joint_state_group_)
   {
     ROS_ERROR("Could not find physical joint state group");
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
     return finish(false);
   }
+
+  //disabling collisions that don't affect this group
+  collision_models_interface_->disableCollisionsForNonUpdatedLinks(physical_joint_group_->getName());
+
   if (!isRequestValid(request,response))
     return finish(false);
 
-  if(!configurePlanningMonitor(request,response,kinematic_state.get()))
+  if(!configureStateValidityChecker(request,response,kinematic_state))
     return finish(false);
   
   if(!transformConstraints(request,response))
@@ -349,20 +455,20 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
     try
     {
       response.trajectory = getSolutionPath();
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::SUCCESS;
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::SUCCESS;
       return finish(true);
     }
     catch(...)
     {
       ROS_ERROR("Could not find solution");
-      response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
+      response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
       return finish(false);
     }
   }
   else
   {
     ROS_ERROR("Could not find solution for request");
-    response.error_code.val = motion_planning_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
+    response.error_code.val = arm_navigation_msgs::ArmNavigationErrorCodes::PLANNING_FAILED;
     return finish(false);
   }  
 }
@@ -370,30 +476,17 @@ bool OmplRosPlanningGroup::computePlan(motion_planning_msgs::GetMotionPlan::Requ
 
 bool OmplRosPlanningGroup::finish(const bool &result)
 {
-  planning_monitor_->revertToDefaultState();
+  if(collision_models_interface_->getPlanningSceneState() != NULL) {
+    collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
+  }
   return result;
 }
 
-bool OmplRosPlanningGroup::configurePlanningMonitor(motion_planning_msgs::GetMotionPlan::Request &request,
-                                                    motion_planning_msgs::GetMotionPlan::Response &response,
-                                                    planning_models::KinematicState *kinematic_state)
+bool OmplRosPlanningGroup::configureStateValidityChecker(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                                         arm_navigation_msgs::GetMotionPlan::Response &response,
+                                                         planning_models::KinematicState *kinematic_state)
 {
-  if(!planning_monitor_->prepareForValidityChecks(physical_joint_group_->getJointModelNames(),
-                                                  request.motion_plan_request.ordered_collision_operations,
-                                                  request.motion_plan_request.allowed_contacts,
-                                                  request.motion_plan_request.path_constraints,
-                                                  request.motion_plan_request.goal_constraints,
-                                                  request.motion_plan_request.link_padding,
-                                                  response.error_code))
-  {
-    ROS_ERROR("Could not configure planning monitor");
-    return false;
-  }
-
   /* set the pose of the whole robot */
-  planning_monitor_->setRobotStateAndComputeTransforms(request.motion_plan_request.start_state, *kinematic_state);
-  planning_monitor_->getEnvironmentModel()->updateRobotModel(kinematic_state);
-
   /* set the kinematic state for the state validator */
   ompl_ros_interface::OmplRosStateValidityChecker *my_checker = dynamic_cast<ompl_ros_interface::OmplRosStateValidityChecker*>(state_validity_checker_.get());
   my_checker->configureOnRequest(kinematic_state,
@@ -402,8 +495,8 @@ bool OmplRosPlanningGroup::configurePlanningMonitor(motion_planning_msgs::GetMot
   return true;
 }
 
-bool OmplRosPlanningGroup::setStartAndGoalStates(motion_planning_msgs::GetMotionPlan::Request &request,
-                                                 motion_planning_msgs::GetMotionPlan::Response &response)
+bool OmplRosPlanningGroup::setStartAndGoalStates(arm_navigation_msgs::GetMotionPlan::Request &request,
+                                                 arm_navigation_msgs::GetMotionPlan::Response &response)
 {
   if(!setStart(request,response))
     return false;

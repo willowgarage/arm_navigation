@@ -66,8 +66,6 @@ int plan2d(int argc, char *argv[])
 	vector<int> solution_stateIDs_V;
 	bool bforwardsearch = false;
 	ARAPlanner planner(&environment_nav2D, bforwardsearch);
-	//RSTARPlanner planner(&environment_nav2D, bforwardsearch);
-	//anaPlanner planner(&environment_nav2D, bforwardsearch);
 
 	//set search mode
 	planner.set_search_mode(bsearchuntilfirstsolution);
@@ -284,9 +282,7 @@ int planxythetalat(int argc, char *argv[])
 	//plan a path
 	vector<int> solution_stateIDs_V;
 	bool bforwardsearch = false;
-	//ADPlanner planner(&environment_navxythetalat, bforwardsearch);
-	ARAPlanner planner(&environment_navxythetalat, bforwardsearch);
-	//anaPlanner planner(&environment_navxythetalat, bforwardsearch);
+	ADPlanner planner(&environment_navxythetalat, bforwardsearch);
 
     if(planner.set_start(MDPCfg.startstateid) == 0)
         {
@@ -587,15 +583,16 @@ int planandnavigate2d(int argc, char *argv[])
     SBPL_ERROR("ERROR: could not open solution file\n");
     throw new SBPL_Exception();
   }
-  //int dx[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
-  //int dy[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
+  int dx[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
+  int dy[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
 	bool bPrint = true;
 	int x,y;
 	vector<int> preds_of_changededgesIDV;
 	vector<nav2dcell_t> changedcellsV;
 	nav2dcell_t nav2dcell;
+	int i;
 	unsigned char obsthresh = 0;
-	srand(0);
+	//srand(0);
 	int plantime_over1secs=0, plantime_over0p5secs=0, plantime_over0p1secs=0, plantime_over0p05secs=0, plantime_below0p05secs=0;
 
 	//set parameters - should be done before initialization 
@@ -647,8 +644,8 @@ int planandnavigate2d(int argc, char *argv[])
 	//create a planner
 	vector<int> solution_stateIDs_V;
 	bool bforwardsearch = false;
-    ARAPlanner planner(&environment_nav2D, bforwardsearch);
-	//RSTARPlanner planner(&environment_nav2D, bforwardsearch);
+    //ARAPlanner planner(&environment_nav2D, bforwardsearch);
+	ADPlanner planner(&environment_nav2D, bforwardsearch);
 
 	planner.set_initialsolution_eps(2.0);
 
@@ -665,10 +662,6 @@ int planandnavigate2d(int argc, char *argv[])
             throw new SBPL_Exception();
         }
 
-	//set search mode
-	planner.set_search_mode(false); 
-
-
     //now comes the main loop
     int goalthresh = 0;
     while(abs(startx - goalx) > goalthresh || abs(starty - goaly) > goalthresh){
@@ -677,44 +670,35 @@ int planandnavigate2d(int argc, char *argv[])
         bool bChanges = false;
 		preds_of_changededgesIDV.clear();
 		changedcellsV.clear();
-		//two-step horizon
-		int dX = 0;
-		int dY = 0;
-        for(dX = -2; dX <= 2 ; dX++){
-			for(dY = -2; dY <= 2 ; dY++){
-				int x = startx + dX;
-				int y = starty + dY;
-				if(x < 0 || x >= size_x || y < 0 || y >= size_y)
-					continue;
-				int index = x + y*size_x;
-				unsigned char truecost = trueenvironment_nav2D.GetMapCost(x,y);
-				if(map[index] != truecost){
-					map[index] = truecost;
-					environment_nav2D.UpdateCost(x,y,map[index]);
-					SBPL_PRINTF("setting cost[%d][%d] to %d\n", x,y,map[index]);
-					bChanges = true;
-					//store the changed cells
-					nav2dcell.x = x;
-					nav2dcell.y = y;
-					changedcellsV.push_back(nav2dcell);
-				}
-			}
+        for(i = 0; i < 8; i++){
+            int x = startx + dx[i];
+            int y = starty + dy[i];
+            if(x < 0 || x >= size_x || y < 0 || y >= size_y)
+                continue;
+            int index = x + y*size_x;
+			unsigned char truecost = trueenvironment_nav2D.GetMapCost(x,y);
+            if(map[index] != truecost){
+                map[index] = truecost;
+                environment_nav2D.UpdateCost(x,y,map[index]);
+                SBPL_PRINTF("setting cost[%d][%d] to %d\n", x,y,map[index]);
+                bChanges = true;
+				//store the changed cells
+				nav2dcell.x = x;
+				nav2dcell.y = y;
+				changedcellsV.push_back(nav2dcell);
+            }
         }
 		
 		double TimeStarted = clock();
 
         if(bChanges){
-            planner.costs_changed(); //use by ARA* planner (non-incremental)
+            //planner.costs_changed(); //use by ARA* planner (non-incremental)
 
-			//the following two lines are used by AD* planner (incremental)
-			/*
 			//get the affected states
 			environment_nav2D.GetPredsofChangedEdges(&changedcellsV, &preds_of_changededgesIDV);
 			//let know the incremental planner about them
-			planner.update_preds_of_changededges(&preds_of_changededgesIDV); 
-			*/
+			planner.update_preds_of_changededges(&preds_of_changededgesIDV); //use by AD* planner (incremental)
         }
-		//planner.force_planning_from_scratch();
 
 
         SBPL_FPRINTF(fSol, "%d %d ",  startx, starty);
@@ -726,13 +710,12 @@ int planandnavigate2d(int argc, char *argv[])
             bPlanExists = (planner.replan(allocated_time_secs_foreachplan, &solution_stateIDs_V) == 1);
             SBPL_PRINTF("done with the solution of size=%d\n", (unsigned int)solution_stateIDs_V.size());   
             environment_nav2D.PrintTimeStat(stdout);
-			if(bPlanExists == false) throw new SBPL_Exception();
 
             //for(unsigned int i = 0; i < solution_stateIDs_V.size(); i++) {
             //environment_nav2D.PrintState(solution_stateIDs_V[i], true, fSol);
             //}
             //SBPL_FPRINTF(fSol, "*********\n");
-         }
+        }
 
 		double plantime_secs = (clock()-TimeStarted)/((double)CLOCKS_PER_SEC);
 		SBPL_FPRINTF(fSol, "%.5f %.5f\n", plantime_secs, planner.get_solution_eps());
@@ -816,10 +799,8 @@ int planandnavigate2d(int argc, char *argv[])
 	SBPL_FPRINTF(fSol, "stats: plantimes over 1 secs=%d; over 0.5; secs=%d; over 0.1 secs=%d; over 0.05 secs=%d; below 0.05 secs=%d\n",
 		plantime_over1secs, plantime_over0p5secs, plantime_over0p1secs, plantime_over0p05secs, plantime_below0p05secs);
 
-    if(bPrint) SBPL_PRINTF("System Pause (return=%d)\n",system("pause"));
-
 	SBPL_FFLUSH(NULL);
-	SBPL_FCLOSE(fSol);
+  SBPL_FCLOSE(fSol);
 
 
     return 1;
@@ -831,7 +812,7 @@ int planandnavigate2d(int argc, char *argv[])
 int planandnavigatexythetalat(int argc, char *argv[])
 {
 
-	double allocated_time_secs_foreachplan = 1.0; //in seconds
+	double allocated_time_secs_foreachplan = 3.0; //in seconds
 	MDPConfig MDPCfg;
 	EnvironmentNAVXYTHETALAT environment_navxythetalat;
 	EnvironmentNAVXYTHETALAT trueenvironment_navxythetalat;
@@ -849,7 +830,7 @@ int planandnavigatexythetalat(int argc, char *argv[])
   }
     //int dx[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
     //int dy[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
-	bool bPrint = false, bPrintMap = false;
+	bool bPrint = true, bPrintMap = false;
 	int x,y;
 	vector<int> preds_of_changededgesIDV;
 	vector<nav2dcell_t> changedcellsV;
@@ -935,7 +916,6 @@ int planandnavigatexythetalat(int argc, char *argv[])
 			maxy = fabs(perimeterptsV.at(i).y);
 	}
 	//TODO - when running it, no obstacle show up when it is 20 and not 2 - bug
-	//TODO - make sensingrange to be the length of the longest motion primitive
 	int sensingrange_c = (int)(__max(maxx, maxy)/cellsize_m) + 2; //should be big enough to cover the motion primitive length
 	SBPL_PRINTF("sensing range=%d cells\n", sensingrange_c);
 	vector<sbpl_2Dcell_t> sensecells;
@@ -1003,10 +983,10 @@ int planandnavigatexythetalat(int argc, char *argv[])
 	//create a planner
 	vector<int> solution_stateIDs_V;
 	bool bforwardsearch = false;
-    ARAPlanner planner(&environment_navxythetalat, bforwardsearch);
-	//ADPlanner planner(&environment_navxythetalat, bforwardsearch);
+    //ARAPlanner planner(&environment_navxythetalat, bforwardsearch);
+	ADPlanner planner(&environment_navxythetalat, bforwardsearch);
 
-	planner.set_initialsolution_eps(5.0); 
+	planner.set_initialsolution_eps(3.0); 
 
 	//set search mode
 	planner.set_search_mode(bsearchuntilfirstsolution);
@@ -1062,12 +1042,12 @@ int planandnavigatexythetalat(int argc, char *argv[])
 		double TimeStarted = clock();
 
         if(bChanges){
-            planner.costs_changed(); //use by ARA* planner (non-incremental)
+            //planner.costs_changed(); //use by ARA* planner (non-incremental)
 
 			//get the affected states
-			//environment_navxythetalat.GetPredsofChangedEdges(&changedcellsV, &preds_of_changededgesIDV);
+			environment_navxythetalat.GetPredsofChangedEdges(&changedcellsV, &preds_of_changededgesIDV);
 			//let know the incremental planner about them
-			//planner.update_preds_of_changededges(&preds_of_changededgesIDV); //use by AD* planner (incremental)
+			planner.update_preds_of_changededges(&preds_of_changededgesIDV); //use by AD* planner (incremental)
 			//SBPL_PRINTF("%d states were affected\n", preds_of_changededgesIDV.size());
 
         }
@@ -1213,14 +1193,13 @@ int planrobarm(int argc, char *argv[])
 		throw new SBPL_Exception();
 	}
 
-	//srand(1); 
+	//srand(1); //TODO
 
 	//plan a path
 	vector<int> solution_stateIDs_V;
 	bool bforwardsearch = true;
-	ARAPlanner planner(&environment_robarm, bforwardsearch);
-	//RSTARPlanner planner(&environment_robarm, bforwardsearch);
-	//anaPlanner planner(&environment_robarm, bforwardsearch);
+	//ARAPlanner planner(&environment_robarm, bforwardsearch);
+	RSTARPlanner planner(&environment_robarm, bforwardsearch);
 
     if(planner.set_start(MDPCfg.startstateid) == 0)
         {
@@ -1272,6 +1251,7 @@ int planrobarm(int argc, char *argv[])
 
 
 
+
 int main(int argc, char *argv[])
 {
 #ifdef ROS
@@ -1303,7 +1283,7 @@ int main(int argc, char *argv[])
 
 	//xytheta with multiple levels (i.e., base of the robot and upper body)
 	//usage: see the comments for planxythetalat() above
-	//planxythetamlevlat(argc, argv);
+	planxythetamlevlat(argc, argv);
 
     //robotarm planning
 	//usage: exename robarmenvironmentfile.cfg

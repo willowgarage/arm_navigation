@@ -18,8 +18,7 @@ rosbuild_add_library(sbpl
                          src/planners/ADStar/adplanner.cpp
                          src/planners/VI/viplanner.cpp
                          src/planners/PPCP/ppcpplanner.cpp
-						 src/planners/RStar/rstarplanner.cpp
-                         src/planners/ANA/ANAplanner.cpp
+			 src/planners/RStar/rstarplanner.cpp
                          src/utils/heap.cpp
                          src/utils/mdp.cpp
                          src/utils/utils.cpp

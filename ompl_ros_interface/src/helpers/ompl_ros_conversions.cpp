@@ -52,10 +52,10 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
   std::vector<std::string> real_vector_names;
   std::vector<const planning_models::KinematicModel::JointModel*> joint_models = joint_group->getJointModels();
 
-	for (unsigned int i = 0 ; i < joint_models.size() ; ++i)
+  for (unsigned int i = 0 ; i < joint_models.size() ; ++i)
   {
-		const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = 
-			dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint_models[i]);
+    const planning_models::KinematicModel::RevoluteJointModel* revolute_joint = 
+      dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(joint_models[i]);
     if (revolute_joint && revolute_joint->continuous_)
     {
       ompl::base::SO2StateSpace *subspace = new ompl::base::SO2StateSpace();
@@ -103,16 +103,16 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
         }
         else
         {
-          // the only other case we consider is R^n; since we know that for now at least the only other type of joint available is non-continuous revolute joints
-          // we can use the revoluteJoint cast      
-          std::pair<double,double> bounds = revolute_joint->getVariableBounds(revolute_joint->getName());
+          // the only other case we consider is R^n; since we know that for now at least the only other type of joint available is a single-dof non-continuous revolute or prismatic joint
+          std::pair<double,double> bounds;
+          joint_models[i]->getVariableBounds(joint_models[i]->getName(), bounds);
           real_vector_bounds.low.push_back(bounds.first);
           real_vector_bounds.high.push_back(bounds.second);
-          real_vector_names.push_back(revolute_joint->getName());
+          real_vector_names.push_back(joint_models[i]->getName());
           kinematic_ompl_mapping.joint_state_mapping.push_back(real_vector_bounds.low.size()-1);
           kinematic_ompl_mapping.joint_mapping_type.push_back(ompl_ros_interface::REAL_VECTOR);
           ompl_kinematic_mapping.real_vector_mapping.push_back(i);
-          ROS_DEBUG("Adding real vector joint %s with bounds %f %f",revolute_joint->getName().c_str(),real_vector_bounds.low.back(),real_vector_bounds.high.back());
+          ROS_DEBUG("Adding real vector joint %s with bounds %f %f",joint_models[i]->getName().c_str(),real_vector_bounds.low.back(),real_vector_bounds.high.back());
         }
       }    
     }
@@ -138,9 +138,9 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
   return ompl_state_space;
 };
 
-bool addToOmplStateSpace(boost::shared_ptr<planning_models::KinematicModel> kinematic_model, 
-                            const std::string &joint_name,
-                            ompl::base::StateSpacePtr &ompl_state_space)
+bool addToOmplStateSpace(const planning_models::KinematicModel* kinematic_model, 
+                         const std::string &joint_name,
+                         ompl::base::StateSpacePtr &ompl_state_space)
 {
   ompl::base::CompoundStateSpace* state_space = dynamic_cast<ompl::base::CompoundStateSpace*> (ompl_state_space.get());
 
@@ -182,8 +182,7 @@ bool addToOmplStateSpace(boost::shared_ptr<planning_models::KinematicModel> kine
       }
       else
       {
-        // the only other case we consider is R^n; since we know that for now at least the only other type of joint available is non-continuous revolute joints
-        // we can use the revoluteJoint cast      
+        // the only other case we consider is R^n; since we know that for now at least the only other type of joint available are single-dof joints
         int real_vector_index = -1;
         if(state_space->hasSubSpace("real_vector"))
           real_vector_index = state_space->getSubSpaceIndex("real_vector");
@@ -197,7 +196,8 @@ bool addToOmplStateSpace(boost::shared_ptr<planning_models::KinematicModel> kine
         }
         ompl::base::StateSpacePtr real_vector_state_space = state_space->getSubSpace("real_vector");
         double min_value, max_value;
-        std::pair<double,double> bounds = revolute_joint->getVariableBounds(joint_name);
+        std::pair<double,double> bounds;
+        joint_model->getVariableBounds(joint_name, bounds);
         min_value = bounds.first;
         max_value = bounds.second;
         real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->addDimension(joint_name,min_value,max_value);    
@@ -389,7 +389,7 @@ bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::ba
   return true;
 };
 
-bool getRobotStateToOmplStateMapping(const motion_planning_msgs::RobotState &robot_state, 
+bool getRobotStateToOmplStateMapping(const arm_navigation_msgs::RobotState &robot_state, 
                                      const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                                      ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                                      const bool &fail_if_match_not_found)
@@ -547,7 +547,7 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
 };
 
 bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
-                                     const motion_planning_msgs::RobotState &robot_state, 
+                                     const arm_navigation_msgs::RobotState &robot_state, 
                                      ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                                      const bool &fail_if_match_not_found)
 {
@@ -578,7 +578,7 @@ bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::C
 
 bool omplStateToRobotState(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                            const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
-                           motion_planning_msgs::RobotState &robot_state)
+                           arm_navigation_msgs::RobotState &robot_state)
 {
   unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
   for(unsigned int i=0; i < num_state_spaces; i++)
@@ -607,7 +607,7 @@ bool omplRealVectorStateToJointState(const ompl::base::RealVectorStateSpace::Sta
 };
 
 
-bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
+bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
                            const ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                            ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                            const bool &fail_if_match_not_found)
@@ -615,7 +615,7 @@ bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
   return robotStateToOmplState(robot_state,mapping,ompl_scoped_state.get(),fail_if_match_not_found);
 };
 
-bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
+bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
                            const ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                            ompl::base::State *ompl_state,
                            const bool &fail_if_match_not_found)
@@ -644,7 +644,7 @@ bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
   return true;                                       
 };
 
-bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
+bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
                            ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                            const bool &fail_if_match_not_found)
 {
@@ -890,7 +890,7 @@ bool omplStateToKinematicStateGroup(const ompl::base::State *ompl_state,
    @param robot_trajectory The output robot trajectory
 */
 bool jointStateGroupToRobotTrajectory(planning_models::KinematicState::JointStateGroup* joint_state_group, 
-                                      motion_planning_msgs::RobotTrajectory &robot_trajectory)
+                                      arm_navigation_msgs::RobotTrajectory &robot_trajectory)
 {
   const planning_models::KinematicModel::JointModelGroup* joint_model_group = joint_state_group->getJointModelGroup();
   std::vector<const planning_models::KinematicModel::JointModel*> joint_models = joint_model_group->getJointModels();
@@ -921,7 +921,7 @@ bool jointStateGroupToRobotTrajectory(planning_models::KinematicState::JointStat
 
 bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path,
                                         const ompl::base::StateSpacePtr &state_space,
-                                        motion_planning_msgs::RobotTrajectory &robot_trajectory)
+                                        arm_navigation_msgs::RobotTrajectory &robot_trajectory)
 {
   if(robot_trajectory.joint_trajectory.joint_names.empty() && robot_trajectory.multi_dof_joint_trajectory.joint_names.empty())
   {
@@ -938,7 +938,7 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
 
 bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path,
                                         const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
-                                        motion_planning_msgs::RobotTrajectory &robot_trajectory)
+                                        arm_navigation_msgs::RobotTrajectory &robot_trajectory)
 {
   if(robot_trajectory.joint_trajectory.joint_names.empty() && robot_trajectory.multi_dof_joint_trajectory.joint_names.empty())
   {
@@ -995,7 +995,7 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
 };
 
 bool getOmplStateToRobotTrajectoryMapping(const ompl::base::StateSpacePtr &state_space,
-                                          const motion_planning_msgs::RobotTrajectory &robot_trajectory, 
+                                          const arm_navigation_msgs::RobotTrajectory &robot_trajectory, 
                                           ompl_ros_interface::OmplStateToRobotStateMapping &mapping)
 {
   unsigned int num_state_spaces = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
@@ -1103,15 +1103,15 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state
   return true;
 };
 
-bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointConstraint> &joint_constraints,
+bool jointConstraintsToOmplState(const std::vector<arm_navigation_msgs::JointConstraint> &joint_constraints,
                                  ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state)
 {
-  sensor_msgs::JointState joint_state = motion_planning_msgs::jointConstraintsToJointState(joint_constraints);
+  sensor_msgs::JointState joint_state = arm_navigation_msgs::jointConstraintsToJointState(joint_constraints);
   for(unsigned int i=0; i < joint_state.name.size(); i++)
   {
     ROS_DEBUG("Joint %s: %f",joint_state.name[i].c_str(), joint_state.position[i]);
   }
-  motion_planning_msgs::RobotState robot_state;
+  arm_navigation_msgs::RobotState robot_state;
   robot_state.joint_state = joint_state;
 
   ompl_ros_interface::RobotStateToOmplStateMapping mapping;
@@ -1120,17 +1120,17 @@ bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointCo
   return false;
 };
 
-bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints,
+bool constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints,
                             ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                             const bool &fail_if_match_not_found)
 {
-  motion_planning_msgs::RobotState robot_state;
-  robot_state.joint_state = motion_planning_msgs::jointConstraintsToJointState(constraints.joint_constraints);
-  ROS_DEBUG("There are %lu joint constraints",constraints.joint_constraints.size());
+  arm_navigation_msgs::RobotState robot_state;
+  robot_state.joint_state = arm_navigation_msgs::jointConstraintsToJointState(constraints.joint_constraints);
+  ROS_DEBUG_STREAM("There are " << constraints.joint_constraints.size() << "  joint constraints");
   for(unsigned int i=0; i < robot_state.joint_state.name.size(); i++)
     ROS_DEBUG("Joint Constraint:: Joint %s: %f",robot_state.joint_state.name[i].c_str(), robot_state.joint_state.position[i]);
 
-  robot_state.multi_dof_joint_state = motion_planning_msgs::poseConstraintsToMultiDOFJointState(constraints.position_constraints,
+  robot_state.multi_dof_joint_state = arm_navigation_msgs::poseConstraintsToMultiDOFJointState(constraints.position_constraints,
                                                                                                 constraints.orientation_constraints);
 
   ompl_ros_interface::RobotStateToOmplStateMapping mapping;
@@ -1139,7 +1139,7 @@ bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints
   return false;
 };
 
-bool getRobotStateToJointModelGroupMapping(const motion_planning_msgs::RobotState &robot_state,
+bool getRobotStateToJointModelGroupMapping(const arm_navigation_msgs::RobotState &robot_state,
                                            const planning_models::KinematicModel::JointModelGroup *joint_model_group,
                                            ompl_ros_interface::RobotStateToKinematicStateMapping &mapping)
 {
@@ -1182,7 +1182,7 @@ bool getRobotStateToJointModelGroupMapping(const motion_planning_msgs::RobotStat
   return true;
 }
 
-bool robotStateToJointStateGroup(const motion_planning_msgs::RobotState &robot_state,
+bool robotStateToJointStateGroup(const arm_navigation_msgs::RobotState &robot_state,
                                  const ompl_ros_interface::RobotStateToKinematicStateMapping &mapping,
                                  planning_models::KinematicState::JointStateGroup *joint_state_group)
 {

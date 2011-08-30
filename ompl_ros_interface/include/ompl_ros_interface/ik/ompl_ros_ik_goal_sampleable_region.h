@@ -43,7 +43,7 @@
 #include <ompl/base/State.h>
 
 // Planning environment and models
-#include <planning_environment/monitors/planning_monitor.h>
+#include <planning_environment/models/collision_models_interface.h>
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
 
@@ -74,7 +74,7 @@ public:
   OmplRosIKSampleableRegion(const ompl::base::SpaceInformationPtr &space_information)
     : GoalSampleableRegion(space_information), 
       kinematics_loader_("kinematics_base","kinematics::KinematicsBase"),
-      scoped_state_(space_information)
+      scoped_state_(space_information)  
   {
   }
 
@@ -90,7 +90,7 @@ public:
                   const std::string &kinematics_solver_name,
                   const std::string &group_name,
                   const std::string &end_effector_name,
-                  const planning_environment::PlanningMonitor *planning_monitor);  
+                  const planning_environment::CollisionModelsInterface* cmi);
 
   /**
    * @brief Configure the GoalSampleableRegion when a request is received. 
@@ -98,8 +98,8 @@ public:
    * @param request The request that the planner gets
    * @param response The response to the planning request
    */ 
-  bool configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                          motion_planning_msgs::GetMotionPlan::Response &response,
+  bool configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                          arm_navigation_msgs::GetMotionPlan::Response &response,
                           const unsigned int &max_sample_count = 100);
 
   /**
@@ -116,7 +116,7 @@ public:
 
 private:
   void sampleGoals(const unsigned int &number_goals,
-                   std::vector<motion_planning_msgs::RobotState> &sampled_states_vector) const;
+                   std::vector<arm_navigation_msgs::RobotState> &sampled_states_vector) const;
 
   std::vector<geometry_msgs::PoseStamped> ik_poses_;
   unsigned int max_sample_count_;
@@ -127,11 +127,11 @@ private:
   std::string kinematics_solver_name_, group_name_, end_effector_name_;
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> scoped_state_;
-  motion_planning_msgs::RobotState seed_state_, solution_state_;
+  arm_navigation_msgs::RobotState seed_state_, solution_state_;
 
   ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;
   ompl_ros_interface::RobotStateToOmplStateMapping robot_state_to_ompl_state_mapping_;
-  const planning_environment::PlanningMonitor *planning_monitor_;
+  const planning_environment::CollisionModelsInterface* collision_models_interface_;
 
 };
 

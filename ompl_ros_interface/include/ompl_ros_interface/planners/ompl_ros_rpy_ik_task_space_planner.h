@@ -42,7 +42,7 @@
 #include <ompl_ros_interface/state_validity_checkers/ompl_ros_task_space_validity_checker.h>
 #include <ompl_ros_interface/state_transformers/ompl_ros_rpy_ik_state_transformer.h>
 
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
 
 namespace ompl_ros_interface
 {
@@ -51,9 +51,9 @@ namespace ompl_ros_interface
   protected:
     virtual bool initializeStateValidityChecker(ompl_ros_interface::OmplRosStateValidityCheckerPtr &state_validity_checker);
 
-    virtual motion_planning_msgs::RobotTrajectory getSolutionPath();
+    virtual arm_navigation_msgs::RobotTrajectory getSolutionPath();
 
-    virtual bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints, 
+    virtual bool constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints, 
                                         ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal);
 
   private:
@@ -62,12 +62,10 @@ namespace ompl_ros_interface
                                 ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal,
                                 const bool &return_if_outside_constraints = true);
 
-    geometry_msgs::PoseStamped getEndEffectorPose(const motion_planning_msgs::RobotState &robot_state);
+    geometry_msgs::PoseStamped getEndEffectorPose(const arm_navigation_msgs::RobotState &robot_state);
 
-    tf::TransformListener tf_;
-
-    virtual bool setStart(motion_planning_msgs::GetMotionPlan::Request &request,
-                          motion_planning_msgs::GetMotionPlan::Response &response);
+    virtual bool setStart(arm_navigation_msgs::GetMotionPlan::Request &request,
+                          arm_navigation_msgs::GetMotionPlan::Response &response);
 
     bool checkAndCorrectForWrapAround(double &value, 
                                       const double &min_v, 
@@ -75,15 +73,15 @@ namespace ompl_ros_interface
 
     boost::shared_ptr<ompl::base::RealVectorBounds> original_real_vector_bounds_;
 
-    bool getEndEffectorConstraints(const motion_planning_msgs::Constraints &constraints,
-                                   motion_planning_msgs::PositionConstraint &position_constraint,
-                                   motion_planning_msgs::OrientationConstraint &orientation_constraint,
+    bool getEndEffectorConstraints(const arm_navigation_msgs::Constraints &constraints,
+                                   arm_navigation_msgs::PositionConstraint &position_constraint,
+                                   arm_navigation_msgs::OrientationConstraint &orientation_constraint,
                                    const bool &need_both_constraints);
 
-    bool positionConstraintToOmplStateBounds(const motion_planning_msgs::PositionConstraint &position_constraint,
+    bool positionConstraintToOmplStateBounds(const arm_navigation_msgs::PositionConstraint &position_constraint,
                                              ompl::base::StateSpacePtr &goal);
 
-    bool orientationConstraintToOmplStateBounds(const motion_planning_msgs::OrientationConstraint &orientation_constraint,
+    bool orientationConstraintToOmplStateBounds(const arm_navigation_msgs::OrientationConstraint &orientation_constraint,
                                                 ompl::base::StateSpacePtr &goal);
 
     std::string end_effector_name_;

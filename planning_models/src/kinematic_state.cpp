@@ -36,7 +36,7 @@
 
 #include <planning_models/kinematic_state.h>
 
-planning_models::KinematicState::KinematicState(const boost::shared_ptr<const KinematicModel> kinematic_model) :
+planning_models::KinematicState::KinematicState(const KinematicModel* kinematic_model) :
   kinematic_model_(kinematic_model), dimension_(0)
 {
   kinematic_model_->sharedLock();
@@ -77,14 +77,15 @@ planning_models::KinematicState::KinematicState(const boost::shared_ptr<const Ki
   }
 }
 
-planning_models::KinematicState::KinematicState(const KinematicState* ks) :
-  kinematic_model_(ks->getKinematicModel())
+planning_models::KinematicState::KinematicState(const KinematicState& ks) :
+  kinematic_model_(ks.getKinematicModel()), dimension_(0)
 {
   kinematic_model_->sharedLock();
-  const std::vector<JointState*>& joint_states_vector = ks->getJointStateVector();
+  const std::vector<JointState*>& joint_state_vector = ks.getJointStateVector();
   unsigned int vector_index_counter = 0;
-  for(unsigned int i = 0; i < joint_states_vector.size(); i++) {
-    joint_state_vector_[i] = new JointState(joint_state_vector_[i]->getJointModel());
+  joint_state_vector_.resize(joint_state_vector.size());
+  for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
+    joint_state_vector_[i] = new JointState(joint_state_vector[i]->getJointModel());
     joint_state_map_[joint_state_vector_[i]->getName()] = joint_state_vector_[i];
     const std::vector<std::string>& name_order = joint_state_vector_[i]->getJointStateNameOrder();
     for(unsigned int j = 0; j < name_order.size(); j++) {
@@ -97,7 +98,8 @@ planning_models::KinematicState::KinematicState(const KinematicState* ks) :
     //joint_index_location_[i] = vector_index_counter;
     //vector_index_counter += joint_dim;
   }
-  const std::vector<LinkState*>& link_state_vector = ks->getLinkStateVector();
+  const std::vector<LinkState*>& link_state_vector = ks.getLinkStateVector();
+  link_state_vector_.resize(link_state_vector.size());
   for(unsigned int i = 0; i < link_state_vector.size(); i++) {
     link_state_vector_[i] = new LinkState(link_state_vector[i]->getLinkModel());
     link_state_map_[link_state_vector_[i]->getName()] = link_state_vector_[i];
@@ -107,12 +109,16 @@ planning_models::KinematicState::KinematicState(const KinematicState* ks) :
   }
   setLinkStatesParents();
   
-  const std::map<std::string, JointStateGroup*>& joint_state_groups_map = ks->getJointStateGroupMap();
+  const std::map<std::string, JointStateGroup*>& joint_state_groups_map = ks.getJointStateGroupMap();
   for(std::map<std::string, JointStateGroup*>::const_iterator it = joint_state_groups_map.begin();
       it != joint_state_groups_map.end();
       it++) {
     joint_state_group_map_[it->first] = new JointStateGroup(it->second->getJointModelGroup(), this);
   }
+  //actually setting values
+  std::map<std::string, double> current_joint_values;
+  ks.getKinematicStateValues(current_joint_values);
+  setKinematicState(current_joint_values);
 }
 
 planning_models::KinematicState::~KinematicState() 
@@ -163,6 +169,21 @@ bool planning_models::KinematicState::setKinematicState(const std::map<std::stri
   return all_set;
 }
 
+bool planning_models::KinematicState::setKinematicState(const std::map<std::string, double>& joint_state_map,
+                                                        std::vector<std::string>& missing_states) 
+{
+  missing_states.clear();
+  bool all_set = true;
+  for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
+    bool is_set = joint_state_vector_[i]->setJointStateValues(joint_state_map, missing_states);
+    if(!is_set) {
+      all_set = false;
+    }
+  }
+  updateKinematicLinks();
+  return all_set;
+}
+
 void planning_models::KinematicState::getKinematicStateValues(std::vector<double>& joint_state_values) const {
   joint_state_values.clear();
   for(unsigned int i = 0; i < joint_state_vector_.size(); i++) {
@@ -174,7 +195,7 @@ void planning_models::KinematicState::getKinematicStateValues(std::vector<double
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problem with dimension");
+    ROS_WARN_STREAM("Some problems with state vector dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 
@@ -189,7 +210,7 @@ void planning_models::KinematicState::getKinematicStateValues(std::map<std::stri
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problems with dimension");
+    ROS_WARN_STREAM("Some problems with state map dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 
@@ -206,10 +227,16 @@ bool planning_models::KinematicState::updateKinematicStateWithLinkAt(const std::
 
   link_state_map_.find(link_name)->second->updateGivenGlobalLinkTransform(transform);
   std::vector<LinkState*> child_links = getChildLinkStates(link_name);
-  for(unsigned int i = 0; i < child_links.size(); i++) {
+  //the zeroith link will be the link itself, which shouldn't be getting updated, so we start at 1
+  for(unsigned int i = 1; i < child_links.size(); i++) {
     child_links[i]->computeTransform();
   }
   return true;
+}
+
+const btTransform& planning_models::KinematicState::getRootTransform() const
+{
+  return joint_state_vector_[0]->getVariableTransform();
 }
 
 std::vector<planning_models::KinematicState::LinkState*> planning_models::KinematicState::getChildLinkStates(const std::string& link_name) const {
@@ -225,20 +252,11 @@ std::vector<planning_models::KinematicState::LinkState*> planning_models::Kinema
 void planning_models::KinematicState::setKinematicStateToDefault(void)
 {
   std::map<std::string, double> default_joint_states;
-
+  
   const unsigned int js = joint_state_vector_.size();
   for (unsigned int i = 0  ; i < js ; ++i)
   {
-    for(std::map<std::string, std::pair<double,double> >::const_iterator it = joint_state_vector_[i]->getAllJointValueBounds().begin();
-        it != joint_state_vector_[i]->getAllJointValueBounds().end();
-        it++) {
-      std::pair<double,double> bounds = it->second;
-      if(bounds.first <= 0.0 && bounds.second >= 0.0) {
-        default_joint_states[it->first] = 0.0;
-      } else {
-        default_joint_states[it->first] = (bounds.first+bounds.second)/2.0;
-      }
-    }
+    joint_state_vector_[i]->getJointModel()->getVariableDefaultValuesGivenBounds(default_joint_states);
   }
   setKinematicState(default_joint_states);
 }
@@ -383,25 +401,55 @@ bool planning_models::KinematicState::JointState::setJointStateValues(const std:
 }
 
 bool planning_models::KinematicState::JointState::setJointStateValues(const std::map<std::string, double>& joint_value_map) {
-  std::map<std::string, bool> seen_already;
-  for(std::map<std::string, double>::const_iterator it = joint_value_map.begin();
-      it != joint_value_map.end();
+  bool has_all = true;
+  bool has_any = false;
+  for(std::map<std::string, unsigned int>::const_iterator it = joint_state_index_map_.begin();
+      it != joint_state_index_map_.end();
       it++) {
-    std::map<std::string,unsigned int>::iterator it2 = joint_state_index_map_.find(it->first);
-    if(it2 != joint_state_index_map_.end()) {
-      seen_already[it->first] = true;
-      if(it2->second > joint_state_values_.size()) {
-        ROS_WARN_STREAM("Trying to set value " << it2->second << " which is larger than joint state values size " << joint_state_values_.size());
-      } else {
-        joint_state_values_[it2->second] = it->second;
-      }
+    std::map<std::string,double>::const_iterator it2 = joint_value_map.find(it->first);
+    if(it2 == joint_value_map.end()) {
+      has_all = false;
+      continue;
+    } else {
+      has_any = true;
+    }
+    if(it->second > joint_state_values_.size()) {
+      ROS_WARN_STREAM("Trying to set value " << it->second << " which is larger than joint state values size " << joint_state_values_.size());
+    } else {
+      joint_state_values_[it->second] = it2->second;
     }
   }
-  variable_transform_ = joint_model_->computeTransform(joint_state_values_);
-  if(seen_already.size() != joint_state_index_map_.size()) {
-    return false;
+  if(has_any) {
+    variable_transform_ = joint_model_->computeTransform(joint_state_values_);
   }
-  return true;
+  return has_all;
+}
+
+bool planning_models::KinematicState::JointState::setJointStateValues(const std::map<std::string, double>& joint_value_map,
+                                                                      std::vector<std::string>& missing_values) {
+  bool has_all = true;
+  bool has_any = false;
+  for(std::map<std::string, unsigned int>::const_iterator it = joint_state_index_map_.begin();
+      it != joint_state_index_map_.end();
+      it++) {
+    std::map<std::string,double>::const_iterator it2 = joint_value_map.find(it->first);
+    if(it2 == joint_value_map.end()) {
+      has_all = false;
+      missing_values.push_back(it->first);
+      continue;
+    } else {
+      has_any = true;
+    }
+    if(it->second > joint_state_values_.size()) {
+      ROS_WARN_STREAM("Trying to set value " << it->second << " which is larger than joint state values size " << joint_state_values_.size());
+    } else {
+      joint_state_values_[it->second] = it2->second;
+    }
+  }
+  if(has_any) {
+    variable_transform_ = joint_model_->computeTransform(joint_state_values_);
+  }
+  return has_all;
 }
 
 bool planning_models::KinematicState::JointState::setJointStateValues(const btTransform& transform) {
@@ -433,7 +481,8 @@ bool planning_models::KinematicState::JointState::getJointValueBounds(const std:
                                                                       double& low, 
                                                                       double& high) const {
   if(!joint_model_->hasVariable(value_name)) return false;
-  std::pair<double,double> bounds = joint_model_->getVariableBounds(value_name);
+  std::pair<double,double> bounds;
+  joint_model_->getVariableBounds(value_name, bounds);
   low = bounds.first;
   high = bounds.second;
   return true;
@@ -448,8 +497,10 @@ bool planning_models::KinematicState::JointState::areJointStateValuesWithinBound
   for(std::map<std::string, unsigned int>::const_iterator it = joint_state_index_map_.begin();
       it != joint_state_index_map_.end();
       it++) {
-    std::pair<double,double> bounds = joint_model_->getVariableBounds(it->first);
-    if(joint_state_values_[it->second] < bounds.first || joint_state_values_[it->second] > bounds.second) {
+    bool within_bounds;
+    joint_model_->isValueWithinVariableBounds(it->first, joint_state_values_[it->second], within_bounds);
+    if(!within_bounds) {
+      ROS_DEBUG_STREAM("Joint " << it->first << " value " << joint_state_values_[it->second] << " not within bounds");
       return false;
     }
   }
@@ -615,16 +666,7 @@ void planning_models::KinematicState::JointStateGroup::setKinematicStateToDefaul
   const unsigned int js = joint_state_vector_.size();
   for (unsigned int i = 0  ; i < js ; ++i)
   {
-    for(std::map<std::string, std::pair<double,double> >::const_iterator it = joint_state_vector_[i]->getAllJointValueBounds().begin();
-        it != joint_state_vector_[i]->getAllJointValueBounds().end();
-        it++) {
-      std::pair<double,double> bounds = it->second;
-      if(bounds.first <= 0.0 && bounds.second >= 0.0) {
-        default_joint_states[it->first] = 0.0;
-      } else {
-        default_joint_states[it->first] = (bounds.first+bounds.second)/2.0;
-      }
-    }
+    joint_state_vector_[i]->getJointModel()->getVariableDefaultValuesGivenBounds(default_joint_states);
   }
   setKinematicState(default_joint_states);
 }
@@ -640,7 +682,7 @@ void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(s
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problem with dimension");
+    ROS_WARN_STREAM("Some problems with group vector dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 
@@ -655,7 +697,7 @@ void planning_models::KinematicState::JointStateGroup::getKinematicStateValues(s
     }
   }
   if(joint_state_values.size() != dimension_) {
-    ROS_WARN("Some problems with dimension");
+    ROS_WARN_STREAM("Some problems with group map dimension values " << joint_state_values.size() << " dimension is " << dimension_);
   }
 }
 

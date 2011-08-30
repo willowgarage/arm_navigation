@@ -42,19 +42,19 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
                                   const std::string &kinematics_solver_name,
                                   const std::string &group_name,
                                   const std::string &end_effector_name,
-                                  const planning_environment::PlanningMonitor *planning_monitor)
+                                  const planning_environment::CollisionModelsInterface* cmi)
 {
-  planning_monitor_ = planning_monitor;
+  collision_models_interface_ = cmi;
   state_space_ = state_space;
   group_name_ = group_name;
   end_effector_name_ = end_effector_name;
-  ROS_INFO("Trying to initialize solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Trying to initialize solver %s",kinematics_solver_name.c_str());
   if(!kinematics_loader_.isClassAvailable(kinematics_solver_name))
   {
     ROS_ERROR("pluginlib does not have the class %s",kinematics_solver_name.c_str());
     return false;
   }
-  ROS_INFO("Found solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Found solver %s",kinematics_solver_name.c_str());
   
   try
   {
@@ -65,17 +65,17 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
     ROS_ERROR("The plugin failed to load. Error: %s", ex.what());
     return false;
   }
-  ROS_INFO("Loaded solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Loaded solver %s",kinematics_solver_name.c_str());
   if(!kinematics_solver_->initialize(group_name))
   {
     ROS_ERROR("Could not initialize kinematics solver for group %s",group_name.c_str());
     return false;
   }
-  ROS_INFO("Initialized solver %s",kinematics_solver_name.c_str());
+  ROS_DEBUG("Initialized solver %s",kinematics_solver_name.c_str());
   scoped_state_.reset(new ompl::base::ScopedState<ompl::base::CompoundStateSpace>(state_space_));
   seed_state_.joint_state.name = kinematics_solver_->getJointNames();
   seed_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
-  //  motion_planning_msgs::printJointState(seed_state_.joint_state);
+  //  arm_navigation_msgs::printJointState(seed_state_.joint_state);
   solution_state_.joint_state.name = kinematics_solver_->getJointNames();
   solution_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
   if(!ompl_ros_interface::getRobotStateToOmplStateMapping(seed_state_,*scoped_state_,robot_state_to_ompl_state_mapping_))
@@ -90,37 +90,39 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
   }
   else
   {
-    ROS_INFO("Real vector index: %d",ompl_state_to_robot_state_mapping_.real_vector_index);
+    ROS_DEBUG("Real vector index: %d",ompl_state_to_robot_state_mapping_.real_vector_index);
     for(unsigned int i=0; i < ompl_state_to_robot_state_mapping_.real_vector_mapping.size(); i++)
-      ROS_INFO("mapping: %d %d",i,ompl_state_to_robot_state_mapping_.real_vector_mapping[i]);
+      ROS_DEBUG("mapping: %d %d",i,ompl_state_to_robot_state_mapping_.real_vector_mapping[i]);
   }
-  ROS_INFO("Initialized Ompl Ros IK Sampler");
+  ROS_DEBUG("Initialized Ompl Ros IK Sampler");
   return true;
 }  
 
-bool OmplRosIKSampler::configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
-                                          motion_planning_msgs::GetMotionPlan::Response &response,
+bool OmplRosIKSampler::configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
+                                          arm_navigation_msgs::GetMotionPlan::Response &response,
                                           const unsigned int &max_sample_count)
 {
   ik_poses_counter_ = 0;
   max_sample_count_ = max_sample_count;
   num_samples_ = 0;
   ik_poses_.clear();
-  motion_planning_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
+  arm_navigation_msgs::Constraints goal_constraints = request.motion_plan_request.goal_constraints;
 
-  if(!planning_monitor_->transformConstraintsToFrame(goal_constraints,
-                                                     kinematics_solver_->getBaseFrame(),
-                                                     response.error_code))
+  if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+                                                                            goal_constraints,
+                                                                            kinematics_solver_->getBaseFrame())) {
+    response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
+  }
   
-  if(!motion_planning_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
+  if(!arm_navigation_msgs::constraintsToPoseStampedVector(goal_constraints, ik_poses_))
   {
     ROS_ERROR("Could not get poses from constraints");
     return false;
   }       
   if(ik_poses_.empty())
   {
-    ROS_INFO("Could not setup goals for inverse kinematics sampling");
+    ROS_WARN("Could not setup goals for inverse kinematics sampling");
     return false;
   }
   else
@@ -140,7 +142,7 @@ bool OmplRosIKSampler::configureOnRequest(const motion_planning_msgs::GetMotionP
 
 bool OmplRosIKSampler::sampleGoal(const ompl::base::GoalLazySamples *gls, ompl::base::State *state)
 {
-  motion_planning_msgs::RobotState seed_state,solution_state;
+  arm_navigation_msgs::RobotState seed_state,solution_state;
   seed_state = seed_state_;
   solution_state = solution_state_; 
   ompl::base::ScopedState<ompl::base::CompoundStateSpace> scoped_state(state_space_);
@@ -156,7 +158,7 @@ bool OmplRosIKSampler::sampleGoal(const ompl::base::GoalLazySamples *gls, ompl::
                                        solution_state.joint_state.position,
 				       error_code))
   {
-    // motion_planning_msgs::printJointState(solution_state.joint_state);
+    // arm_navigation_msgs::printJointState(solution_state.joint_state);
     ompl_ros_interface::robotStateToOmplState(solution_state,
                                               robot_state_to_ompl_state_mapping_,
                                               state);    

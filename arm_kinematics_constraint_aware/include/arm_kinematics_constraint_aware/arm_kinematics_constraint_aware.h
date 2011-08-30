@@ -46,14 +46,13 @@
 #include <kinematics_msgs/GetKinematicSolverInfo.h>
 #include <kinematics_msgs/GetPositionFK.h>
 
-#include <motion_planning_msgs/ArmNavigationErrorCodes.h>
-#include <motion_planning_msgs/DisplayTrajectory.h>
-#include <motion_planning_msgs/LinkPadding.h>
+#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
+#include <arm_navigation_msgs/DisplayTrajectory.h>
+#include <arm_navigation_msgs/LinkPadding.h>
 
 // MISC
+#include <planning_environment/models/collision_models_interface.h>
 #include <arm_kinematics_constraint_aware/arm_kinematics_constraint_aware_utils.h>
-#include <planning_environment/monitors/planning_monitor.h>
-#include <planning_models/kinematic_model.h>
 #include <kdl/jntarray.hpp>
 #include <angles/angles.h>
 #include <urdf/model.h>
@@ -82,12 +81,10 @@ public:
   ArmKinematicsConstraintAware();
 
   virtual ~ArmKinematicsConstraintAware()
-	{
-    if (planning_monitor_)
-      delete planning_monitor_;
-    if (collision_models_)
-      delete collision_models_;
-	};
+  {
+    if (collision_models_interface_)
+      delete collision_models_interface_;
+  };
 
   /**
    * @brief This method searches for and returns the closest solution to the initial guess in the first set of solutions it finds. 
@@ -123,15 +120,11 @@ private:
 
   ros::NodeHandle node_handle_,root_handle_;
   ros::ServiceServer ik_collision_service_, ik_service_, fk_service_, ik_solver_info_service_, fk_solver_info_service_;
-  planning_environment::CollisionModels *collision_models_;
-  planning_environment::PlanningMonitor *planning_monitor_;
-  planning_models::KinematicState* kinematic_state_;
+  planning_environment::CollisionModelsInterface *collision_models_interface_;
   std::string group_,root_name_;
   bool use_collision_map_;
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
-  void contactFound(collision_space::EnvironmentModel::Contact &contact);
-  std::vector<std::string> default_collision_links_;
   std::vector<std::string> end_effector_collision_links_;
   std::vector<std::string> arm_links_;
   void collisionCheck(const geometry_msgs::Pose &ik_pose,
@@ -144,26 +137,16 @@ private:
   ros::Publisher display_trajectory_publisher_;
   bool visualize_solution_;
   kinematics_msgs::PositionIKRequest ik_request_;
-  motion_planning_msgs::OrderedCollisionOperations collision_operations_;
-  std::vector<motion_planning_msgs::LinkPadding> link_padding_;
-  std::vector<motion_planning_msgs::AllowedContactSpecification> allowed_contacts_;
-  motion_planning_msgs::Constraints constraints_;
-  bool setup_collision_environment_;
-  bool setupCollisionEnvironment(void);
+  arm_navigation_msgs::Constraints constraints_;
 
   void advertiseBaseKinematicsServices();
   void advertiseConstraintIKService();
 
-  bool isReady(motion_planning_msgs::ArmNavigationErrorCodes &error_code);
+  bool isReady(arm_navigation_msgs::ArmNavigationErrorCodes &error_code);
   void sendEndEffectorPose(const planning_models::KinematicState* state, bool valid);
 
   kinematics_msgs::KinematicSolverInfo chain_info_;
 
-  //! A model of the robot to see which joints wrap around
-  urdf::Model robot_model_;
-  //! Flag that tells us if the robot model was initialized successfully
-  bool robot_model_initialized_;
-  tf::TransformListener tf_;
 };
 }
 #endif

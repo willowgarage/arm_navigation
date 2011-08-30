@@ -38,7 +38,9 @@ using namespace KDL;
 using namespace tf;
 using namespace std;
 using namespace ros;
-
+ 
+const double BOUNDS_EPSILON = .00001;
+ 
 //register KDLArmKinematics as a KinematicsBase implementation
 PLUGINLIB_DECLARE_CLASS(arm_kinematics_constraint_aware,KDLArmKinematicsPlugin, arm_kinematics_constraint_aware::KDLArmKinematicsPlugin, kinematics::KinematicsBase)
 
@@ -78,6 +80,7 @@ bool KDLArmKinematicsPlugin::initialize(std::string name)
   std::string urdf_xml, full_urdf_xml;
   ros::NodeHandle node_handle;
   ros::NodeHandle private_handle("~"+name);
+  ROS_INFO_STREAM("Private handle registered under " << private_handle.getNamespace());
   node_handle.param("urdf_xml",urdf_xml,std::string("robot_description"));
   node_handle.searchParam(urdf_xml,full_urdf_xml);
   ROS_DEBUG("Reading xml file from parameter server");
@@ -106,9 +109,9 @@ bool KDLArmKinematicsPlugin::initialize(std::string name)
   int max_iterations;
   double epsilon;
 
-  private_handle.param("max_solver_iterations", max_iterations, 1000);
-  private_handle.param("max_search_iterations", max_search_iterations_, 1000);
-  private_handle.param("epsilon", epsilon, 1e-2);
+  private_handle.param("max_solver_iterations", max_iterations, 500);
+  private_handle.param("max_search_iterations", max_search_iterations_, 3);
+  private_handle.param("epsilon", epsilon, 1e-5);
 
   // Build Solvers
   fk_solver_.reset(new KDL::ChainFkSolverPos_recursive(kdl_chain_));
@@ -177,8 +180,13 @@ bool KDLArmKinematicsPlugin::readJoints(urdf::Model &robot_model)
       float lower, upper;
       int hasLimits;
       if ( joint->type != urdf::Joint::CONTINUOUS ) {
-        lower = joint->limits->lower;
-        upper = joint->limits->upper;
+        if(joint->safety) {
+          lower = joint->safety->soft_lower_limit+BOUNDS_EPSILON; 
+          upper = joint->safety->soft_upper_limit-BOUNDS_EPSILON;
+        } else {
+          lower = joint->limits->lower+BOUNDS_EPSILON;
+          upper = joint->limits->upper-BOUNDS_EPSILON;
+        }
         hasLimits = 1;
       } else {
         lower = -M_PI;
@@ -227,11 +235,22 @@ bool KDLArmKinematicsPlugin::getPositionIK(const geometry_msgs::Pose &ik_pose,
                                            std::vector<double> &solution,
                                            int &error_code)
 {
+  ros::WallTime n1 = ros::WallTime::now();
   if(!active_)
   {
     ROS_ERROR("kinematics not active");
     return false;
   }
+  
+  ROS_DEBUG_STREAM("getPositionIK1:Position request pose is " <<
+                   ik_pose.position.x << " " <<
+                   ik_pose.position.y << " " <<
+                   ik_pose.position.z << " " <<
+                   ik_pose.orientation.x << " " << 
+                   ik_pose.orientation.y << " " << 
+                   ik_pose.orientation.z << " " << 
+                   ik_pose.orientation.w);
+
   KDL::Frame pose_desired;
   tf::PoseMsgToKDL(ik_pose, pose_desired);
   //Do the inverse kinematics
@@ -243,6 +262,7 @@ bool KDLArmKinematicsPlugin::getPositionIK(const geometry_msgs::Pose &ik_pose,
     jnt_pos_in(i) = ik_seed_state[i];
   }
   int ik_valid = ik_solver_pos_->CartToJnt(jnt_pos_in,pose_desired,jnt_pos_out);
+  ROS_DEBUG_STREAM("IK success " << ik_valid << " time " << (ros::WallTime::now()-n1).toSec());
   if(ik_valid >= 0)
   {
     solution.resize(dimension_);
@@ -267,6 +287,7 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
                                               std::vector<double> &solution,
                                               int &error_code)
 {
+  ros::WallTime n1 = ros::WallTime::now();
   if(!active_)
   {
     ROS_ERROR("kinematics not active");
@@ -276,6 +297,15 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
   KDL::Frame pose_desired;
   tf::PoseMsgToKDL(ik_pose, pose_desired);
 
+  ROS_DEBUG_STREAM("searchPositionIK1:Position request pose is " <<
+                   ik_pose.position.x << " " <<
+                   ik_pose.position.y << " " <<
+                   ik_pose.position.z << " " <<
+                   ik_pose.orientation.x << " " << 
+                   ik_pose.orientation.y << " " << 
+                   ik_pose.orientation.z << " " << 
+                   ik_pose.orientation.w);
+
   //Do the IK
   KDL::JntArray jnt_pos_in;
   KDL::JntArray jnt_pos_out;
@@ -284,23 +314,28 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
   {
     jnt_pos_in(i) = ik_seed_state[i];
   }
-
-  int ik_valid = ik_solver_pos_->CartToJnt(jnt_pos_in,pose_desired,jnt_pos_out);
-
-  if(ik_valid >= 0)
+  for(int i=0; i < max_search_iterations_; i++)
   {
-    solution.resize(dimension_);
-    for(unsigned int i=0; i < dimension_; i++)
-      solution[i] = jnt_pos_out(i);
-    error_code = kinematics::SUCCESS;
-    return true;
+    for(unsigned int j=0; j < dimension_; j++)
+    { 
+      ROS_DEBUG_STREAM("seed state " << j << " " << jnt_pos_in(j));
+    }
+    int ik_valid = ik_solver_pos_->CartToJnt(jnt_pos_in,pose_desired,jnt_pos_out);                      
+    ROS_DEBUG_STREAM("IK success " << ik_valid << " time " << (ros::WallTime::now()-n1).toSec());
+    if(ik_valid >= 0) {                                                                                                       
+      solution.resize(dimension_);
+      for(unsigned int j=0; j < dimension_; j++) {
+        solution[j] = jnt_pos_out(j);
+      }
+      error_code = kinematics::SUCCESS;
+      ROS_DEBUG_STREAM("Solved after " << i+1 << " iterations");
+      return true;
+    }      
+    jnt_pos_in = getRandomConfiguration();
   }
-  else
-  {
-    ROS_DEBUG("An IK solution could not be found");   
-    error_code = kinematics::NO_IK_SOLUTION;
-    return false;
-  }
+  ROS_DEBUG("An IK solution could not be found");   
+  error_code = kinematics::NO_IK_SOLUTION;
+  return false;
 }
 
 bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose,
@@ -320,6 +355,15 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
   KDL::Frame pose_desired;
   tf::PoseMsgToKDL(ik_pose, pose_desired);
 
+  ROS_DEBUG_STREAM("searchPositionIK2: Position request pose is " <<
+                   ik_pose.position.x << " " <<
+                   ik_pose.position.y << " " <<
+                   ik_pose.position.z << " " <<
+                   ik_pose.orientation.x << " " << 
+                   ik_pose.orientation.y << " " << 
+                   ik_pose.orientation.z << " " << 
+                   ik_pose.orientation.w);
+
   //Do the IK
   KDL::JntArray jnt_pos_in;
   KDL::JntArray jnt_pos_out;
@@ -332,14 +376,17 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
   
   if(error_code < 0)
   {
-    ROS_ERROR("Could not find inverse kinematics for desired end-effector pose since the pose may be in collision");
+    ROS_DEBUG("Could not find inverse kinematics for desired end-effector pose since the pose may be in collision");
     return false;
   }
   for(int i=0; i < max_search_iterations_; i++)
   {
-    if (i > 0)
-      jnt_pos_in = getRandomConfiguration();
+    //for(unsigned int j=0; j < dimension_; j++)
+    //{ 
+    //  ROS_DEBUG_STREAM("seed state " << j << " " << jnt_pos_in(j));
+    //}
     int ik_valid = ik_solver_pos_->CartToJnt(jnt_pos_in,pose_desired,jnt_pos_out);                      
+    jnt_pos_in = getRandomConfiguration();
     if(ik_valid < 0)                                                                                                       
       continue;
     std::vector<double> solution_local;
@@ -350,12 +397,12 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
     if(error_code == kinematics::SUCCESS)
     {
       solution = solution_local;
+      ROS_DEBUG_STREAM("Solved after " << i+1 << " iterations");
       return true;
     }
   }
   ROS_DEBUG("An IK that satisifes the constraints and is collision free could not be found");   
-  if (error_code == 0)
-    error_code = kinematics::NO_IK_SOLUTION;
+  error_code = kinematics::NO_IK_SOLUTION;
   return false;
 }
 
