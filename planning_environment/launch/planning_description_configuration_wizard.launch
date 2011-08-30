@@ -1,0 +1,14 @@
+<launch>
+
+  <arg name="urdf_package"/>
+  <arg name="urdf_path"/>
+
+  <param name="/use_sim_time" value="true" />
+
+  <node pkg="planning_environment" name="wall_clock_server" type="fake_time.py" />	
+
+  <node pkg="planning_environment" name="wait_and_start_rviz" type="wait_and_start_rviz.sh" output="screen"/>
+
+  <node pkg="planning_environment" name="planning_description_configuration_wizard" type="planning_description_configuration_wizard" args="$(arg urdf_package) $(arg urdf_path)" output="screen"/>
+
+</launch>

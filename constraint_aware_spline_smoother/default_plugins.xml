@@ -1,0 +1,23 @@
+<class_libraries>
+  <library path="lib/libconstraint_aware_spline_smoother">
+    <class name="CubicSplineShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::CubicSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+      <description>
+        Generates collision free cubic spline trajectories
+      </description>
+    </class>
+    <class name="ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::ParabolicBlendShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+      <description>
+        Generates collision free parabolic spline trajectories
+      </description>
+    </class>
+    <class name="LinearSplineShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::LinearSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+      <description>
+        Generates collision free linear trajectories
+      </description>
+    </class>
+
+  </library>
+</class_libraries>

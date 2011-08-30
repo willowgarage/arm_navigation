@@ -1,0 +1,8 @@
+
+<launch> 
+ <node pkg="planning_environment" type="filter_attached_objects" name="filter_attached_objects_stereo" output="screen">
+    <remap from="cloud_in" to="/narrow_stereo/points2" />
+    <remap from="cloud_out" to="/narrow_stereo/points2_filtered_attached" />
+    <param name="sensor_frame" type="string" value="narrow_stereo_optical_frame" />			
+  </node>
+</launch>

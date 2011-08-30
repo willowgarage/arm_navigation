@@ -38,7 +38,7 @@
 
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 #include <pr2_controllers_msgs/PointHeadAction.h>
 
 #include <stdio.h>
@@ -65,7 +65,7 @@ TEST(MoveArm, goToJointGoal)
   //pr2_controllers_msgs::PointHeadGoal pha;
   //pha.pointing_frame = "base_link";
 
-  actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
+  actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> move_arm(nh, "move_right_arm");
   boost::thread spin_thread(&spinThread);
   
   move_arm.waitForServer();
@@ -103,7 +103,7 @@ TEST(MoveArm, goToJointGoal)
   //wait for data to get processed
   sleep(5.0);
   
-  move_arm_msgs::MoveArmGoal goalB;
+  arm_navigation_msgs::MoveArmGoal goalB;
   std::vector<std::string> names(7);
   names[0] = "r_shoulder_pan_joint";
   names[1] = "r_shoulder_lift_joint";
