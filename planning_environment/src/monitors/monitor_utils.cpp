@@ -138,8 +138,8 @@ bool planning_environment::processCollisionObjectMsg(const arm_navigation_msgs::
     } 
   } else {
     if(collision_object->id == "all") {
-      ROS_INFO("Clearing all collision objects");
       cm->deleteAllStaticObjects();
+      ROS_INFO("Cleared all collision objects");
     } else {
       cm->deleteStaticObject(collision_object->id);
       ROS_INFO("Removed object '%s' from collision space", collision_object->id.c_str());
@@ -158,6 +158,8 @@ bool planning_environment::processAttachedCollisionObjectMsg(const arm_navigatio
       return false;
     } 
     cm->deleteAllAttachedObjects();
+    ROS_INFO_STREAM("Cleared all attached objects");
+    return true;
   }
 
   //if there are no objects in the map, clear everything

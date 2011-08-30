@@ -923,8 +923,10 @@ void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::
   }
   
   if(link_name.empty()) {
+    ROS_INFO_STREAM("Clearing all attached body models");
     kmodel_->clearAllAttachedBodyModels();
   } else {
+    ROS_INFO_STREAM("Clearing all attached body models for link " << link_name);
     kmodel_->clearLinkAttachedBodyModels(link_name);
   }
   ode_collision_model_->lock();
