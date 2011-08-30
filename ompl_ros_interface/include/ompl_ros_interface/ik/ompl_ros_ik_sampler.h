@@ -44,7 +44,7 @@
 #include <ompl/base/State.h>
 
 // Planning environment and models
-#include <planning_environment/models/collision_models_interface.h>
+#include <planning_environment/monitors/planning_monitor.h>
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
 
@@ -86,7 +86,7 @@ public:
                   const std::string &kinematics_solver_name,
                   const std::string &group_name,
                   const std::string &end_effector_name,
-                  const planning_environment::CollisionModelsInterface *cmi);
+                  const planning_environment::PlanningMonitor *planning_monitor);  
 
   /**
    * @brief Configure the kinematics solver when a request is received
@@ -94,8 +94,8 @@ public:
    * @param response - The response to the motion planning request. Use this to fill in any error codes
    * @param max_sample_count - The maximum number of samples that the IK should generate
    */
-  bool configureOnRequest(const arm_navigation_msgs::GetMotionPlan::Request &request,
-                          arm_navigation_msgs::GetMotionPlan::Response &response,
+  bool configureOnRequest(const motion_planning_msgs::GetMotionPlan::Request &request,
+                          motion_planning_msgs::GetMotionPlan::Response &response,
                           const unsigned int &max_sample_count = 100);
 
   /**
@@ -123,11 +123,11 @@ private:
   std::string kinematics_solver_name_, group_name_, end_effector_name_;
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
   boost::shared_ptr<ompl::base::ScopedState<ompl::base::CompoundStateSpace> > scoped_state_;
-  arm_navigation_msgs::RobotState seed_state_, solution_state_;
+  motion_planning_msgs::RobotState seed_state_, solution_state_;
 
   ompl_ros_interface::OmplStateToRobotStateMapping ompl_state_to_robot_state_mapping_;
   ompl_ros_interface::RobotStateToOmplStateMapping robot_state_to_ompl_state_mapping_;
-  const planning_environment::CollisionModelsInterface *collision_models_interface_;
+  const planning_environment::PlanningMonitor *planning_monitor_;
 
 };
 

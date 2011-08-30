@@ -53,10 +53,10 @@
 
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
-#include <arm_navigation_msgs/convert_messages.h>
-#include <arm_navigation_msgs/RobotState.h>
-#include <arm_navigation_msgs/RobotTrajectory.h>
-#include <arm_navigation_msgs/JointConstraint.h>
+#include <motion_planning_msgs/convert_messages.h>
+#include <motion_planning_msgs/RobotState.h>
+#include <motion_planning_msgs/RobotTrajectory.h>
+#include <motion_planning_msgs/JointConstraint.h>
 #include <sensor_msgs/JointState.h>
 
 namespace ompl_ros_interface
@@ -69,7 +69,7 @@ typedef enum{REAL_VECTOR, SO2, SO3, SE2, SE3, COMPOUND, UNKNOWN}MAPPING_TYPE;
 
 /**
  * @class This class contains a mapping from an ompl::base::CompoundState object 
- * to a arm_navigation_msgs::RobotState object
+ * to a motion_planning_msgs::RobotState object
  */
 class OmplStateToRobotStateMapping
 {
@@ -83,7 +83,7 @@ public:
 };
 
 /**
- * @class This class contains a mapping from an arm_navigation_msgs::RobotState object 
+ * @class This class contains a mapping from an motion_planning_msgs::RobotState object 
  * to a ompl::base::CompoundState object
  */
 class RobotStateToOmplStateMapping
@@ -162,7 +162,7 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
  * @param ompl_state The ompl state to create the mapping to
  * @param mapping The resultant mapping
  */
-bool getRobotStateToOmplStateMapping(const arm_navigation_msgs::RobotState &robot_state, 
+bool getRobotStateToOmplStateMapping(const motion_planning_msgs::RobotState &robot_state, 
                                      const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                                      ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                                      const bool &fail_if_match_not_found = true);
@@ -202,7 +202,7 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
  * @param mapping The resultant mapping
  */
 bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
-                                     const arm_navigation_msgs::RobotState &robot_state, 
+                                     const motion_planning_msgs::RobotState &robot_state, 
                                      ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                                      const bool &fail_if_match_not_found = true);
 
@@ -216,7 +216,7 @@ bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::C
  */
 bool omplStateToRobotState(const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                            const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
-                           arm_navigation_msgs::RobotState &robot_state);
+                           motion_planning_msgs::RobotState &robot_state);
 
 /**
  * @brief Convert an ompl state to the ROS message robot_state.  This function is 
@@ -228,7 +228,7 @@ bool omplStateToRobotState(const ompl::base::ScopedState<ompl::base::CompoundSta
  */
 bool omplStateToRobotState(const ompl::base::State &ompl_state,
                            const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
-                           arm_navigation_msgs::RobotState &robot_state);
+                           motion_planning_msgs::RobotState &robot_state);
 
 /**
  * @brief Convert an ompl state to the ROS message joint_state.  This function is 
@@ -250,7 +250,7 @@ bool omplRealVectorStateToJointState(const ompl::base::RealVectorStateSpace::Sta
  * @param mapping The mapping to use for this conversion
  * @param ompl_state The ompl state to create the mapping from
 */
-bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
+bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
                            const ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                            ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_state,
                            const bool &fail_if_match_not_found = true);
@@ -263,7 +263,7 @@ bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
  * @param mapping The mapping to use for this conversion
  * @param ompl_state The ompl state to create the mapping from
 */
-bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
+bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
                            const ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                            ompl::base::State *ompl_state,
                            const bool &fail_if_match_not_found = true);
@@ -275,7 +275,7 @@ bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
  * @param robot_state The robot state message to create the mapping to
  * @param ompl_state The ompl state to create the mapping from
 */
-bool robotStateToOmplState(const arm_navigation_msgs::RobotState &robot_state,
+bool robotStateToOmplState(const motion_planning_msgs::RobotState &robot_state,
                            ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                            const bool &fail_if_match_not_found = true);
 
@@ -400,7 +400,7 @@ bool omplStateToKinematicStateGroup(const ompl::base::State *ompl_state,
  * @return false if any error occured
  */
 bool jointStateGroupToRobotTrajectory(planning_models::KinematicState::JointStateGroup* joint_state_group, 
-                                      arm_navigation_msgs::RobotTrajectory &robot_trajectory);
+                                      motion_planning_msgs::RobotTrajectory &robot_trajectory);
 
 /**
  * @brief Convert an ompl path to a RobotTrajectory message
@@ -411,7 +411,7 @@ bool jointStateGroupToRobotTrajectory(planning_models::KinematicState::JointStat
  */
 bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path,
                                         const ompl::base::StateSpacePtr &state_space,
-                                        arm_navigation_msgs::RobotTrajectory &robot_trajectory);
+                                        motion_planning_msgs::RobotTrajectory &robot_trajectory);
 
 /**
  * @brief Convert an ompl path to a RobotTrajectory message
@@ -422,7 +422,7 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
  */
 bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &path,
                                         const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
-                                        arm_navigation_msgs::RobotTrajectory &robot_trajectory);
+                                        motion_planning_msgs::RobotTrajectory &robot_trajectory);
 
 /**
  * @brief Get the mapping from an ompl state space to a RobotTrajectory message
@@ -432,7 +432,7 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
  * @return false if any error occured
  */
 bool getOmplStateToRobotTrajectoryMapping(const ompl::base::StateSpacePtr &state_space,
-                                          const arm_navigation_msgs::RobotTrajectory &robot_trajectory, 
+                                          const motion_planning_msgs::RobotTrajectory &robot_trajectory, 
                                           ompl_ros_interface::OmplStateToRobotStateMapping &mapping);
 
 /**
@@ -452,7 +452,7 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state
  * @param ompl_scoped_state The output scoped state
  * @return false if any error occured
  */
-bool jointConstraintsToOmplState(const std::vector<arm_navigation_msgs::JointConstraint> &joint_constraints,
+bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointConstraint> &joint_constraints,
                                  ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state);
 
 /**
@@ -461,7 +461,7 @@ bool jointConstraintsToOmplState(const std::vector<arm_navigation_msgs::JointCon
  * @param ompl_scoped_state The output scoped state
  * @return false if any error occured
  */
-bool jointConstraintsToOmplState(const std::vector<arm_navigation_msgs::JointConstraint> &joint_constraints,
+bool jointConstraintsToOmplState(const std::vector<motion_planning_msgs::JointConstraint> &joint_constraints,
                                  ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state);
 
 /**
@@ -471,7 +471,7 @@ bool jointConstraintsToOmplState(const std::vector<arm_navigation_msgs::JointCon
  * @param fail_if_match_not_found - if true, fail if no matching joint was found for any of the joints specified in the constraints
  * @return false if any error occured
  */
-bool constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints,
+bool constraintsToOmplState(const motion_planning_msgs::Constraints &constraints,
                             ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                             const bool &fail_if_match_not_found = true);
 
@@ -482,7 +482,7 @@ bool constraintsToOmplState(const arm_navigation_msgs::Constraints &constraints,
  * @param joint_state_group - The resultant joint state group
  * @return false if any error occured
  */
-bool robotStateToJointStateGroup(const arm_navigation_msgs::RobotState &robot_state,
+bool robotStateToJointStateGroup(const motion_planning_msgs::RobotState &robot_state,
                                  const ompl_ros_interface::RobotStateToKinematicStateMapping &robot_state_to_joint_state_group_mapping,
                                  planning_models::KinematicState::JointStateGroup *joint_state_group);
 
@@ -493,7 +493,7 @@ bool robotStateToJointStateGroup(const arm_navigation_msgs::RobotState &robot_st
  * @param mapping - The mapping from the robot state to the joint model
  * @return false if any error occured
  */
-bool getRobotStateToJointModelGroupMapping(const arm_navigation_msgs::RobotState &robot_state,
+bool getRobotStateToJointModelGroupMapping(const motion_planning_msgs::RobotState &robot_state,
                                            const planning_models::KinematicModel::JointModelGroup *joint_model_group,
                                            ompl_ros_interface::RobotStateToKinematicStateMapping &mapping);
 
@@ -504,9 +504,9 @@ bool getRobotStateToJointModelGroupMapping(const arm_navigation_msgs::RobotState
  * @param ompl_state_space - The state space to add joints to
  * @return false if any error occured
  */
-bool addToOmplStateSpace(const planning_models::KinematicModel* kinematic_model, 
-                         const std::string &joint_name,
-                         ompl::base::StateSpacePtr &ompl_state_space);
+bool addToOmplStateSpace(boost::shared_ptr<planning_models::KinematicModel> kinematic_model, 
+                            const std::string &joint_name,
+                            ompl::base::StateSpacePtr &ompl_state_space);
 
 }
 #endif

@@ -59,6 +59,12 @@ bool findSplineSegment(const spline_smoother::SplineTrajectory &spline,
                        int start_index, 
                        int end_index)
 {
+
+  if(spline.segments.empty())
+  {
+    ROS_ERROR("Spline segments are empty: this should not have happened");
+    return false;
+  }
   if(end_index == -1)
     end_index = spline.segments.size();
 
@@ -256,7 +262,10 @@ bool sampleSplineTrajectory(const spline_smoother::SplineTrajectory& spline,
   {
     ROS_DEBUG("Input time:%d %f",i,times[i]);
     success = success && findSplineSegment(spline,times[i],spline_segment,segment_time);
-    success = success && sampleSplineTrajectory(spline_segment,segment_time,point_out);    
+    if(success)
+      success = success && sampleSplineTrajectory(spline_segment,segment_time,point_out);    
+    else
+      return false;
     point_out.time_from_start = ros::Duration(times[i]);
     traj_out.points[i] = point_out;
   }
@@ -278,7 +287,10 @@ bool sampleSplineTrajectory(const spline_smoother::LSPBTrajectoryMsg& spline,
   {
     ROS_DEBUG("Input time:%d %f",i,times[i]);
     success = success && findSplineSegment(spline,times[i],spline_segment,segment_time);
-    success = success && sampleSplineTrajectory(spline_segment,segment_time,point_out);    
+    if(success)
+      success = success && sampleSplineTrajectory(spline_segment,segment_time,point_out);    
+    else
+      return false;
     point_out.time_from_start = ros::Duration(times[i]);
     traj_out.points[i] = point_out;
   }
