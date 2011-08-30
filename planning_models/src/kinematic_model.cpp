@@ -734,7 +734,10 @@ std::vector<const planning_models::KinematicModel::AttachedBodyModel*> planning_
 void planning_models::KinematicModel::clearLinkAttachedBodyModels(const std::string& link_name)
 {
   exclusiveLock();
-  if(link_model_map_.find(link_name) == link_model_map_.end()) return;
+  if(link_model_map_.find(link_name) == link_model_map_.end()) {
+    exclusiveUnlock();
+    return;
+  }
   link_model_map_[link_name]->clearAttachedBodyModels();
   exclusiveUnlock();
 }
@@ -746,6 +749,7 @@ void planning_models::KinematicModel::replaceAttachedBodyModels(const std::strin
   if(link_model_map_.find(link_name) == link_model_map_.end())
   {
     ROS_WARN_STREAM("Model has no link named " << link_name << ".  This is probably going to introduce a memory leak");
+    exclusiveUnlock();
     return;
   }
   link_model_map_[link_name]->replaceAttachedBodyModels(attached_body_vector);
@@ -756,7 +760,10 @@ void planning_models::KinematicModel::clearLinkAttachedBodyModel(const std::stri
                                                                  const std::string& att_name)
 {
   exclusiveLock();
-  if(link_model_map_.find(link_name) == link_model_map_.end()) return;
+  if(link_model_map_.find(link_name) == link_model_map_.end()) {
+    exclusiveUnlock();
+    return;
+  }
   link_model_map_[link_name]->clearLinkAttachedBodyModel(att_name);
   exclusiveUnlock();
 }
@@ -767,6 +774,7 @@ void planning_models::KinematicModel::addAttachedBodyModel(const std::string& li
   exclusiveLock();
   if(link_model_map_.find(link_name) == link_model_map_.end()) {
     ROS_WARN_STREAM("Model has no link named " << link_name << " to attach body to.  This is probably going to introduce a memory leak");
+    exclusiveUnlock();
     return;
   }
   link_model_map_[link_name]->addAttachedBodyModel(ab);
