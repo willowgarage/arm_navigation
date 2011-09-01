@@ -56,6 +56,7 @@
 #include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <arm_navigation_msgs/MoveArmStatistics.h>
 #include <arm_navigation_msgs/GetMotionPlan.h>
 #include <trajectory_msgs/JointTrajectory.h>
 
@@ -137,8 +138,20 @@ public:
 
   void getStats(arm_navigation_msgs::MoveArmStatistics &move_arm_stats)
   {
-    move_arm
+    move_arm_stats.planner_service_name = planner_service_name_;
+    move_arm_stats.planning_time = move_group_stats_.planning_time;
+    move_arm_stats.trajectory_duration = move_group_stats_.trajectory_duration;
+    move_arm_stats.smoothing_time = move_group_stats_.smoothing_time;
   }
+
+  bool filterTrajectory(const trajectory_msgs::JointTrajectory &trajectory_in, 
+                        trajectory_msgs::JointTrajectory &trajectory_out,
+                        arm_navigation_msgs::Constraints &goal_constraints,
+                        arm_navigation_msgs::Constraints &path_constraints,
+                        planning_models::KinematicState *kinematic_state,
+                        arm_navigation_msgs::ArmNavigationErrorCodes &error_code);
+
+  std::string planner_service_name_;
 
 private:
 
@@ -174,6 +187,9 @@ private:
 
   void controllerTransitionCallback(JointExecutorActionClient::GoalHandle gh);
 
+  void fillTrajectoryMsg(const trajectory_msgs::JointTrajectory &trajectory_in, 
+                         trajectory_msgs::JointTrajectory &trajectory_out,
+                         planning_models::KinematicState *kinematic_state);
   // ROS
   ros::NodeHandle private_handle_, root_handle_;
   planning_environment::CollisionModels* collision_models_;
@@ -206,6 +222,7 @@ private:
   arm_kinematics_constraint_aware::MultiArmKinematicsConstraintAware* kinematics_solver_;
   unsigned int num_arms_;
   bool ik_solver_initialized_;
+  double ik_allowed_time_,trajectory_filter_allowed_time_;
 };
 }
 

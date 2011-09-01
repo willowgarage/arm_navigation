@@ -142,14 +142,14 @@ bool MoveArm::setup(const arm_navigation_msgs::MoveArmGoalConstPtr& goal,
 
   disable_ik_           = goal->disable_ik;
   allowed_planning_time_ = goal->motion_plan_request.allowed_planning_time.toSec();
-  planner_service_name_ = goal->planner_service_name;
-
+  
   if(!findGroup(request.motion_plan_request.group_name,current_group_))
   {
     ROS_ERROR("Could not find group %s for move arm to act on",request.motion_plan_request.group_name.c_str());
     move_arm_action_result_.error_code.val = move_arm_action_result_.error_code.INCOMPLETE_ROBOT_STATE;
     return false;
   }
+  current_group_->planner_service_name_ = goal->planner_service_name;
 
   if(!getAndSetPlanningScene(goal->planning_scene_diff, goal->operations)) 
   {
@@ -425,7 +425,7 @@ bool MoveArm::executeCycle(arm_navigation_msgs::GetMotionPlan::Request &request)
       action_server_->publishFeedback(move_arm_action_feedback_);
       ROS_DEBUG("Filtering Trajectory");
       trajectory_msgs::JointTrajectory filtered_trajectory;
-      if(current_group_.filterTrajectory(current_trajectory_,filtered_trajectory,current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
+      if(current_group_->filterTrajectory(current_trajectory_,filtered_trajectory,current_group_->original_goal_constraints_,request.motion_plan_request.path_constraints,planning_scene_state_,error_code))
       {
         ROS_DEBUG("Checking filtered trajectory");
         resetToStartState(planning_scene_state_);

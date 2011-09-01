@@ -565,7 +565,7 @@ bool MoveGroup::filterTrajectory(const trajectory_msgs::JointTrajectory &traject
 {
   arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request  request;
   arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Response response;
-  fillTrajectoryMsg(trajectory_in, request.trajectory);
+  fillTrajectoryMsg(trajectory_in, request.trajectory,kinematic_state);
 
   if(trajectory_filter_allowed_time_ == 0.0)
   {
