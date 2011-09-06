@@ -24,6 +24,7 @@
   <depend package="visualization_msgs" />
   <depend package="planning_models" />
   <depend package="collision_space" />
+  <depend package="collision_space_fcl" />
   <depend package="pcl_ros" />
   <depend package="robot_self_filter" />
   <depend package="rviz" />

@@ -447,7 +447,7 @@ bool OmplRosPlanningGroup::computePlan(arm_navigation_msgs::GetMotionPlan::Reque
   
   if(solved)
   {
-    ROS_DEBUG("Found solution for request in %f seconds",planner_->getLastPlanComputationTime());
+    ROS_INFO("Found solution for request in %f seconds",planner_->getLastPlanComputationTime());
     response.planning_time = ros::Duration(planner_->getLastPlanComputationTime());
     planner_->getPathSimplifier()->reduceVertices(planner_->getSolutionPath());
     planner_->getPathSimplifier()->collapseCloseVertices(planner_->getSolutionPath());

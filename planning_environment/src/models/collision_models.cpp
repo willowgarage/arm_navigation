@@ -37,6 +37,7 @@
 #include "planning_environment/models/collision_models.h"
 #include "planning_environment/models/model_utils.h"
 #include "planning_environment/util/construct_object.h"
+#include <collision_space_fcl/environmentFCL.h>
 #include <collision_space/environmentODE.h>
 #include <sstream>
 #include <vector>
@@ -211,7 +212,9 @@ void planning_environment::CollisionModels::loadCollisionFromParamServer()
 
   if (loadedModels())
   {
-    ode_collision_model_ = new collision_space::EnvironmentModelODE();
+    //    ode_collision_model_ = new collision_space::EnvironmentModelODE();
+    ode_collision_model_ = (collision_space::EnvironmentModel*) new collision_space_fcl::EnvironmentModelFCL();
+    ROS_INFO("********** Setting up with new FCL library ****************");
     setupModelFromParamServer(ode_collision_model_);
 	
     //	bullet_collision_model_ = boost::shared_ptr<collision_space::EnvironmentModel>(new collision_space::EnvironmentModelBullet());
