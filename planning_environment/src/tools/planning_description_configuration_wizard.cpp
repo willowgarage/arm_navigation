@@ -84,8 +84,11 @@ PlanningDescriptionConfigurationWizard::PlanningDescriptionConfigurationWizard(c
     return;
   }
 
+  kmodel_ = NULL;
   cm_ = NULL;
   ops_gen_ = NULL;
+  robot_state_ = NULL;
+  ode_collision_model_ = NULL;
 
   if(!setupWithWorldFixedFrame("", "Floating"))
   {
