@@ -317,17 +317,24 @@ shapes::Mesh* createMeshFromFilename(const std::string& filename, const btVector
   }
         
   aiNode *node = scene->mRootNode;
-        
-  if(node->mNumMeshes > 0) {
-    ROS_DEBUG_STREAM("Node has meshes");
+
+  bool found = false;
+  if(node->mNumMeshes > 0 && node->mMeshes != NULL) {
+    ROS_DEBUG_STREAM("Root node has meshes " << node->mMeshes);
+    found = true;
   } else {
     for (uint32_t i=0; i < node->mNumChildren; ++i) {
-      if(node->mChildren[i]->mNumMeshes > 0) {
+      if(node->mChildren[i]->mNumMeshes > 0 && node->mChildren[i]->mMeshes != NULL) {
         ROS_DEBUG_STREAM("Child " << i << " has meshes");
         node = node->mChildren[i];
+        found = true;
         break;
       }
     }
+  }
+  if(found == false) {
+    ROS_WARN_STREAM("Can't find meshes in file");
+    return NULL;
   }
   aiMatrix4x4 transform = node->mTransformation;
   btVector3 ts(1.0, 1.0, 1.0);

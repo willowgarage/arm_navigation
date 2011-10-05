@@ -41,7 +41,6 @@
 // ROS
 #include <ros/ros.h>
 #include <tf/tf.h>
-#include <tf/transform_listener.h>
 #include <tf/transform_datatypes.h>
 #include <tf_conversions/tf_kdl.h>
 
@@ -177,7 +176,6 @@ class KDLArmKinematicsPlugin : public kinematics::KinematicsBase
     int max_search_iterations_;
 
     bool active_;
-    tf::TransformListener tf_;
     kinematics_msgs::KinematicSolverInfo chain_info_;
 
     boost::shared_ptr<KDL::ChainIkSolverVel_pinv> ik_solver_vel_;
