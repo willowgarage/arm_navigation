@@ -68,6 +68,9 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const arm_n
   
   //getting all the stuff from the current collision space
   collision_space::EnvironmentModel::AllowedCollisionMatrix acm = cm_->getCollisionSpace()->getDefaultAllowedCollisionMatrix();
+  if(planning_diff.allowed_collision_matrix.link_names.size() > 0) {
+    acm = convertFromACMMsgToACM(planning_diff.allowed_collision_matrix);
+  }
 
   //first we deal with collision object diffs
   cm_->getCollisionSpaceCollisionObjects(planning_scene.collision_objects);
