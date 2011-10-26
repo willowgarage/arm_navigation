@@ -1,0 +1,4 @@
+string group_name
+geometry_msgs/PoseStamped pose_stamped
+arm_navigation_msgs/RobotState robot_state
+arm_navigation_msgs/ArmNavigationErrorCodes solution_code
