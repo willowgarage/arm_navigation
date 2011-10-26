@@ -82,33 +82,9 @@ void ArmKinematicsReachability::findIKSolutions(kinematics_msgs::WorkspacePoints
   }
 }
 
-void ArmKinematicsReachability::getMarkers(const kinematics_msgs::WorkspacePoints &workspace,
-                                           visualization_msgs::MarkerArray &marker_array)
-{
-  visualization_msgs::Marker marker;
-  marker.type = marker.SPHERE;
-  marker.ns = "arm_workspace_tests";
-  marker.action = 0;
-  for(unsigned int i=0; i < workspace.points.size(); i++)
-  {
-    marker.header = workspace.points[i].pose_stamped.header;
-    marker.header.stamp = ros::Time::now();
-    marker.pose = workspace.points[i].pose_stamped.pose;
-    marker.scale.x = 0.01;
-    marker.scale.y = 0.01;
-    marker.scale.z = 0.01;
-    marker.id = i;
-    marker.color.r = 1.0;
-    marker.color.g = 0.0;
-    marker.color.b = 0.0;
-    marker.color.a = 1.0;
-    marker_array.markers.push_back(marker);
-  }
-}
-
 void ArmKinematicsReachability::getPositionIndexedMarkers(const kinematics_msgs::WorkspacePoints &workspace,
-                                                          visualization_msgs::MarkerArray &marker_array,
-                                                          const std::string &marker_namespace)
+                                                          const std::string &marker_namespace,
+                                                          visualization_msgs::MarkerArray &marker_array)
 {
   unsigned int x_num_points,y_num_points,z_num_points;
   getNumPoints(workspace,x_num_points,y_num_points,z_num_points);
@@ -156,24 +132,80 @@ void ArmKinematicsReachability::getPositionIndexedMarkers(const kinematics_msgs:
   }
 }
 
-void ArmKinematicsReachability::visualize(const kinematics_msgs::WorkspacePoints &workspace)
+void ArmKinematicsReachability::getMarkers(const kinematics_msgs::WorkspacePoints &workspace,
+                                           const std::string &marker_namespace,
+                                           std::vector<const kinematics_msgs::WorkspacePoint*> points,
+                                           visualization_msgs::MarkerArray &marker_array)
 {
-  visualization_msgs::MarkerArray marker_array;
-  getMarkers(workspace,marker_array);
-  visualization_publisher_.publish(marker_array);
+  visualization_msgs::Marker marker;
+  marker.type = marker.SPHERE;
+  marker.action = 0;
+  for(unsigned int i=0; i < points.size(); i++)
+  {
+    arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+    if(points[i]->solution_code.val == points[i]->solution_code.SUCCESS)
+    {
+        marker.color.g = 1.0;
+        marker.color.r = 0.0;
+        marker.ns = marker_namespace + "/reachable";
+    }
+    else
+    {
+      marker.color.g = 0.0;
+      marker.color.r = 1.0;
+      marker.ns = marker_namespace + "/unreachable";
+    }
+    marker.header = points[i]->pose_stamped.header;
+    marker.pose = points[i]->pose_stamped.pose;
+    marker.header.stamp = ros::Time::now();
+
+    marker.scale.x = 0.02;
+    marker.scale.y = 0.02;
+    marker.scale.z = 0.02;
+    marker.id = i;
+    marker.color.a = 1.0;
+    marker.color.b = 0.0;
+    marker_array.markers.push_back(marker);
+  }
 }
 
 void ArmKinematicsReachability::visualize(const kinematics_msgs::WorkspacePoints &workspace,
                                           const std::string &marker_namespace)
 {
   visualization_msgs::MarkerArray marker_array;
-  getPositionIndexedMarkers(workspace,marker_array,marker_namespace);
+  getPositionIndexedMarkers(workspace,marker_namespace,marker_array);
   visualization_publisher_.publish(marker_array);
 }
 
 void ArmKinematicsReachability::publishWorkspace(const kinematics_msgs::WorkspacePoints &workspace)
 {
   workspace_publisher_.publish(workspace); 
+}
+
+void ArmKinematicsReachability::visualize(const kinematics_msgs::WorkspacePoints &workspace,
+                                          const std::string &marker_namespace,
+                                          const geometry_msgs::Quaternion &orientation)
+{
+  visualization_msgs::MarkerArray marker_array;
+  std::vector<const kinematics_msgs::WorkspacePoint*> points = getPointsAtOrientation(workspace,orientation);
+  getMarkers(workspace,marker_namespace,points,marker_array);
+  visualization_publisher_.publish(marker_array);
+}
+
+void ArmKinematicsReachability::visualize(const kinematics_msgs::WorkspacePoints &workspace,
+                                          const std::string &marker_namespace,
+                                          const std::vector<geometry_msgs::Quaternion> &orientations)
+{
+  visualization_msgs::MarkerArray marker_array;
+  for(unsigned int i=0; i < orientations.size(); i++)
+  {
+    std::vector<const kinematics_msgs::WorkspacePoint*> points = getPointsAtOrientation(workspace,orientations[i]);
+    std::ostringstream name;
+    name << "orientation_" << i;
+    std::string marker_name = marker_namespace+name.str();
+    getMarkers(workspace,marker_name,points,marker_array);
+  }
+  visualization_publisher_.publish(marker_array);
 }
                                         
 void ArmKinematicsReachability::getDefaultIKRequest(kinematics_msgs::GetConstraintAwarePositionIK::Request &req)

@@ -44,10 +44,10 @@ int main(int argc, char** argv)
 
   arm_kinematics_reachability::ArmKinematicsReachability aw;
   kinematics_msgs::WorkspacePoints workspace;
-  workspace.position_resolution = 0.5;
+  workspace.position_resolution = 0.025;
   workspace.parameters.workspace_region_shape.type = workspace.parameters.workspace_region_shape.BOX;
   workspace.parameters.workspace_region_shape.dimensions.resize(3);
-  workspace.parameters.workspace_region_shape.dimensions[0] = 1.0;
+  workspace.parameters.workspace_region_shape.dimensions[0] = 0.6;
   workspace.parameters.workspace_region_shape.dimensions[1] = 1.0;
   workspace.parameters.workspace_region_shape.dimensions[2] = 1.0;
 
@@ -57,12 +57,10 @@ int main(int argc, char** argv)
   node_handle.param<std::string>(group_name+"/root_name", root_name, std::string());
 
   workspace.parameters.workspace_region_pose.header.frame_id = root_name;
-  workspace.parameters.workspace_region_pose.pose.position.x = 0.0;
+  workspace.parameters.workspace_region_pose.pose.position.x = 0.6;
   workspace.parameters.workspace_region_pose.pose.position.y = 0.0;
   workspace.parameters.workspace_region_pose.pose.position.z = 0.5;
   workspace.parameters.workspace_region_pose.pose.orientation.w = 1.0;
-
-
 
   geometry_msgs::Quaternion quaternion;
   quaternion.w = 1.0;
@@ -109,9 +107,14 @@ int main(int argc, char** argv)
   quaternion = tf::createQuaternionMsgFromRollPitchYaw(0.0,M_PI/4.0,-3*M_PI/4.0);
   workspace.orientations.push_back(quaternion);
 
+  geometry_msgs::Quaternion zero_orientation;
+  zero_orientation.w = 1.0;
+
   sleep(10.0);
   aw.computeWorkspace(workspace);
-  aw.visualize(workspace,"full");
+  aw.visualize(workspace,"_",workspace.orientations);
+  //  aw.visualize(workspace,"full");
+  //  aw.visualize(workspace,"RPY(0,0,0)",zero_orientation);
   //  aw.getReachableWorkspace(workspace);
   //  aw.visualize(workspace);
   ROS_INFO("Success");

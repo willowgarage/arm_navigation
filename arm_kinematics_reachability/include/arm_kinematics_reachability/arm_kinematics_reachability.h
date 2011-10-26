@@ -74,14 +74,20 @@ public:
   /**
    * @brief This method visualizes a workspace region for a given arm
    */
-  void visualize(const kinematics_msgs::WorkspacePoints &workspace);
-
   void visualize(const kinematics_msgs::WorkspacePoints &workspace,
                  const std::string &marker_namespace);
 
   bool getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace);
 
   void publishWorkspace(const kinematics_msgs::WorkspacePoints &workspace);
+
+  void visualize(const kinematics_msgs::WorkspacePoints &workspace,
+                 const std::string &marker_namespace,
+                 const geometry_msgs::Quaternion &orientation);
+
+  void visualize(const kinematics_msgs::WorkspacePoints &workspace,
+                 const std::string &marker_namespace,
+                 const std::vector<geometry_msgs::Quaternion> &orientations);
 
 private:
 
@@ -111,12 +117,14 @@ private:
   bool isEqual(const geometry_msgs::Quaternion &orientation_1, 
                const geometry_msgs::Quaternion &orientation_2);
 
-  void getMarkers(const kinematics_msgs::WorkspacePoints &workspace,
-                  visualization_msgs::MarkerArray &marker_array);
-
   void getPositionIndexedMarkers(const kinematics_msgs::WorkspacePoints &workspace,
-                                 visualization_msgs::MarkerArray &marker_array,
-                                 const std::string &marker_namespace);
+                                 const std::string &marker_namespace,
+                                 visualization_msgs::MarkerArray &marker_array);
+
+  void getMarkers(const kinematics_msgs::WorkspacePoints &workspace,
+                  const std::string &marker_namespace,
+                  std::vector<const kinematics_msgs::WorkspacePoint*> points,
+                  visualization_msgs::MarkerArray &marker_array);
 
   ros::Publisher visualization_publisher_, workspace_publisher_;
 
