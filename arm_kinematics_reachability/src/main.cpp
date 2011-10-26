@@ -51,11 +51,18 @@ int main(int argc, char** argv)
   workspace.parameters.workspace_region_shape.dimensions[1] = 1.0;
   workspace.parameters.workspace_region_shape.dimensions[2] = 1.0;
 
-  workspace.parameters.workspace_region_pose.header.frame_id = "torso";
+  ros::NodeHandle node_handle("~");
+  std::string group_name, root_name;
+  node_handle.param<std::string>("group", group_name, std::string());
+  node_handle.param<std::string>(group_name+"/root_name", root_name, std::string());
+
+  workspace.parameters.workspace_region_pose.header.frame_id = root_name;
   workspace.parameters.workspace_region_pose.pose.position.x = 0.0;
   workspace.parameters.workspace_region_pose.pose.position.y = 0.0;
   workspace.parameters.workspace_region_pose.pose.position.z = 0.5;
   workspace.parameters.workspace_region_pose.pose.orientation.w = 1.0;
+
+
 
   geometry_msgs::Quaternion quaternion;
   quaternion.w = 1.0;
