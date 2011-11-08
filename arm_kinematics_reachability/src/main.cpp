@@ -34,7 +34,13 @@
 #include <ros/ros.h>
 #include <boost/thread.hpp>
 #include <tf/transform_datatypes.h>
+#include <planning_environment/models/robot_models.h>
+#include <planning_environment/models/model_utils.h>
+#include <arm_navigation_msgs/SetPlanningSceneDiff.h>
 #include <arm_kinematics_reachability/arm_kinematics_reachability.h>
+
+
+static const std::string SET_PLANNING_SCENE_DIFF_NAME = "/environment_server/set_planning_scene_diff";
 
 int main(int argc, char** argv)
 {
@@ -42,24 +48,70 @@ int main(int argc, char** argv)
   ros::AsyncSpinner spinner(1); 
   spinner.start();
 
+
   arm_kinematics_reachability::ArmKinematicsReachability aw;
   kinematics_msgs::WorkspacePoints workspace;
-  workspace.position_resolution = 0.025;
+  workspace.position_resolution = 0.05;
   workspace.parameters.workspace_region_shape.type = workspace.parameters.workspace_region_shape.BOX;
   workspace.parameters.workspace_region_shape.dimensions.resize(3);
-  workspace.parameters.workspace_region_shape.dimensions[0] = 0.6;
-  workspace.parameters.workspace_region_shape.dimensions[1] = 1.0;
-  workspace.parameters.workspace_region_shape.dimensions[2] = 1.0;
+  workspace.parameters.workspace_region_shape.dimensions[0] = 0.4;
+  workspace.parameters.workspace_region_shape.dimensions[1] = 1.5;
+  workspace.parameters.workspace_region_shape.dimensions[2] = 0.04;
 
   ros::NodeHandle node_handle("~");
   std::string group_name, root_name;
   node_handle.param<std::string>("group", group_name, std::string());
   node_handle.param<std::string>(group_name+"/root_name", root_name, std::string());
 
+
+  ros::NodeHandle root_handle;
+  ros::ServiceClient set_planning_scene_diff_client;
+  ros::service::waitForService(SET_PLANNING_SCENE_DIFF_NAME);
+  set_planning_scene_diff_client = root_handle.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_NAME);
+  arm_navigation_msgs::SetPlanningSceneDiff::Request planning_scene_req;
+  arm_navigation_msgs::SetPlanningSceneDiff::Response planning_scene_res;  
+
+  planning_scene_req.planning_scene_diff.collision_objects.resize(1);
+  planning_scene_req.planning_scene_diff.collision_objects[0].shapes.resize(1);
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses.resize(1);
+  planning_scene_req.planning_scene_diff.collision_objects[0].id = "dummy_object";
+
+  planning_scene_req.planning_scene_diff.collision_objects[0].header.frame_id = root_name;
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].position.x = 100.0;
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].position.y = 100.0;
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].position.z = 100.0;
+
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.x = 0.0;
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.y = 0.0;
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.z = 0.0;
+  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.w = 1.0;
+
+
+  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].type = workspace.parameters.workspace_region_shape.BOX;
+  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions.resize(3);
+  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions[0] = 0.4;
+  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions[1] = 1.5;
+  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions[2] = 0.04;
+
+  planning_environment::RobotModels robot_model("robot_description");
+  planning_models::KinematicState kinematic_state(robot_model.getKinematicModel());
+  ros::Time my_time(0.0);
+
+  kinematic_state.setKinematicStateToDefault();
+  planning_environment::convertKinematicStateToRobotState(kinematic_state,
+                                                          my_time,
+                                                          robot_model.getRobotFrameId(),
+                                                          planning_scene_req.planning_scene_diff.robot_state);
+
+  if(!set_planning_scene_diff_client.call(planning_scene_req, planning_scene_res)) {
+    ROS_WARN("Can't get planning scene");
+    return false;
+  }
+
   workspace.parameters.workspace_region_pose.header.frame_id = root_name;
   workspace.parameters.workspace_region_pose.pose.position.x = 0.6;
   workspace.parameters.workspace_region_pose.pose.position.y = 0.0;
-  workspace.parameters.workspace_region_pose.pose.position.z = 0.5;
+  workspace.parameters.workspace_region_pose.pose.position.z = -0.1;
   workspace.parameters.workspace_region_pose.pose.orientation.w = 1.0;
 
   geometry_msgs::Quaternion quaternion;
@@ -68,10 +120,10 @@ int main(int argc, char** argv)
 
   quaternion = tf::createQuaternionMsgFromYaw(M_PI/2.0);
   workspace.orientations.push_back(quaternion);
-
+  /*
   quaternion = tf::createQuaternionMsgFromYaw(M_PI);
   workspace.orientations.push_back(quaternion);
-
+  */
   quaternion = tf::createQuaternionMsgFromYaw(-M_PI/2.0);
   workspace.orientations.push_back(quaternion);
 
@@ -94,7 +146,7 @@ int main(int argc, char** argv)
   quaternion = tf::createQuaternionMsgFromRollPitchYaw(0.0,M_PI/4.0,-M_PI/4.0);
   workspace.orientations.push_back(quaternion);
 
-
+  /*
   quaternion = tf::createQuaternionMsgFromRollPitchYaw(0.0,M_PI/4.0,3*M_PI/4.0);
   workspace.orientations.push_back(quaternion);
 
@@ -106,13 +158,10 @@ int main(int argc, char** argv)
 
   quaternion = tf::createQuaternionMsgFromRollPitchYaw(0.0,M_PI/4.0,-3*M_PI/4.0);
   workspace.orientations.push_back(quaternion);
-
-  geometry_msgs::Quaternion zero_orientation;
-  zero_orientation.w = 1.0;
-
+  */
   sleep(10.0);
   aw.computeWorkspace(workspace);
-  aw.visualize(workspace,"_",workspace.orientations);
+  aw.visualize(workspace,"full");
   //  aw.visualize(workspace,"full");
   //  aw.visualize(workspace,"RPY(0,0,0)",zero_orientation);
   //  aw.getReachableWorkspace(workspace);

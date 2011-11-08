@@ -62,7 +62,8 @@ int main(int argc, char** argv)
     sleep(0.1);
   }
 
-  listener.visualize(listener.getWorkspace(),"recorded",listener.getWorkspace().orientations);
+  //  listener.visualize(listener.getWorkspace(),"recorded",listener.getWorkspace().orientations[0]);
+  listener.visualize(listener.getWorkspace(),"recorded");
   ROS_INFO("Success");
   ros::waitForShutdown();
   return(0);

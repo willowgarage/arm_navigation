@@ -39,7 +39,7 @@ namespace arm_kinematics_reachability
 ArmKinematicsReachability::ArmKinematicsReachability():node_handle_("~")
 {
   visualization_publisher_ = node_handle_.advertise<visualization_msgs::MarkerArray>("workspace_markers",0,true);
-  workspace_publisher_ = node_handle_.advertise<kinematics_msgs::WorkspacePoints>("workspace",0);
+  workspace_publisher_ = node_handle_.advertise<kinematics_msgs::WorkspacePoints>("workspace",0,true);
 }
 
 bool ArmKinematicsReachability::getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace)

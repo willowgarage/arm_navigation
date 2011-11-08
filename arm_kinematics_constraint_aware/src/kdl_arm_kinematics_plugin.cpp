@@ -110,7 +110,7 @@ bool KDLArmKinematicsPlugin::initialize(std::string name)
   double epsilon;
 
   private_handle.param("max_solver_iterations", max_iterations, 500);
-  private_handle.param("max_search_iterations", max_search_iterations_, 3);
+  private_handle.param("max_search_iterations", max_search_iterations_, 20);
   private_handle.param("epsilon", epsilon, 1e-5);
 
   // Build Solvers
