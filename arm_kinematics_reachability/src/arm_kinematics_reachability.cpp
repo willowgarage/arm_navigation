@@ -58,6 +58,11 @@ bool ArmKinematicsReachability::computeWorkspace(kinematics_msgs::WorkspacePoint
   return true;
 }
 
+bool ArmKinematicsReachability::isActive()
+{
+  return kinematics_solver_.isActive();
+}
+
 void ArmKinematicsReachability::findIKSolutions(kinematics_msgs::WorkspacePoints &workspace)
 {
   kinematics_msgs::GetConstraintAwarePositionIK::Request request;

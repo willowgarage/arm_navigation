@@ -89,6 +89,8 @@ public:
                  const std::string &marker_namespace,
                  const std::vector<geometry_msgs::Quaternion> &orientations);
 
+  bool isActive();
+
 private:
 
 

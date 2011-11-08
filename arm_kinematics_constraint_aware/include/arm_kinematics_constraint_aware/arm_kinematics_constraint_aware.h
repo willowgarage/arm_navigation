@@ -111,7 +111,7 @@ public:
   bool getPositionFK(kinematics_msgs::GetPositionFK::Request &request, 
                      kinematics_msgs::GetPositionFK::Response &response);
 
-  bool isActive(){ return active_;}
+  bool isActive(){ return active_ && collision_models_interface_->isPlanningSceneSet();}
 private:
 
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
