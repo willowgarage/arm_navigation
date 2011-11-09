@@ -54,13 +54,6 @@ int main(int argc, char** argv)
   node_handle.param<std::string>(group_name+"/root_name", root_name, std::string());
   ros::NodeHandle root_handle;
 
-  /*  ros::ServiceClient set_planning_scene_diff_client;
-  ros::service::waitForService(SET_PLANNING_SCENE_DIFF_NAME);
-  set_planning_scene_diff_client = root_handle.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_NAME);
-  arm_navigation_msgs::SetPlanningSceneDiff::Request planning_scene_req;
-  arm_navigation_msgs::SetPlanningSceneDiff::Response planning_scene_res;  
-  */
-
   /**** WORKSPACE PARAMETERS - These are the only parameters you should need to change ****/
   arm_kinematics_reachability::ArmKinematicsReachability aw;
   kinematics_msgs::WorkspacePoints workspace;
@@ -77,44 +70,6 @@ int main(int argc, char** argv)
   workspace.parameters.workspace_region_pose.pose.position.z = 0.4;
   workspace.parameters.workspace_region_pose.pose.orientation.w = 1.0;
 
-  /*  planning_scene_req.planning_scene_diff.collision_objects.resize(1);
-  planning_scene_req.planning_scene_diff.collision_objects[0].shapes.resize(1);
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses.resize(1);
-  planning_scene_req.planning_scene_diff.collision_objects[0].id = "dummy_object";
-
-  planning_scene_req.planning_scene_diff.collision_objects[0].header.frame_id = root_name;
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].position.x = 100.0;
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].position.y = 100.0;
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].position.z = 100.0;
-
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.x = 0.0;
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.y = 0.0;
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.z = 0.0;
-  planning_scene_req.planning_scene_diff.collision_objects[0].poses[0].orientation.w = 1.0;
-
-  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].type = workspace.parameters.workspace_region_shape.BOX;
-  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions.resize(3);
-  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions[0] = 0.4;
-  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions[1] = 1.5;
-  planning_scene_req.planning_scene_diff.collision_objects[0].shapes[0].dimensions[2] = 0.04;
-  
-  planning_environment::RobotModels robot_model("robot_description");
-  planning_models::KinematicState kinematic_state(robot_model.getKinematicModel());
-  ros::Time my_time = ros::Time::now();
-
-  kinematic_state.setKinematicStateToDefault();
-  planning_environment::convertKinematicStateToRobotState(kinematic_state,
-                                                          my_time,
-                                                          robot_model.getRobotFrameId(),
-                                                          planning_scene_req.planning_scene_diff.robot_state);
-  
-  if(!set_planning_scene_diff_client.call(planning_scene_req, planning_scene_res)) 
-  {
-    ROS_ERROR("Can't get planning scene");
-    return false;
-  }
-
-  */
 
   //ACTUAL REACHABILITY TESTS
 
@@ -171,10 +126,7 @@ int main(int argc, char** argv)
 
   aw.computeWorkspace(workspace);
   aw.visualize(workspace,"full");
-  //  aw.visualize(workspace,"full");
   //  aw.visualize(workspace,"RPY(0,0,0)",zero_orientation);
-  //  aw.getReachableWorkspace(workspace);
-  //  aw.visualize(workspace);
   ROS_INFO("Success");
 
   aw.publishWorkspace(workspace);
