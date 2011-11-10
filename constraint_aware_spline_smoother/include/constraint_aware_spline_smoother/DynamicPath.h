@@ -1,7 +1,6 @@
 /*****************************************************************************
- * Software License Agreement (BSD License)
  *
- * Copyright (c) 2009, the Trustees of Indiana University
+ * Copyright (c) 2010-2011, the Trustees of Indiana University
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,13 +33,14 @@
 
 #include "constraint_aware_spline_smoother/ParabolicRamp.h"
 
+namespace ParabolicRamp {
+
 /** @brief A base class for a feasibility checker.
  */
 class FeasibilityCheckerBase
 {
  public:
-  FeasibilityCheckerBase(){};
-  virtual ~FeasibilityCheckerBase(){};
+  virtual ~FeasibilityCheckerBase() {}
   virtual bool ConfigFeasible(const Vector& x)=0;
   virtual bool SegmentFeasible(const Vector& a,const Vector& b)=0;
 };
@@ -54,41 +54,98 @@ class FeasibilityCheckerBase
 class DistanceCheckerBase
 {
  public:
-  virtual ~DistanceCheckerBase();
+  virtual ~DistanceCheckerBase() {}
   virtual Real ObstacleDistanceNorm() const { return Inf; }
   virtual Real ObstacleDistance(const Vector& x)=0;
 };
 
+/// Checks whether the ramp is feasible using exact checking
+bool CheckRamp(const ParabolicRampND& ramp,FeasibilityCheckerBase* feas,DistanceCheckerBase* distance,int maxiters);
+
+/// Checks whether the ramp is feasible using a piecewise linear approximation
+/// with tolerance tol
+bool CheckRamp(const ParabolicRampND& ramp,FeasibilityCheckerBase* space,Real tol);
+
+
+/** @brief A class that encapsulates feaibility checking of a
+ * ParabolicRampND.
+ *
+ * If given a feasibility checker and a tolerance tol, this performs
+ * a piecewise linear discretization that deviates no more than tol
+ * from the parabolic ramp along any axis, and then checks for
+ * configuration and segment feasibility along that piecewise linear path.
+ * 
+ * If given a feasibility checker and a distance checker, this performs
+ * an exact recursive bisection.
+ */
+class RampFeasibilityChecker
+{
+ public:
+  RampFeasibilityChecker(FeasibilityCheckerBase* feas,Real tol);
+  RampFeasibilityChecker(FeasibilityCheckerBase* feas,DistanceCheckerBase* distance,int maxiters);
+  bool Check(const ParabolicRampND& x);
+
+  FeasibilityCheckerBase* feas;
+  Real tol;
+  DistanceCheckerBase* distance;
+  int maxiters;
+};
+
+/** @brief A custom random number generator that can be provided to
+ * DynamicPath::Shortcut()
+ */
+class RandomNumberGeneratorBase
+{
+ public:
+  virtual Real Rand() { return ::ParabolicRamp::Rand(); }
+};
+
+
 /** @brief A bounded-velocity, bounded-acceleration trajectory consisting
  * of parabolic ramps.
+ *
+ * Optionally, joint limits xMin and xMax may be specified as well.  If so,
+ * then the XXXBounded functions are used for smoothing.
+ *
+ * The Shortcut and OnlineShortcut methods can optionally take a
+ * custom random number generator (may be useful for multithreading).
  */
 class DynamicPath
 {
  public:
   DynamicPath();
   void Init(const Vector& velMax,const Vector& accMax);
+  void SetJointLimits(const Vector& qMin,const Vector& qMax);
   inline void Clear() { ramps.clear(); }
   inline bool Empty() const { return ramps.empty(); }
   Real GetTotalTime() const;
-  void Evaluate(Real t,Vector& x);
-  void Derivative(Real t,Vector& dx);
+  int GetSegment(Real t,Real& u) const;
+  void Evaluate(Real t,Vector& x) const;
+  void Derivative(Real t,Vector& dx) const;
   void SetMilestones(const std::vector<Vector>& x);
   void SetMilestones(const std::vector<Vector>& x,const std::vector<Vector>& dx);
   void GetMilestones(std::vector<Vector>& x,std::vector<Vector>& dx) const;
   void Append(const Vector& x);
   void Append(const Vector& x,const Vector& dx);
-  bool TryShortcut(Real t1,Real t2,FeasibilityCheckerBase*,Real tol);
-  bool TryShortcut(Real t1,Real t2,FeasibilityCheckerBase*,DistanceCheckerBase*);
-  int Shortcut(int numIters,FeasibilityCheckerBase*,Real tol);
-  int ShortCircuit(FeasibilityCheckerBase*,Real tol);
-  int Shortcut(int numIters,FeasibilityCheckerBase*,DistanceCheckerBase*);
-  int ShortCircuit(FeasibilityCheckerBase*,DistanceCheckerBase*);
+  void Concat(const DynamicPath& suffix);
+  void Split(Real t,DynamicPath& before,DynamicPath& after) const;
+  bool TryShortcut(Real t1,Real t2,RampFeasibilityChecker& check);
+  int Shortcut(int numIters,RampFeasibilityChecker& check);
+  int Shortcut(int numIters,RampFeasibilityChecker& check,RandomNumberGeneratorBase* rng);
+  int ShortCircuit(RampFeasibilityChecker& check);
+  /// leadTime: the amount of time before this path should be executable
+  /// padTime: an approximate bound on the time it takes to check a shortcut
+  int OnlineShortcut(Real leadTime,Real padTime,RampFeasibilityChecker& check);
+  int OnlineShortcut(Real leadTime,Real padTime,RampFeasibilityChecker& check,RandomNumberGeneratorBase* rng);
 
-  /// The velocity and acceleration bounds
-  Vector velMax,accMax;
+  bool IsValid() const;
+
+  /// The joint limits (optional), velocity bounds, and acceleration bounds
+  Vector xMin,xMax,velMax,accMax;
   /// The path is stored as a series of ramps
   std::vector<ParabolicRampND> ramps;
 };
 
+} //namespace ParabolicRamp
 
 #endif

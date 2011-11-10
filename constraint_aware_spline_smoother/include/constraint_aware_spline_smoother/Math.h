@@ -26,15 +26,16 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  ***************************************************************************/
 #ifndef PARABOLIC_RAMP_MATH_H
 #define PARABOLIC_RAMP_MATH_H
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
+#include <stdlib.h>
 #include <vector>
+
+namespace ParabolicRamp {
 
 typedef double Real;
 typedef std::vector<double> Vector;
@@ -42,6 +43,7 @@ typedef std::vector<double> Vector;
 //can replace this with your favorite representation/tests of infinity
 const static Real Inf = 1e300;
 inline bool IsInf(Real x) { return x==Inf; }
+inline bool IsFinite(Real x) { return fabs(x)<Inf; }
 
 inline Real Sqr(Real x) { return x*x; }
 inline Real Sqrt(Real x) { return sqrt(x); }
@@ -55,5 +57,7 @@ inline void Swap(Real& x,Real& y) { Real temp=x; x=y; y=temp; }
 
 // Returns a random number in [0,1)
 inline Real Rand() { return Real(rand())/Real(RAND_MAX); }
+
+} //namespace ParabolicRamp
 
 #endif

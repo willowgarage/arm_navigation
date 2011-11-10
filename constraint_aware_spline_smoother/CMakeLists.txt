@@ -30,6 +30,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #target_link_libraries(example ${PROJECT_NAME})
 
 rosbuild_add_library(constraint_aware_spline_smoother 
+                     src/Timer.cpp
                      src/DynamicPath.cpp
                      src/ParabolicRamp.cpp
                      src/cubic_spline_shortcutter.cpp

@@ -52,15 +52,22 @@
 #include <constraint_aware_spline_smoother/Math.h>
 #include <constraint_aware_spline_smoother/DynamicPath.h>
 
+
+using namespace ParabolicRamp;
+
 namespace constraint_aware_spline_smoother
 {
 static const double MIN_DELTA = 0.01;
+static const double DEFAULT_VEL_MAX = 1000.0;
+static const double DEFAULT_ACC_MAX = 1000.0;
+static const double DEFAULT_POS_MAX = 1000.0;
+static const double DEFAULT_POS_MIN = -1000.0;
 
 class FeasibilityChecker : public FeasibilityCheckerBase
 {
 public: 
   FeasibilityChecker();
-  virtual bool ConfigFeasible(const Vector& x);
+  virtual bool ConfigFeasible(const ParabolicRamp::Vector& x);
   virtual bool SegmentFeasible(const Vector& a,const Vector& b);
   bool setInitial(const trajectory_msgs::JointTrajectory &trajectory,
                   const std::string& group_name, 
@@ -296,16 +303,48 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
                                    trajectory_in.path_constraints);
   std::vector<Vector> path;        //the sequence of milestones
   Vector vmax,amax;           //velocity and acceleration bounds, respectively
+  Vector pmin,pmax;           //joint position bounds
   Real tol=1e-4;              //if a point is feasible, any point within tol is considered acceptable
   //TODO: compute milestones, velocity and acceleration bounds
 
   vmax.resize(trajectory_in.limits.size());
   amax.resize(trajectory_in.limits.size());
+  pmin.resize(trajectory_in.limits.size());
+  pmax.resize(trajectory_in.limits.size());
 
   for(unsigned int i=0; i < trajectory_in.limits.size(); i++)
   {
-    vmax[i] = trajectory_in.limits[i].max_velocity;
-    amax[i] = trajectory_in.limits[i].max_acceleration;
+    if( trajectory_in.limits[i].has_velocity_limits )
+    {
+      vmax[i] = trajectory_in.limits[i].max_velocity;
+    }
+    else
+    {
+      vmax[i] = DEFAULT_VEL_MAX;
+    }
+
+    if( trajectory_in.limits[i].has_acceleration_limits )
+    {
+      amax[i] = trajectory_in.limits[i].max_acceleration;
+    }
+    else
+    {
+      amax[i] = DEFAULT_ACC_MAX;
+    }
+
+    if( trajectory_in.limits[i].has_position_limits )
+    {
+      pmin[i] = trajectory_in.limits[i].min_position;
+      pmax[i] = trajectory_in.limits[i].max_position;
+    }
+    else
+    {
+      pmin[i] = DEFAULT_POS_MIN;
+      pmax[i] = DEFAULT_POS_MAX;
+    }
+
+    ROS_ERROR("joint %s min_pos=%f max_pos=%f", trajectory_in.limits[i].joint_name.c_str(),
+      trajectory_in.limits[i].min_position, trajectory_in.limits[i].max_position);
   }
 
   for(unsigned int i=0; i<trajectory_in.trajectory.points.size(); i++)
@@ -315,9 +354,11 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
 
   DynamicPath traj;
   traj.Init(vmax,amax);
+  traj.SetJointLimits(pmin,pmax);
   traj.SetMilestones(path);   //now the trajectory starts and stops at every milestone
   ROS_DEBUG("Initial path duration: %g\n",(double)traj.GetTotalTime());
-  int res=traj.Shortcut(num_iterations_,feasibility_checker_.get(),tol);
+  RampFeasibilityChecker check(feasibility_checker_.get(),tol);
+  int res=traj.Shortcut(num_iterations_,check);
   ROS_DEBUG("After shortcutting: duration %g\n",(double)traj.GetTotalTime());
   unsigned int num_points = (unsigned int)(traj.GetTotalTime()/discretization_+0.5) + 1;
   double totalTime = (double) traj.GetTotalTime();
