@@ -92,7 +92,7 @@ public:
   virtual std::string getFrame() 
   {
     if(kinematics_solver_)
-      return kinematics_solver_->getBaseFrame();
+      return kinematics_solver_->getBaseName();
     else
       return std::string(" ");
   };
