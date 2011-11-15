@@ -48,6 +48,9 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
   state_space_ = state_space;
   group_name_ = group_name;
   end_effector_name_ = end_effector_name;
+
+  ros::NodeHandle node_handle("~");
+
   ROS_DEBUG("Trying to initialize solver %s",kinematics_solver_name.c_str());
   if(!kinematics_loader_.isClassAvailable(kinematics_solver_name))
   {
@@ -66,8 +69,26 @@ bool OmplRosIKSampler::initialize(const ompl::base::StateSpacePtr &state_space,
     return false;
   }
   ROS_DEBUG("Loaded solver %s",kinematics_solver_name.c_str());
-  if(!kinematics_solver_->initialize(group_name))
+
+  std::string base_name, tip_name;
+  if(!node_handle.hasParam(group_name_+"/root_name"))
   {
+    ROS_ERROR_STREAM("Kinematics solver has no root name " << base_name << " in param ns " << node_handle.getNamespace());
+    throw new OMPLROSException();
+  }
+  node_handle.getParam(group_name_+"/root_name",base_name);
+
+  if(!node_handle.hasParam(group_name_+"/tip_name"))
+  {
+    ROS_ERROR_STREAM("Kinematics solver has no root name " << tip_name << " in param ns " << node_handle.getNamespace());
+    throw new OMPLROSException();
+  }
+  node_handle.getParam(group_name_+"/tip_name",tip_name);
+
+  if(!kinematics_solver_->initialize(group_name,
+                                     base_name,
+                                     tip_name,
+                                     .01)) {
     ROS_ERROR("Could not initialize kinematics solver for group %s",group_name.c_str());
     return false;
   }
@@ -110,7 +131,7 @@ bool OmplRosIKSampler::configureOnRequest(const arm_navigation_msgs::GetMotionPl
 
   if(!collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                             goal_constraints,
-                                                                            kinematics_solver_->getBaseFrame())) {
+                                                                            kinematics_solver_->getBaseName())) {
     response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
     return false;
   }
@@ -129,11 +150,11 @@ bool OmplRosIKSampler::configureOnRequest(const arm_navigation_msgs::GetMotionPl
     ROS_DEBUG("Setup %d poses for IK sampler",(int)ik_poses_.size());
   for(unsigned int i=0; i < ik_poses_.size(); i++)
   {
-    if(ik_poses_[i].header.frame_id != kinematics_solver_->getBaseFrame())
+    if(ik_poses_[i].header.frame_id != kinematics_solver_->getBaseName())
     {
       ROS_ERROR("Goals for inverse kinematic sampling in %s frame are not in kinematics frame: %s",
                 ik_poses_[i].header.frame_id.c_str(),
-                kinematics_solver_->getBaseFrame().c_str());
+                kinematics_solver_->getBaseName().c_str());
       return false;
     }
   }
