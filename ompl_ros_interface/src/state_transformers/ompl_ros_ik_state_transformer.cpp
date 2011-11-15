@@ -46,12 +46,30 @@ OmplRosIKStateTransformer::OmplRosIKStateTransformer(const ompl::base::StateSpac
   std::string kinematics_solver_name;
   group_name_ = state_space_->getName();
   physical_group_name_ = physical_joint_model_group_->getName();
+  std::string base_name, tip_name;
+
   if(!node_handle.hasParam(group_name_+"/kinematics_solver"))
   {
     ROS_ERROR("Kinematics solver not defined for group %s in namespace %s",group_name_.c_str(),node_handle.getNamespace().c_str());
     throw new OMPLROSException();
   }
   node_handle.getParam(group_name_+"/kinematics_solver",kinematics_solver_name);
+
+  if(!node_handle.hasParam(group_name_+"/root_name"))
+  {
+    ROS_ERROR_STREAM("Kinematics solver has no root name " << base_name << " in param ns " << node_handle.getNamespace());
+    throw new OMPLROSException();
+  }
+  node_handle.getParam(group_name_+"/root_name",base_name);
+
+  if(!node_handle.hasParam(group_name_+"/tip_name"))
+  {
+    ROS_ERROR_STREAM("Kinematics solver has no root name " << tip_name << " in param ns " << node_handle.getNamespace());
+    throw new OMPLROSException();
+  }
+  node_handle.getParam(group_name_+"/tip_name",tip_name);
+
+
   ROS_DEBUG("Trying to initialize solver %s",kinematics_solver_name.c_str());
   if(!kinematics_loader_.isClassAvailable(kinematics_solver_name))
   {
@@ -70,7 +88,10 @@ OmplRosIKStateTransformer::OmplRosIKStateTransformer(const ompl::base::StateSpac
     throw new OMPLROSException();
   }
   ROS_DEBUG("Loaded solver %s",kinematics_solver_name.c_str());
-  if(!kinematics_solver_->initialize(group_name_))
+  if(!kinematics_solver_->initialize(group_name_,
+                                     base_name,
+                                     tip_name,
+                                     .01))
   {
     ROS_ERROR("Could not initialize kinematics solver for group %s",group_name_.c_str());
     throw new OMPLROSException();
