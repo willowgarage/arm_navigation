@@ -69,97 +69,101 @@ using namespace angles;
 
 namespace arm_kinematics_constraint_aware
 {
-  Eigen::Matrix4f KDLToEigenMatrix(const KDL::Frame &p);
+Eigen::Matrix4f KDLToEigenMatrix(const KDL::Frame &p);
 
-  double computeEuclideanDistance(const std::vector<double> &array_1, 
-                                  const KDL::JntArray &array_2);
+double computeEuclideanDistance(const std::vector<double> &array_1, 
+                                const KDL::JntArray &array_2);
 
-  double distance(const urdf::Pose &transform);
+double distance(const urdf::Pose &transform);
 
-  bool solveQuadratic(const double &a, 
-                      const double &b, 
-                      const double &c, 
-                      double *x1, 
-                      double *x2);
+bool solveQuadratic(const double &a, 
+                    const double &b, 
+                    const double &c, 
+                    double *x1, 
+                    double *x2);
 
-  Eigen::Matrix4f matrixInverse(const Eigen::Matrix4f &g);
+Eigen::Matrix4f matrixInverse(const Eigen::Matrix4f &g);
 
-  bool solveCosineEqn(const double &a, 
-                      const double &b, 
-                      const double &c, 
-                      double &soln1, 
-                      double &soln2);
+bool solveCosineEqn(const double &a, 
+                    const double &b, 
+                    const double &c, 
+                    double &soln1, 
+                    double &soln2);
 
-  bool loadRobotModel(ros::NodeHandle node_handle, 
-                      urdf::Model &robot_model, 
-                      std::string &root_name, 
-                      std::string &tip_name, 
-                      std::string &xml_string);
+bool loadRobotModel(ros::NodeHandle node_handle, 
+                    urdf::Model &robot_model, 
+                    std::string &root_name, 
+                    std::string &tip_name, 
+                    std::string &xml_string);
 
-  bool getKDLChain(const std::string &xml_string, 
-                   const std::string &root_name, 
-                   const std::string &tip_name, 
-                   KDL::Chain &kdl_chain);
+bool getKDLChain(const std::string &xml_string, 
+                 const std::string &root_name, 
+                 const std::string &tip_name, 
+                 KDL::Chain &kdl_chain);
 
-  bool getKDLTree(const std::string &xml_string, 
-                   const std::string &root_name, 
-                   const std::string &tip_name, 
-                   KDL::Tree &kdl_chain);
+bool getKDLTree(const std::string &xml_string, 
+                const std::string &root_name, 
+                const std::string &tip_name, 
+                KDL::Tree &kdl_chain);
 
-  bool checkJointNames(const std::vector<std::string> &joint_names, 
-                       const kinematics_msgs::KinematicSolverInfo &chain_info);
-
-  bool checkLinkNames(const std::vector<std::string> &link_names,
-                      const kinematics_msgs::KinematicSolverInfo &chain_info);
-
-  bool checkLinkName(const std::string &link_name, 
+bool checkJointNames(const std::vector<std::string> &joint_names, 
                      const kinematics_msgs::KinematicSolverInfo &chain_info);
- 
-  bool checkRobotState(arm_navigation_msgs::RobotState &robot_state,
-                       const kinematics_msgs::KinematicSolverInfo &chain_info);
 
-  bool checkFKService(kinematics_msgs::GetPositionFK::Request &request, 
-                      kinematics_msgs::GetPositionFK::Response &response, 
-                      const kinematics_msgs::KinematicSolverInfo &chain_info);
+bool checkLinkNames(const std::vector<std::string> &link_names,
+                    const kinematics_msgs::KinematicSolverInfo &chain_info);
+
+bool checkLinkName(const std::string &link_name, 
+                   const kinematics_msgs::KinematicSolverInfo &chain_info);
  
-  bool checkIKService(kinematics_msgs::GetPositionIK::Request &request, 
-                      kinematics_msgs::GetPositionIK::Response &response,
-                      const kinematics_msgs::KinematicSolverInfo &chain_info);
+bool checkRobotState(arm_navigation_msgs::RobotState &robot_state,
+                     const kinematics_msgs::KinematicSolverInfo &chain_info);
+
+bool checkFKService(kinematics_msgs::GetPositionFK::Request &request, 
+                    kinematics_msgs::GetPositionFK::Response &response, 
+                    const kinematics_msgs::KinematicSolverInfo &chain_info);
  
-  bool checkConstraintAwareIKService(kinematics_msgs::GetConstraintAwarePositionIK::Request &request, 
+bool checkIKService(kinematics_msgs::GetPositionIK::Request &request, 
+                    kinematics_msgs::GetPositionIK::Response &response,
+                    const kinematics_msgs::KinematicSolverInfo &chain_info);
+ 
+bool checkConstraintAwareIKService(kinematics_msgs::GetConstraintAwarePositionIK::Request &request, 
                                    kinematics_msgs::GetConstraintAwarePositionIK::Response &response,
                                    const kinematics_msgs::KinematicSolverInfo &chain_info);
 
-  int getJointIndex(const std::string &name,
-                    const kinematics_msgs::KinematicSolverInfo &chain_info);
+int getJointIndex(const std::string &name,
+                  const kinematics_msgs::KinematicSolverInfo &chain_info);
 
-  bool convertPoseToRootFrame(const geometry_msgs::PoseStamped &pose_msg, 
-                              KDL::Frame &pose_kdl, 
-                              const std::string &root_frame, 
-                              const tf::TransformListener &tf);
+bool convertPoseToRootFrame(const geometry_msgs::PoseStamped &pose_msg, 
+                            KDL::Frame &pose_kdl, 
+                            const std::string &root_frame, 
+                            const tf::TransformListener &tf);
 
-  bool convertPoseToRootFrame(const geometry_msgs::PoseStamped &pose_msg, 
-                              geometry_msgs::PoseStamped &pose_msg_out, 
-                              const std::string &root_frame, 
-                              const tf::TransformListener &tf);
+bool convertPoseToRootFrame(const geometry_msgs::PoseStamped &pose_msg, 
+                            geometry_msgs::PoseStamped &pose_msg_out, 
+                            const std::string &root_frame, 
+                            const tf::TransformListener &tf);
 
-  int getKDLSegmentIndex(const KDL::Chain &chain, 
-                         const std::string &name);
+int getKDLSegmentIndex(const KDL::Chain &chain, 
+                       const std::string &name);
 
-  void getKDLChainInfo(const KDL::Chain &chain,
-                       kinematics_msgs::KinematicSolverInfo &chain_info);
+void getKDLChainInfo(const KDL::Chain &chain,
+                     kinematics_msgs::KinematicSolverInfo &chain_info);
 
-  void reorderJointState(sensor_msgs::JointState &joint_state, 
-                         const kinematics_msgs::KinematicSolverInfo &chain_info);
+void reorderJointState(sensor_msgs::JointState &joint_state, 
+                       const kinematics_msgs::KinematicSolverInfo &chain_info);
 
-  bool getChainInfoFromRobotModel(urdf::Model &robot_model,
-                                  const std::string &root_name,
-                                  const std::string &tip_name,
-                                  kinematics_msgs::KinematicSolverInfo &chain_info);
+bool extractJointState(const sensor_msgs::JointState& joint_state,
+                       const std::vector<std::string>& joint_names,
+                       std::vector<double>& values);
 
-  bool getChainInfo(const std::string &name, kinematics_msgs::KinematicSolverInfo &chain_info);
+bool getChainInfoFromRobotModel(urdf::Model &robot_model,
+                                const std::string &root_name,
+                                const std::string &tip_name,
+                                kinematics_msgs::KinematicSolverInfo &chain_info);
 
-  arm_navigation_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code);
+bool getChainInfo(const std::string &name, kinematics_msgs::KinematicSolverInfo &chain_info);
+
+arm_navigation_msgs::ArmNavigationErrorCodes kinematicsErrorCodeToMotionPlanningErrorCode(const int &kinematics_error_code);
 
 }
 

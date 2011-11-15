@@ -60,6 +60,7 @@
 // plugin
 #include <pluginlib/class_loader.h>
 #include <kinematics_base/kinematics_base.h>
+#include <arm_kinematics_constraint_aware/arm_kinematics_solver_constraint_aware.h>
 
 
 namespace arm_kinematics_constraint_aware
@@ -115,29 +116,18 @@ public:
 private:
 
   pluginlib::ClassLoader<kinematics::KinematicsBase> kinematics_loader_;
-  kinematics::KinematicsBase* kinematics_solver_;
+  arm_kinematics_constraint_aware::ArmKinematicsSolverConstraintAware* solver_;
   bool active_;
 
   ros::NodeHandle node_handle_,root_handle_;
   ros::ServiceServer ik_collision_service_, ik_service_, fk_service_, ik_solver_info_service_, fk_solver_info_service_;
   planning_environment::CollisionModelsInterface *collision_models_interface_;
   std::string group_,root_name_;
-  bool use_collision_map_;
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
-  std::vector<std::string> end_effector_collision_links_;
-  std::vector<std::string> arm_links_;
-  void collisionCheck(const geometry_msgs::Pose &ik_pose,
-                      const std::vector<double> &ik_solution,
-                      int &error_code);
-  void initialPoseCheck(const geometry_msgs::Pose &ik_pose,
-                        const std::vector<double> &ik_solution,
-                        int &error_code);
   void printStringVec(const std::string &prefix, const std::vector<std::string> &string_vector);
   ros::Publisher display_trajectory_publisher_;
   bool visualize_solution_;
-  kinematics_msgs::PositionIKRequest ik_request_;
-  arm_navigation_msgs::Constraints constraints_;
 
   void advertiseBaseKinematicsServices();
   void advertiseConstraintIKService();

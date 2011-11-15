@@ -31,6 +31,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 rosbuild_add_library(arm_kinematics_constraint_aware_lib
   src/kdl_arm_kinematics_plugin.cpp
+  src/arm_kinematics_solver_constraint_aware.cpp
   src/arm_kinematics_constraint_aware_utils.cpp
   src/arm_kinematics_constraint_aware.cpp
 )
