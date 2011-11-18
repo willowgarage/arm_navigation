@@ -34,8 +34,8 @@
 
 /** \author Sachin Chitta */
 
-#ifndef CUBIC_SPLINE_SHORT_CUTTER_H_
-#define CUBIC_SPLINE_SHORT_CUTTER_H_
+#ifndef PARABOLIC_BLEND_SHORT_CUTTER_H_
+#define PARABOLIC_BLEND_SHORT_CUTTER_H_
 
 #include <ros/ros.h>
 #include <tf/tf.h>

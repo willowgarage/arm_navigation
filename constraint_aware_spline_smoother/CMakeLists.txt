@@ -28,6 +28,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
+find_package(Eigen REQUIRED)
+include_directories(${Eigen_INCLUDE_DIRS})
 
 rosbuild_add_library(constraint_aware_spline_smoother 
                      src/Timer.cpp
@@ -35,4 +37,7 @@ rosbuild_add_library(constraint_aware_spline_smoother
                      src/ParabolicRamp.cpp
                      src/cubic_spline_shortcutter.cpp
                      src/linear_spline_shortcutter.cpp
-                     src/parabolic_blend_shortcutter.cpp)
+                     src/parabolic_blend_shortcutter.cpp
+                     src/parabolic_blend_fast.cpp
+                     src/parabolic_linear_blend.cpp
+                     src/Trajectory.cpp)

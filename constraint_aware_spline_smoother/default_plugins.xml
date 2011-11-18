@@ -18,6 +18,12 @@
         Generates collision free linear trajectories
       </description>
     </class>
+    <class name="ParabolicBlendFastFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::ParabolicBlendFastSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
+            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+      <description>
+        Generates parabolic spline trajectories.  No collision checking.
+      </description>
+    </class>
 
   </library>
 </class_libraries>
