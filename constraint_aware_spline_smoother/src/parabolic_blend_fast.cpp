@@ -45,31 +45,40 @@ using namespace constraint_aware_spline_smoother;
 const double DEFAULT_VEL_MAX=1.0;
 const double DEFAULT_ACCEL_MAX=1.0;
 const double ROUNDING_THRESHOLD = 0.01;
+const int    MAX_ITERATIONS = 100;
 
-
-void PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i)
+template <typename T>
+void ParabolicBlendFastSmoother<T>::PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
 {
     ROS_ERROR("time [%i]=%f",i,point.time_from_start.toSec());
-    ROS_ERROR("pos  [%i]=%f %f %f %f %f %f %f",i,
-      point.positions[0],point.positions[1],point.positions[2],point.positions[3],point.positions[4],point.positions[5],point.positions[6]);
-    ROS_ERROR(" vel [%i]=%f %f %f %f %f %f %f",i,
-      point.velocities[0],point.velocities[1],point.velocities[2],point.velocities[3],point.velocities[4],point.velocities[5],point.velocities[6]);
-    ROS_ERROR("  acc[%i]=%f %f %f %f %f %f %f",i,
-      point.accelerations[0],point.accelerations[1],point.accelerations[2],point.accelerations[3],point.accelerations[4],point.accelerations[5],point.accelerations[6]);
+    if(point.positions.size() >= 7 )
+    {
+      ROS_ERROR("pos  [%i]=%f %f %f %f %f %f %f",i,
+        point.positions[0],point.positions[1],point.positions[2],point.positions[3],point.positions[4],point.positions[5],point.positions[6]);
+    }
+    if(point.velocities.size() >= 7 )
+    {
+      ROS_ERROR(" vel [%i]=%f %f %f %f %f %f %f",i,
+        point.velocities[0],point.velocities[1],point.velocities[2],point.velocities[3],point.velocities[4],point.velocities[5],point.velocities[6]);
+    }
+    if(point.accelerations.size() >= 7 )
+    {
+      ROS_ERROR("  acc[%i]=%f %f %f %f %f %f %f",i,
+        point.accelerations[0],point.accelerations[1],point.accelerations[2],point.accelerations[3],point.accelerations[4],point.accelerations[5],point.accelerations[6]);
+    }
 }
 
-// FIXME-remove
 template <typename T>
-void PrintStats(const T& trajectory)
+void ParabolicBlendFastSmoother<T>::PrintStats(const T& trajectory) const
 {
-    ROS_ERROR("maxVelocities=%f %f %f %f %f %f %f",
-      trajectory.limits[0].max_velocity,trajectory.limits[1].max_velocity,trajectory.limits[2].max_velocity,
-      trajectory.limits[3].max_velocity,trajectory.limits[4].max_velocity,trajectory.limits[5].max_velocity,
-      trajectory.limits[6].max_velocity);
-    ROS_ERROR("maxAccelerations=%f %f %f %f %f %f %f",
-      trajectory.limits[0].max_acceleration,trajectory.limits[1].max_acceleration,trajectory.limits[2].max_acceleration,
-      trajectory.limits[3].max_acceleration,trajectory.limits[4].max_acceleration,trajectory.limits[5].max_acceleration,
-      trajectory.limits[6].max_acceleration);
+ ROS_ERROR("maxVelocities=%f %f %f %f %f %f %f",
+   trajectory.limits[0].max_velocity,trajectory.limits[1].max_velocity,trajectory.limits[2].max_velocity,
+   trajectory.limits[3].max_velocity,trajectory.limits[4].max_velocity,trajectory.limits[5].max_velocity,
+   trajectory.limits[6].max_velocity);
+ ROS_ERROR("maxAccelerations=%f %f %f %f %f %f %f",
+   trajectory.limits[0].max_acceleration,trajectory.limits[1].max_acceleration,trajectory.limits[2].max_acceleration,
+   trajectory.limits[3].max_acceleration,trajectory.limits[4].max_acceleration,trajectory.limits[5].max_acceleration,
+   trajectory.limits[6].max_acceleration);
   // for every point in time:
   for (unsigned int i=0; i<trajectory.trajectory.points.size(); ++i)
   {
@@ -78,181 +87,290 @@ void PrintStats(const T& trajectory)
   }
 }
 
-// Applies velocity/acceleration constraints
-// and returns a modified the range of possible time values for point2
-void CalculateRange(
-    const trajectory_msgs::JointTrajectoryPoint& point1,
-    const trajectory_msgs::JointTrajectoryPoint& point2,
-    const std::vector<arm_navigation_msgs::JointLimits>& joint_limits,
-    ValueRange& possible_times)
+// Applies velocity
+template <typename T>
+void ParabolicBlendFastSmoother<T>::ApplyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const
 {
-  unsigned int num_joints = point1.positions.size();
+  //we double the number of points by adding a midpoint between each point.
+  const unsigned int num_points = trajectory.trajectory.points.size();
+  const unsigned int num_joints = trajectory.trajectory.joint_names.size();
 
- // Calculate range of times that can fulfill acceleration and velocity constraints
- for (unsigned int j=0; j<num_joints; ++j)
- {
-   double v_max = 1.0;
-   if( joint_limits[j].has_velocity_limits )
-   {
-     v_max = joint_limits[j].max_velocity;
-   }
-   double a_max = 1.0;
-   if( joint_limits[j].has_velocity_limits )
-   {
-     a_max = joint_limits[j].max_acceleration;
-   }
-
-   const double d1 = point1.positions[j];
-   const double d2 = point2.positions[j];
-   const double v1 = point1.velocities[j];
-   const double t1 = point1.time_from_start.toSec();
-   double a;
-   double d = d2 - d1;
-   double v2;
-
-   // Find point (d2,t) on the two parabolas (one for positive acceleration, one for negative)
-   // There are four possible points-- two for each parabola.
-   // But not all four points necessarily exist.
-   a = a_max;
-   double t_low, t_high;
-
-   if( ( v1*v1 + 2*a_max*d ) >= 0.0 )
-   { // positive acceleration constraints apply
-     // intersection with maximum positive acceleration parabola
-     t_high = ((-v1) + sqrt(v1*v1+2*a_max*d))/a_max;
-     //ROS_ERROR("[%i][%i] Positive acceleration constraint t_high=%f",i,j,t_high);
-     v2 = v1 + a*t_high;
-     if( std::abs(v2) > v_max )
-     {	// intersection with maximum positive velocity line
-       //ROS_ERROR("  Positive velocity constraint t_high=%f",t_high);
-       t_high = ( d2 - (v_max-v1)*(v1-v_max)/(2*a_max) ) / (v_max);
-     }
-
-     // intersection with maximum positive acceleration parabola
-     t_low = ((-v1) - sqrt(v1*v1+2*a_max*d))/a_max;
-     //ROS_ERROR("[%i][%i] Positive acceleration constraint t_low=%f",i,j,t_low);
-     v2 = v1 + a*t_low;
-     if( std::abs(v2) > v_max )
-     {	// intersection with maximum negative velocity line
-       t_low = ( d2 + (v_max+v1)*(v1+v_max)/(2*a_max) ) / (-v_max);
-       //ROS_ERROR("  Positive velocity constraint t_low=%f",t_low);
-     }
-
-     // Add to constraint range
-     possible_times.RemoveRange(t1+t_low,t1+t_high);
-     //possible_times.Print();	//FIXME- remove
-   }
-
-   if( ( v1*v1 + 2*(-a_max)*d ) >= 0.0 )
-   { // negative acceleration constraints apply
-     // intersection with maximum negative acceleration parabola
-     t_low = ((-v1) + sqrt(v1*v1+2*(-a_max)*d))/(-a_max);
-     //ROS_ERROR("[%i][%i] Negative acceleration constraint t_low=%f",i,j,t_low);
-     v2 = v1 + a*t_low;
-     if( std::abs(v2) > v_max )
-     {	// intersection with maximum negative velocity line
-       t_low = ( d2 - (v_max-v1)*(v1-v_max)/(2*(-a_max)) ) / (v_max);
-       //ROS_ERROR("  Negative velocity constraint t_low=%f",t_low);
-     }
-
-     // intersection with maximum negative acceleration parabola
-     t_high = ((-v1) - sqrt(v1*v1+2*(-a_max)*d))/(-a_max);
-     //ROS_ERROR("[%i][%i] Negative acceleration constraint t_high=%f",i,j,t_high);
-     v2 = v1 + a*t_high;
-     if( std::abs(v2) > v_max )
-     { // intersection with maximum positive velocity line
-       t_high = ( d2 + (v_max+v1)*(v1+v_max)/(2*(-a_max)) ) / (-v_max);
-       //ROS_ERROR("  Negative velocity constraint t_high=%f",t_high);
-     }
-
-     // Add to constraint range
-     possible_times.RemoveRange(t1+t_low,t1+t_high);
-     //possible_times.Print();	//FIXME- remove
-   }
- }
-}
-
-
-// Calculates the correct velocity and acceleration of a point's joint,
-// after the time of the second point has been set.
-// Should be called for each joint.
-void CalculateJointValues(
-    const trajectory_msgs::JointTrajectoryPoint& point1,
-    const trajectory_msgs::JointTrajectoryPoint& point2,
-    const std::vector<arm_navigation_msgs::JointLimits>& joint_limits,
-    const unsigned int joint_index,
-    double& velocity,
-    double& acceleration )
-{
-  const unsigned int j = joint_index;
-
-  // Find the correct velocity & acceleration
-  double v_max = 1.0;
-  if( joint_limits[j].has_velocity_limits )
+  // Initial values
+  for (unsigned int i=0; i<num_points; ++i)
   {
-    v_max = joint_limits[j].max_velocity;
-  }
-  double a_max = 1.0;
-  if( joint_limits[j].has_velocity_limits )
-  {
-    a_max = joint_limits[j].max_acceleration;
+    trajectory_msgs::JointTrajectoryPoint& point = trajectory.trajectory.points[i];
+    point.velocities.resize(num_joints);
+    point.accelerations.resize(num_joints);
   }
 
-  const double t1 = point1.time_from_start.toSec();
-  const double t2 = point2.time_from_start.toSec();
-  const double d1 = point1.positions[j];
-  const double d2 = point2.positions[j];
-  const double v1 = point1.velocities[j];
-
-  const double t = t2 - t1;
-  const double d = d2 - d1;
-  double a = a_max + 500; 	// (invalid acceleration)
-  double v2 = v_max + 500;	// (invalid velocity)
-
-  // First solution
-  const double v2_high = ( d + std::abs(d-v1*t) ) / t;
-  const double a_high = (v2_high - v1 ) / t;
-
-  // Second solution
-  const double v2_low = ( d - std::abs(d-v1*t) ) / t;
-  const double a_low = ( v2_low - v1 ) / t;
-
-  // Select the best
-  if( std::abs(v2_high) < v_max + ROUNDING_THRESHOLD )
+  for (unsigned int i=0; i<num_points-1; ++i)
   {
-    if( std::abs(a_high) < a_max + ROUNDING_THRESHOLD )
+    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory.trajectory.points[i];
+    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory.trajectory.points[i+1];
+
+    // Get velocity min/max
+    for (unsigned int j=0; j<num_joints; ++j)
     {
-      a = a_high;
-      v2 = v2_high;
-      //ROS_ERROR("  Recalculated solution 1 [%i][%i]: v2=%f a=%f", i,j,v2,a);
-    }
-  }
+      double v_max = 1.0;
 
-  if( std::abs(v2_low) < v_max + ROUNDING_THRESHOLD )
-  {
-    if( std::abs(a_low) < a_max + ROUNDING_THRESHOLD )
-    {
-      //ROS_ERROR("  Recalculated solution 2 [%i][%i]: v2=%f a=%f", i,j,v2_low,a_low);
-      // choose the one with higher velocity
-      if( std::abs(v2_low) > std::abs(v2) )
+      if( trajectory.limits[j].has_velocity_limits )
       {
-        a = a_low;
-        v2 = v2_low;
+        v_max = trajectory.limits[j].max_velocity;
+      }
+      double a_max = 1.0;
+      if( trajectory.limits[j].has_velocity_limits )
+      {
+        a_max = trajectory.limits[j].max_acceleration;
+      }
+
+      const double d1 = point1.positions[j];
+      const double d2 = point2.positions[j];
+      const double t_min = std::abs(d2-d1) / v_max;
+
+      if( t_min > time_diff[i] )
+      {
+        time_diff[i] = t_min;
       }
     }
   }
+}
 
-  acceleration = a;
-  velocity = v2;
+// Expand interval by a constant factor
+template <typename T>
+double ParabolicBlendFastSmoother<T>::expandInterval( const double d1, const double d2, const double t, const double a_max) const
+{
+  // FIXME!!
+  //double t_new = std::abs( (v2-v1) / (2*a_max) );
+  double t_new = std::sqrt( std::abs( (d2-d1) / (2*a_max) ) );
+  //return time_diff * 1.1;
+  return std::max( t*1.05, t_new );
+}
+/*
+template <typename T>
+double ParabolicBlendFastSmoother<T>::getExpandedT1(
+    const double d1, const double d2, const double t1, const double t2, const double a_max ) const
+{
+  double v2 = d2/t2;
+  double a = a_max;
+  double sqrtval = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
+  double sol = 99999;
 
-  if( std::abs(a) > a_max + ROUNDING_THRESHOLD )
+  // Grab the minimum positive solution
+  if( sqrtval > 0.0 )
   {
-    ROS_ERROR("************** INVALID acceleration: j=%i a=%f *****************",j,a);
-    ROS_ERROR(" d=%f t=%f v1=%f ",d,t,v1);
-    ROS_ERROR(" v2_high=%f a_high=%f, v2_low=%f a_low=%f", v2_high, (v2_high-v1) / t, v2_low, (v2_low-v1)/t);
+    double sol1 = (-(a*t2+v2) + std::sqrt(sqrtval) ) / (2*a);
+    if( sol1 > 0 && sol1 < sol)
+      sol = sol1;
+
+    double sol2 = (-(a*t2+v2) - std::sqrt(sqrtval) ) / (2*a);
+    if( sol2 > 0 && sol2 < sol)
+      sol = sol2;
   }
-  ROS_ASSERT( std::abs(a) <= a_max + ROUNDING_THRESHOLD );
-  ROS_ASSERT( std::abs(v2) <= v_max + ROUNDING_THRESHOLD );
+
+  a = -a_max;
+  sqrtval = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
+  if( sqrtval > 0.0 )
+  {
+    double sol1 = (-(a*t2+v2) + std::sqrt(sqrtval) ) / (2*a);
+    if( sol1 > 0 && sol1 < sol)
+      sol = sol1;
+    double sol2 = (-(a*t2+v2) - std::sqrt(sqrtval) ) / (2*a);
+    if( sol2 > 0 && sol2 < sol)
+      sol = sol2;
+  }
+
+  return sol;
+
+  //double t1_new = sol;
+  //return std::max( t*1.05, t_new );
+}
+*/
+
+// Takes the time differences, and updates the values in the trajectory.
+template <typename T>
+void UpdateTrajectory(T& trajectory, const std::vector<double>& time_diffs )
+{
+  double time_sum = 0.0;
+  unsigned int num_joints = trajectory.trajectory.joint_names.size();
+  const unsigned int num_points = trajectory.trajectory.points.size();
+
+	// Error check
+	if(time_diffs.size() < 1)
+		return;
+
+  // Times
+  trajectory.trajectory.points[0].time_from_start = ros::Duration(time_diffs[0]);
+  for (unsigned int i=1; i<num_points; ++i)
+  {
+    time_sum += time_diffs[i-1];
+    trajectory.trajectory.points[i].time_from_start = ros::Duration(time_sum);
+  }
+
+  // Velocities
+  for (unsigned int j=0; j<num_joints; ++j)
+  {
+    trajectory.trajectory.points[num_points-1].velocities[j] = 0.0;
+  }
+  for (unsigned int i=0; i<num_points-1; ++i)
+  {
+    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory.trajectory.points[i];
+    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory.trajectory.points[i+1];
+    for (unsigned int j=0; j<num_joints; ++j)
+    {
+      const double d1 = point1.positions[j];
+      const double d2 = point2.positions[j];
+      const double & t1 = time_diffs[i];
+      const double v1 = (d2-d1)/(t1);
+      point1.velocities[j]= v1;
+    }
+  }
+
+  // Accelerations
+  for (unsigned int i=0; i<num_points; ++i)
+  {
+    for (unsigned int j=0; j<num_joints; ++j)
+    {
+      double v1;
+      double v2;
+      double t1;
+      double t2;
+
+      if(i==0)
+      {
+        v1 = 0.0;
+        v2 = trajectory.trajectory.points[i].velocities[j];
+        t1 = time_diffs[i];
+        t2 = time_diffs[i];
+      }
+      else if(i < num_points-1)
+      {
+        v1 = trajectory.trajectory.points[i-1].velocities[j];
+        v2 = trajectory.trajectory.points[i].velocities[j];
+        t1 = time_diffs[i-1];
+        t2 = time_diffs[i];
+      }
+      else
+      {
+        v1 = trajectory.trajectory.points[i-1].velocities[j];
+        v2 = 0.0;
+        t1 = time_diffs[i-1];
+        t2 = time_diffs[i-1];
+      }
+
+      const double a = (v2-v1)/(t1+t2);
+      trajectory.trajectory.points[i].accelerations[j] = a;
+    }
+  }
+}
+
+
+// Applies Acceleration constraints
+template <typename T>
+void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const
+{
+  //we double the number of points by adding a midpoint between each point.
+  const unsigned int num_points = trajectory.trajectory.points.size();
+  const unsigned int num_joints = trajectory.trajectory.joint_names.size();
+  int num_updates = 0;
+  int iteration= 0;
+  bool backwards = false;
+
+  //PrintTimes(time_diff); // FIXME- remove
+
+  do
+  {
+    num_updates = 0;
+    iteration++;
+    // Loop forwards, then backwards
+    for( int count=0; count<2; count++)
+    {
+      ROS_ERROR("ApplyAcceleration: Iteration %i backwards=%i", iteration, backwards);
+
+      for (unsigned int i=0; i<num_points-1; ++i)
+      {
+        unsigned int index = i;
+        if(backwards)
+        {
+          index = (num_points-1)-i;
+        }
+
+        double d1;
+        double d2;
+        double d3;
+        double t1;
+        double t2;
+        double v1;
+        double v2;
+        double a;
+
+        // Get acceleration min/max
+        for (unsigned int j=0; j<num_joints; ++j)
+        {
+          double a_max = 1.0;
+          if( trajectory.limits[j].has_velocity_limits )
+          {
+            a_max = trajectory.limits[j].max_acceleration;
+          }
+
+          if( index <= 0 )
+          {	// First point
+            d2 = trajectory.trajectory.points[index].positions[j];
+            d1 = d2;
+            d3 = trajectory.trajectory.points[index+1].positions[j];
+            t1 = time_diff[0];
+            t2 = t1;
+            ROS_ASSERT(!backwards);
+          }
+          else if( index < num_points-1 )
+          {	// Intermediate Points
+            d1 = trajectory.trajectory.points[index-1].positions[j];
+            d2 = trajectory.trajectory.points[index].positions[j];
+            d3 = trajectory.trajectory.points[index+1].positions[j];
+            t1 = time_diff[index-1];
+            t2 = time_diff[index];
+          }
+          else
+          {	// Last Point - there are only numpoints-1 time intervals.
+            d1 = trajectory.trajectory.points[index-1].positions[j];
+            d2 = trajectory.trajectory.points[index].positions[j];
+            d3 = d2;
+            t1 = time_diff[index-1];
+            t2 = t1;
+            ROS_ASSERT(backwards);
+          }
+
+          v1 = (d2-d1)/t1;
+          v2 = (d3-d2)/t2;
+          a = (v2-v1)/(t1+t2);
+
+          while( std::abs( a ) > a_max )
+          {
+            ROS_ERROR("expand [%i][%i] t=%.6f,%.6f d=%.6f,%.6f v=%.6f,%.6f a=%.6f",
+                        index,j,t1,t2,d2-d1,d3-d2,v1,v2,a);
+            if(!backwards)
+            {
+              t2 = expandInterval( d2-d1, d3-d2, t2, a_max);
+              time_diff[index] = t2;
+            }
+            else
+            {
+              t1 = expandInterval( d2-d1, d3-d2, t1, a_max);
+              //t1 = getExpandedT1( d2-d1, d3-d2, t1, t2, a_max);
+              time_diff[index-1] = t1;
+            }
+            num_updates++;
+            //ROS_ERROR("ApplyAcceleration: expanded interval [%i][%i] t1=%f t2=%f a=%f",index,j,t1,t2,getAcceleration(d1,d2,d3,t1,t2));
+
+            v1 = (d2-d1)/t1;
+            v2 = (d3-d2)/t2;
+            a = (v2-v1)/(t1+t2);
+          }
+        }
+      }
+      backwards = !backwards;
+    }
+    ROS_ERROR("ApplyAcceleration: num_updates=%i", num_updates);
+  } while(num_updates > 0 && iteration < MAX_ITERATIONS);
 }
 
 template <typename T>
@@ -260,179 +378,26 @@ bool ParabolicBlendFastSmoother<T>::smooth(const T& trajectory_in,
                                    T& trajectory_out) const
 {
   bool success = true;
-  const unsigned int num_points = trajectory_in.trajectory.points.size();
-  const unsigned int num_joints = trajectory_in.trajectory.joint_names.size();
-  const unsigned int center = num_points/2;
+
+  ROS_ERROR("Initial Trajectory");
+  PrintStats(trajectory_in);
+
   trajectory_out = trajectory_in;	//copy
 
-  // Init
-  for (unsigned int i=0; i<num_points; ++i)
-  {
-    trajectory_msgs::JointTrajectoryPoint& point = trajectory_out.trajectory.points[i];
-    point.velocities.resize(num_joints);
-    point.accelerations.resize(num_joints);
-    for (unsigned int j=0; j<num_joints; ++j)
-    {
-      point.velocities[j] = 0.0;
-      point.accelerations[j] = 0.0;
-    }
-  }
+  const unsigned int num_points = trajectory_out.trajectory.points.size();
+  std::vector<double> time_diff(num_points,0.0);	// the time difference between adjacent points
 
-  //FIXME-remove
-  ROS_ERROR("Initial Trajectory");
+  ApplyVelocityConstraints(trajectory_out, time_diff);
+  ROS_ERROR("Velocity Trajectory");//FIXME-remove
+  UpdateTrajectory(trajectory_out, time_diff);
   PrintStats(trajectory_out);
 
-  // Change the time intervals and set the velocity and accelerations values
-  for (unsigned int i=0; i<center; ++i)
-  {
-    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory_out.trajectory.points[i];
-    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory_out.trajectory.points[i+1];
-    ROS_ERROR("starting to apply constraints");
-
-    // Find the intersection of the ranges of all feasible times for each joint.
-    ValueRange possible_times(point1.time_from_start.toSec());
-    CalculateRange(point1,point2,trajectory_out.limits,possible_times);
-
-    // Choose the first valid time
-    point2.time_from_start = ros::Duration( possible_times.GetFirstValidTime() );
-    ROS_ERROR("[%i] Possible Times:",i);
-    possible_times.Print();	//FIXME-- remove
-
-    // re-calculate velocity and acceleration with the new time value
-    for( unsigned int j=0; j<num_joints; ++j)
-    {
-      double velocity, acceleration;
-      CalculateJointValues( point1, point2, trajectory_out.limits, j, velocity, acceleration );
-      point1.accelerations[j] = acceleration;
-      point2.velocities[j] = velocity;
-    }
-    PrintPoint( point1, i);
-    PrintPoint( point2, i+1);
-  }
-
-  // Change the time intervals and set the velocity and accelerations values
-  // Backwards direction
-  for (unsigned int i=num_points-1; i>=center+2; --i)
-  {
-    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory_out.trajectory.points[i];
-    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory_out.trajectory.points[i-1];
-    ROS_ERROR("starting to apply constraints");
-
-    // Find the intersection of the ranges of all feasible times for each joint.
-    ValueRange possible_times(point1.time_from_start.toSec());
-    CalculateRange(point1,point2,trajectory_out.limits,possible_times);
-
-    // Choose the first valid time
-    point2.time_from_start = ros::Duration( possible_times.GetFirstValidTime() );
-    ROS_ERROR("[%i] Possible Times:",i);
-    possible_times.Print();	//FIXME-- remove
-
-    // re-calculate velocity and acceleration with the new time value
-    for( unsigned int j=0; j<num_joints; ++j)
-    {
-      double velocity, acceleration;
-      CalculateJointValues( point1, point2, trajectory_out.limits, j, velocity, acceleration );
-      point2.accelerations[j] = (acceleration);
-      point2.velocities[j] = (velocity);
-    }
-    PrintPoint( point1, i);
-    PrintPoint( point2, i-1);
-  }
-
-  // Invert the second half
-  if( center < num_points )
-  {
-    const double t_total =
-        trajectory_out.trajectory.points[center].time_from_start.toSec() +
-        trajectory_out.trajectory.points[center+1].time_from_start.toSec();
-    for (unsigned int i=center+1; i<num_points; ++i)
-    {
-      trajectory_msgs::JointTrajectoryPoint& point1 = trajectory_out.trajectory.points[i];
-      point1.time_from_start = ros::Duration( t_total - point1.time_from_start.toSec() );
-      for (unsigned int j=0; j<num_joints; ++j)
-      {
-        point1.velocities[j] = (-point1.velocities[j]);
-        if(i<num_points-1)
-        {
-          point1.accelerations[j] = (point1.accelerations[j]);
-        }
-      }
-    }
-  }
-
-  ROS_ERROR("Acceration/Velocity-Constrained Trajectory");
+  ApplyAccelerationConstraints(trajectory_out, time_diff);
+  ROS_ERROR("Acceleration Trajectory");//FIXME-remove
+  UpdateTrajectory(trajectory_out, time_diff);
   PrintStats(trajectory_out);
 
   return success;
-}
-
-//////////////////////////////////////////
-////////////// ValueRange ////////////////
-//////////////////////////////////////////
-
-ValueRange::ValueRange(double start, double end)
-{ ValueRangeType entry;
-  entry.start = start;
-  entry.end = end;
-  possible_times_.insert(possible_times_.begin(),entry);
-}
-
-double ValueRange::GetFirstValidTime()
-{
- ROS_ASSERT(!possible_times_.empty());
- return possible_times_.begin()->start;
-}
-
-void ValueRange::RemoveRange(double start,double end)
-{
-  for (std::list<ValueRangeType>::iterator it = possible_times_.begin(); it != possible_times_.end(); /* Careful with copy paste*/)
-  {
-    if( start <= it->start && end >= it->end)
-    {	// delete.  Leave pointer where it is.
-      //ROS_ERROR("RemoveRange() - delete (%f,%f)",start,end);
-      it = possible_times_.erase(it);
-    }
-    else if( start <= it->start && end > it->start && end <= it->end )
-    {	// update range entry
-      //ROS_ERROR("RemoveRange() - update start (%f,%f)",start,end);
-      it->start = end;
-      it++;
-    }
-    else if( start >= it->start && start < it->end && end >= it->end )
-    {	// update range entry
-      //ROS_ERROR("RemoveRange() - update end (%f,%f)",start,end);
-      it->end = start;
-      it++;
-    }
-    else if( start > it->start && end < it->end )
-    {	// split the entry
-      //ROS_ERROR("RemoveRange() - split (%f,%f)",start,end);
-      ValueRangeType entry;
-      entry.start = end;
-      entry.end = it->end;
-      it->end = start;
-
-      it++;
-      possible_times_.insert(it,entry);
-    }
-    else
-    {
-      //ignore
-      //ROS_ERROR("RemoveRange() - ignore (%f,%f)",start,end);
-      it++;
-    }
-  }
-}
-
-void ValueRange::Print()
-{
-  std::stringstream stream;
-  stream << "ValueRange: ";
-  for (std::list<ValueRangeType>::iterator it = possible_times_.begin(); it != possible_times_.end(); ++it)
-  {
-    stream << "[" << it->start << "," << it->end << "] ";
-  }
-  ROS_ERROR("%s",stream.str().c_str());
 }
 
 

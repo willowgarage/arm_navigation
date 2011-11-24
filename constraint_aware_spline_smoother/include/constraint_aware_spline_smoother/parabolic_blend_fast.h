@@ -65,30 +65,14 @@ public:
 
   /// \brief Calculates a smooth trajectory based on parabolic blends
   virtual bool smooth(const T& trajectory_in, T& trajectory_out) const;
-};
 
-
-/// \brief Keeps track of the range of possible values.  Useful for 1-dimensional intersections and unions.
-class ValueRange
-{
 private:
-  struct ValueRangeType
-  {
-    double start;
-    double end;
-  };
-  std::list<ValueRangeType> possible_times_;
-
-public:
-  /// \brief Constructor.  Can optionally initialize the minimum and maximum range of values.
-  ValueRange( double start = -std::numeric_limits<double>::max(),
-              double end   =  std::numeric_limits<double>::max() );
-  /// \brief Return the first valid time on the list of ranges
-  double GetFirstValidTime();
-  /// \brief Delete a range of values from the list
-  void RemoveRange(double start,double end);
-  /// \brief Print the ranges.
-  void Print();
+  void ApplyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const;
+  void PrintStats(const T& trajectory) const;
+  void PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const;
+  void ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const;
+  double expandInterval( const double d1, const double d2, const double t, const double a_max) const;
+  //double getExpandedT1( const double d1, const double d2, const double t1, const double t2, const double a_max ) const;
 };
 
 }
