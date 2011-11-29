@@ -48,8 +48,8 @@
 #include <planning_environment/models/model_utils.h>
 
 static const std::string SYNC_PLANNING_SCENE_NAME ="sync_planning_scene";
-static const unsigned int UNSUCCESSFUL_REPLY_LIMIT = 2;
-static const ros::Duration PLANNING_SCENE_CLIENT_TIMEOUT(1.0);
+static const unsigned int UNSUCCESSFUL_REPLY_LIMIT = 5;
+static const ros::Duration PLANNING_SCENE_CLIENT_TIMEOUT(5.0);
 
 namespace planning_environment
 {
