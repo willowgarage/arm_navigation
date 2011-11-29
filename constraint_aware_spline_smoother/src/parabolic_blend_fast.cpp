@@ -37,8 +37,6 @@
 #include <constraint_aware_spline_smoother/parabolic_blend_fast.h>
 #include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <arm_navigation_msgs/JointLimits.h>
-#include <list>
-#include <Eigen/Core>
 
 using namespace constraint_aware_spline_smoother;
 
@@ -46,6 +44,7 @@ const double DEFAULT_VEL_MAX=1.0;
 const double DEFAULT_ACCEL_MAX=1.0;
 const double ROUNDING_THRESHOLD = 0.01;
 const int    MAX_ITERATIONS = 100;
+const double MAX_TIME_CHANGE_PER_ITERATION = 0.1;	//seconds
 
 template <typename T>
 void ParabolicBlendFastSmoother<T>::PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
@@ -71,6 +70,10 @@ void ParabolicBlendFastSmoother<T>::PrintPoint(const trajectory_msgs::JointTraje
 template <typename T>
 void ParabolicBlendFastSmoother<T>::PrintStats(const T& trajectory) const
 {
+   ROS_ERROR("jointNames=%s %s %s %s %s %s %s",
+   trajectory.limits[0].joint_name.c_str(),trajectory.limits[1].joint_name.c_str(),trajectory.limits[2].joint_name.c_str(),
+   trajectory.limits[3].joint_name.c_str(),trajectory.limits[4].joint_name.c_str(),trajectory.limits[5].joint_name.c_str(),
+   trajectory.limits[6].joint_name.c_str());
  ROS_ERROR("maxVelocities=%f %f %f %f %f %f %f",
    trajectory.limits[0].max_velocity,trajectory.limits[1].max_velocity,trajectory.limits[2].max_velocity,
    trajectory.limits[3].max_velocity,trajectory.limits[4].max_velocity,trajectory.limits[5].max_velocity,
@@ -135,46 +138,76 @@ void ParabolicBlendFastSmoother<T>::ApplyVelocityConstraints(T& trajectory, std:
   }
 }
 
-// Expand interval by a constant factor
+// Iteratively expand t1 interval by a constant factor until within acceleration constraint
+// In the future we may want to solve to quadratic equation to get the exact timing interval.
+// To do this, the solveQuadratic function below is a start
 template <typename T>
-double ParabolicBlendFastSmoother<T>::expandInterval( const double d1, const double d2, const double t, const double a_max) const
+double ParabolicBlendFastSmoother<T>::findT1( const double d1, const double d2, double t1, const double t2, const double a_max) const
 {
-  // FIXME!!
-  //double t_new = std::abs( (v2-v1) / (2*a_max) );
-  double t_new = std::sqrt( std::abs( (d2-d1) / (2*a_max) ) );
-  //return time_diff * 1.1;
-  return std::max( t*1.05, t_new );
+  const double mult_factor = 1.01;
+  double v1 = (d1)/t1;
+  double v2 = (d2)/t2;
+  double a = (v2-v1)/(t1+t2);
+
+  while( std::abs( a ) > a_max )
+  {
+    v1 = (d1)/t1;
+    v2 = (d2)/t2;
+    a = (v2-v1)/(t1+t2);
+    t1 *= mult_factor;
+  }
+
+  return t1;
+}
+
+template <typename T>
+double ParabolicBlendFastSmoother<T>::findT2( const double d1, const double d2, const double t1, double t2, const double a_max) const
+{
+  const double mult_factor = 1.01;
+  double v1 = (d1)/t1;
+  double v2 = (d2)/t2;
+  double a = (v2-v1)/(t1+t2);
+
+  while( std::abs( a ) > a_max )
+  {
+    v1 = (d1)/t1;
+    v2 = (d2)/t2;
+    a = (v2-v1)/(t1+t2);
+    t2 *= mult_factor;
+  }
+
+  return t2;
 }
 /*
 template <typename T>
-double ParabolicBlendFastSmoother<T>::getExpandedT1(
+double ParabolicBlendFastSmoother<T>::solveQuadratic(
     const double d1, const double d2, const double t1, const double t2, const double a_max ) const
 {
   double v2 = d2/t2;
   double a = a_max;
-  double sqrtval = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
+  double discriminant = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
   double sol = 99999;
 
   // Grab the minimum positive solution
-  if( sqrtval > 0.0 )
+  if( discriminant > 0.0 )
   {
-    double sol1 = (-(a*t2+v2) + std::sqrt(sqrtval) ) / (2*a);
+    double sol1 = (-(a*t2+v2) + std::sqrt(discriminant) ) / (2*a);
     if( sol1 > 0 && sol1 < sol)
       sol = sol1;
 
-    double sol2 = (-(a*t2+v2) - std::sqrt(sqrtval) ) / (2*a);
+    double sol2 = (-(a*t2+v2) - std::sqrt(discriminant) ) / (2*a);
     if( sol2 > 0 && sol2 < sol)
       sol = sol2;
   }
 
   a = -a_max;
-  sqrtval = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
-  if( sqrtval > 0.0 )
+  discriminant = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
+  if( discriminant > 0.0 )
   {
-    double sol1 = (-(a*t2+v2) + std::sqrt(sqrtval) ) / (2*a);
+    double sol1 = (-(a*t2+v2) + std::sqrt(discriminant) ) / (2*a);
     if( sol1 > 0 && sol1 < sol)
       sol = sol1;
-    double sol2 = (-(a*t2+v2) - std::sqrt(sqrtval) ) / (2*a);
+    double sol2 = (-(a*t2+v2) - std::sqrt(discriminant) ) / (2*a);
     if( sol2 > 0 && sol2 < sol)
       sol = sol2;
   }
@@ -268,14 +301,11 @@ void UpdateTrajectory(T& trajectory, const std::vector<double>& time_diffs )
 template <typename T>
 void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const
 {
-  //we double the number of points by adding a midpoint between each point.
   const unsigned int num_points = trajectory.trajectory.points.size();
   const unsigned int num_joints = trajectory.trajectory.joint_names.size();
   int num_updates = 0;
   int iteration= 0;
   bool backwards = false;
-
-  //PrintTimes(time_diff); // FIXME- remove
 
   do
   {
@@ -343,23 +373,19 @@ void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajec
           v2 = (d3-d2)/t2;
           a = (v2-v1)/(t1+t2);
 
-          while( std::abs( a ) > a_max )
+          if( std::abs( a ) > a_max + ROUNDING_THRESHOLD )
           {
-            ROS_ERROR("expand [%i][%i] t=%.6f,%.6f d=%.6f,%.6f v=%.6f,%.6f a=%.6f",
-                        index,j,t1,t2,d2-d1,d3-d2,v1,v2,a);
             if(!backwards)
             {
-              t2 = expandInterval( d2-d1, d3-d2, t2, a_max);
+              t2 = std::min( t2+MAX_TIME_CHANGE_PER_ITERATION, findT2( d2-d1, d3-d2, t1, t2, a_max) );
               time_diff[index] = t2;
             }
             else
             {
-              t1 = expandInterval( d2-d1, d3-d2, t1, a_max);
-              //t1 = getExpandedT1( d2-d1, d3-d2, t1, t2, a_max);
+              t1 = std::min( t1+MAX_TIME_CHANGE_PER_ITERATION, findT1( d2-d1, d3-d2, t1, t2, a_max) );
               time_diff[index-1] = t1;
             }
             num_updates++;
-            //ROS_ERROR("ApplyAcceleration: expanded interval [%i][%i] t1=%f t2=%f a=%f",index,j,t1,t2,getAcceleration(d1,d2,d3,t1,t2));
 
             v1 = (d2-d1)/t1;
             v2 = (d3-d2)/t2;
@@ -369,7 +395,6 @@ void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajec
       }
       backwards = !backwards;
     }
-    ROS_ERROR("ApplyAcceleration: num_updates=%i", num_updates);
   } while(num_updates > 0 && iteration < MAX_ITERATIONS);
 }
 
@@ -378,19 +403,17 @@ bool ParabolicBlendFastSmoother<T>::smooth(const T& trajectory_in,
                                    T& trajectory_out) const
 {
   bool success = true;
-
-  ROS_ERROR("Initial Trajectory");
-  PrintStats(trajectory_in);
-
   trajectory_out = trajectory_in;	//copy
-
   const unsigned int num_points = trajectory_out.trajectory.points.size();
   std::vector<double> time_diff(num_points,0.0);	// the time difference between adjacent points
 
+  //ROS_ERROR("Initial Trajectory");
+  //PrintStats(trajectory_in);
+
   ApplyVelocityConstraints(trajectory_out, time_diff);
-  ROS_ERROR("Velocity Trajectory");//FIXME-remove
-  UpdateTrajectory(trajectory_out, time_diff);
-  PrintStats(trajectory_out);
+  //ROS_ERROR("Velocity Trajectory");//FIXME-remove
+  //UpdateTrajectory(trajectory_out, time_diff);
+  //PrintStats(trajectory_out);
 
   ApplyAccelerationConstraints(trajectory_out, time_diff);
   ROS_ERROR("Acceleration Trajectory");//FIXME-remove

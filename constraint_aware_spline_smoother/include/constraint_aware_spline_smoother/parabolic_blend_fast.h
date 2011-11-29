@@ -68,11 +68,11 @@ public:
 
 private:
   void ApplyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const;
+  void ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const;
+  double findT1( const double d1, const double d2, double t1, const double t2, const double a_max) const;
+  double findT2( const double d1, const double d2, const double t1, double t2, const double a_max) const;
   void PrintStats(const T& trajectory) const;
   void PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const;
-  void ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const;
-  double expandInterval( const double d1, const double d2, const double t, const double a_max) const;
-  //double getExpandedT1( const double d1, const double d2, const double t1, const double t2, const double a_max ) const;
 };
 
 }
