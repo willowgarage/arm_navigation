@@ -43,8 +43,37 @@ using namespace constraint_aware_spline_smoother;
 const double DEFAULT_VEL_MAX=1.0;
 const double DEFAULT_ACCEL_MAX=1.0;
 const double ROUNDING_THRESHOLD = 0.01;
-const int    MAX_ITERATIONS = 100;
-const double MAX_TIME_CHANGE_PER_ITERATION = 0.1;	//seconds
+
+
+template <typename T>
+ParabolicBlendFastSmoother<T>::ParabolicBlendFastSmoother()
+: max_iterations_(100),
+  max_time_change_per_it_(0.1)
+{}
+
+template <typename T>
+ParabolicBlendFastSmoother<T>::~ParabolicBlendFastSmoother()
+{}
+
+template <typename T>
+bool ParabolicBlendFastSmoother<T>::configure()
+{
+  if (!spline_smoother::SplineSmoother<T>::getParam("max_iterations", max_iterations_))
+  {
+    ROS_WARN("Spline smoother, \"%s\", params has no attribute max_iterations.",
+            spline_smoother::SplineSmoother<T>::getName().c_str());
+  }
+  ROS_DEBUG("Using a max_iterations value of %d",max_iterations_);
+
+  if (!spline_smoother::SplineSmoother<T>::getParam("max_time_change_per_it", max_time_change_per_it_))
+  {
+    ROS_WARN("Spline smoother, \"%s\", params has no attribute max_time_change_per_it.",
+            spline_smoother::SplineSmoother<T>::getName().c_str());
+  }
+  ROS_DEBUG("Using a max_time_change_per_it value of %f",max_time_change_per_it_);
+
+ return true;
+}
 
 template <typename T>
 void ParabolicBlendFastSmoother<T>::PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
@@ -377,12 +406,12 @@ void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajec
           {
             if(!backwards)
             {
-              t2 = std::min( t2+MAX_TIME_CHANGE_PER_ITERATION, findT2( d2-d1, d3-d2, t1, t2, a_max) );
+              t2 = std::min( t2+max_time_change_per_it_, findT2( d2-d1, d3-d2, t1, t2, a_max) );
               time_diff[index] = t2;
             }
             else
             {
-              t1 = std::min( t1+MAX_TIME_CHANGE_PER_ITERATION, findT1( d2-d1, d3-d2, t1, t2, a_max) );
+              t1 = std::min( t1+max_time_change_per_it_, findT1( d2-d1, d3-d2, t1, t2, a_max) );
               time_diff[index-1] = t1;
             }
             num_updates++;
@@ -395,7 +424,7 @@ void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajec
       }
       backwards = !backwards;
     }
-  } while(num_updates > 0 && iteration < MAX_ITERATIONS);
+  } while(num_updates > 0 && iteration < max_iterations_);
 }
 
 template <typename T>

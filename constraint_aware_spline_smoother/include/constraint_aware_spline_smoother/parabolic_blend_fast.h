@@ -37,16 +37,8 @@
 #ifndef PARABOLIC_BLEND_FAST_H_
 #define PARABOLIC_BLEND_FAST_H_
 
-#include <ros/ros.h>
-#include <tf/tf.h>
 #include <spline_smoother/spline_smoother.h>
-#include <spline_smoother/cubic_trajectory.h>
-#include <planning_environment/models/collision_models_interface.h>
-#include <planning_environment/models/model_utils.h>
-#include <arm_navigation_msgs/RobotState.h>
-#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
-#include <constraint_aware_spline_smoother/Trajectory.h>
 
 namespace constraint_aware_spline_smoother
 {
@@ -57,16 +49,19 @@ template <typename T>
 class ParabolicBlendFastSmoother : public spline_smoother::SplineSmoother<T>
 {
 public:
-  ParabolicBlendFastSmoother(){};
-  ~ParabolicBlendFastSmoother(){};
+  ParabolicBlendFastSmoother();
+  ~ParabolicBlendFastSmoother();
 
   /// \brief Configures the filter
-  virtual bool configure() { return true; }
+  virtual bool configure();
 
   /// \brief Calculates a smooth trajectory based on parabolic blends
   virtual bool smooth(const T& trajectory_in, T& trajectory_out) const;
 
 private:
+  int			max_iterations_;					/// @brief maximum number of iterations to find solution
+  double	max_time_change_per_it_;	/// @brief maximum allowed time change per iteration in seconds
+
   void ApplyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const;
   void ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const;
   double findT1( const double d1, const double d2, double t1, const double t2, const double a_max) const;
