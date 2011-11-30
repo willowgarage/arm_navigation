@@ -34,8 +34,8 @@
 
 /** \author Ken Anderson */
 
-#ifndef PARABOLIC_BLEND_FAST_H_
-#define PARABOLIC_BLEND_FAST_H_
+#ifndef ITERATIVE_PARABOLIC_SMOOTHER_H_
+#define ITERATIVE_PARABOLIC_SMOOTHER_H_
 
 #include <spline_smoother/spline_smoother.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
@@ -46,16 +46,17 @@ namespace constraint_aware_spline_smoother
 /// \brief This is a parametric smoother that modifies the timestamps of a trajectory to respect
 /// velocity and acceleration constraints.
 template <typename T>
-class ParabolicBlendFastSmoother : public spline_smoother::SplineSmoother<T>
+class IterativeParabolicSmoother : public spline_smoother::SplineSmoother<T>
 {
 public:
-  ParabolicBlendFastSmoother();
-  ~ParabolicBlendFastSmoother();
+  IterativeParabolicSmoother();
+  ~IterativeParabolicSmoother();
 
   /// \brief Configures the filter
   virtual bool configure();
 
-  /// \brief Calculates a smooth trajectory based on parabolic blends
+  /// \brief Calculates a smooth trajectory by iteratively incrementing the time between
+  /// points that exceed the velocity or acceleration bounds.
   virtual bool smooth(const T& trajectory_in, T& trajectory_out) const;
 
 private:

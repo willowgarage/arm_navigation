@@ -38,6 +38,6 @@ rosbuild_add_library(constraint_aware_spline_smoother
                      src/cubic_spline_shortcutter.cpp
                      src/linear_spline_shortcutter.cpp
                      src/parabolic_blend_shortcutter.cpp
-                     src/parabolic_blend_fast.cpp
+                     src/iterative_smoother.cpp
                      src/parabolic_linear_blend.cpp
                      src/Trajectory.cpp)

@@ -34,7 +34,7 @@
 
 /** \author Ken Anderson */
 
-#include <constraint_aware_spline_smoother/parabolic_blend_fast.h>
+#include <constraint_aware_spline_smoother/iterative_smoother.h>
 #include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <arm_navigation_msgs/JointLimits.h>
 
@@ -46,17 +46,17 @@ const double ROUNDING_THRESHOLD = 0.01;
 
 
 template <typename T>
-ParabolicBlendFastSmoother<T>::ParabolicBlendFastSmoother()
+IterativeParabolicSmoother<T>::IterativeParabolicSmoother()
 : max_iterations_(100),
   max_time_change_per_it_(0.1)
 {}
 
 template <typename T>
-ParabolicBlendFastSmoother<T>::~ParabolicBlendFastSmoother()
+IterativeParabolicSmoother<T>::~IterativeParabolicSmoother()
 {}
 
 template <typename T>
-bool ParabolicBlendFastSmoother<T>::configure()
+bool IterativeParabolicSmoother<T>::configure()
 {
   if (!spline_smoother::SplineSmoother<T>::getParam("max_iterations", max_iterations_))
   {
@@ -76,7 +76,7 @@ bool ParabolicBlendFastSmoother<T>::configure()
 }
 
 template <typename T>
-void ParabolicBlendFastSmoother<T>::PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
+void IterativeParabolicSmoother<T>::PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
 {
     ROS_ERROR("time [%i]=%f",i,point.time_from_start.toSec());
     if(point.positions.size() >= 7 )
@@ -97,7 +97,7 @@ void ParabolicBlendFastSmoother<T>::PrintPoint(const trajectory_msgs::JointTraje
 }
 
 template <typename T>
-void ParabolicBlendFastSmoother<T>::PrintStats(const T& trajectory) const
+void IterativeParabolicSmoother<T>::PrintStats(const T& trajectory) const
 {
    ROS_ERROR("jointNames=%s %s %s %s %s %s %s",
    trajectory.limits[0].joint_name.c_str(),trajectory.limits[1].joint_name.c_str(),trajectory.limits[2].joint_name.c_str(),
@@ -121,7 +121,7 @@ void ParabolicBlendFastSmoother<T>::PrintStats(const T& trajectory) const
 
 // Applies velocity
 template <typename T>
-void ParabolicBlendFastSmoother<T>::ApplyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const
+void IterativeParabolicSmoother<T>::ApplyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const
 {
   //we double the number of points by adding a midpoint between each point.
   const unsigned int num_points = trajectory.trajectory.points.size();
@@ -171,7 +171,7 @@ void ParabolicBlendFastSmoother<T>::ApplyVelocityConstraints(T& trajectory, std:
 // In the future we may want to solve to quadratic equation to get the exact timing interval.
 // To do this, the solveQuadratic function below is a start
 template <typename T>
-double ParabolicBlendFastSmoother<T>::findT1( const double d1, const double d2, double t1, const double t2, const double a_max) const
+double IterativeParabolicSmoother<T>::findT1( const double d1, const double d2, double t1, const double t2, const double a_max) const
 {
   const double mult_factor = 1.01;
   double v1 = (d1)/t1;
@@ -190,7 +190,7 @@ double ParabolicBlendFastSmoother<T>::findT1( const double d1, const double d2, 
 }
 
 template <typename T>
-double ParabolicBlendFastSmoother<T>::findT2( const double d1, const double d2, const double t1, double t2, const double a_max) const
+double IterativeParabolicSmoother<T>::findT2( const double d1, const double d2, const double t1, double t2, const double a_max) const
 {
   const double mult_factor = 1.01;
   double v1 = (d1)/t1;
@@ -209,7 +209,7 @@ double ParabolicBlendFastSmoother<T>::findT2( const double d1, const double d2, 
 }
 /*
 template <typename T>
-double ParabolicBlendFastSmoother<T>::solveQuadratic(
+double IterativeParabolicSmoother<T>::solveQuadratic(
     const double d1, const double d2, const double t1, const double t2, const double a_max ) const
 {
   double v2 = d2/t2;
@@ -242,9 +242,6 @@ double ParabolicBlendFastSmoother<T>::solveQuadratic(
   }
 
   return sol;
-
-  //double t1_new = sol;
-  //return std::max( t*1.05, t_new );
 }
 */
 
@@ -328,7 +325,7 @@ void UpdateTrajectory(T& trajectory, const std::vector<double>& time_diffs )
 
 // Applies Acceleration constraints
 template <typename T>
-void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const
+void IterativeParabolicSmoother<T>::ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const
 {
   const unsigned int num_points = trajectory.trajectory.points.size();
   const unsigned int num_joints = trajectory.trajectory.joint_names.size();
@@ -428,7 +425,7 @@ void ParabolicBlendFastSmoother<T>::ApplyAccelerationConstraints(const T& trajec
 }
 
 template <typename T>
-bool ParabolicBlendFastSmoother<T>::smooth(const T& trajectory_in,
+bool IterativeParabolicSmoother<T>::smooth(const T& trajectory_in,
                                    T& trajectory_out) const
 {
   bool success = true;
@@ -453,6 +450,6 @@ bool ParabolicBlendFastSmoother<T>::smooth(const T& trajectory_in,
 }
 
 
-PLUGINLIB_REGISTER_CLASS(ParabolicBlendFastFilterJointTrajectoryWithConstraints,
-                         constraint_aware_spline_smoother::ParabolicBlendFastSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>,
+PLUGINLIB_REGISTER_CLASS(IterativeParabolicSmootherFilterJointTrajectoryWithConstraints,
+                         constraint_aware_spline_smoother::IterativeParabolicSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>,
                          filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)
