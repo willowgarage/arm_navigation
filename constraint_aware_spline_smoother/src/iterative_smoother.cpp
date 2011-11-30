@@ -78,20 +78,20 @@ bool IterativeParabolicSmoother<T>::configure()
 template <typename T>
 void IterativeParabolicSmoother<T>::PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
 {
-    ROS_ERROR("time [%i]=%f",i,point.time_from_start.toSec());
+    ROS_DEBUG("time [%i]=%f",i,point.time_from_start.toSec());
     if(point.positions.size() >= 7 )
     {
-      ROS_ERROR("pos  [%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG("pos  [%i]=%f %f %f %f %f %f %f",i,
         point.positions[0],point.positions[1],point.positions[2],point.positions[3],point.positions[4],point.positions[5],point.positions[6]);
     }
     if(point.velocities.size() >= 7 )
     {
-      ROS_ERROR(" vel [%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG(" vel [%i]=%f %f %f %f %f %f %f",i,
         point.velocities[0],point.velocities[1],point.velocities[2],point.velocities[3],point.velocities[4],point.velocities[5],point.velocities[6]);
     }
     if(point.accelerations.size() >= 7 )
     {
-      ROS_ERROR("  acc[%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG("  acc[%i]=%f %f %f %f %f %f %f",i,
         point.accelerations[0],point.accelerations[1],point.accelerations[2],point.accelerations[3],point.accelerations[4],point.accelerations[5],point.accelerations[6]);
     }
 }
@@ -99,18 +99,18 @@ void IterativeParabolicSmoother<T>::PrintPoint(const trajectory_msgs::JointTraje
 template <typename T>
 void IterativeParabolicSmoother<T>::PrintStats(const T& trajectory) const
 {
-   ROS_ERROR("jointNames=%s %s %s %s %s %s %s",
-   trajectory.limits[0].joint_name.c_str(),trajectory.limits[1].joint_name.c_str(),trajectory.limits[2].joint_name.c_str(),
-   trajectory.limits[3].joint_name.c_str(),trajectory.limits[4].joint_name.c_str(),trajectory.limits[5].joint_name.c_str(),
-   trajectory.limits[6].joint_name.c_str());
- ROS_ERROR("maxVelocities=%f %f %f %f %f %f %f",
-   trajectory.limits[0].max_velocity,trajectory.limits[1].max_velocity,trajectory.limits[2].max_velocity,
-   trajectory.limits[3].max_velocity,trajectory.limits[4].max_velocity,trajectory.limits[5].max_velocity,
-   trajectory.limits[6].max_velocity);
- ROS_ERROR("maxAccelerations=%f %f %f %f %f %f %f",
-   trajectory.limits[0].max_acceleration,trajectory.limits[1].max_acceleration,trajectory.limits[2].max_acceleration,
-   trajectory.limits[3].max_acceleration,trajectory.limits[4].max_acceleration,trajectory.limits[5].max_acceleration,
-   trajectory.limits[6].max_acceleration);
+  ROS_DEBUG("jointNames=%s %s %s %s %s %s %s",
+    trajectory.limits[0].joint_name.c_str(),trajectory.limits[1].joint_name.c_str(),trajectory.limits[2].joint_name.c_str(),
+    trajectory.limits[3].joint_name.c_str(),trajectory.limits[4].joint_name.c_str(),trajectory.limits[5].joint_name.c_str(),
+    trajectory.limits[6].joint_name.c_str());
+  ROS_DEBUG("maxVelocities=%f %f %f %f %f %f %f",
+    trajectory.limits[0].max_velocity,trajectory.limits[1].max_velocity,trajectory.limits[2].max_velocity,
+    trajectory.limits[3].max_velocity,trajectory.limits[4].max_velocity,trajectory.limits[5].max_velocity,
+    trajectory.limits[6].max_velocity);
+  ROS_DEBUG("maxAccelerations=%f %f %f %f %f %f %f",
+    trajectory.limits[0].max_acceleration,trajectory.limits[1].max_acceleration,trajectory.limits[2].max_acceleration,
+    trajectory.limits[3].max_acceleration,trajectory.limits[4].max_acceleration,trajectory.limits[5].max_acceleration,
+    trajectory.limits[6].max_acceleration);
   // for every point in time:
   for (unsigned int i=0; i<trajectory.trajectory.points.size(); ++i)
   {
@@ -340,7 +340,7 @@ void IterativeParabolicSmoother<T>::ApplyAccelerationConstraints(const T& trajec
     // Loop forwards, then backwards
     for( int count=0; count<2; count++)
     {
-      ROS_ERROR("ApplyAcceleration: Iteration %i backwards=%i", iteration, backwards);
+      ROS_DEBUG("ApplyAcceleration: Iteration %i backwards=%i", iteration, backwards);
 
       for (unsigned int i=0; i<num_points-1; ++i)
       {
@@ -433,16 +433,10 @@ bool IterativeParabolicSmoother<T>::smooth(const T& trajectory_in,
   const unsigned int num_points = trajectory_out.trajectory.points.size();
   std::vector<double> time_diff(num_points,0.0);	// the time difference between adjacent points
 
-  //ROS_ERROR("Initial Trajectory");
-  //PrintStats(trajectory_in);
-
   ApplyVelocityConstraints(trajectory_out, time_diff);
-  //ROS_ERROR("Velocity Trajectory");//FIXME-remove
-  //UpdateTrajectory(trajectory_out, time_diff);
-  //PrintStats(trajectory_out);
-
   ApplyAccelerationConstraints(trajectory_out, time_diff);
-  ROS_ERROR("Acceleration Trajectory");//FIXME-remove
+
+  ROS_DEBUG("Velocity & Acceleration-Constrained Trajectory");//FIXME-remove
   UpdateTrajectory(trajectory_out, time_diff);
   PrintStats(trajectory_out);
 
