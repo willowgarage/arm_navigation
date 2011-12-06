@@ -323,7 +323,7 @@ void updateTrajectory(T& trajectory, const std::vector<double>& time_diff )
       const double v1 = (q2-q1)/dt1;
       const double v2 = (q3-q2)/dt2;
       const double a = 2*(v2-v1)/(dt1+dt2);
-      trajectory.trajectory.points[i].velocities[j] = (v2-v1)/2;
+      trajectory.trajectory.points[i].velocities[j] = (v2+v1)/2;
       trajectory.trajectory.points[i].accelerations[j] = a;
     }
   }
