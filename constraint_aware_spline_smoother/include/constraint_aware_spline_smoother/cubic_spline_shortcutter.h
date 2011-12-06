@@ -433,7 +433,7 @@ void CubicSplineShortCutter<T>::printTrajectory(const trajectory_msgs::JointTraj
 {
   for(unsigned int i = 0; i < trajectory.points.size(); i++)
   {
-    ROS_DEBUG("%f: %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+    ROS_DEBUG("%f: %f %f %f %f %f %f %f, %f %f %f %f %f %f %f, %f %f %f %f %f %f %f",
              trajectory.points[i].time_from_start.toSec(),
              trajectory.points[i].positions[0],
              trajectory.points[i].positions[1],
@@ -448,7 +448,14 @@ void CubicSplineShortCutter<T>::printTrajectory(const trajectory_msgs::JointTraj
              trajectory.points[i].velocities[3],
              trajectory.points[i].velocities[4],
              trajectory.points[i].velocities[5],
-             trajectory.points[i].velocities[6]);
+             trajectory.points[i].velocities[6],
+             trajectory.points[i].accelerations[0],
+             trajectory.points[i].accelerations[1],
+             trajectory.points[i].accelerations[2],
+             trajectory.points[i].accelerations[3],
+             trajectory.points[i].accelerations[4],
+             trajectory.points[i].accelerations[5],
+             trajectory.points[i].accelerations[6]);
   }
   ROS_DEBUG(" ");
 }

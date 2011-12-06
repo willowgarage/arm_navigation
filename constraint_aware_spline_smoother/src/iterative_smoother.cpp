@@ -76,28 +76,28 @@ bool IterativeParabolicSmoother<T>::configure()
 }
 
 template <typename T>
-void IterativeParabolicSmoother<T>::PrintPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
+void IterativeParabolicSmoother<T>::printPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
 {
-    ROS_DEBUG("time [%i]=%f",i,point.time_from_start.toSec());
+    ROS_DEBUG(  "time  [%i]=%f",i,point.time_from_start.toSec());
     if(point.positions.size() >= 7 )
     {
-      ROS_DEBUG("pos  [%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG("pos   [%i]=%f %f %f %f %f %f %f",i,
         point.positions[0],point.positions[1],point.positions[2],point.positions[3],point.positions[4],point.positions[5],point.positions[6]);
     }
     if(point.velocities.size() >= 7 )
     {
-      ROS_DEBUG(" vel [%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG(" vel  [%i]=%f %f %f %f %f %f %f",i,
         point.velocities[0],point.velocities[1],point.velocities[2],point.velocities[3],point.velocities[4],point.velocities[5],point.velocities[6]);
     }
     if(point.accelerations.size() >= 7 )
     {
-      ROS_DEBUG("  acc[%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG("  acc [%i]=%f %f %f %f %f %f %f",i,
         point.accelerations[0],point.accelerations[1],point.accelerations[2],point.accelerations[3],point.accelerations[4],point.accelerations[5],point.accelerations[6]);
     }
 }
 
 template <typename T>
-void IterativeParabolicSmoother<T>::PrintStats(const T& trajectory) const
+void IterativeParabolicSmoother<T>::printStats(const T& trajectory) const
 {
   ROS_DEBUG("jointNames=%s %s %s %s %s %s %s",
     trajectory.limits[0].joint_name.c_str(),trajectory.limits[1].joint_name.c_str(),trajectory.limits[2].joint_name.c_str(),
@@ -115,15 +115,14 @@ void IterativeParabolicSmoother<T>::PrintStats(const T& trajectory) const
   for (unsigned int i=0; i<trajectory.trajectory.points.size(); ++i)
   {
     const trajectory_msgs::JointTrajectoryPoint& point = trajectory.trajectory.points[i];
-    PrintPoint(point, i);
+    printPoint(point, i);
   }
 }
 
 // Applies velocity
 template <typename T>
-void IterativeParabolicSmoother<T>::ApplyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const
+void IterativeParabolicSmoother<T>::applyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const
 {
-  //we double the number of points by adding a midpoint between each point.
   const unsigned int num_points = trajectory.trajectory.points.size();
   const unsigned int num_joints = trajectory.trajectory.joint_names.size();
 
@@ -155,9 +154,9 @@ void IterativeParabolicSmoother<T>::ApplyVelocityConstraints(T& trajectory, std:
         a_max = trajectory.limits[j].max_acceleration;
       }
 
-      const double d1 = point1.positions[j];
-      const double d2 = point2.positions[j];
-      const double t_min = std::abs(d2-d1) / v_max;
+      const double dq1 = point1.positions[j];
+      const double dq2 = point2.positions[j];
+      const double t_min = std::abs(dq2-dq1) / v_max;
 
       if( t_min > time_diff[i] )
       {
@@ -167,76 +166,76 @@ void IterativeParabolicSmoother<T>::ApplyVelocityConstraints(T& trajectory, std:
   }
 }
 
-// Iteratively expand t1 interval by a constant factor until within acceleration constraint
+// Iteratively expand dt1 interval by a constant factor until within acceleration constraint
 // In the future we may want to solve to quadratic equation to get the exact timing interval.
 // To do this, the solveQuadratic function below is a start
 template <typename T>
-double IterativeParabolicSmoother<T>::findT1( const double d1, const double d2, double t1, const double t2, const double a_max) const
+double IterativeParabolicSmoother<T>::findT1( const double dq1, const double dq2, double dt1, const double dt2, const double a_max) const
 {
   const double mult_factor = 1.01;
-  double v1 = (d1)/t1;
-  double v2 = (d2)/t2;
-  double a = (v2-v1)/(t1+t2);
+  double v1 = (dq1)/dt1;
+  double v2 = (dq2)/dt2;
+  double a = 2*(v2-v1)/(dt1+dt2);
 
   while( std::abs( a ) > a_max )
   {
-    v1 = (d1)/t1;
-    v2 = (d2)/t2;
-    a = (v2-v1)/(t1+t2);
-    t1 *= mult_factor;
+    v1 = (dq1)/dt1;
+    v2 = (dq2)/dt2;
+    a = 2*(v2-v1)/(dt1+dt2);
+    dt1 *= mult_factor;
   }
 
-  return t1;
+  return dt1;
 }
 
 template <typename T>
-double IterativeParabolicSmoother<T>::findT2( const double d1, const double d2, const double t1, double t2, const double a_max) const
+double IterativeParabolicSmoother<T>::findT2( const double dq1, const double dq2, const double dt1, double dt2, const double a_max) const
 {
   const double mult_factor = 1.01;
-  double v1 = (d1)/t1;
-  double v2 = (d2)/t2;
-  double a = (v2-v1)/(t1+t2);
+  double v1 = (dq1)/dt1;
+  double v2 = (dq2)/dt2;
+  double a = 2*(v2-v1)/(dt1+dt2);
 
   while( std::abs( a ) > a_max )
   {
-    v1 = (d1)/t1;
-    v2 = (d2)/t2;
-    a = (v2-v1)/(t1+t2);
-    t2 *= mult_factor;
+    v1 = (dq1)/dt1;
+    v2 = (dq2)/dt2;
+    a = 2*(v2-v1)/(dt1+dt2);
+    dt2 *= mult_factor;
   }
 
-  return t2;
+  return dt2;
 }
 /*
 template <typename T>
 double IterativeParabolicSmoother<T>::solveQuadratic(
-    const double d1, const double d2, const double t1, const double t2, const double a_max ) const
+    const double dq1, const double dq2, const double dt1, const double dt2, const double a_max ) const
 {
-  double v2 = d2/t2;
+  double v2 = dq2/dt2;
   double a = a_max;
-  double discriminant = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
+  double discriminant = (a*dt2-v2)*(a*dt2-v2) - 4*a*(dq1);
   double sol = 99999;
 
   // Grab the minimum positive solution
   if( discriminant > 0.0 )
   {
-    double sol1 = (-(a*t2+v2) + std::sqrt(discriminant) ) / (2*a);
+    double sol1 = (-(a*dt2+v2) + std::sqrt(discriminant) ) / (2*a);
     if( sol1 > 0 && sol1 < sol)
       sol = sol1;
 
-    double sol2 = (-(a*t2+v2) - std::sqrt(discriminant) ) / (2*a);
+    double sol2 = (-(a*dt2+v2) - std::sqrt(discriminant) ) / (2*a);
     if( sol2 > 0 && sol2 < sol)
       sol = sol2;
   }
 
   a = -a_max;
-  discriminant = (a*t2-v2)*(a*t2-v2) - 4*a*(d1);
+  discriminant = (a*dt2-v2)*(a*dt2-v2) - 4*a*(dq1);
   if( discriminant > 0.0 )
   {
-    double sol1 = (-(a*t2+v2) + std::sqrt(discriminant) ) / (2*a);
+    double sol1 = (-(a*dt2+v2) + std::sqrt(discriminant) ) / (2*a);
     if( sol1 > 0 && sol1 < sol)
       sol = sol1;
-    double sol2 = (-(a*t2+v2) - std::sqrt(discriminant) ) / (2*a);
+    double sol2 = (-(a*dt2+v2) - std::sqrt(discriminant) ) / (2*a);
     if( sol2 > 0 && sol2 < sol)
       sol = sol2;
   }
@@ -247,25 +246,26 @@ double IterativeParabolicSmoother<T>::solveQuadratic(
 
 // Takes the time differences, and updates the values in the trajectory.
 template <typename T>
-void UpdateTrajectory(T& trajectory, const std::vector<double>& time_diffs )
+void updateTrajectory(T& trajectory, const std::vector<double>& time_diff )
 {
   double time_sum = 0.0;
   unsigned int num_joints = trajectory.trajectory.joint_names.size();
   const unsigned int num_points = trajectory.trajectory.points.size();
 
 	// Error check
-	if(time_diffs.size() < 1)
+  if(time_diff.size() < 1)
 		return;
 
   // Times
-  trajectory.trajectory.points[0].time_from_start = ros::Duration(time_diffs[0]);
+  trajectory.trajectory.points[0].time_from_start = ros::Duration(0);
   for (unsigned int i=1; i<num_points; ++i)
   {
-    time_sum += time_diffs[i-1];
+    time_sum += time_diff[i-1];
     trajectory.trajectory.points[i].time_from_start = ros::Duration(time_sum);
   }
 
   // Velocities
+/*
   for (unsigned int j=0; j<num_joints; ++j)
   {
     trajectory.trajectory.points[num_points-1].velocities[j] = 0.0;
@@ -276,47 +276,54 @@ void UpdateTrajectory(T& trajectory, const std::vector<double>& time_diffs )
     trajectory_msgs::JointTrajectoryPoint& point2 = trajectory.trajectory.points[i+1];
     for (unsigned int j=0; j<num_joints; ++j)
     {
-      const double d1 = point1.positions[j];
-      const double d2 = point2.positions[j];
-      const double & t1 = time_diffs[i];
-      const double v1 = (d2-d1)/(t1);
+      const double dq1 = point1.positions[j];
+      const double dq2 = point2.positions[j];
+      const double & dt1 = time_diff[i];
+      const double v1 = (dq2-dq1)/(dt1);
       point1.velocities[j]= v1;
     }
   }
-
+*/
   // Accelerations
   for (unsigned int i=0; i<num_points; ++i)
   {
     for (unsigned int j=0; j<num_joints; ++j)
     {
-      double v1;
-      double v2;
-      double t1;
-      double t2;
+      double q1;
+      double q2;
+      double q3;
+      double dt1;
+      double dt2;
 
       if(i==0)
-      {
-        v1 = 0.0;
-        v2 = trajectory.trajectory.points[i].velocities[j];
-        t1 = time_diffs[i];
-        t2 = time_diffs[i];
+      {	// First point
+        q1 = trajectory.trajectory.points[i+1].positions[j];
+        q2 = trajectory.trajectory.points[i].positions[j];
+        q3 = trajectory.trajectory.points[i+1].positions[j];
+        dt1 = time_diff[i];
+        dt2 = time_diff[i];
       }
       else if(i < num_points-1)
-      {
-        v1 = trajectory.trajectory.points[i-1].velocities[j];
-        v2 = trajectory.trajectory.points[i].velocities[j];
-        t1 = time_diffs[i-1];
-        t2 = time_diffs[i];
+      { // middle points
+        q1 = trajectory.trajectory.points[i-1].positions[j];
+        q2 = trajectory.trajectory.points[i].positions[j];
+        q3 = trajectory.trajectory.points[i+1].positions[j];
+        dt1 = time_diff[i-1];
+        dt2 = time_diff[i];
       }
       else
-      {
-        v1 = trajectory.trajectory.points[i-1].velocities[j];
-        v2 = 0.0;
-        t1 = time_diffs[i-1];
-        t2 = time_diffs[i-1];
+      { // last point
+        q1 = trajectory.trajectory.points[i-1].positions[j];
+        q2 = trajectory.trajectory.points[i].positions[j];
+        q3 = trajectory.trajectory.points[i-1].positions[j];
+        dt1 = time_diff[i-1];
+        dt2 = time_diff[i-1];
       }
 
-      const double a = (v2-v1)/(t1+t2);
+      const double v1 = (q2-q1)/dt1;
+      const double v2 = (q3-q2)/dt2;
+      const double a = 2*(v2-v1)/(dt1+dt2);
+      trajectory.trajectory.points[i].velocities[j] = (v2-v1)/2;
       trajectory.trajectory.points[i].accelerations[j] = a;
     }
   }
@@ -325,7 +332,7 @@ void UpdateTrajectory(T& trajectory, const std::vector<double>& time_diffs )
 
 // Applies Acceleration constraints
 template <typename T>
-void IterativeParabolicSmoother<T>::ApplyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const
+void IterativeParabolicSmoother<T>::applyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const
 {
   const unsigned int num_points = trajectory.trajectory.points.size();
   const unsigned int num_joints = trajectory.trajectory.joint_names.size();
@@ -340,7 +347,7 @@ void IterativeParabolicSmoother<T>::ApplyAccelerationConstraints(const T& trajec
     // Loop forwards, then backwards
     for( int count=0; count<2; count++)
     {
-      ROS_DEBUG("ApplyAcceleration: Iteration %i backwards=%i", iteration, backwards);
+      ROS_DEBUG("applyAcceleration: Iteration %i backwards=%i", iteration, backwards);
 
       for (unsigned int i=0; i<num_points-1; ++i)
       {
@@ -350,11 +357,11 @@ void IterativeParabolicSmoother<T>::ApplyAccelerationConstraints(const T& trajec
           index = (num_points-1)-i;
         }
 
-        double d1;
-        double d2;
-        double d3;
-        double t1;
-        double t2;
+        double q1;
+        double q2;
+        double q3;
+        double dt1;
+        double dt2;
         double v1;
         double v2;
         double a;
@@ -368,54 +375,54 @@ void IterativeParabolicSmoother<T>::ApplyAccelerationConstraints(const T& trajec
             a_max = trajectory.limits[j].max_acceleration;
           }
 
-          if( index <= 0 )
+          if(index==0)
           {	// First point
-            d2 = trajectory.trajectory.points[index].positions[j];
-            d1 = d2;
-            d3 = trajectory.trajectory.points[index+1].positions[j];
-            t1 = time_diff[0];
-            t2 = t1;
+            q1 = trajectory.trajectory.points[index+1].positions[j];
+            q2 = trajectory.trajectory.points[index].positions[j];
+            q3 = trajectory.trajectory.points[index+1].positions[j];
+            dt1 = time_diff[index];
+            dt2 = time_diff[index];
             ROS_ASSERT(!backwards);
           }
-          else if( index < num_points-1 )
-          {	// Intermediate Points
-            d1 = trajectory.trajectory.points[index-1].positions[j];
-            d2 = trajectory.trajectory.points[index].positions[j];
-            d3 = trajectory.trajectory.points[index+1].positions[j];
-            t1 = time_diff[index-1];
-            t2 = time_diff[index];
+          else if(index < num_points-1)
+          { // middle points
+            q1 = trajectory.trajectory.points[index-1].positions[j];
+            q2 = trajectory.trajectory.points[index].positions[j];
+            q3 = trajectory.trajectory.points[index+1].positions[j];
+            dt1 = time_diff[index-1];
+            dt2 = time_diff[index];
           }
           else
-          {	// Last Point - there are only numpoints-1 time intervals.
-            d1 = trajectory.trajectory.points[index-1].positions[j];
-            d2 = trajectory.trajectory.points[index].positions[j];
-            d3 = d2;
-            t1 = time_diff[index-1];
-            t2 = t1;
+          { // last point - careful, there are only numpoints-1 time intervals
+            q1 = trajectory.trajectory.points[index-1].positions[j];
+            q2 = trajectory.trajectory.points[index].positions[j];
+            q3 = trajectory.trajectory.points[index-1].positions[j];
+            dt1 = time_diff[index-1];
+            dt2 = time_diff[index-1];
             ROS_ASSERT(backwards);
           }
 
-          v1 = (d2-d1)/t1;
-          v2 = (d3-d2)/t2;
-          a = (v2-v1)/(t1+t2);
+          v1 = (q2-q1)/dt1;
+          v2 = (q3-q2)/dt2;
+          a = 2*(v2-v1)/(dt1+dt2);
 
           if( std::abs( a ) > a_max + ROUNDING_THRESHOLD )
           {
             if(!backwards)
             {
-              t2 = std::min( t2+max_time_change_per_it_, findT2( d2-d1, d3-d2, t1, t2, a_max) );
-              time_diff[index] = t2;
+              dt2 = std::min( dt2+max_time_change_per_it_, findT2( q2-q1, q3-q2, dt1, dt2, a_max) );
+              time_diff[index] = dt2;
             }
             else
             {
-              t1 = std::min( t1+max_time_change_per_it_, findT1( d2-d1, d3-d2, t1, t2, a_max) );
-              time_diff[index-1] = t1;
+              dt1 = std::min( dt1+max_time_change_per_it_, findT1( q2-q1, q3-q2, dt1, dt2, a_max) );
+              time_diff[index-1] = dt1;
             }
             num_updates++;
 
-            v1 = (d2-d1)/t1;
-            v2 = (d3-d2)/t2;
-            a = (v2-v1)/(t1+t2);
+            v1 = (q2-q1)/dt1;
+            v2 = (q3-q2)/dt2;
+            a = 2*(v2-v1)/(dt1+dt2);
           }
         }
       }
@@ -433,12 +440,12 @@ bool IterativeParabolicSmoother<T>::smooth(const T& trajectory_in,
   const unsigned int num_points = trajectory_out.trajectory.points.size();
   std::vector<double> time_diff(num_points,0.0);	// the time difference between adjacent points
 
-  ApplyVelocityConstraints(trajectory_out, time_diff);
-  ApplyAccelerationConstraints(trajectory_out, time_diff);
+  applyVelocityConstraints(trajectory_out, time_diff);
+  applyAccelerationConstraints(trajectory_out, time_diff);
 
-  ROS_DEBUG("Velocity & Acceleration-Constrained Trajectory");//FIXME-remove
-  UpdateTrajectory(trajectory_out, time_diff);
-  PrintStats(trajectory_out);
+  ROS_DEBUG("Velocity & Acceleration-Constrained Trajectory");
+  updateTrajectory(trajectory_out, time_diff);
+  printStats(trajectory_out);
 
   return success;
 }
