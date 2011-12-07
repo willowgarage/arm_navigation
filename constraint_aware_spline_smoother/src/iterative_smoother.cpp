@@ -168,7 +168,7 @@ void IterativeParabolicSmoother<T>::applyVelocityConstraints(T& trajectory, std:
 
 // Iteratively expand dt1 interval by a constant factor until within acceleration constraint
 // In the future we may want to solve to quadratic equation to get the exact timing interval.
-// To do this, the solveQuadratic function below is a start
+// To do this, use the CubicTrajectory::quadSolve() function in cubic_trajectory.h
 template <typename T>
 double IterativeParabolicSmoother<T>::findT1( const double dq1, const double dq2, double dt1, const double dt2, const double a_max) const
 {
@@ -206,43 +206,6 @@ double IterativeParabolicSmoother<T>::findT2( const double dq1, const double dq2
 
   return dt2;
 }
-/*
-template <typename T>
-double IterativeParabolicSmoother<T>::solveQuadratic(
-    const double dq1, const double dq2, const double dt1, const double dt2, const double a_max ) const
-{
-  double v2 = dq2/dt2;
-  double a = a_max;
-  double discriminant = (a*dt2-v2)*(a*dt2-v2) - 4*a*(dq1);
-  double sol = 99999;
-
-  // Grab the minimum positive solution
-  if( discriminant > 0.0 )
-  {
-    double sol1 = (-(a*dt2+v2) + std::sqrt(discriminant) ) / (2*a);
-    if( sol1 > 0 && sol1 < sol)
-      sol = sol1;
-
-    double sol2 = (-(a*dt2+v2) - std::sqrt(discriminant) ) / (2*a);
-    if( sol2 > 0 && sol2 < sol)
-      sol = sol2;
-  }
-
-  a = -a_max;
-  discriminant = (a*dt2-v2)*(a*dt2-v2) - 4*a*(dq1);
-  if( discriminant > 0.0 )
-  {
-    double sol1 = (-(a*dt2+v2) + std::sqrt(discriminant) ) / (2*a);
-    if( sol1 > 0 && sol1 < sol)
-      sol = sol1;
-    double sol2 = (-(a*dt2+v2) - std::sqrt(discriminant) ) / (2*a);
-    if( sol2 > 0 && sol2 < sol)
-      sol = sol2;
-  }
-
-  return sol;
-}
-*/
 
 // Takes the time differences, and updates the values in the trajectory.
 template <typename T>
