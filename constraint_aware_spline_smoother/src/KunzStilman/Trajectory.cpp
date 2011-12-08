@@ -36,69 +36,11 @@
  *   POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "constraint_aware_spline_smoother/Trajectory.h"
-#include <ros/ros.h> //FIXME--remove
-#include <rosconsole/macros_generated.h>  //FIXME-remove
+#include "constraint_aware_spline_smoother/KunzStilman/Trajectory.h"
 
 using namespace std;
 using namespace Eigen;
 using namespace ParabolicBlend;
-
-// FIXME- remove
-void PRINT_POS(std::vector<VectorXd> pos)
-{
-  ROS_ERROR("POSITIONS: ");//FIXME
-  for(unsigned int i=0; i<pos.size(); i++)
-  {
-    if( pos[i].size() >= 7 )
-      ROS_ERROR("positions[%i] = %f %f %f %f %f %f %f ", i,
-        pos[i][0],pos[i][1],pos[i][2],pos[i][3],pos[i][4],pos[i][5],pos[i][6] );
-  }
-}
-
-// FIXME- remove
-void PRINT_DUR(std::vector<double> durations)
-{
-  ROS_ERROR("DURATIONS: ");//FIXME
-  for(unsigned int i=0; i<durations.size(); i++)
-  {
-    ROS_ERROR("durations[%i] = %f ", i, durations[i] );
-  }
-}
-
-// FIXME- remove
-void PRINT_BDUR(std::vector<double> durations)
-{
-  ROS_ERROR("BLEND_DURATIONS: ");//FIXME
-  for(unsigned int i=0; i<durations.size(); i++)
-  {
-    ROS_ERROR("blendDurations[%i] = %f ", i, durations[i] );
-  }
-}
-
-// FIXME- remove
-void PRINT_VEL(std::vector<VectorXd> velocities)
-{
-  ROS_ERROR("VELOCITIES: ");//FIXME
-  for(unsigned int i=0; i<velocities.size(); i++)
-  {
-    ROS_ERROR("velocities[%i] = %f %f %f %f %f %f %f ", i,
-      velocities[i][0],velocities[i][1],velocities[i][2],velocities[i][3],velocities[i][4],velocities[i][5],velocities[i][6] );
-  }
-}
-
-// FIXME- remove
-void PRINT_ACC(std::vector<VectorXd> accel)
-{
-  ROS_ERROR("ACCELERATIONS:");//FIXME
-  for(unsigned int i=0; i<accel.size(); i++)
-  {
-    if( accel[i].size() >= 7 )
-      ROS_ERROR("accelerations[%i] = %f %f %f %f %f %f %f ", i,
-        accel[i][0],accel[i][1],accel[i][2],accel[i][3],accel[i][4],accel[i][5],accel[i][6] );
-  }
-}
-
 
 Trajectory::Trajectory(const list<VectorXd> &_path, const VectorXd &maxVelocity, const VectorXd &maxAcceleration, double minWayPointSeparation) :
 	path(_path.begin(), _path.end()),
@@ -163,11 +105,6 @@ Trajectory::Trajectory(const list<VectorXd> &_path, const VectorXd &maxVelocity,
 		}
 		velocities[i] = (path[i+1] - path[i]) / durations[i];
 	}
-  ROS_ERROR("************* INITIAL VALUES AFTER APPLYING VELOCITY CONSTRAINTS ************** ");//FIXME
-  PRINT_POS(path);//FIXME
-  PRINT_DUR(durations);//FIXME
-  PRINT_VEL(velocities);//FIXME
-  //PRINT_ACC(accelerations);//FIXME
 
 	int numBlendsSlowedDown = numeric_limits<int>::max();
 	while(numBlendsSlowedDown > 1) {
@@ -201,13 +138,6 @@ Trajectory::Trajectory(const list<VectorXd> &_path, const VectorXd &maxVelocity,
 			velocities[i] *= min(slowDownFactors[i], slowDownFactors[i+1]);
 			durations[i] /= min(slowDownFactors[i], slowDownFactors[i+1]);
 		}
-
-  ROS_ERROR("************* ITERATION ************** ");//FIXME
-  PRINT_POS(path);//FIXME
-  PRINT_DUR(durations);//FIXME
-  PRINT_VEL(velocities);//FIXME
-  PRINT_ACC(accelerations);//FIXME
-
   }
 	
   // calculate total time of trajectory
@@ -295,6 +225,5 @@ VectorXd Trajectory::getVelocity(double time) const {
 
 
 double Trajectory::getDuration() const {
-    ROS_ERROR("getDuration()=%f ---> path.size=%i",duration,path.size());//FIXME-remove
   return duration;
 }

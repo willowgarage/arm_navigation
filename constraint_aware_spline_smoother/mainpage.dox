@@ -22,7 +22,17 @@ should use the doxygen 'group' tag to keep these APIs together. For
 example, the roscpp documentation has 'libros' group.
 -->
 
-\section parabolic Parabolic Path Smoother
-\include readme.txt
+\section cubic_spline_shortcutter Cublic Spline Shortcutter
+
+\section linear_spline_shortcutter Linear Spline Shortcutter
+
+\section parabolic_blend_shortcutter Parabolic Blend Shortcutter
+
+\section parabolic_blend_shortcutter Parabolic Path Smoother
+\include include/constraint_aware_spline_smoother/ParabolicPathSmooth/readme.txt
+
+\section iterative_smoother Iterative Smoother
+
+\section parabolic_linear_blend Parabolic Linear Blend Smoother
 
 */

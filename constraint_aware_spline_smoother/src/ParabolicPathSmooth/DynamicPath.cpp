@@ -28,10 +28,10 @@
  * 
  ***************************************************************************/
 
-#include "constraint_aware_spline_smoother/DynamicPath.h"
-#include "constraint_aware_spline_smoother/Timer.h"
-#include "constraint_aware_spline_smoother/Config.h"
-#include "constraint_aware_spline_smoother/Math.h"
+#include "constraint_aware_spline_smoother/ParabolicPathSmooth/DynamicPath.h"
+#include "constraint_aware_spline_smoother/ParabolicPathSmooth/Timer.h"
+#include "constraint_aware_spline_smoother/ParabolicPathSmooth/Config.h"
+#include "constraint_aware_spline_smoother/ParabolicPathSmooth/Math.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>

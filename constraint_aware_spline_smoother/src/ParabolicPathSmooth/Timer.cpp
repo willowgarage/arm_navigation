@@ -1,4 +1,4 @@
-#include "constraint_aware_spline_smoother/Timer.h"
+#include "constraint_aware_spline_smoother/ParabolicPathSmooth/Timer.h"
 #include <stdlib.h>
 using namespace ParabolicRamp;
 

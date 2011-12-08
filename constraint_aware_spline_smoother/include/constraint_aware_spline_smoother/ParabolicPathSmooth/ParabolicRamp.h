@@ -32,7 +32,7 @@
 #define PARABOLIC_RAMP_H
 
 #include <math.h>
-#include "constraint_aware_spline_smoother/Math.h"
+#include "constraint_aware_spline_smoother/ParabolicPathSmooth/Math.h"
 
 namespace ParabolicRamp {
 

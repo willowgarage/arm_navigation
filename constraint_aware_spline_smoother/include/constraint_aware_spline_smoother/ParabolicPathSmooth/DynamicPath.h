@@ -31,7 +31,7 @@
 #ifndef DYNAMIC_PATH_H
 #define DYNAMIC_PATH_H
 
-#include "constraint_aware_spline_smoother/ParabolicRamp.h"
+#include "constraint_aware_spline_smoother/ParabolicPathSmooth/ParabolicRamp.h"
 
 namespace ParabolicRamp {
 
