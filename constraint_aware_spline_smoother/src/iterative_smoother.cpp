@@ -78,20 +78,20 @@ bool IterativeParabolicSmoother<T>::configure()
 template <typename T>
 void IterativeParabolicSmoother<T>::printPoint(const trajectory_msgs::JointTrajectoryPoint& point, unsigned int i) const
 {
-    ROS_DEBUG(  "time  [%i]=%f",i,point.time_from_start.toSec());
+    ROS_DEBUG(  " time   [%i]= %f",i,point.time_from_start.toSec());
     if(point.positions.size() >= 7 )
     {
-      ROS_DEBUG("pos   [%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG(" pos_   [%i]= %f %f %f %f %f %f %f",i,
         point.positions[0],point.positions[1],point.positions[2],point.positions[3],point.positions[4],point.positions[5],point.positions[6]);
     }
     if(point.velocities.size() >= 7 )
     {
-      ROS_DEBUG(" vel  [%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG("  vel_  [%i]= %f %f %f %f %f %f %f",i,
         point.velocities[0],point.velocities[1],point.velocities[2],point.velocities[3],point.velocities[4],point.velocities[5],point.velocities[6]);
     }
     if(point.accelerations.size() >= 7 )
     {
-      ROS_DEBUG("  acc [%i]=%f %f %f %f %f %f %f",i,
+      ROS_DEBUG("   acc_ [%i]= %f %f %f %f %f %f %f",i,
         point.accelerations[0],point.accelerations[1],point.accelerations[2],point.accelerations[3],point.accelerations[4],point.accelerations[5],point.accelerations[6]);
     }
 }
@@ -99,15 +99,15 @@ void IterativeParabolicSmoother<T>::printPoint(const trajectory_msgs::JointTraje
 template <typename T>
 void IterativeParabolicSmoother<T>::printStats(const T& trajectory) const
 {
-  ROS_DEBUG("jointNames=%s %s %s %s %s %s %s",
+  ROS_DEBUG("jointNames= %s %s %s %s %s %s %s",
     trajectory.limits[0].joint_name.c_str(),trajectory.limits[1].joint_name.c_str(),trajectory.limits[2].joint_name.c_str(),
     trajectory.limits[3].joint_name.c_str(),trajectory.limits[4].joint_name.c_str(),trajectory.limits[5].joint_name.c_str(),
     trajectory.limits[6].joint_name.c_str());
-  ROS_DEBUG("maxVelocities=%f %f %f %f %f %f %f",
+  ROS_DEBUG("maxVelocities= %f %f %f %f %f %f %f",
     trajectory.limits[0].max_velocity,trajectory.limits[1].max_velocity,trajectory.limits[2].max_velocity,
     trajectory.limits[3].max_velocity,trajectory.limits[4].max_velocity,trajectory.limits[5].max_velocity,
     trajectory.limits[6].max_velocity);
-  ROS_DEBUG("maxAccelerations=%f %f %f %f %f %f %f",
+  ROS_DEBUG("maxAccelerations= %f %f %f %f %f %f %f",
     trajectory.limits[0].max_acceleration,trajectory.limits[1].max_acceleration,trajectory.limits[2].max_acceleration,
     trajectory.limits[3].max_acceleration,trajectory.limits[4].max_acceleration,trajectory.limits[5].max_acceleration,
     trajectory.limits[6].max_acceleration);
@@ -302,38 +302,42 @@ void IterativeParabolicSmoother<T>::applyAccelerationConstraints(const T& trajec
   int num_updates = 0;
   int iteration= 0;
   bool backwards = false;
+  double q1;
+  double q2;
+  double q3;
+  double dt1;
+  double dt2;
+  double v1;
+  double v2;
+  double a;
 
   do
   {
     num_updates = 0;
     iteration++;
-    // Loop forwards, then backwards
-    for( int count=0; count<2; count++)
+
+    // In this case we iterate through the joints on the outer loop.
+    // This is so that any time interval increases have a chance to get propogated through the trajectory
+    for (unsigned int j=0; j<num_joints; ++j)
     {
-      ROS_DEBUG("applyAcceleration: Iteration %i backwards=%i", iteration, backwards);
-
-      for (unsigned int i=0; i<num_points-1; ++i)
+      // Loop forwards, then backwards
+      for( int count=0; count<2; count++)
       {
-        unsigned int index = i;
-        if(backwards)
-        {
-          index = (num_points-1)-i;
-        }
+        ROS_DEBUG("applyAcceleration: Iteration %i backwards=%i joint=%i", iteration, backwards, j);
+        //updateTrajectory(trajectory, time_diff);
+        //printStats(trajectory);
 
-        double q1;
-        double q2;
-        double q3;
-        double dt1;
-        double dt2;
-        double v1;
-        double v2;
-        double a;
-
-        // Get acceleration min/max
-        for (unsigned int j=0; j<num_joints; ++j)
+        for (unsigned int i=0; i<num_points-1; ++i)
         {
+          unsigned int index = i;
+          if(backwards)
+          {
+            index = (num_points-1)-i;
+          }
+
+          // Get acceleration limits
           double a_max = 1.0;
-          if( trajectory.limits[j].has_velocity_limits )
+          if( trajectory.limits[j].has_acceleration_limits )
           {
             a_max = trajectory.limits[j].max_acceleration;
           }
@@ -388,9 +392,10 @@ void IterativeParabolicSmoother<T>::applyAccelerationConstraints(const T& trajec
             a = 2*(v2-v1)/(dt1+dt2);
           }
         }
+        backwards = !backwards;
       }
-      backwards = !backwards;
     }
+    ROS_DEBUG("applyAcceleration: num_updates=%i", num_updates);
   } while(num_updates > 0 && iteration < max_iterations_);
 }
 
