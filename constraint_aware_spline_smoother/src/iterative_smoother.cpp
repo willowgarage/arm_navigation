@@ -48,7 +48,7 @@ const double ROUNDING_THRESHOLD = 0.01;
 template <typename T>
 IterativeParabolicSmoother<T>::IterativeParabolicSmoother()
 : max_iterations_(100),
-  max_time_change_per_it_(0.1)
+  max_time_change_per_it_(0.01)
 {}
 
 template <typename T>
