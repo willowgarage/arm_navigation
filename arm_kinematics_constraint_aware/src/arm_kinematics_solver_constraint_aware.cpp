@@ -328,8 +328,31 @@ bool ArmKinematicsSolverConstraintAware::interpolateIKDirectional(const geometry
       return false;
     }
   }
+  checkForWraparound(ret_traj);
   traj = ret_traj;
   return true;
+}
+
+void ArmKinematicsSolverConstraintAware::checkForWraparound(const trajectory_msgs::JointTrajectory& joint_trajectory) {
+
+  std::vector<unsigned int> checks;
+  for(unsigned int i = 0; i < joint_trajectory.joint_names.size(); i++) {
+    const planning_models::KinematicModel::RevoluteJointModel* rev 
+      = dynamic_cast<const planning_models::KinematicModel::RevoluteJointModel*>(cm_->getKinematicModel()->getJointModel(joint_trajectory.joint_names[i]));
+    if(rev != NULL && rev->continuous_) {
+      checks.push_back(i);
+    }
+  }
+  for(unsigned int i = 1; i < joint_trajectory.points.size(); i++) {
+    for(unsigned int j = 0; j < checks.size(); j++) {
+      double last_val = joint_trajectory.points[i-1].positions[checks[j]];
+      double cur_val = joint_trajectory.points[i].positions[checks[j]];
+      if((last_val < (-2.0*M_PI+.04) && cur_val > (2*M_PI-.04)) ||
+         (last_val > (2.0*M_PI-.04) && cur_val < (-2*M_PI+.04))) {
+        ROS_ERROR_STREAM("Wrap around problem point " << i << " last val " << last_val << " cur val " << cur_val);
+      }
+    }
+  }
 }
 
 }

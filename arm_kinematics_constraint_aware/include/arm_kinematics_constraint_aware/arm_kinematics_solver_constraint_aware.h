@@ -95,6 +95,8 @@ public:
                                 const ros::Duration& total_dur,
                                 const bool& do_initial_pose_check);
 
+  void checkForWraparound(const trajectory_msgs::JointTrajectory& joint_trajectory);
+
   //pass-throughs to solver
 
   double getSearchDiscretization() const {
