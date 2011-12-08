@@ -34,17 +34,18 @@
 
 /** \author Ken Anderson */
 
+#include <constraint_aware_spline_smoother/KunzStilman/Trajectory.h>
 #include <constraint_aware_spline_smoother/parabolic_linear_blend.h>
 #include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <arm_navigation_msgs/JointLimits.h>
-#include <list>
 #include <Eigen/Core>
 
 using namespace constraint_aware_spline_smoother;
 
-const double DEFAULT_VEL_MAX=1.0;
-const double DEFAULT_ACCEL_MAX=1.0;
-const double ROUNDING_THRESHOLD = 0.01;
+const double	DEFAULT_VEL_MAX=1.0;
+const double	DEFAULT_ACCEL_MAX=1.0;
+const double	ROUNDING_THRESHOLD = 0.01;
+const int			NUM_OUTPUT_POINTS = 100;	// TODO - make this a parameter
 
 
 template <typename T>
@@ -54,12 +55,11 @@ bool ParabolicLinearBlendSmoother<T>::smooth(const T& trajectory_in,
   std::list<Eigen::VectorXd> path;
   Eigen::VectorXd vmax;	// velocity
   Eigen::VectorXd amax;	// acceleration
-  double smin = 0.03;						// minimum waypoint separation
+  double smin = 0.03;		// minimum waypoint separation
 
   // Convert to expected form
   vmax.resize(trajectory_in.limits.size());
   amax.resize(trajectory_in.limits.size());
-//  ROS_ERROR(" 4");	// FIXME-remove
 
   // limits
   for(unsigned int i=0; i<trajectory_in.limits.size(); i++)
@@ -93,23 +93,15 @@ bool ParabolicLinearBlendSmoother<T>::smooth(const T& trajectory_in,
       point[j]=trajectory_in.trajectory.points[i].positions[j];
     }
     std::vector<double> positions=trajectory_in.trajectory.points[i].positions;
-    ROS_ERROR("INPUT point[%i] = %f, %f, %f, %f, %f, %f, %f ",i,
-      positions[0],positions[1],positions[2],positions[3],positions[4],positions[5],positions[6]);// FIXME-remove
     path.push_back(point);
   }
-
-  ROS_ERROR("INPUT max_vel = %f, %f, %f, %f, %f, %f, %f ",
-    vmax[0],vmax[1],vmax[2],vmax[3],vmax[4],vmax[5],vmax[6]);// FIXME-remove
-  ROS_ERROR("INPUT max_acc = %f, %f, %f, %f, %f, %f, %f ",
-    amax[0],amax[1],amax[2],amax[3],amax[4],amax[5],amax[6]);// FIXME-remove
-  ROS_ERROR("INPUT minWayPoint = %f ", smin);
 
   ParabolicBlend::Trajectory blend_trajectory(path,vmax,amax,smin);
 
   // Convert back
   trajectory_out = trajectory_in;
   unsigned int num_joints = trajectory_in.trajectory.joint_names.size();
-  unsigned int num_points = 100;	// FIXME - use a descretization
+  unsigned int num_points = NUM_OUTPUT_POINTS;
   double duration = blend_trajectory.getDuration();
   double discretization = duration / num_points;
 
@@ -133,7 +125,7 @@ bool ParabolicLinearBlendSmoother<T>::smooth(const T& trajectory_in,
       point.velocities[j] = velocities[j];
     }
 
-    trajectory_out.trajectory.points.push_back(point);	// FIXME - can make this faster by initializing the size
+    trajectory_out.trajectory.points.push_back(point);	// TODO - can make this faster by initializing the size
   }
 
   return true;

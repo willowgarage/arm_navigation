@@ -49,8 +49,8 @@
 
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 
-#include <constraint_aware_spline_smoother/Math.h>
-#include <constraint_aware_spline_smoother/DynamicPath.h>
+#include <constraint_aware_spline_smoother/ParabolicPathSmooth/Math.h>
+#include <constraint_aware_spline_smoother/ParabolicPathSmooth/DynamicPath.h>
 
 
 using namespace ParabolicRamp;

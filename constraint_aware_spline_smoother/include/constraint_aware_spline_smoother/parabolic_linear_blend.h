@@ -37,23 +37,18 @@
 #ifndef PARABOLIC_LINEAR_BLEND_H_
 #define PARABOLIC_LINEAR_BLEND_H_
 
-#include <ros/ros.h>
-#include <tf/tf.h>
 #include <spline_smoother/spline_smoother.h>
-#include <spline_smoother/cubic_trajectory.h>
-#include <planning_environment/models/collision_models_interface.h>
-#include <planning_environment/models/model_utils.h>
-#include <arm_navigation_msgs/RobotState.h>
-#include <arm_navigation_msgs/ArmNavigationErrorCodes.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
-#include <constraint_aware_spline_smoother/Trajectory.h>
 
 namespace constraint_aware_spline_smoother
 {
 
 /// @brief This is a wrapper around Tobias Kunz and Mike Stilman's trajectory smoother using
 /// parabolic and linear phases.
-/// This smoother chooses timing intervals between trajectory points that respects both velocity and acceleration constraints.
+/// See http://www.golems.org/node/1570 for more details.
+/// This smoother chooses timing intervals between trajectory points that respects
+/// both velocity and acceleration constraints.
+/// The resulting trajectory uses linear segments parametric blends to smooth the trajectory between points.
 template <typename T>
 class ParabolicLinearBlendSmoother : public spline_smoother::SplineSmoother<T>
 {

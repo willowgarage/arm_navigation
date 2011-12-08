@@ -32,12 +32,13 @@ find_package(Eigen REQUIRED)
 include_directories(${Eigen_INCLUDE_DIRS})
 
 rosbuild_add_library(constraint_aware_spline_smoother 
-                     src/Timer.cpp
-                     src/DynamicPath.cpp
-                     src/ParabolicRamp.cpp
                      src/cubic_spline_shortcutter.cpp
                      src/linear_spline_shortcutter.cpp
                      src/parabolic_blend_shortcutter.cpp
                      src/iterative_smoother.cpp
                      src/parabolic_linear_blend.cpp
-                     src/Trajectory.cpp)
+                     src/ParabolicPathSmooth/Timer.cpp
+                     src/ParabolicPathSmooth/DynamicPath.cpp
+                     src/ParabolicPathSmooth/ParabolicRamp.cpp
+                     src/KunzStilman/Trajectory.cpp)
+
