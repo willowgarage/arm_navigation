@@ -172,7 +172,7 @@ bool ArmKinematicsConstraintAware::getConstraintAwarePositionIK(kinematics_msgs:
     ROS_DEBUG("A collision aware ik solution could not be found");
     if(response.error_code.val != response.error_code.IK_LINK_IN_COLLISION) 
     {
-      sendEndEffectorPose(collision_models_interface_->getPlanningSceneState(),true);
+      //sendEndEffectorPose(collision_models_interface_->getPlanningSceneState(),true);
     }
     return true;
   }
