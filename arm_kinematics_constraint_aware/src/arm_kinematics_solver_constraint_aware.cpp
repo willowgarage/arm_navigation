@@ -288,21 +288,24 @@ bool ArmKinematicsSolverConstraintAware::interpolateIKDirectional(const geometry
 {
   trajectory_msgs::JointTrajectory ret_traj;
   ret_traj.joint_names = kinematics_solver_->getJointNames();
-  ret_traj.points.resize(num_points);
+  ret_traj.points.resize(num_points+1);
     
   btTransform first_pose;
   tf::poseMsgToTF(start_pose, first_pose);
 
-  for(unsigned int i = 1; i <= num_points; i++) {
-    int val;
-    if(reverse) {
-      val = num_points-i;
-    } else {
-      val = i;
-    }
+  unsigned int index;
+  unsigned int val;
+  if(reverse) {
+    val = 0;
+    index = num_points;
+  } else {
+    val = 0;
+    index = 0;
+  }
 
+  while(1) {
     //assumes that the axis is aligned
-    btTransform trans(btQuaternion(0,0,0,1.0), direction*val*fabs(distance/(num_points*1.0)));
+    btTransform trans(btQuaternion(0,0,0,1.0), direction*(int)val*fabs(distance/(num_points*1.0)));
     btTransform mult_trans;
     if(premultiply) {
       mult_trans = trans*first_pose;
@@ -311,6 +314,14 @@ bool ArmKinematicsSolverConstraintAware::interpolateIKDirectional(const geometry
     }
     geometry_msgs::Pose trans_pose;
     tf::poseTFToMsg(mult_trans, trans_pose);
+
+    ROS_DEBUG_STREAM("Pose is " << trans_pose.position.x << " "
+                     << trans_pose.position.y << " "
+                     << trans_pose.position.z << " "
+                     << trans_pose.orientation.x << " "
+                     << trans_pose.orientation.y << " "
+                     << trans_pose.orientation.z << " "
+                     << trans_pose.orientation.w);
 
     sensor_msgs::JointState solution;
     arm_navigation_msgs::ArmNavigationErrorCodes temp_error_code;
@@ -322,10 +333,31 @@ bool ArmKinematicsSolverConstraintAware::interpolateIKDirectional(const geometry
                                              redundancy,
                                              max_consistency,
                                              do_initial_pose_check)) {
-      ret_traj.points[i-1].positions = solution.position;
-      ret_traj.points[i-1].time_from_start = ros::Duration((i*1.0)*total_dur.toSec()/(num_points*1.0));
+      ret_traj.points[index].positions = solution.position;
+      ROS_DEBUG_STREAM("Setting point " << index << " to " <<
+                       solution.position[0] << " " <<
+                       solution.position[1] << " " <<
+                       solution.position[2] << " " <<
+                       solution.position[3] << " " <<
+                       solution.position[4] << " " <<
+                       solution.position[5] << " " <<
+                       solution.position[6]); 
+      ret_traj.points[index].time_from_start = ros::Duration((index*1.0)*total_dur.toSec()/(num_points*1.0));
     } else {
       return false;
+    }
+    if(reverse) {
+      val++;
+      if(index == 0) {
+        break;
+      }
+      index--;
+    } else {
+      val++;
+      index++;
+      if(index > num_points) {
+        break;
+      }
     }
   }
   checkForWraparound(ret_traj);
