@@ -70,7 +70,9 @@
 
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/model_utils.h>
-#include <arm_navigation_msgs/SetPlanningSceneDiff.h>
+//#include <arm_navigation_msgs/SetPlanningSceneDiff.h>
+#include <arm_navigation_msgs/GetPlanningScene.h>
+
 
 #include <arm_navigation_msgs/GetRobotState.h>
 
@@ -121,7 +123,8 @@ typedef struct{
 } MoveArmParameters;
   
 static const std::string ARM_IK_NAME = "arm_ik";
-static const std::string TRAJECTORY_FILTER = "/trajectory_filter_server/filter_trajectory_with_constraints";
+static const std::string TRAJECTORY_FILTER_SHORTCUT = "/trajectory_shortcutting_filter_server/filter_trajectory_with_constraints";
+static const std::string TRAJECTORY_FILTER_SMOOTH = "/trajectory_smoothing_filter_server/filter_trajectory_with_constraints";
 static const std::string DISPLAY_PATH_PUB_TOPIC  = "display_path";
 static const std::string DISPLAY_JOINT_GOAL_PUB_TOPIC  = "display_joint_goal";
 
@@ -154,7 +157,8 @@ public:
 
     ik_client_ = root_handle_.serviceClient<kinematics_msgs::GetConstraintAwarePositionIK>(ARM_IK_NAME);
     allowed_contact_regions_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("allowed_contact_regions_array", 128);
-    filter_trajectory_client_ = root_handle_.serviceClient<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER);      
+    filter_shortcut_trajectory_client_ = root_handle_.serviceClient<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER_SHORTCUT);
+    filter_smooth_trajectory_client_ = root_handle_.serviceClient<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>(TRAJECTORY_FILTER_SMOOTH);
     vis_marker_publisher_ = root_handle_.advertise<visualization_msgs::Marker>("move_" + group_name+"_markers", 128);
     vis_marker_array_publisher_ = root_handle_.advertise<visualization_msgs::MarkerArray>("move_" + group_name+"_markers_array", 128);
     get_state_client_ = root_handle_.serviceClient<arm_navigation_msgs::GetRobotState>("/environment_server/get_robot_state");      
@@ -162,9 +166,10 @@ public:
     //    ros::service::waitForService(ARM_IK_NAME);
     arm_ik_initialized_ = false;
     ros::service::waitForService(SET_PLANNING_SCENE_DIFF_NAME);
-    set_planning_scene_diff_client_ = root_handle_.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_NAME);
+    set_planning_scene_diff_client_ = root_handle_.serviceClient<arm_navigation_msgs::GetPlanningScene>(SET_PLANNING_SCENE_DIFF_NAME);
     
-    ros::service::waitForService(TRAJECTORY_FILTER);
+    ros::service::waitForService(TRAJECTORY_FILTER_SHORTCUT);
+    ros::service::waitForService(TRAJECTORY_FILTER_SMOOTH);
 
     action_server_.reset(new actionlib::SimpleActionServer<arm_navigation_msgs::MoveArmAction>(root_handle_, "move_" + group_name, boost::bind(&MoveArm::execute, this, _1), false));
     action_server_->start();
@@ -352,7 +357,22 @@ private:
     req.goal_constraints = original_request_.motion_plan_request.goal_constraints;
     req.allowed_time = ros::Duration(trajectory_filter_allowed_time_);
     ros::Time smoothing_time = ros::Time::now();
-    if(filter_trajectory_client_.call(req,res))
+
+    ros::ServiceClient *filter_trajectory_client;
+    if( move_arm_parameters_.planner_service_name == std::string("/chomp_planner_longrange/plan_path"))
+    {
+      //ROS_ERROR("Detected CHOMP -- using smooth trajectory");
+      //ROS_ERROR("---> %s", move_arm_parameters_.planner_service_name.c_str() );
+      filter_trajectory_client = &filter_smooth_trajectory_client_;
+    }
+    else
+    {
+      //ROS_ERROR("Detected OMPL -- using shortcut trajectory");
+      //ROS_ERROR("---> %s", move_arm_parameters_.planner_service_name.c_str() );
+      filter_trajectory_client = &filter_shortcut_trajectory_client_;
+    }
+
+    if(filter_trajectory_client->call(req,res))
     {
       move_arm_stats_.trajectory_duration = (res.trajectory.points.back().time_from_start-res.trajectory.points.front().time_from_start).toSec();
       move_arm_stats_.smoothing_time = (ros::Time::now()-smoothing_time).toSec();
@@ -362,7 +382,7 @@ private:
     else
     {
       ROS_ERROR("Service call to filter trajectory failed.");
-      return false;
+     return false;
     }
   }
 
@@ -476,6 +496,7 @@ private:
     move_arm_parameters_.disable_collision_monitoring = goal->disable_collision_monitoring;
     move_arm_parameters_.allowed_planning_time = goal->motion_plan_request.allowed_planning_time.toSec();
     move_arm_parameters_.planner_service_name = goal->planner_service_name;
+
     // visualizeAllowedContactRegions(req.motion_plan_request.allowed_contacts);
     // ROS_INFO("Move arm: %d allowed contact regions",(int)req.motion_plan_request.allowed_contacts.size());
     // for(unsigned int i=0; i < req.motion_plan_request.allowed_contacts.size(); i++)
@@ -1173,13 +1194,13 @@ private:
 
   bool getAndSetPlanningScene(const arm_navigation_msgs::PlanningScene& planning_diff,
                               const arm_navigation_msgs::OrderedCollisionOperations& operations) {
-    arm_navigation_msgs::SetPlanningSceneDiff::Request planning_scene_req;
-    arm_navigation_msgs::SetPlanningSceneDiff::Response planning_scene_res;
+    arm_navigation_msgs::GetPlanningScene::Request planning_scene_req;
+    arm_navigation_msgs::GetPlanningScene::Response planning_scene_res;
 
     revertPlanningScene();
 
-    planning_scene_req.planning_scene_diff = planning_diff;
-    planning_scene_req.operations = operations;
+    //planning_scene_req.planning_scene_diff = planning_diff;
+    //planning_scene_req.operations = operations;
 
     if(!set_planning_scene_diff_client_.call(planning_scene_req, planning_scene_res)) {
       ROS_WARN("Can't get planning scene");
@@ -1380,8 +1401,8 @@ private:
 
   planning_environment::CollisionModels* collision_models_;
 
-  arm_navigation_msgs::SetPlanningSceneDiff::Request set_planning_scene_diff_req_;
-  arm_navigation_msgs::SetPlanningSceneDiff::Response set_planning_scene_diff_res_;
+  arm_navigation_msgs::GetPlanningScene::Request set_planning_scene_diff_req_;
+  arm_navigation_msgs::GetPlanningScene::Response set_planning_scene_diff_res_;
   arm_navigation_msgs::PlanningScene current_planning_scene_;
   planning_models::KinematicState* planning_scene_state_;
 
@@ -1405,7 +1426,8 @@ private:
   ros::Publisher allowed_contact_regions_publisher_;
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
-  ros::ServiceClient filter_trajectory_client_;
+  ros::ServiceClient filter_shortcut_trajectory_client_;
+  ros::ServiceClient filter_smooth_trajectory_client_;
   ros::ServiceClient get_state_client_;
   ros::ServiceClient set_planning_scene_diff_client_;
   MoveArmParameters move_arm_parameters_;
