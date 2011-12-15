@@ -361,14 +361,12 @@ private:
     ros::ServiceClient *filter_trajectory_client;
     if( move_arm_parameters_.planner_service_name == std::string("/chomp_planner_longrange/plan_path"))
     {
-      //ROS_ERROR("Detected CHOMP -- using smooth trajectory");
-      //ROS_ERROR("---> %s", move_arm_parameters_.planner_service_name.c_str() );
+      ROS_WARN("Detected CHOMP (%s)-- using smooth trajectory", move_arm_parameters_.planner_service_name.c_str());
       filter_trajectory_client = &filter_smooth_trajectory_client_;
     }
     else
     {
-      //ROS_ERROR("Detected OMPL -- using shortcut trajectory");
-      //ROS_ERROR("---> %s", move_arm_parameters_.planner_service_name.c_str() );
+      ROS_WARN("Detected OMPL (%s)-- using shortcut trajectory", move_arm_parameters_.planner_service_name.c_str());
       filter_trajectory_client = &filter_shortcut_trajectory_client_;
     }
 

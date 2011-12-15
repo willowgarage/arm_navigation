@@ -2,10 +2,6 @@
   <!-- send parameters for multidof -->
   <rosparam command="load" ns="robot_description_planning" file="$(find pr2_arm_navigation_config)/config/pr2_planning_description.yaml" />
 
-  <!--<rosparam command="load" file="$(find pr2_arm_navigation_config)/config/joint_limits_right_left.yaml"/>-->
-
-  <!--<include file="$(find pr2_arm_navigation_perception)/launch/laser+stereo-perception.launch"/>-->
-
   <node pkg="planning_environment" type="environment_server" output="screen" name="environment_server">      
     <param name="use_monitor" type="bool" value="true"/>
     <param name="use_collision_map" type="bool" value="true"/>
@@ -13,19 +9,6 @@
 
   <node pkg="planning_environment" type="planning_scene_validity_server" output="screen" name="planning_scene_validity_server"/>      
   
-<!--
-  <node pkg="pr2_arm_kinematics_constraint_aware" type="pr2_arm_kinematics_constraint_aware" name="pr2_right_arm_kinematics" output="screen">    
-    <param name="tip_name" value="r_wrist_roll_link" />     
-    <param name="root_name" value="torso_lift_link" />  
-    <param name="group" type="string" value="right_arm" />
-  </node>
-  <node pkg="pr2_arm_kinematics_constraint_aware" type="pr2_arm_kinematics_constraint_aware" name="pr2_left_arm_kinematics" output="screen">    
-    <param name="tip_name" value="l_wrist_roll_link" />     
-    <param name="root_name" value="torso_lift_link" />  
-    <param name="group" type="string" value="left_arm" />
-  </node>
--->
-
   <!-- load perception -->
   <include file="$(find pr2_arm_navigation_perception)/launch/laser-perception.launch"/>
 
@@ -34,7 +17,6 @@
   <include file="$(find pr2_arm_navigation_actions)/launch/move_right_arm.launch"/>
 
   <!-- load planning_environment -->
-  <!--<include file="$(find planning_environment)/launch/environment_server.launch"/>-->
 
   <!-- OMPL -->
   <node pkg="ompl_ros_interface" type="ompl_ros" name="ompl_planning" output="screen">
@@ -43,15 +25,9 @@
     <rosparam command="load" file="$(find pr2_arm_navigation_planning)/config/ompl_planning.yaml" />
   </node>
 
-  <!--<include file="$(find pr2_arm_navigation_filtering)/launch/trajectory_filter.launch"/>-->
-  <!--<node pkg="trajectory_filter_server" name="trajectory_filter_server" type="trajectory_filter_server" output="screen">
-    <rosparam command="load" file="$(find pr2_arm_navigation_config)/config/joint_limits_right_left.yaml"/>
-    <rosparam command="load" file="$(find move_arm_warehouse)/config/shortcutting_filters.yaml"/>
-  </node>-->
-
   <node pkg="trajectory_filter_server" name="trajectory_shortcutting_filter_server" type="trajectory_filter_server" output="screen">
     <rosparam command="load" file="$(find pr2_arm_navigation_config)/config/joint_limits_right_left.yaml"/>
-    <rosparam command="load" file="$(find move_arm_warehouse)/config/smoothing_filters.yaml"/>
+    <rosparam command="load" file="$(find move_arm_warehouse)/config/shortcutting_filters.yaml"/>
   </node>
 
   <!-- CHOMP -->

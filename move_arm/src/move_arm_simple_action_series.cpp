@@ -9,25 +9,27 @@
 static const std::string SET_PLANNING_SCENE_DIFF_NAME = "/environment_server/set_planning_scene_diff";
 
 // positions for right arm
+const int SIZE = 7;
 double points[][7] =
 {
-// bent down
+// front bent down
 {-0.62882814703429735, 0.8418347450080067, -1.9799863031444187, -1.6658535208371843, 25.110489253195208, -1.9402143481790481, -3.3328334417445808},
-// down diagonal
+// sides diagonal down
 {-1.0213518629144611, 0.79781678347001694, -0.21997346810980545, -0.46313835939973602, -129.69683375982004, -0.2090908168158423, -43.029370768714301},
-// bent up
-{-1.6557731956287212, -0.12427141761710289, 0.27000326732522195, -1.6920980865205064, 0.2123976349290348, -1.7229959856671484, 0.45571628193275693},
-// side up/out
+// front bent up in
+{-0.0978808909530611, 1.0789493089406546, -0.062490903482955662, -1.922573711462827, -144.54751916796235, -1.9796702675032269, -132.14782677972994},
+// sides bent up out
 {-1.964319710777449, -0.20129802400737434, 0.28000326732521985, -1.8126503280142443, -2.9063492821957446, -1.9440657888765194, -1.6092749252553165},
-// forward out
+// sides bent up in
+{-1.6557731956287212, -0.12427141761710289, 0.27000326732522195, -1.6920980865205064, 0.2123976349290348, -1.7229959856671484, 0.45571628193275693},
+// forward diagonal up
 {0.12365848504908895, -0.31925879050609901, 0.26002653189019498, -0.60416685029232786, -127.10443321064356, -0.14674235854525863, -49.120638472343479},
-// side up
+// sides bent up
 {-2.1133781512819105, -0.34097140919884783, 0.060003267325219906, -1.4142123996403146, 2.2710161038551959, -0.16913725241878641, -1.7351318586839262},
 //  { -2.0, 0.0, 0.0, -0.2, 0.0, -0.15, 0.0 },
 //  { -2.0, 0.5, 0.0, -0.2, 0.0, -0.15, 0.0 },
 //  { -2.0, 1.0, 0.0, -0.2, 0.0, -0.15, 0.0 },
 };
-const int SIZE = 4;
 
 void plan_filter_execute_function(
   actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> & move_arm,
@@ -72,9 +74,9 @@ arm_navigation_msgs::CollisionObject getPole(bool right)
   object.type = arm_navigation_msgs::Shape::CYLINDER;
   object.dimensions.resize(2);
   object.dimensions[0] = .1;
-  object.dimensions[1] = 1.0;
+  object.dimensions[1] = 1.4;
   geometry_msgs::Pose pose;
-  pose.position.x = .5;
+  pose.position.x = .6;
   if(right)
   {
     pose.position.y = -.6;
@@ -83,7 +85,7 @@ arm_navigation_msgs::CollisionObject getPole(bool right)
   {
     pose.position.y = +.6;
   }
-  pose.position.z = .5;
+  pose.position.z = .7;
   pose.orientation.x = 0;
   pose.orientation.y = 0;
   pose.orientation.z = 0;
