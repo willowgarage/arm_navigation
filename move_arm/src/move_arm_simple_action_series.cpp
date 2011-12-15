@@ -55,6 +55,35 @@ void plan_filter_execute_function(
    }
 }
 
+
+arm_navigation_msgs::CollisionObject getWall()
+{
+  //add the wall into the collision space
+  arm_navigation_msgs::CollisionObject wall_object;
+  wall_object.id = "wall";
+  wall_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
+  wall_object.header.frame_id = "odom_combined";
+  wall_object.header.stamp = ros::Time::now();
+  arm_navigation_msgs::Shape object;
+  object.type = arm_navigation_msgs::Shape::BOX;
+  object.dimensions.resize(3);
+  object.dimensions[0] = 1.4;
+  object.dimensions[1] = 0.005;
+  object.dimensions[2] = 1.4;
+  geometry_msgs::Pose pose;
+  pose.position.x = .6;
+  pose.position.y = 0;
+  pose.position.z = 0.7;
+  pose.orientation.x = 0;
+  pose.orientation.y = 0;
+  pose.orientation.z = 0;
+  pose.orientation.w = 1;
+  wall_object.shapes.push_back(object);
+  wall_object.poses.push_back(pose);
+
+  return wall_object;
+ }
+
 arm_navigation_msgs::CollisionObject getPole(bool right)
 {
   //add the cylinder into the collision space
@@ -110,6 +139,7 @@ int main(int argc, char **argv){
   // Add cylender
   planning_scene_req.planning_scene_diff.collision_objects.push_back(getPole(true));
   planning_scene_req.planning_scene_diff.collision_objects.push_back(getPole(false));
+  planning_scene_req.planning_scene_diff.collision_objects.push_back(getWall());
 
   if(!set_planning_scene_client.call(planning_scene_req, planning_scene_res)) {
     ROS_WARN("Can't get planning scene");
