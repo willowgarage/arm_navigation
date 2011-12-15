@@ -8,15 +8,20 @@
 
 static const std::string SET_PLANNING_SCENE_DIFF_NAME = "/environment_server/set_planning_scene_diff";
 
+// positions for right arm
 double points[][7] =
 {
-// bent up
-{-1.6557731956287212, -0.12427141761710289, 0.27000326732522195, -1.6920980865205064, 0.2123976349290348, -1.7229959856671484, 0.45571628193275693},
 // bent down
 {-0.62882814703429735, 0.8418347450080067, -1.9799863031444187, -1.6658535208371843, 25.110489253195208, -1.9402143481790481, -3.3328334417445808},
-// up and out
+// down diagonal
+{-1.0213518629144611, 0.79781678347001694, -0.21997346810980545, -0.46313835939973602, -129.69683375982004, -0.2090908168158423, -43.029370768714301},
+// bent up
+{-1.6557731956287212, -0.12427141761710289, 0.27000326732522195, -1.6920980865205064, 0.2123976349290348, -1.7229959856671484, 0.45571628193275693},
+// side up/out
 {-1.964319710777449, -0.20129802400737434, 0.28000326732521985, -1.8126503280142443, -2.9063492821957446, -1.9440657888765194, -1.6092749252553165},
-// straight up
+// forward out
+{0.12365848504908895, -0.31925879050609901, 0.26002653189019498, -0.60416685029232786, -127.10443321064356, -0.14674235854525863, -49.120638472343479},
+// side up
 {-2.1133781512819105, -0.34097140919884783, 0.060003267325219906, -1.4142123996403146, 2.2710161038551959, -0.16913725241878641, -1.7351318586839262},
 //  { -2.0, 0.0, 0.0, -0.2, 0.0, -0.15, 0.0 },
 //  { -2.0, 0.5, 0.0, -0.2, 0.0, -0.15, 0.0 },
@@ -48,6 +53,47 @@ void plan_filter_execute_function(
    }
 }
 
+arm_navigation_msgs::CollisionObject getPole(bool right)
+{
+  //add the cylinder into the collision space
+  arm_navigation_msgs::CollisionObject cylinder_object;
+  if(right)
+  {
+    cylinder_object.id = "r_pole";
+  }
+  else
+  {
+    cylinder_object.id = "l_pole";
+  }
+  cylinder_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
+  cylinder_object.header.frame_id = "odom_combined";
+  cylinder_object.header.stamp = ros::Time::now();
+  arm_navigation_msgs::Shape object;
+  object.type = arm_navigation_msgs::Shape::CYLINDER;
+  object.dimensions.resize(2);
+  object.dimensions[0] = .1;
+  object.dimensions[1] = 1.0;
+  geometry_msgs::Pose pose;
+  pose.position.x = .5;
+  if(right)
+  {
+    pose.position.y = -.6;
+  }
+  else
+  {
+    pose.position.y = +.6;
+  }
+  pose.position.z = .5;
+  pose.orientation.x = 0;
+  pose.orientation.y = 0;
+  pose.orientation.z = 0;
+  pose.orientation.w = 1;
+  cylinder_object.shapes.push_back(object);
+  cylinder_object.poses.push_back(pose);
+
+  return cylinder_object;
+ }
+
 
 int main(int argc, char **argv){
   ros::init (argc, argv, "move_arm_joint_goal_test");
@@ -58,6 +104,10 @@ int main(int argc, char **argv){
   ros::ServiceClient set_planning_scene_client = nh.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>(SET_PLANNING_SCENE_DIFF_NAME);
   arm_navigation_msgs::SetPlanningSceneDiff::Request planning_scene_req;
   arm_navigation_msgs::SetPlanningSceneDiff::Response planning_scene_res;
+
+  // Add cylender
+  planning_scene_req.planning_scene_diff.collision_objects.push_back(getPole(true));
+  planning_scene_req.planning_scene_diff.collision_objects.push_back(getPole(false));
 
   if(!set_planning_scene_client.call(planning_scene_req, planning_scene_res)) {
     ROS_WARN("Can't get planning scene");
