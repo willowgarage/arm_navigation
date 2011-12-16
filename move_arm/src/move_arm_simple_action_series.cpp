@@ -62,7 +62,7 @@ arm_navigation_msgs::CollisionObject getWall()
   arm_navigation_msgs::CollisionObject wall_object;
   wall_object.id = "wall";
   wall_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
-  wall_object.header.frame_id = "odom_combined";
+  wall_object.header.frame_id = "base_footprint";
   wall_object.header.stamp = ros::Time::now();
   arm_navigation_msgs::Shape object;
   object.type = arm_navigation_msgs::Shape::BOX;
@@ -97,7 +97,7 @@ arm_navigation_msgs::CollisionObject getPole(bool right)
     cylinder_object.id = "l_pole";
   }
   cylinder_object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
-  cylinder_object.header.frame_id = "odom_combined";
+  cylinder_object.header.frame_id = "base_footprint";
   cylinder_object.header.stamp = ros::Time::now();
   arm_navigation_msgs::Shape object;
   object.type = arm_navigation_msgs::Shape::CYLINDER;

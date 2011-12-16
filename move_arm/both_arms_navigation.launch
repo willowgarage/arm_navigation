@@ -4,7 +4,7 @@
 
   <node pkg="planning_environment" type="environment_server" output="screen" name="environment_server">      
     <param name="use_monitor" type="bool" value="true"/>
-    <param name="use_collision_map" type="bool" value="true"/>
+    <param name="use_collision_map" type="bool" value="true"/> <!-- set to false if problematic -->
   </node>
 
   <node pkg="planning_environment" type="planning_scene_validity_server" output="screen" name="planning_scene_validity_server"/>      
