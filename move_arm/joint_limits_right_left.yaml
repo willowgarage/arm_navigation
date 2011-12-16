@@ -9,9 +9,9 @@ joint_limits:
   r_shoulder_lift_joint:
     has_position_limits: true
     has_velocity_limits: true
-    max_velocity: 1.25
+    max_velocity: 1.00
     has_acceleration_limits: true
-    max_acceleration: 0.5
+    max_acceleration: 0.40
     angle_wraparound: false
   r_upper_arm_roll_joint:
     has_position_limits: true
@@ -58,9 +58,9 @@ joint_limits:
   l_shoulder_lift_joint:
     has_position_limits: true
     has_velocity_limits: true
-    max_velocity: 1.25
+    max_velocity: 1.00
     has_acceleration_limits: true
-    max_acceleration: 0.5
+    max_acceleration: 0.40
     angle_wraparound: false
   l_upper_arm_roll_joint:
     has_position_limits: true
