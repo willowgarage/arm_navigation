@@ -32,26 +32,24 @@ if __name__ == '__main__':
         print("Need at least 1 planning group in the robot to continue!")
         sys.exit(-1)
 
-    #TODO - deal with non-chain groups, and subsets
-
     #first we write the template
     arm_kinematics_directory = roslib.packages.get_pkg_dir("arm_kinematics_constraint_aware")
 
     template_file_name = arm_kinematics_directory+"/templates/ik_fast_plugin_template.cxx"
 
-    template_file_data = open(template_file_name, 'r')
-
     for i in groups:
-        group_name = i['name']
-        template_text = template_file_data.read()
-        template_text = re.sub('_ROBOT_NAME_', robot_name, template_text)
-        template_text = re.sub('_GROUP_NAME_', group_name, template_text)
-
-        if not os.path.exists(directory_name+'/src'):
-            os.makedirs(directory_name+'/src')
-
-        output_template = open(directory_name+'/src/'+robot_name+"_"+group_name+"_ikfast_plugin.cpp",'w')
-        output_template.write(template_text)
+        if 'tip_link' in i:
+            template_file_data = open(template_file_name, 'r')
+            group_name = i['name']
+            template_text = template_file_data.read()
+            template_text = re.sub('_ROBOT_NAME_', robot_name, template_text)
+            template_text = re.sub('_GROUP_NAME_', group_name, template_text)
+            
+            if not os.path.exists(directory_name+'/src'):
+                os.makedirs(directory_name+'/src')
+                
+            output_template = open(directory_name+'/src/'+robot_name+"_"+group_name+"_ikfast_plugin.cpp",'w')
+            output_template.write(template_text)
                        
     #now the plugin definition
 
@@ -60,13 +58,14 @@ if __name__ == '__main__':
     root_one = etree.Element("library", path="lib/lib"+robot_name+"_kinematics_lib")
 
     for i in groups:
-        group_name = i['name']
-        cl = etree.SubElement(root_one, "class")
-        cl.set("name", robot_name+'_'+group_name+'_kinematics/IKFastKinematicsPlugin')
-        cl.set("type", robot_name+'_'+group_name+'_kinematics::IKFastKinematicsPlugin')
-        cl.set("base_class_type", "kinematics::KinematicsBase")
-        desc = etree.SubElement(cl, "description")
-        desc.text = "A plugin created by using OpenRAVE's IK Fast component"
+        if 'tip_link' in i:
+            group_name = i['name']
+            cl = etree.SubElement(root_one, "class")
+            cl.set("name", robot_name+'_'+group_name+'_kinematics/IKFastKinematicsPlugin')
+            cl.set("type", robot_name+'_'+group_name+'_kinematics::IKFastKinematicsPlugin')
+            cl.set("base_class_type", "kinematics::KinematicsBase")
+            desc = etree.SubElement(cl, "description")
+            desc.text = "A plugin created by using OpenRAVE's IK Fast component"
 
     etree.ElementTree(root_one).write(plugin_file, xml_declaration=True, pretty_print=True)
 
@@ -77,8 +76,9 @@ if __name__ == '__main__':
     if re.search(robot_name+'_kinematics_lib', cmake_file_text) == None:
         extra_text = '\n#Library containing ikfast plugins\nrosbuild_add_library('+robot_name+'_kinematics_lib\n'
         for i in groups:
-            group_name = i['name']
-            extra_text += '  src/'+robot_name+"_"+group_name+'_ikfast_plugin.cpp\n'
+            if 'tip_link' in i:
+                group_name = i['name']
+                extra_text += '  src/'+robot_name+"_"+group_name+'_ikfast_plugin.cpp\n'
     
         extra_text += "  )"     
         
@@ -90,6 +90,19 @@ if __name__ == '__main__':
 
     #now we add the plugin export to the manifest
     manifest_xml = etree.parse(directory_name+"/manifest.xml", parser)
+
+    #first making sure that kinematics_base is in the depends list
+    found = False
+    for depend_entry in manifest_xml.getroot().findall("depend"):
+        if depend_entry.get("package") == "kinematics_base":
+            found = True
+            break
+
+    if not found:
+        for idx, entry in enumerate(manifest_xml.getroot().getchildren()):
+            if entry.tag == "depend":
+                manifest_xml.getroot().insert(idx, etree.Element("depend", package="kinematics_base"))
+                break
     
     export_element = manifest_xml.getroot().find("export")
     if export_element == None:
@@ -102,7 +115,7 @@ if __name__ == '__main__':
     manifest_xml_file = open(directory_name+"/manifest.xml", "w")
     manifest_xml.write(manifest_xml_file, xml_declaration=True, pretty_print=True)
 
-#Finally, we change the constraint_aware kinematics launch file
+    #Finally, we change the constraint_aware kinematics launch file
 
     constraint_aware_xml = etree.parse(directory_name+"/launch/constraint_aware_kinematics.launch", parser)
     
