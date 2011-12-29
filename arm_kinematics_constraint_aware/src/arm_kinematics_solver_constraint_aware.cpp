@@ -73,6 +73,7 @@ ArmKinematicsSolverConstraintAware::ArmKinematicsSolverConstraintAware(kinematic
                                     tip_name_,
                                     .025)) {
   } else {
+    ROS_INFO_STREAM("Initialize is failing for " << group_name);
     return;
   }
 

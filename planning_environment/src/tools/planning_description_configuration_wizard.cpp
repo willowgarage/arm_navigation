@@ -1079,7 +1079,7 @@ void PlanningDescriptionConfigurationWizard::writeFiles()
   }
 
   string mdir = "roscreate-pkg " + dir_name_;
-  mdir += " planning_environment arm_kinematics_constraint_aware ompl_ros_interface ";
+  mdir += " planning_environment kinematics_base arm_kinematics_constraint_aware ompl_ros_interface ";
   mdir += "trajectory_filter_server constraint_aware_spline_smoother move_arm";
   ok = system(mdir.c_str());
 

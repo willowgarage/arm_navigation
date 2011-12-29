@@ -473,6 +473,9 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
       const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
       if (!mesh->filename.empty())
       {
+        ROS_INFO_STREAM("Mesh scale is " << mesh->scale.x 
+                        << " " << mesh->scale.y
+                        << " " << mesh->scale.z);
         btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
         result = shapes::createMeshFromFilename(mesh->filename, &scale);
       }   

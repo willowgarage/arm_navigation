@@ -90,16 +90,10 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://planning_models/test_urdf/meshes/base_v0/base.dae"/>
+        <mesh filename="package://planning_models/test_urdf/meshes/base_v0/base.dae" scale=".5 .5 .5"/>
       </geometry>
       <material name="White"/>
     </visual>
-    <collision>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
-      <geometry>
-        <mesh filename="package://planning_models/test_urdf/meshes/base_v0/base_L.stl"/>
-      </geometry>
-    </collision>
   </link>
   <link name="base_footprint">
     <inertial>
