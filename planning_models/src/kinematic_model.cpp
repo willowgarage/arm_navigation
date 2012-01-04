@@ -34,11 +34,14 @@
 
 /** \author Ioan Sucan */
 
+#include <queue>
+#include <cmath>
+#include <set>
+
+#include <ros/ros.h>
 #include <planning_models/kinematic_model.h>
 #include <geometric_shapes/shape_operations.h>
-#include <queue>
 #include <ros/console.h>
-#include <cmath>
 #include <angles/angles.h>
 
 
