@@ -81,7 +81,7 @@ public:
                                              const bool& do_initial_pose_check = true);
 
   bool interpolateIKDirectional(const geometry_msgs::Pose& start_pose,
-                                const btVector3& direction,
+                                const tf::Vector3& direction,
                                 const double& distance,
                                 const arm_navigation_msgs::Constraints& constraints,
                                 planning_models::KinematicState* robot_state,

@@ -79,7 +79,7 @@ shapes::Shape* planning_environment::constructObject(const arm_navigation_msgs::
 		    ROS_ERROR("Mesh definition is empty");
 		else
 		{
-		    std::vector<btVector3>    vertices(obj.vertices.size());
+		    std::vector<tf::Vector3>    vertices(obj.vertices.size());
 		    std::vector<unsigned int> triangles(obj.triangles.size());
 		    for (unsigned int i = 0 ; i < obj.vertices.size() ; ++i)
 			vertices[i].setValue(obj.vertices[i].x, obj.vertices[i].y, obj.vertices[i].z);

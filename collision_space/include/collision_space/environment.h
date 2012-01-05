@@ -41,7 +41,7 @@
 #include <planning_models/kinematic_model.h>
 #include <planning_models/kinematic_state.h>
 #include <geometric_shapes/bodies.h>
-#include <LinearMath/btVector3.h>
+#include <tf/LinearMath/Vector3.h>
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/shared_ptr.hpp>
 #include <vector>
@@ -72,9 +72,9 @@ public:
   struct Contact
   {
     /** \brief contact position */
-    btVector3 pos;     
+    tf::Vector3 pos;     
     /** \brief normal unit vector at contact */
-    btVector3 normal;  
+    tf::Vector3 normal;  
     /** \brief depth (penetration between bodies) */
     double depth;
 
@@ -265,12 +265,12 @@ public:
   virtual void addObject(const std::string &ns, shapes::StaticShape *shape) = 0;
 
   /** \brief Add a collision object to the map. The user releases ownership of the passed object. Memory allocated for the shape is freed by the collision environment.*/
-  virtual void addObject(const std::string &ns, shapes::Shape* shape, const btTransform &pose) = 0;
+  virtual void addObject(const std::string &ns, shapes::Shape* shape, const tf::Transform &pose) = 0;
 
   /** \brief Add a set of collision objects to the map. The user releases ownership of the passed objects. Memory allocated for the shapes is freed by the collision environment.*/
-  virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses) = 0;
+  virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<tf::Transform> &poses) = 0;
 
-  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const = 0;
+  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<tf::Transform> >& pose_map) const = 0;
 
   /** \briefs Sets a temporary robot padding on the indicated links */
   virtual void setAlteredLinkPadding(const std::map<std::string, double>& link_padding_map);

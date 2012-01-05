@@ -198,10 +198,10 @@ bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const arm_navigation_m
   geometry_msgs::PoseStamped desired_pose = arm_navigation_msgs::poseConstraintsToPoseStamped(position_constraint,
                                                                                                orientation_constraint);
 
-  btQuaternion orientation;
+  tf::Quaternion orientation;
   double roll,pitch,yaw;
   tf::quaternionMsgToTF(desired_pose.pose.orientation,orientation);
-  btMatrix3x3 rotation(orientation);
+  tf::Matrix3x3 rotation(orientation);
   rotation.getRPY(roll,pitch,yaw);
 
   ROS_DEBUG("Setting goal: %f %f %f, %f %f %f",
@@ -255,10 +255,10 @@ bool OmplRosRPYIKTaskSpacePlanner::orientationConstraintToOmplStateBounds(const 
 
   ompl::base::RealVectorBounds real_vector_bounds = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector")->as<ompl::base::RealVectorStateSpace>()->getBounds();
 
-  btQuaternion orientation;
+  tf::Quaternion orientation;
   double roll,pitch,yaw;
   tf::quaternionMsgToTF(orientation_constraint.orientation,orientation);
-  btMatrix3x3 rotation(orientation);
+  tf::Matrix3x3 rotation(orientation);
   rotation.getRPY(roll,pitch,yaw);
   
   double min_roll = roll - 0.75*orientation_constraint.absolute_roll_tolerance;
@@ -341,7 +341,7 @@ bool OmplRosRPYIKTaskSpacePlanner::poseStampedToOmplState(const geometry_msgs::P
                                                           ompl::base::ScopedState<ompl::base::CompoundStateSpace> &goal,
                                                           const bool &return_if_outside_constraints)
 {
-  btTransform desired_pose_tf;
+  tf::Transform desired_pose_tf;
   double roll, pitch, yaw, x, y, z;
   tf::poseMsgToTF(desired_pose.pose,desired_pose_tf);
   desired_pose_tf.getBasis().getRPY(roll,pitch,yaw);
@@ -445,7 +445,7 @@ geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(cons
   }
 
   planning_environment::setRobotStateAndComputeTransforms(robot_state, *collision_models_interface_->getPlanningSceneState());
-  btTransform end_effector_pose = collision_models_interface_->getPlanningSceneState()->getLinkState(end_effector_name_)->getGlobalLinkTransform();
+  tf::Transform end_effector_pose = collision_models_interface_->getPlanningSceneState()->getLinkState(end_effector_name_)->getGlobalLinkTransform();
 
   geometry_msgs::PoseStamped desired_pose;
   tf::poseTFToMsg(end_effector_pose,desired_pose.pose);
@@ -459,10 +459,10 @@ geometry_msgs::PoseStamped OmplRosRPYIKTaskSpacePlanner::getEndEffectorPose(cons
     ROS_WARN_STREAM("getEndEffectorPose has problems transforming pose into frame " << state_transformer_->getFrame());
   }
 
-  btQuaternion orientation;
+  tf::Quaternion orientation;
   double roll,pitch,yaw;
   tf::quaternionMsgToTF(desired_pose.pose.orientation,orientation);
-  btMatrix3x3 rotation(orientation);
+  tf::Matrix3x3 rotation(orientation);
   rotation.getRPY(roll,pitch,yaw);
 
   ROS_DEBUG("End effector pose in frame %s: %f %f %f, %f %f %f",state_transformer_->getFrame().c_str(), desired_pose.pose.position.x,desired_pose.pose.position.y,desired_pose.pose.position.z,roll,pitch,yaw);

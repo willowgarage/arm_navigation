@@ -62,9 +62,9 @@ TEST(SpherePointContainment, ComplexInside)
     shapes::Sphere shape(1.0);
     bodies::Body* sphere = new bodies::Sphere(&shape);
     sphere->setScale(0.95);
-    btTransform pose;
+    tf::Transform pose;
     pose.setIdentity();    
-    pose.setOrigin(btVector3(btScalar(1),btScalar(1),btScalar(1)));
+    pose.setOrigin(tf::Vector3(tfScalar(1),tfScalar(1),tfScalar(1)));
     sphere->setPose(pose);
     bool contains = sphere->containsPoint(0.5,1,1.0);
     delete sphere;
@@ -76,9 +76,9 @@ TEST(SpherePointContainment, ComplexOutside)
     shapes::Sphere shape(1.0);
     bodies::Body* sphere = new bodies::Sphere(&shape);
     sphere->setScale(0.95);
-    btTransform pose;
+    tf::Transform pose;
     pose.setIdentity();    
-    pose.setOrigin(btVector3(btScalar(1),btScalar(1),btScalar(1)));
+    pose.setOrigin(tf::Vector3(tfScalar(1),tfScalar(1),tfScalar(1)));
     sphere->setPose(pose);
     bool contains = sphere->containsPoint(0.5,0.0,0.0);
     delete sphere;
@@ -91,9 +91,9 @@ TEST(SphereRayIntersection, SimpleRay1)
     bodies::Body* sphere = new bodies::Sphere(&shape);
     sphere->setScale(1.05);
 
-    btVector3 ray_o(5, 0, 0);
-    btVector3 ray_d(-1, 0, 0);
-    std::vector<btVector3> p;
+    tf::Vector3 ray_o(5, 0, 0);
+    tf::Vector3 ray_d(-1, 0, 0);
+    std::vector<tf::Vector3> p;
     bool intersect = sphere->intersectsRay(ray_o, ray_d, &p);
     
     delete sphere;
@@ -109,9 +109,9 @@ TEST(SphereRayIntersection, SimpleRay2)
     bodies::Body* sphere = new bodies::Sphere(&shape);
     sphere->setScale(1.05);
 
-    btVector3 ray_o(5, 0, 0);
-    btVector3 ray_d(1, 0, 0);
-    std::vector<btVector3> p;
+    tf::Vector3 ray_o(5, 0, 0);
+    tf::Vector3 ray_d(1, 0, 0);
+    std::vector<tf::Vector3> p;
     bool intersect = sphere->intersectsRay(ray_o, ray_d, &p);
     
     delete sphere;
@@ -146,10 +146,10 @@ TEST(BoxPointContainment, ComplexInside)
     shapes::Box shape(1.0, 1.0, 1.0);
     bodies::Body* box = new bodies::Box(&shape);
     box->setScale(1.01);
-    btTransform pose;
+    tf::Transform pose;
     pose.setIdentity();    
-    pose.setOrigin(btVector3(btScalar(1),btScalar(1),btScalar(1)));
-    btQuaternion quat(btVector3(btScalar(1), btScalar(0), btScalar(0)), M_PI/3.0);
+    pose.setOrigin(tf::Vector3(tfScalar(1),tfScalar(1),tfScalar(1)));
+    tf::Quaternion quat(tf::Vector3(tfScalar(1), tfScalar(0), tfScalar(0)), M_PI/3.0);
     pose.setRotation(quat);
     box->setPose(pose);    
 
@@ -163,10 +163,10 @@ TEST(BoxPointContainment, ComplexOutside)
     shapes::Box shape(1.0, 1.0, 1.0);
     bodies::Body* box = new bodies::Box(&shape);
     box->setScale(1.01);
-    btTransform pose;
+    tf::Transform pose;
     pose.setIdentity();    
-    pose.setOrigin(btVector3(btScalar(1),btScalar(1),btScalar(1)));
-    btQuaternion quat(btVector3(btScalar(1), btScalar(0), btScalar(0)), M_PI/3.0);
+    pose.setOrigin(tf::Vector3(tfScalar(1),tfScalar(1),tfScalar(1)));
+    tf::Quaternion quat(tf::Vector3(tfScalar(1), tfScalar(0), tfScalar(0)), M_PI/3.0);
     pose.setRotation(quat);
     box->setPose(pose);    
 
@@ -181,9 +181,9 @@ TEST(BoxRayIntersection, SimpleRay1)
     bodies::Body* box = new bodies::Box(&shape);
     box->setScale(0.95);
     
-    btVector3 ray_o(10, 0.449, 0);
-    btVector3 ray_d(-1, 0, 0);
-    std::vector<btVector3> p;
+    tf::Vector3 ray_o(10, 0.449, 0);
+    tf::Vector3 ray_d(-1, 0, 0);
+    std::vector<tf::Vector3> p;
     
     bool intersect = box->intersectsRay(ray_o, ray_d, &p);
     

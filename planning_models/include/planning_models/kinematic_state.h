@@ -81,7 +81,7 @@ public:
     bool setJointStateValues(const std::vector<double>& joint_value_vector);
     
     /** \brief Sets the internal values from the transform */
-    bool setJointStateValues(const btTransform& transform);
+    bool setJointStateValues(const tf::Transform& transform);
 
     /** \brief Specifies whether or not all values associated with a joint are defined in the 
         supplied joint value map */
@@ -115,7 +115,7 @@ public:
     const std::vector<std::string>& getJointStateNameOrder() const;
 
     /** \brief Gets the current variable transform */
-    const btTransform& getVariableTransform() const 
+    const tf::Transform& getVariableTransform() const 
     {
       return variable_transform_;
     }
@@ -146,7 +146,7 @@ public:
     const KinematicModel::JointModel* joint_model_;
     
     /** \brief the local transform (computed by forward kinematics) */
-    btTransform variable_transform_; 
+    tf::Transform variable_transform_; 
       
     std::map<std::string, unsigned int> joint_state_index_map_;
 
@@ -177,7 +177,7 @@ public:
       parent_link_state_ = ls;
     }
 
-    void updateGivenGlobalLinkTransform(const btTransform& transform)
+    void updateGivenGlobalLinkTransform(const tf::Transform& transform)
     {
       global_link_transform_ = transform;
       global_collision_body_transform_.mult(global_link_transform_, link_model_->getCollisionOriginTransform());
@@ -210,12 +210,12 @@ public:
       return attached_body_state_vector_;
     }
 
-    const btTransform& getGlobalLinkTransform() const 
+    const tf::Transform& getGlobalLinkTransform() const 
     {
       return global_link_transform_;
     }
 
-    const btTransform& getGlobalCollisionBodyTransform() const
+    const tf::Transform& getGlobalCollisionBodyTransform() const
     {
       return global_collision_body_transform_;
     }
@@ -231,10 +231,10 @@ public:
     std::vector<AttachedBodyState*> attached_body_state_vector_;
 
     /** \brief The global transform this link forwards (computed by forward kinematics) */
-    btTransform global_link_transform_;
+    tf::Transform global_link_transform_;
     
     /** \brief The global transform for this link (computed by forward kinematics) */
-    btTransform global_collision_body_transform_;    
+    tf::Transform global_collision_body_transform_;    
   };
 
   class AttachedBodyState 
@@ -264,7 +264,7 @@ public:
     /** \brief Recompute global_collision_body_transform */
     void computeTransform(void);
 
-    const std::vector<btTransform>& getGlobalCollisionBodyTransforms() const
+    const std::vector<tf::Transform>& getGlobalCollisionBodyTransforms() const
     {
       return global_collision_body_transforms_;
     }
@@ -275,7 +275,7 @@ public:
     const LinkState* parent_link_state_;
 
     /** \brief The global transforms for these attached bodies (computed by forward kinematics) */
-    std::vector<btTransform> global_collision_body_transforms_;
+    std::vector<tf::Transform> global_collision_body_transforms_;
     
   };
 
@@ -403,7 +403,7 @@ public:
 
   void updateKinematicLinks();
 
-  bool updateKinematicStateWithLinkAt(const std::string& link_name, const btTransform& transform);
+  bool updateKinematicStateWithLinkAt(const std::string& link_name, const tf::Transform& transform);
 
   const KinematicModel* getKinematicModel() const 
   {
@@ -484,9 +484,9 @@ public:
   /** \brief Print the pose of every link */
   void printTransforms(std::ostream &out = std::cout) const;
 
-  void printTransform(const std::string &st, const btTransform &t, std::ostream &out = std::cout) const;
+  void printTransform(const std::string &st, const tf::Transform &t, std::ostream &out = std::cout) const;
 
-  const btTransform& getRootTransform() const;
+  const tf::Transform& getRootTransform() const;
   
 private:
 

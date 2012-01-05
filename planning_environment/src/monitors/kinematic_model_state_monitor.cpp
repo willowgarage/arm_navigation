@@ -156,7 +156,7 @@ void planning_environment::KinematicModelStateMonitor::jointStateCallback(const 
             last_joint_update_[*it] = tm;
           }
         }
-        // btTransform transf = getKinematicModel()->getRoot()->variable_transform;
+        // tf::Transform transf = getKinematicModel()->getRoot()->variable_transform;
         // ROS_INFO_STREAM("transform is to " << transf.getRotation().x() << " " 
         //                 << transf.getRotation().y() << " z " << transf.getRotation().z()
         //                 << " w " << transf.getRotation().w());

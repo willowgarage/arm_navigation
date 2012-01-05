@@ -591,7 +591,7 @@ private:
       //   //#pragma omp parallel for
       //   for (int i = 0 ; i < n ; ++i)
       //   {
-      //     btVector3 p(((double)pts[i].x - 0.5) * bi_.resolution + bi_.originX,
+      //     tf::Vector3 p(((double)pts[i].x - 0.5) * bi_.resolution + bi_.originX,
       //                 ((double)pts[i].y - 0.5) * bi_.resolution + bi_.originY,
       //                 ((double)pts[i].z - 0.5) * bi_.resolution + bi_.originZ);
       //     if (sm_->getMaskIntersection(p) == robot_self_filter::SHADOW)
@@ -612,7 +612,7 @@ private:
       //   //#pragma omp parallel for
       //   for (int i = 0 ; i < n ; ++i)
       //   {
-      //     btVector3 p(((double)pts[i].x - 0.5) * bi_.resolution + bi_.originX,
+      //     tf::Vector3 p(((double)pts[i].x - 0.5) * bi_.resolution + bi_.originX,
       //                 ((double)pts[i].y - 0.5) * bi_.resolution + bi_.originY,
       //                 ((double)pts[i].z - 0.5) * bi_.resolution + bi_.originZ);
       //     if (sm_->getMaskIntersection(p) == robot_self_filter::SHADOW)
@@ -710,7 +710,7 @@ private:
     //#pragma omp parallel for
     for (int i = 0 ; i < n ; ++i)
     {
-      btVector3 p(((double)pts[i].x - 0.5) * bi_.resolution + bi_.originX,
+      tf::Vector3 p(((double)pts[i].x - 0.5) * bi_.resolution + bi_.originX,
                   ((double)pts[i].y - 0.5) * bi_.resolution + bi_.originY,
                   ((double)pts[i].z - 0.5) * bi_.resolution + bi_.originZ);
       p = transf * p;

@@ -10,7 +10,9 @@
   <depend package="bullet" />
   <depend package="rosconsole" />
   <depend package="resource_retriever"/>
-  <depend package="assimp" />
+  <depend package="tf"/>
+
+  <rosdep name="assimp" />
 
   <export>
     <cpp cflags="-I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lgeometric_shapes"/>

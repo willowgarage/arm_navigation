@@ -199,8 +199,8 @@ void CollisionMapDisplay::processMessage(const arm_navigation_msgs::CollisionMap
     return;
   }
 
-  tf::Stamped<tf::Pose> pose(btTransform(btQuaternion(0.0f, 0.0f, 0.0f),
-      btVector3(0.0f, 0.0f, 0.0f)), msg->header.stamp,
+  tf::Stamped<tf::Pose> pose(tf::Transform(tf::Quaternion(0.0f, 0.0f, 0.0f),
+      tf::Vector3(0.0f, 0.0f, 0.0f)), msg->header.stamp,
       msg->header.frame_id);
 
   try
@@ -217,7 +217,7 @@ void CollisionMapDisplay::processMessage(const arm_navigation_msgs::CollisionMap
       pose.getOrigin().y(), pose.getOrigin().z());
   rviz::robotToOgre(position);
 
-  btScalar yaw, pitch, roll;
+  tfScalar yaw, pitch, roll;
   pose.getBasis().getEulerZYX(yaw, pitch, roll);
 
   Ogre::Matrix3 orientation(rviz::ogreMatrixFromRobotEulers(yaw, pitch, roll));

@@ -43,7 +43,7 @@
 bool planning_environment::getLatestIdentityTransform(const std::string& to_frame,
                                                       const std::string& from_frame,
                                                       tf::TransformListener& tf,
-                                                      btTransform& pose) 
+                                                      tf::Transform& pose) 
 {
   geometry_msgs::PoseStamped temp_pose;
   temp_pose.pose.orientation.w = 1.0;
@@ -73,12 +73,12 @@ bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
                                                const std_msgs::Header& header, 
                                                const std::string& frame_to,
                                                std::vector<shapes::Shape*>& conv_shapes,
-                                               std::vector<btTransform>& conv_poses)
+                                               std::vector<tf::Transform>& conv_poses)
 {
   conv_shapes.clear();
   conv_poses.clear();
   bool shapes_ok = true;
-  btTransform ident_trans;
+  tf::Transform ident_trans;
   if(!getLatestIdentityTransform(frame_to, header.frame_id, tf, ident_trans)) {
     ROS_WARN_STREAM("Can't get identity pose to transform shapes");
     return false;
@@ -90,7 +90,7 @@ bool planning_environment::createAndPoseShapes(tf::TransformListener& tf,
       break;
     }
     conv_shapes.push_back(shape);
-    btTransform shape_pose;
+    tf::Transform shape_pose;
     tf::poseMsgToTF(orig_poses[i], shape_pose);
     conv_poses.push_back(ident_trans*shape_pose);
   }
@@ -111,7 +111,7 @@ bool planning_environment::processCollisionObjectMsg(const arm_navigation_msgs::
 {
   if (collision_object->operation.operation == arm_navigation_msgs::CollisionObjectOperation::ADD) {
     std::vector<shapes::Shape*> shapes;
-    std::vector<btTransform> poses;
+    std::vector<tf::Transform> poses;
     bool shapes_ok = createAndPoseShapes(tf,
                                          collision_object->shapes,
                                          collision_object->poses,
@@ -180,7 +180,7 @@ bool planning_environment::processAttachedCollisionObjectMsg(const arm_navigatio
   if(obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::DETACH_AND_ADD_AS_OBJECT
      || obj.operation.operation == arm_navigation_msgs::CollisionObjectOperation::ATTACH_AND_REMOVE_AS_OBJECT) {
     //getting link pose in the world frame
-    btTransform link_pose;
+    tf::Transform link_pose;
     if(!getLatestIdentityTransform(cm->getWorldFrameId(), attached_object->link_name, tf, link_pose)) {
       ROS_WARN_STREAM("Can't get transform for link " << attached_object->link_name);
       return false;
@@ -200,7 +200,7 @@ bool planning_environment::processAttachedCollisionObjectMsg(const arm_navigatio
                              attached_object->link_name);
   } else {
     std::vector<shapes::Shape*> shapes;
-    std::vector<btTransform> poses;
+    std::vector<tf::Transform> poses;
     bool shapes_ok = createAndPoseShapes(tf,
                                          obj.shapes,
                                          obj.poses,
@@ -259,7 +259,7 @@ void planning_environment::updateAttachedObjectBodyPoses(planning_environment::C
     }
     geometry_msgs::PoseStamped psout;
     tf.transformPose(cm->getWorldFrameId(), ps, psout);
-    btTransform link_trans;
+    tf::Transform link_trans;
     tf::poseMsgToTF(psout.pose, link_trans);
     state.updateKinematicStateWithLinkAt(it->first, link_trans);
     cm->updateAttachedBodyPosesForLink(state, it->first);
@@ -270,13 +270,13 @@ void planning_environment::updateAttachedObjectBodyPoses(planning_environment::C
 //assumes that the point is in the world frame
 //and that state has been set
 int planning_environment::computeAttachedObjectPointMask(const planning_environment::CollisionModels* cm,
-                                                         const btVector3 &pt, 
-                                                         const btVector3 &sensor_pos)
+                                                         const tf::Vector3 &pt, 
+                                                         const tf::Vector3 &sensor_pos)
 {
   cm->bodiesLock();
   const std::map<std::string, std::map<std::string, bodies::BodyVector*> > link_att_objects = cm->getLinkAttachedObjects();
 
-  btVector3 dir(sensor_pos - pt);
+  tf::Vector3 dir(sensor_pos - pt);
   dir.normalize();
   
   for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::const_iterator it = link_att_objects.begin();
@@ -310,7 +310,7 @@ bool planning_environment::configureForAttachedBodyMask(planning_models::Kinemat
                                                         tf::TransformListener& tf,
                                                         const std::string& sensor_frame,
                                                         const ros::Time& sensor_time,
-                                                        btVector3& sensor_pos)
+                                                        tf::Vector3& sensor_pos)
 {
   state.setKinematicStateToDefault();
 
@@ -359,7 +359,7 @@ bool planning_environment::computeAttachedObjectPointCloudMask(const pcl::PointC
   //state lock before body lock
   planning_models::KinematicState state(cm->getKinematicModel());
   
-  btVector3 sensor_pos;
+  tf::Vector3 sensor_pos;
   
   planning_environment::configureForAttachedBodyMask(state,
                                                      cm,
@@ -373,12 +373,12 @@ bool planning_environment::computeAttachedObjectPointCloudMask(const pcl::PointC
     pcl::PointCloud<pcl::PointXYZ> trans_cloud = pcl_cloud;
     pcl_ros::transformPointCloud(cm->getWorldFrameId(), pcl_cloud, trans_cloud,tf);
     for (int i = 0 ; i < n ; ++i) {
-      btVector3 pt = btVector3(trans_cloud.points[i].x, trans_cloud.points[i].y, trans_cloud.points[i].z);
+      tf::Vector3 pt = tf::Vector3(trans_cloud.points[i].x, trans_cloud.points[i].y, trans_cloud.points[i].z);
       mask[i] = computeAttachedObjectPointMask(cm, pt, sensor_pos);
     }
   } else {
     for (int i = 0 ; i < n ; ++i) {
-      btVector3 pt = btVector3(pcl_cloud.points[i].x, pcl_cloud.points[i].y, pcl_cloud.points[i].z);
+      tf::Vector3 pt = tf::Vector3(pcl_cloud.points[i].x, pcl_cloud.points[i].y, pcl_cloud.points[i].z);
       mask[i] = computeAttachedObjectPointMask(cm, pt, sensor_pos);
     }
   }

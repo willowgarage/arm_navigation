@@ -483,7 +483,7 @@ void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, vis
         vertices[i3 + 2] = sz + ndz; //dz * fact;		    
       }
       
-      btTransform trans;
+      tf::Transform trans;
       tf::poseMsgToTF(mk.pose, trans);
 
       for (unsigned int j = 0 ; j < mesh->triangleCount; ++j) {
@@ -491,15 +491,15 @@ void planning_environment::setMarkerShapeFromShape(const shapes::Shape *obj, vis
         unsigned int t2ind = mesh->triangles[3*j + 1];
         unsigned int t3ind = mesh->triangles[3*j + 2];
         
-        btVector3 vec1(vertices[t1ind*3],
+        tf::Vector3 vec1(vertices[t1ind*3],
                        vertices[t1ind*3+1],
                        vertices[t1ind*3+2]);
         
-        btVector3 vec2(vertices[t2ind*3],
+        tf::Vector3 vec2(vertices[t2ind*3],
                        vertices[t2ind*3+1],
                        vertices[t2ind*3+2]);
         
-        btVector3 vec3(vertices[t3ind*3],
+        tf::Vector3 vec3(vertices[t3ind*3],
                        vertices[t3ind*3+1],
                        vertices[t3ind*3+2]);
         
@@ -585,7 +585,7 @@ void planning_environment::convertAllowedContactSpecificationMsgToAllowedContact
     shapes::Shape* shape = constructObject(acs.shape);
     boost::shared_ptr<bodies::Body> bodysp(bodies::createBodyFromShape(shape));
     delete shape;
-    btTransform trans;
+    tf::Transform trans;
     tf::poseMsgToTF(acs.pose_stamped.pose, trans);
     bodysp->setPose(trans);
 

@@ -56,7 +56,7 @@ namespace planning_environment
 bool getLatestIdentityTransform(const std::string& to_frame,
                                 const std::string& from_frame,
                                 tf::TransformListener& tf,
-                                btTransform& pose); 
+                                tf::Transform& pose); 
 
 bool createAndPoseShapes(tf::TransformListener& tf, 
                          const std::vector<arm_navigation_msgs::Shape>& orig_shapes,
@@ -64,7 +64,7 @@ bool createAndPoseShapes(tf::TransformListener& tf,
                          const std_msgs::Header& header, 
                          const std::string& frame_to,
                          std::vector<shapes::Shape*>& conv_shapes,
-                         std::vector<btTransform>& conv_poses);
+                         std::vector<tf::Transform>& conv_poses);
 
 bool processCollisionObjectMsg(const arm_navigation_msgs::CollisionObjectConstPtr &collision_object,
                                tf::TransformListener& tf,
@@ -93,11 +93,11 @@ bool configureForAttachedBodyMask(planning_models::KinematicState& state,
                                   tf::TransformListener& tf,
                                   const std::string& sensor_frame,
                                   const ros::Time& sensor_time,
-                                  btVector3& sensor_pos);
+                                  tf::Vector3& sensor_pos);
 
 int computeAttachedObjectPointMask(const planning_environment::CollisionModels* cm,
-                                   const btVector3 &pt, 
-                                   const btVector3 &sensor_pos);
+                                   const tf::Vector3 &pt, 
+                                   const tf::Vector3 &sensor_pos);
 
 
 int closestStateOnTrajectory(const boost::shared_ptr<urdf::Model> &model,

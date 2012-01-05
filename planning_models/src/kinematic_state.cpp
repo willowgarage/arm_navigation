@@ -221,7 +221,7 @@ void planning_models::KinematicState::updateKinematicLinks()
   }
 }
 
-bool planning_models::KinematicState::updateKinematicStateWithLinkAt(const std::string& link_name, const btTransform& transform)
+bool planning_models::KinematicState::updateKinematicStateWithLinkAt(const std::string& link_name, const tf::Transform& transform)
 {
   if(!hasLinkState(link_name)) return false;
 
@@ -234,7 +234,7 @@ bool planning_models::KinematicState::updateKinematicStateWithLinkAt(const std::
   return true;
 }
 
-const btTransform& planning_models::KinematicState::getRootTransform() const
+const tf::Transform& planning_models::KinematicState::getRootTransform() const
 {
   return joint_state_vector_[0]->getVariableTransform();
 }
@@ -452,7 +452,7 @@ bool planning_models::KinematicState::JointState::setJointStateValues(const std:
   return has_all;
 }
 
-bool planning_models::KinematicState::JointState::setJointStateValues(const btTransform& transform) {
+bool planning_models::KinematicState::JointState::setJointStateValues(const tf::Transform& transform) {
   variable_transform_ = transform;
   joint_state_values_ = joint_model_->computeJointStateValues(variable_transform_);
   return true;
@@ -532,7 +532,7 @@ planning_models::KinematicState::LinkState::~LinkState()
 }
 
 void planning_models::KinematicState::LinkState::computeTransform() {
-  btTransform ident;
+  tf::Transform ident;
   ident.setIdentity();
   global_link_transform_.mult(parent_link_state_ ? parent_link_state_->global_link_transform_ : ident, link_model_->getJointOriginTransform());
   global_link_transform_ *= parent_joint_state_->getVariableTransform();
@@ -760,12 +760,12 @@ void planning_models::KinematicState::printStateInfo(std::ostream &out) const
   }
 }
 
-void planning_models::KinematicState::printTransform(const std::string &st, const btTransform &t, std::ostream &out) const
+void planning_models::KinematicState::printTransform(const std::string &st, const tf::Transform &t, std::ostream &out) const
 {
   out << st << std::endl;
-  const btVector3 &v = t.getOrigin();
+  const tf::Vector3 &v = t.getOrigin();
   out << "  origin: " << v.x() << ", " << v.y() << ", " << v.z() << std::endl;
-  const btQuaternion &q = t.getRotation();
+  const tf::Quaternion &q = t.getRotation();
   out << "  quaternion: " << q.x() << ", " << q.y() << ", " << q.z() << ", " << q.w() << std::endl;
 }
 

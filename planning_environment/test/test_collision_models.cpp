@@ -257,7 +257,7 @@ TEST_F(TestCollisionModels,TestCollisionObjects)
   ASSERT_EQ(space_atts.size(),0);
 
   std::vector<std::string> touch_links;
-  btTransform ident;
+  tf::Transform ident;
   ident.setIdentity();
   cm.convertStaticObjectToAttachedObject("object_3", "base_link", ident, touch_links);
 
@@ -784,7 +784,7 @@ TEST_F(TestCollisionModels, TestConversionFunctionsForConstraints)
   
   //checking that if we turn around then we should subtract .5 in x
 
-  btQuaternion turn(btVector3(0,0,1), M_PI);
+  tf::Quaternion turn(tf::Vector3(0,0,1), M_PI);
 
   robot_state.multi_dof_joint_state.poses[0].orientation.x = turn.x(); 
   robot_state.multi_dof_joint_state.poses[0].orientation.y = turn.y(); 

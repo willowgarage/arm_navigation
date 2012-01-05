@@ -256,7 +256,7 @@ void ArmKinematicsSolverConstraintAware::initialPoseCheck(const geometry_msgs::P
   }
   cm_->setAlteredAllowedCollisionMatrix(acm);
   
-  btTransform transform;
+  tf::Transform transform;
   tf::poseMsgToTF(pose_stamped.pose,transform);
   if(!state_->hasLinkState(tip_name_)) {
     error_code = kinematics::INVALID_LINK_NAME;
@@ -273,7 +273,7 @@ void ArmKinematicsSolverConstraintAware::initialPoseCheck(const geometry_msgs::P
 }
 
 bool ArmKinematicsSolverConstraintAware::interpolateIKDirectional(const geometry_msgs::Pose& start_pose,
-                                                                  const btVector3& direction,
+                                                                  const tf::Vector3& direction,
                                                                   const double& distance,
                                                                   const arm_navigation_msgs::Constraints& constraints,
                                                                   planning_models::KinematicState* robot_state,
@@ -291,7 +291,7 @@ bool ArmKinematicsSolverConstraintAware::interpolateIKDirectional(const geometry
   ret_traj.joint_names = kinematics_solver_->getJointNames();
   ret_traj.points.resize(num_points+1);
     
-  btTransform first_pose;
+  tf::Transform first_pose;
   tf::poseMsgToTF(start_pose, first_pose);
 
   unsigned int index;
@@ -306,8 +306,8 @@ bool ArmKinematicsSolverConstraintAware::interpolateIKDirectional(const geometry
 
   while(1) {
     //assumes that the axis is aligned
-    btTransform trans(btQuaternion(0,0,0,1.0), direction*(int)val*fabs(distance/(num_points*1.0)));
-    btTransform mult_trans;
+    tf::Transform trans(tf::Quaternion(0,0,0,1.0), direction*(int)val*fabs(distance/(num_points*1.0)));
+    tf::Transform mult_trans;
     if(premultiply) {
       mult_trans = trans*first_pose;
     } else {

@@ -40,7 +40,7 @@
 #include <geometric_shapes/shapes.h>
 
 #include <urdf/model.h>
-#include <LinearMath/btTransform.h>
+#include <tf/LinearMath/Transform.h>
 #include <boost/thread/shared_mutex.hpp>
 
 #include <iostream>
@@ -194,9 +194,9 @@ public:
       return(joint_state_equivalents_.right.find(var) != joint_state_equivalents_.right.end());
     }
    
-    virtual btTransform computeTransform(const std::vector<double>& joint_values) const = 0;
+    virtual tf::Transform computeTransform(const std::vector<double>& joint_values) const = 0;
     
-    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const = 0;
+    virtual std::vector<double> computeJointStateValues(const tf::Transform& transform) const = 0;
 
   private:
 
@@ -241,13 +241,13 @@ public:
     {
     }
 
-    virtual btTransform computeTransform(const std::vector<double>& joint_values) const {
-      btTransform ident;
+    virtual tf::Transform computeTransform(const std::vector<double>& joint_values) const {
+      tf::Transform ident;
       ident.setIdentity();
       return ident;
     }
     
-    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const {
+    virtual std::vector<double> computeJointStateValues(const tf::Transform& transform) const {
       std::vector<double> ret;
       return ret;
     }
@@ -265,9 +265,9 @@ public:
     {
     }
 
-    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
+    virtual tf::Transform computeTransform(const std::vector<double>& joint_values) const;
     
-    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+    virtual std::vector<double> computeJointStateValues(const tf::Transform& transform) const;
 
   };
 
@@ -282,9 +282,9 @@ public:
     {
     }
 
-    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
+    virtual tf::Transform computeTransform(const std::vector<double>& joint_values) const;
     
-    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+    virtual std::vector<double> computeJointStateValues(const tf::Transform& transform) const;
 
     virtual void getVariableDefaultValuesGivenBounds(std::map<std::string, double>& ret_map) const;
 
@@ -301,11 +301,11 @@ public:
       axis_ = joint->axis_;
     }
 	    
-    btVector3 axis_;
+    tf::Vector3 axis_;
     
-    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
+    virtual tf::Transform computeTransform(const std::vector<double>& joint_values) const;
     
-    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+    virtual std::vector<double> computeJointStateValues(const tf::Transform& transform) const;
     
   };
 	
@@ -321,12 +321,12 @@ public:
       continuous_ = joint->continuous_;
     }
 	    	    
-    btVector3 axis_;
+    tf::Vector3 axis_;
     bool      continuous_;
 
-    virtual btTransform computeTransform(const std::vector<double>& joint_values) const;
+    virtual tf::Transform computeTransform(const std::vector<double>& joint_values) const;
     
-    virtual std::vector<double> computeJointStateValues(const btTransform& transform) const;
+    virtual std::vector<double> computeJointStateValues(const tf::Transform& transform) const;
     
     //so we can return true for continuous joints
     virtual bool isValueWithinVariableBounds(const std::string& variable, const double& value, bool& within_bounds) const;
@@ -356,11 +356,11 @@ public:
       return child_joint_models_;
     }
 
-    const btTransform& getJointOriginTransform() const {
+    const tf::Transform& getJointOriginTransform() const {
       return joint_origin_transform_;
     }
 
-    const btTransform& getCollisionOriginTransform() const {
+    const tf::Transform& getCollisionOriginTransform() const {
       return collision_origin_transform_;
     }
 
@@ -399,10 +399,10 @@ public:
     std::vector<JointModel*> child_joint_models_;
     
     /** \brief The constant transform applied to the link (local) */
-    btTransform joint_origin_transform_;
+    tf::Transform joint_origin_transform_;
     
     /** \brief The constant transform applied to the collision geometry of the link (local) */
-    btTransform  collision_origin_transform_;
+    tf::Transform  collision_origin_transform_;
     
     /** \brief The geometry of the link */
     shapes::Shape *shape_;
@@ -420,7 +420,7 @@ public:
     
     AttachedBodyModel(const LinkModel *link, 
                       const std::string& id,
-                      const std::vector<btTransform>& attach_trans,
+                      const std::vector<tf::Transform>& attach_trans,
                       const std::vector<std::string>& touch_links,
                       std::vector<shapes::Shape*>& shapes);
 
@@ -441,7 +441,7 @@ public:
       return shapes_;
     }
 
-    const std::vector<btTransform>& getAttachedBodyFixedTransforms() const
+    const std::vector<tf::Transform>& getAttachedBodyFixedTransforms() const
     {
       return attach_trans_;
     }
@@ -460,7 +460,7 @@ public:
     std::vector<shapes::Shape*> shapes_;
     
     /** \brief The constant transforms applied to the link (need to be specified by user) */
-    std::vector<btTransform> attach_trans_;
+    std::vector<tf::Transform> attach_trans_;
     
     /** \brief The set of links this body is allowed to touch */
     std::vector<std::string> touch_links_;

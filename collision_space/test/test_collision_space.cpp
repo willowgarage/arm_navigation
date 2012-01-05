@@ -226,10 +226,10 @@ TEST_F(TestCollisionSpace, TestAttachedObjects)
   std::vector<shapes::Shape*> shape_vector;
   shape_vector.push_back(sphere1);
 
-  btTransform pose;
+  tf::Transform pose;
   pose.setIdentity();
 
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   poses.push_back(pose);
   
   std::vector<std::string> touch_links;
@@ -326,10 +326,10 @@ TEST_F(TestCollisionSpace, TestStaticObjects)
   shapes::Sphere* sphere1 = new shapes::Sphere();
   sphere1->radius = .2;
 
-  btTransform pose;
+  tf::Transform pose;
   pose.setIdentity();
 
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   poses.push_back(pose);
 
   std::vector<shapes::Shape*> shape_vector;
@@ -353,10 +353,10 @@ TEST_F(TestCollisionSpace, TestStaticObjects)
   std::vector<shapes::Shape*> att_shapes;
   att_shapes.push_back(att_box);
 
-  btTransform att_pose;
+  tf::Transform att_pose;
   att_pose.setIdentity();
 
-  std::vector<btTransform> att_poses;
+  std::vector<tf::Transform> att_poses;
   att_poses.push_back(att_pose);
   
   std::vector<std::string> touch_links;
@@ -477,10 +477,10 @@ TEST_F(TestCollisionSpace, TestAllowedContacts)
   shapes::Box* box1 = new shapes::Box(.4, .4, .4);
   shapes::Box* box1a = new shapes::Box(.4, .4, .4);
 
-  btTransform pose;
+  tf::Transform pose;
   pose.setIdentity();
 
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   poses.push_back(pose);
 
   std::vector<shapes::Shape*> shape_vector_1;
@@ -510,7 +510,7 @@ TEST_F(TestCollisionSpace, TestAllowedContacts)
 
       shapes::Sphere* sphere2 = new shapes::Sphere(.3);
 
-      btTransform trans(btQuaternion(0,0,0,1.0), contacts[i].pos);
+      tf::Transform trans(tf::Quaternion(0,0,0,1.0), contacts[i].pos);
       
       boost::shared_ptr<bodies::Sphere> bodysp(new bodies::Sphere(sphere2));
       bodysp->setPose(trans);
@@ -530,7 +530,7 @@ TEST_F(TestCollisionSpace, TestAllowedContacts)
 
       shapes::Box* box2 = new shapes::Box(.01, .01, .01);
 
-      btTransform trans(btQuaternion(0,0,0,1.0), contacts[i].pos);
+      tf::Transform trans(tf::Quaternion(0,0,0,1.0), contacts[i].pos);
 
       ROS_DEBUG_STREAM("Making allowed contact for " << contacts[i].body_name_1 
                        << " and " << contacts[i].body_name_2 

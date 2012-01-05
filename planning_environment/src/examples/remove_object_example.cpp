@@ -96,7 +96,7 @@ protected:
 	
 	// create a box
 	shapes::Shape *box = new shapes::Box(2, 2, 2);
-	btTransform pose;
+	tf::Transform pose;
 	pose.setIdentity();
 	
 	// remove the objects colliding with the box

@@ -126,14 +126,14 @@ void OmplRosRPYIKStateTransformer::omplStateToPose(const ompl::base::State &ompl
                                                    geometry_msgs::Pose &pose)
 {
   
-  btVector3 tmp_pos(ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[x_index_],
+  tf::Vector3 tmp_pos(ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[x_index_],
                     ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[y_index_],
                     ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[z_index_]);
-  btQuaternion tmp_rot;
+  tf::Quaternion tmp_rot;
   tmp_rot.setRPY(ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[roll_index_],
                  ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[pitch_index_],
                  ompl_state.as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(real_vector_index_)->values[yaw_index_]);
-  btTransform tmp_transform(tmp_rot,tmp_pos);
+  tf::Transform tmp_transform(tmp_rot,tmp_pos);
   tf::poseTFToMsg(tmp_transform,pose);  
 }
 

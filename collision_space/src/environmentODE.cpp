@@ -148,7 +148,7 @@ void collision_space::EnvironmentModelODE::setRobotModel(const planning_models::
   previous_set_robot_model_ = true;
 }
 
-void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const
+void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::string, std::vector<tf::Transform> >& pose_map) const
 {
   pose_map.clear();
 
@@ -159,7 +159,7 @@ void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::st
     
     /* create new set of attached bodies */	
     const unsigned int nab = lg->att_bodies.size();
-    std::vector<btTransform> nbt;
+    std::vector<tf::Transform> nbt;
     for (unsigned int j = 0 ; j < nab ; ++j)
     {
       for(unsigned int k = 0; k < lg->att_bodies[j]->geom.size(); k++) {
@@ -167,7 +167,7 @@ void collision_space::EnvironmentModelODE::getAttachedBodyPoses(std::map<std::st
         dQuaternion q;
         dGeomGetQuaternion(lg->att_bodies[j]->geom[k], q);
         //note that ODE puts w first (w,x,y,z)
-        nbt.push_back(btTransform(btQuaternion(q[1], q[2], q[3], q[0]), btVector3(pos[0], pos[1], pos[2])));
+        nbt.push_back(tf::Transform(tf::Quaternion(q[1], q[2], q[3], q[0]), tf::Vector3(pos[0], pos[1], pos[2])));
       }
       pose_map[lg->att_bodies[j]->att->getName()] = nbt;
     }
@@ -329,11 +329,11 @@ dGeomID collision_space::EnvironmentModelODE::createODEGeom(dSpaceID space, ODES
   return g;
 }
 
-void collision_space::EnvironmentModelODE::updateGeom(dGeomID geom,  const btTransform &pose) const
+void collision_space::EnvironmentModelODE::updateGeom(dGeomID geom,  const tf::Transform &pose) const
 {
-  btVector3 pos = pose.getOrigin();
+  tf::Vector3 pos = pose.getOrigin();
   dGeomSetPosition(geom, pos.getX(), pos.getY(), pos.getZ());
-  btQuaternion quat = pose.getRotation();
+  tf::Quaternion quat = pose.getRotation();
   dQuaternion q; 
   q[0] = quat.getW(); q[1] = quat.getX(); q[2] = quat.getY(); q[3] = quat.getZ();
   dGeomSetQuaternion(geom, q);
@@ -869,7 +869,7 @@ void nearCallbackFn(void *data, dGeomID o1, dGeomID o2)
       ROS_DEBUG_STREAM("Body pos 2 " << pos2[0] << " " << pos2[1] << " " << pos2[2]);
       ROS_DEBUG_STREAM("Body quat 2 " << quat2[1] << " " << quat2[2] << " " << quat2[3] << " " << quat2[0]);
 
-      btVector3 pos(contactGeoms[i].pos[0], contactGeoms[i].pos[1], contactGeoms[i].pos[2]);
+      tf::Vector3 pos(contactGeoms[i].pos[0], contactGeoms[i].pos[1], contactGeoms[i].pos[2]);
       
       //figure out whether the contact is allowed
       //allowed contacts only allowed with objects for now
@@ -1132,7 +1132,7 @@ bool collision_space::EnvironmentModelODE::hasObject(const std::string& ns) cons
   return false;
 }
 
-void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses)
+void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<tf::Transform> &poses)
 {
   assert(shapes.size() == poses.size());
   std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.find(ns);
@@ -1164,7 +1164,7 @@ void collision_space::EnvironmentModelODE::addObjects(const std::string &ns, con
   cn->collide2.setup();
 }
 
-void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shapes::Shape *shape, const btTransform &pose)
+void collision_space::EnvironmentModelODE::addObject(const std::string &ns, shapes::Shape *shape, const tf::Transform &pose)
 {
   std::map<std::string, CollisionNamespace*>::iterator it = coll_namespaces_.find(ns);
   CollisionNamespace* cn = NULL;    

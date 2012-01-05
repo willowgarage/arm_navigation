@@ -203,9 +203,9 @@ TEST_F(TestRobotModels, SetGetOperations)
 
   //using root transform
   const planning_models::KinematicModel::JointModel* j = kmodel->getRoot();
-  btTransform bt;
-  bt.setOrigin(btVector3(5.0, 5.0, 5.0));
-  bt.setRotation(btQuaternion(0,0,.7071,.7071));
+  tf::Transform bt;
+  bt.setOrigin(tf::Vector3(5.0, 5.0, 5.0));
+  bt.setRotation(tf::Quaternion(0,0,.7071,.7071));
   state.getJointState(j->getName())->setJointStateValues(bt);
   
   test_vals.clear();

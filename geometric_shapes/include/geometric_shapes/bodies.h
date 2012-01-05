@@ -38,7 +38,7 @@
 #define GEOMETRIC_SHAPES_BODIES_
 
 #include "geometric_shapes/shapes.h"
-#include <LinearMath/btTransform.h>
+#include <tf/LinearMath/Transform.h>
 // #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 // #include <BulletCollision/CollisionShapes/btTriangleMesh.h>
 #include <vector>
@@ -56,14 +56,14 @@ namespace bodies
 /** \brief Definition of a sphere that bounds another object */
 struct BoundingSphere
 {
-  btVector3 center;
+  tf::Vector3 center;
   double    radius;
 };
 
 /** \brief Definition of a cylinder */
 struct BoundingCylinder
 {
-  btTransform pose;
+  tf::Transform pose;
   double radius;
   double length;
 };
@@ -122,14 +122,14 @@ struct BoundingCylinder
     }
 	
     /** \brief Set the pose of the body. Default is identity */
-    void setPose(const btTransform &pose)
+    void setPose(const tf::Transform &pose)
     {
       m_pose = pose;
       updateInternalData();
     }
 	
     /** \brief Retrieve the pose of the body */
-    const btTransform& getPose(void) const
+    const tf::Transform& getPose(void) const
     {
       return m_pose;
     }
@@ -144,17 +144,17 @@ struct BoundingCylinder
     /** \brief Check is a point is inside the body */
     bool containsPoint(double x, double y, double z) const
     {
-      return containsPoint(btVector3(btScalar(x), btScalar(y), btScalar(z)));
+      return containsPoint(tf::Vector3(tfScalar(x), tfScalar(y), tfScalar(z)));
     }
 	
     /** \brief Check is a ray intersects the body, and find the
         set of intersections, in order, along the ray. A maximum
         number of intersections can be specified as well. If that
         number is 0, all intersections are returned */
-    virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const = 0;
+    virtual bool intersectsRay(const tf::Vector3& origin, const tf::Vector3 &dir, std::vector<tf::Vector3> *intersections = NULL, unsigned int count = 0) const = 0;
 	
     /** \brief Check is a point is inside the body */
-    virtual bool containsPoint(const btVector3 &p, bool verbose = false) const = 0;	
+    virtual bool containsPoint(const tf::Vector3 &p, bool verbose = false) const = 0;	
 	
     /** \brief Compute the volume of the body. This method includes
         changes induced by scaling and padding */
@@ -174,7 +174,7 @@ struct BoundingCylinder
     virtual void useDimensions(const shapes::Shape *shape) = 0;
 	
     shapes::ShapeType m_type;
-    btTransform       m_pose;	
+    tf::Transform       m_pose;	
     double            m_scale;
     double            m_padding;	
   };
@@ -198,18 +198,18 @@ public:
   {
   }
 	
-  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual bool containsPoint(const tf::Vector3 &p, bool verbose = false) const;
   virtual double computeVolume(void) const;
   virtual void computeBoundingSphere(BoundingSphere &sphere) const;
   virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
-  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+  virtual bool intersectsRay(const tf::Vector3& origin, const tf::Vector3 &dir, std::vector<tf::Vector3> *intersections = NULL, unsigned int count = 0) const;
 
 protected:
 	
   virtual void useDimensions(const shapes::Shape *shape);
   virtual void updateInternalData(void);
 	
-  btVector3 m_center;
+  tf::Vector3 m_center;
   double    m_radius;	
   double    m_radiusU;
   double    m_radius2;		    
@@ -234,21 +234,21 @@ public:
   {
   }
 	
-  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual bool containsPoint(const tf::Vector3 &p, bool verbose = false) const;
   virtual double computeVolume(void) const;
   virtual void computeBoundingSphere(BoundingSphere &sphere) const;
   virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
-  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+  virtual bool intersectsRay(const tf::Vector3& origin, const tf::Vector3 &dir, std::vector<tf::Vector3> *intersections = NULL, unsigned int count = 0) const;
 
 protected:
 	
   virtual void useDimensions(const shapes::Shape *shape);
   virtual void updateInternalData(void);
 	
-  btVector3 m_center;
-  btVector3 m_normalH;
-  btVector3 m_normalB1;
-  btVector3 m_normalB2;
+  tf::Vector3 m_center;
+  tf::Vector3 m_normalH;
+  tf::Vector3 m_normalB1;
+  tf::Vector3 m_normalB2;
 	
   double    m_length;
   double    m_length2;	
@@ -280,24 +280,24 @@ public:
   {
   }
 	
-  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual bool containsPoint(const tf::Vector3 &p, bool verbose = false) const;
   virtual double computeVolume(void) const;
   virtual void computeBoundingSphere(BoundingSphere &sphere) const;
   virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
-  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+  virtual bool intersectsRay(const tf::Vector3& origin, const tf::Vector3 &dir, std::vector<tf::Vector3> *intersections = NULL, unsigned int count = 0) const;
 
 protected:
 	
   virtual void useDimensions(const shapes::Shape *shape); // (x, y, z) = (length, width, height)	    
   virtual void updateInternalData(void);
 	
-  btVector3 m_center;
-  btVector3 m_normalL;
-  btVector3 m_normalW;
-  btVector3 m_normalH;
+  tf::Vector3 m_center;
+  tf::Vector3 m_normalL;
+  tf::Vector3 m_normalW;
+  tf::Vector3 m_normalH;
 	
-  btVector3 m_corner1;
-  btVector3 m_corner2;
+  tf::Vector3 m_corner1;
+  tf::Vector3 m_corner2;
 
   double    m_length;
   double    m_width;
@@ -338,12 +338,12 @@ protected:
   }
 	
   \\\ \brief The mesh is considered to be concave, so this function is implemented with raycasting. This is a bit slow and not so accurate for very small triangles.
-  virtual bool containsPoint(const btVector3 &p) const;
+  virtual bool containsPoint(const tf::Vector3 &p) const;
 
   \\\ \brief This function is approximate. It returns the volume of the AABB enclosing the shape 
   virtual double computeVolume(void) const;
   virtual void computeBoundingSphere(BoundingSphere &sphere) const;
-  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+  virtual bool intersectsRay(const tf::Vector3& origin, const tf::Vector3 &dir, std::vector<tf::Vector3> *intersections = NULL, unsigned int count = 0) const;
 	
   protected:
 
@@ -352,10 +352,10 @@ protected:
 	
   btBvhTriangleMeshShape  *m_btMeshShape;
   btTriangleMesh          *m_btMesh;
-  btTransform              m_iPose;
-  btVector3                m_center;
-  btVector3                m_aabbMin;
-  btVector3                m_aabbMax;
+  tf::Transform              m_iPose;
+  tf::Vector3                m_center;
+  tf::Vector3                m_aabbMin;
+  tf::Vector3                m_aabbMax;
   double                   m_radiusB;
   double                   m_radiusBSqr;
 	
@@ -382,22 +382,22 @@ public:
   {
   }	
 
-  virtual bool containsPoint(const btVector3 &p, bool verbose = false) const;
+  virtual bool containsPoint(const tf::Vector3 &p, bool verbose = false) const;
   virtual double computeVolume(void) const;
 	
   virtual void computeBoundingSphere(BoundingSphere &sphere) const;
   virtual void computeBoundingCylinder(BoundingCylinder &cylinder) const;
-  virtual bool intersectsRay(const btVector3& origin, const btVector3 &dir, std::vector<btVector3> *intersections = NULL, unsigned int count = 0) const;
+  virtual bool intersectsRay(const tf::Vector3& origin, const tf::Vector3 &dir, std::vector<tf::Vector3> *intersections = NULL, unsigned int count = 0) const;
 
   const std::vector<unsigned int>& getTriangles() const {
     return m_triangles;
   }
 
-  const std::vector<btVector3>& getVertices() const {
+  const std::vector<tf::Vector3>& getVertices() const {
     return m_vertices;
   }
 
-  const std::vector<btVector3>& getScaledVertices() const {
+  const std::vector<tf::Vector3>& getScaledVertices() const {
     return m_scaledVertices;
   }
 
@@ -407,21 +407,21 @@ protected:
   virtual void updateInternalData(void);
 	
   unsigned int countVerticesBehindPlane(const btVector4& planeNormal) const;
-  bool isPointInsidePlanes(const btVector3& point) const;
+  bool isPointInsidePlanes(const tf::Vector3& point) const;
 	
   std::vector<btVector4>    m_planes;
-  std::vector<btVector3>    m_vertices;
-  std::vector<btVector3>    m_scaledVertices;
+  std::vector<tf::Vector3>    m_vertices;
+  std::vector<tf::Vector3>    m_scaledVertices;
   std::vector<unsigned int> m_triangles;
-  btTransform               m_iPose;
+  tf::Transform               m_iPose;
 	
-  btVector3                 m_center;
-  btVector3                 m_meshCenter;
+  tf::Vector3                 m_center;
+  tf::Vector3                 m_meshCenter;
   double                    m_radiusB;
   double                    m_radiusBSqr;
   double                    m_meshRadiusB;
 
-  btVector3                 m_boxOffset;
+  tf::Vector3                 m_boxOffset;
   Box                       m_boundingBox;
   BoundingCylinder          m_boundingCylinder;
 };
@@ -439,14 +439,14 @@ public:
   BodyVector();
 
   BodyVector(const std::vector<shapes::Shape*>& shapes, 
-             const std::vector<btTransform>& poses,
+             const std::vector<tf::Transform>& poses,
              double padding);
   
   ~BodyVector();
 
-  void addBody(const shapes::Shape* shape, const btTransform& pose, double padding = 0.0);
+  void addBody(const shapes::Shape* shape, const tf::Transform& pose, double padding = 0.0);
 
-  void setPose(unsigned int i, const btTransform& pose);
+  void setPose(unsigned int i, const tf::Transform& pose);
 
   unsigned int getSize() const {
     return bodies_.size();

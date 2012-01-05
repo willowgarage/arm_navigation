@@ -230,7 +230,7 @@ void planning_environment::CollisionSpaceMonitor::collisionMapCallback(const arm
 }
 
 void planning_environment::CollisionSpaceMonitor::collisionMapAsSpheres(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap,
-                                                                        std::vector<shapes::Shape*> &spheres, std::vector<btTransform> &poses)
+                                                                        std::vector<shapes::Shape*> &spheres, std::vector<tf::Transform> &poses)
 {
   // we want to make sure the frame the robot model is kept in is the same as the frame of the collisionMap
   bool transform = collisionMap->header.frame_id != cm_->getWorldFrameId();
@@ -265,7 +265,7 @@ void planning_environment::CollisionSpaceMonitor::collisionMapAsSpheres(const ar
       }
 	    
       poses[i].setIdentity();
-      poses[i].setOrigin(btVector3(pso.point.x, pso.point.y, pso.point.z));
+      poses[i].setOrigin(tf::Vector3(pso.point.x, pso.point.y, pso.point.z));
       spheres[i] = new shapes::Sphere(maxCoord(collisionMap->boxes[i].extents) * 0.867 + pointcloud_padd_);
     }
 	
@@ -279,20 +279,20 @@ void planning_environment::CollisionSpaceMonitor::collisionMapAsSpheres(const ar
     for (int i = 0 ; i < n ; ++i)
     {
       poses[i].setIdentity();
-      poses[i].setOrigin(btVector3(collisionMap->boxes[i].center.x, collisionMap->boxes[i].center.y, collisionMap->boxes[i].center.z));
+      poses[i].setOrigin(tf::Vector3(collisionMap->boxes[i].center.x, collisionMap->boxes[i].center.y, collisionMap->boxes[i].center.z));
       spheres[i] = new shapes::Sphere(maxCoord(collisionMap->boxes[i].extents) * 0.867 + pointcloud_padd_);
     }
   }
 }
 
 void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const arm_navigation_msgs::CollisionMapConstPtr &collision_map,
-                                                                      std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses)
+                                                                      std::vector<shapes::Shape*> &boxes, std::vector<tf::Transform> &poses)
 {
   collisionMapAsBoxes(*collision_map, boxes, poses);
 }
 
 void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const arm_navigation_msgs::CollisionMap& collision_map,
-                                                                      std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses)
+                                                                      std::vector<shapes::Shape*> &boxes, std::vector<tf::Transform> &poses)
 {
 
   // we want to make sure the frame the robot model is kept in is the same as the frame of the collision_map
@@ -329,8 +329,8 @@ void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const arm_
         pso = psi;
       }
 	    
-      poses[i].setRotation(btQuaternion(btVector3(collision_map.boxes[i].axis.x, collision_map.boxes[i].axis.y, collision_map.boxes[i].axis.z), collision_map.boxes[i].angle));
-      poses[i].setOrigin(btVector3(pso.point.x, pso.point.y, pso.point.z));
+      poses[i].setRotation(tf::Quaternion(tf::Vector3(collision_map.boxes[i].axis.x, collision_map.boxes[i].axis.y, collision_map.boxes[i].axis.z), collision_map.boxes[i].angle));
+      poses[i].setOrigin(tf::Vector3(pso.point.x, pso.point.y, pso.point.z));
       boxes[i] = new shapes::Box(collision_map.boxes[i].extents.x + pd, collision_map.boxes[i].extents.y + pd, collision_map.boxes[i].extents.z + pd);
     }
 	
@@ -343,8 +343,8 @@ void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const arm_
     //#pragma omp parallel for
     for (int i = 0 ; i < n ; ++i)
     {
-      poses[i].setRotation(btQuaternion(btVector3(collision_map.boxes[i].axis.x, collision_map.boxes[i].axis.y, collision_map.boxes[i].axis.z), collision_map.boxes[i].angle));
-      poses[i].setOrigin(btVector3(collision_map.boxes[i].center.x, collision_map.boxes[i].center.y, collision_map.boxes[i].center.z));
+      poses[i].setRotation(tf::Quaternion(tf::Vector3(collision_map.boxes[i].axis.x, collision_map.boxes[i].axis.y, collision_map.boxes[i].axis.z), collision_map.boxes[i].angle));
+      poses[i].setOrigin(tf::Vector3(collision_map.boxes[i].center.x, collision_map.boxes[i].center.y, collision_map.boxes[i].center.z));
       boxes[i] = new shapes::Box(collision_map.boxes[i].extents.x + pd, collision_map.boxes[i].extents.y + pd, collision_map.boxes[i].extents.z + pd);
     }
   }
@@ -353,7 +353,7 @@ void planning_environment::CollisionSpaceMonitor::collisionMapAsBoxes(const arm_
 void planning_environment::CollisionSpaceMonitor::updateCollisionSpace(const arm_navigation_msgs::CollisionMapConstPtr &collision_map, bool clear)
 { 
   std::vector<shapes::Shape*> shapes;
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   
   collisionMapAsBoxes(*collision_map, shapes, poses);
   //not masking here

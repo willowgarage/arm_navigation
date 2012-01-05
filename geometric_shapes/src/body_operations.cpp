@@ -36,14 +36,14 @@
 
 #include <geometric_shapes/body_operations.h>
 
-void bodies::maskPosesInsideBodyVectors(const std::vector<btTransform>& poses,
+void bodies::maskPosesInsideBodyVectors(const std::vector<tf::Transform>& poses,
                                         const std::vector<bodies::BodyVector*>& bvs,
                                         std::vector<bool>& mask,
                                         bool use_padded) {
   mask.resize(poses.size(), false);
   for(unsigned int i = 0; i < poses.size(); i++) {
     bool inside = false;
-    btVector3 pt = poses[i].getOrigin();
+    tf::Vector3 pt = poses[i].getOrigin();
     for(unsigned int j = 0; !inside && j < bvs.size(); j++) {
       for(unsigned int k = 0;!inside && k < bvs[j]->getSize(); k++) {
         if(!use_padded) {

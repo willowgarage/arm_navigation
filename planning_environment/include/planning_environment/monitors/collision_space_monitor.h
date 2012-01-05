@@ -135,11 +135,11 @@ protected:
   void setupCSM(void);
   void updateCollisionSpace(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap, bool clear);
   void collisionMapAsSpheres(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap,
-                             std::vector<shapes::Shape*> &spheres, std::vector<btTransform> &poses);
+                             std::vector<shapes::Shape*> &spheres, std::vector<tf::Transform> &poses);
   void collisionMapAsBoxes(const arm_navigation_msgs::CollisionMap &collisionMap,
-                           std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses);
+                           std::vector<shapes::Shape*> &boxes, std::vector<tf::Transform> &poses);
   void collisionMapAsBoxes(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap,
-                           std::vector<shapes::Shape*> &boxes, std::vector<btTransform> &poses);
+                           std::vector<shapes::Shape*> &boxes, std::vector<tf::Transform> &poses);
   void collisionMapCallback(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap);
   void collisionMapUpdateCallback(const arm_navigation_msgs::CollisionMapConstPtr &collisionMap);
   void collisionObjectCallback(const arm_navigation_msgs::CollisionObjectConstPtr &collisionObject);

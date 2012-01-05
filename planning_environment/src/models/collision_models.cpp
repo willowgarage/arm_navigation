@@ -399,10 +399,10 @@ bool planning_environment::CollisionModels::convertPoseGivenWorldTransform(const
     
     tf::Transform tf_trans;
     tf::transformMsgToTF(trans.transform, tf_trans);
-    btTransform tf_pose;
+    tf::Transform tf_pose;
     tf::poseMsgToTF(ret_pose.pose, tf_pose);
     
-    btTransform fpose = tf_trans*tf_pose;
+    tf::Transform fpose = tf_trans*tf_pose;
 
     //assumes that we've already checked that this matched the world frame
     ret_pose.header.frame_id = getWorldFrameId();
@@ -414,7 +414,7 @@ bool planning_environment::CollisionModels::convertPoseGivenWorldTransform(const
   }
   
   //getting tf version of pose
-  btTransform bt_pose;
+  tf::Transform bt_pose;
   tf::poseMsgToTF(ret_pose.pose,bt_pose);
 
   //Scenarios 4(other->robot)/5(fixed->robot): We either started out
@@ -422,17 +422,17 @@ bool planning_environment::CollisionModels::convertPoseGivenWorldTransform(const
   //non-robot frame into the fixed frame, and now we need to transform
   //into the desired robot frame given the new world transform
   if(ret_pose.header.frame_id == getWorldFrameId() && des_is_robot_frame) {
-    btTransform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*bt_pose;
+    tf::Transform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*bt_pose;
     tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
     ret_pose.header.frame_id = des_link_state->getName();
   } else if(header_is_robot_frame && des_is_fixed_frame) {
     //Scenario 6(robot->fixed): Just need to look up robot transform and pre-multiply
-    btTransform trans_bt_pose = header_link_state->getGlobalLinkTransform()*bt_pose;
+    tf::Transform trans_bt_pose = header_link_state->getGlobalLinkTransform()*bt_pose;
     tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
     ret_pose.header.frame_id = getWorldFrameId();
   } else if(header_is_robot_frame && des_is_robot_frame) {
     //Scenario 7(robot->robot): Completely tf independent
-    btTransform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*(header_link_state->getGlobalLinkTransform()*bt_pose);
+    tf::Transform trans_bt_pose = des_link_state->getGlobalLinkTransform().inverse()*(header_link_state->getGlobalLinkTransform()*bt_pose);
     tf::poseTFToMsg(trans_bt_pose,ret_pose.pose);
     ret_pose.header.frame_id = des_link_state->getName();
   } else {
@@ -627,7 +627,7 @@ bool planning_environment::CollisionModels::updateAttachedBodyPoses(const planni
 bool planning_environment::CollisionModels::addStaticObject(const arm_navigation_msgs::CollisionObject& obj)
 {
   std::vector<shapes::Shape*> shapes;
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   for(unsigned int i = 0; i < obj.shapes.size(); i++) {
     shapes::Shape *shape = constructObject(obj.shapes[i]);
     if(!shape) {
@@ -635,7 +635,7 @@ bool planning_environment::CollisionModels::addStaticObject(const arm_navigation
       return false;
     }
     shapes.push_back(shape);
-    btTransform pose;
+    tf::Transform pose;
     tf::poseMsgToTF(obj.poses[i], pose);
     poses.push_back(pose);
   }
@@ -655,7 +655,7 @@ bool planning_environment::CollisionModels::addStaticObject(const arm_navigation
 //note - ownership of shape passes in
 void planning_environment::CollisionModels::addStaticObject(const std::string& name,
                                                             std::vector<shapes::Shape*>& shapes,
-                                                            const std::vector<btTransform>& poses,
+                                                            const std::vector<tf::Transform>& poses,
                                                             double padding)
 {
   if(ode_collision_model_->hasObject(name)) {
@@ -700,26 +700,26 @@ void planning_environment::CollisionModels::deleteAllStaticObjects() {
 void planning_environment::CollisionModels::setCollisionMap(const arm_navigation_msgs::CollisionMap& map, 
                                                             bool mask_before_insertion) {
   std::vector<shapes::Shape*> shapes(map.boxes.size());
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   for(unsigned int i = 0; i < map.boxes.size(); i++) {
     shapes[i] = new shapes::Box(map.boxes[i].extents.x, map.boxes[i].extents.y, map.boxes[i].extents.z);
-    btTransform pose;
-    pose.setOrigin(btVector3(map.boxes[i].center.x, map.boxes[i].center.y, map.boxes[i].center.z));
-    pose.setRotation(btQuaternion(btVector3(map.boxes[i].axis.x, map.boxes[i].axis.y, map.boxes[i].axis.z), map.boxes[i].angle));
+    tf::Transform pose;
+    pose.setOrigin(tf::Vector3(map.boxes[i].center.x, map.boxes[i].center.y, map.boxes[i].center.z));
+    pose.setRotation(tf::Quaternion(tf::Vector3(map.boxes[i].axis.x, map.boxes[i].axis.y, map.boxes[i].axis.z), map.boxes[i].angle));
     poses.push_back(pose);
   }
   setCollisionMap(shapes, poses, mask_before_insertion);
 }
 
 void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::Shape*>& shapes,
-                                                            const std::vector<btTransform>& poses,
+                                                            const std::vector<tf::Transform>& poses,
                                                             bool mask_before_insertion)
 {
   bodiesLock();
   shapes::deleteShapeVector(collision_map_shapes_);
   collision_map_shapes_ = shapes::cloneShapeVector(shapes);
   collision_map_poses_ = poses;
-  std::vector<btTransform> masked_poses = poses;
+  std::vector<tf::Transform> masked_poses = poses;
   if(mask_before_insertion) {
     maskAndDeleteShapeVector(shapes,masked_poses); 
   } 
@@ -736,7 +736,7 @@ void planning_environment::CollisionModels::setCollisionMap(std::vector<shapes::
 
 void planning_environment::CollisionModels::remaskCollisionMap() {
   std::vector<shapes::Shape*> shapes = shapes::cloneShapeVector(collision_map_shapes_);
-  std::vector<btTransform> masked_poses = collision_map_poses_;
+  std::vector<tf::Transform> masked_poses = collision_map_poses_;
   maskAndDeleteShapeVector(shapes,masked_poses); 
   ode_collision_model_->lock();
   ode_collision_model_->clearObjects(COLLISION_MAP_NAME);
@@ -745,7 +745,7 @@ void planning_environment::CollisionModels::remaskCollisionMap() {
 }
 
 void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector<shapes::Shape*>& shapes,
-                                                                     std::vector<btTransform>& poses)
+                                                                     std::vector<tf::Transform>& poses)
 {
   bodiesLock();
   std::vector<bool> mask;
@@ -767,7 +767,7 @@ void planning_environment::CollisionModels::maskAndDeleteShapeVector(std::vector
     }    
   }
   bodies::maskPosesInsideBodyVectors(poses, object_vector, mask, true);
-  std::vector<btTransform> ret_poses;
+  std::vector<tf::Transform> ret_poses;
   std::vector<shapes::Shape*> ret_shapes;
   unsigned int num_masked = 0;
   for(unsigned int i = 0; i < mask.size(); i++) {
@@ -788,7 +788,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const arm_navigati
 {
   const arm_navigation_msgs::CollisionObject& obj = att.object;
   std::vector<shapes::Shape*> shapes;
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   for(unsigned int i = 0; i < obj.shapes.size(); i++) {
     shapes::Shape *shape = constructObject(obj.shapes[i]);
     if(!shape) {
@@ -796,7 +796,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const arm_navigati
       return false;
     }
     shapes.push_back(shape);
-    btTransform pose;
+    tf::Transform pose;
     tf::poseMsgToTF(obj.poses[i], pose);
     poses.push_back(pose);
   }
@@ -822,7 +822,7 @@ bool planning_environment::CollisionModels::addAttachedObject(const arm_navigati
 bool planning_environment::CollisionModels::addAttachedObject(const std::string& object_name,
                                                               const std::string& link_name,
                                                               std::vector<shapes::Shape*>& shapes,
-                                                              const std::vector<btTransform>& poses,
+                                                              const std::vector<tf::Transform>& poses,
                                                               const std::vector<std::string>& touch_links,
                                                               double padding)
 {
@@ -938,7 +938,7 @@ void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::
 //Link pose must be in world frame
 bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(const std::string& object_name,
                                                                                 const std::string& link_name,
-                                                                                const btTransform& link_pose,
+                                                                                const tf::Transform& link_pose,
                                                                                 const std::vector<std::string>& touch_links)
 {
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
@@ -961,7 +961,7 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
   }
 
   ode_collision_model_->lock();
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   std::vector<shapes::Shape*> shapes;
   const collision_space::EnvironmentObjects *eo = ode_collision_model_->getObjects();
   std::vector<std::string> ns = eo->getNamespaces();
@@ -975,7 +975,7 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
     }
   } 
 
-  btTransform link_pose_inv = link_pose.inverse();
+  tf::Transform link_pose_inv = link_pose.inverse();
   //now we need to convert all these poses from the world frame into the link frame
   for(unsigned int i = 0; i < poses.size(); i++) {
     poses[i] = link_pose_inv*poses[i];
@@ -999,7 +999,7 @@ bool planning_environment::CollisionModels::convertStaticObjectToAttachedObject(
 
 bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(const std::string& object_name,
                                                                                 const std::string& link_name,
-                                                                                const btTransform& link_pose)
+                                                                                const tf::Transform& link_pose)
 {
   const planning_models::KinematicModel::LinkModel *link = kmodel_->getLinkModel(link_name);
   if(link == NULL) {
@@ -1033,7 +1033,7 @@ bool planning_environment::CollisionModels::convertAttachedObjectToStaticObject(
     return false;
   }
   std::vector<shapes::Shape*> shapes = shapes::cloneShapeVector(att->getShapes());
-  std::vector<btTransform> poses;
+  std::vector<tf::Transform> poses;
   for(unsigned int i = 0; i < att->getAttachedBodyFixedTransforms().size(); i++) {
     poses.push_back(link_pose*att->getAttachedBodyFixedTransforms()[i]);
   }
@@ -1200,13 +1200,13 @@ void planning_environment::CollisionModels::getLastCollisionMap(arm_navigation_m
     obb.extents.x = box->size[0];
     obb.extents.y = box->size[1];
     obb.extents.z = box->size[2];
-    const btVector3 &c = collision_map_poses_[i].getOrigin();
+    const tf::Vector3 &c = collision_map_poses_[i].getOrigin();
     obb.center.x = c.x();
     obb.center.y = c.y();
     obb.center.z = c.z();
-    const btQuaternion q = collision_map_poses_[i].getRotation();
+    const tf::Quaternion q = collision_map_poses_[i].getRotation();
     obb.angle = q.getAngle();
-      const btVector3 axis = q.getAxis();
+      const tf::Vector3 axis = q.getAxis();
       obb.axis.x = axis.x();
       obb.axis.y = axis.y();
       obb.axis.z = axis.z();
@@ -1233,13 +1233,13 @@ void planning_environment::CollisionModels::getCollisionSpaceCollisionMap(arm_na
       obb.extents.x = box->size[0];
       obb.extents.y = box->size[1];
       obb.extents.z = box->size[2];
-      const btVector3 &c = no.shape_pose[i].getOrigin();
+      const tf::Vector3 &c = no.shape_pose[i].getOrigin();
       obb.center.x = c.x();
       obb.center.y = c.y();
       obb.center.z = c.z();
-      const btQuaternion q = no.shape_pose[i].getRotation();
+      const tf::Quaternion q = no.shape_pose[i].getRotation();
       obb.angle = q.getAngle();
-      const btVector3 axis = q.getAxis();
+      const tf::Vector3 axis = q.getAxis();
       obb.axis.x = axis.x();
       obb.axis.y = axis.y();
       obb.axis.z = axis.z();
@@ -1696,7 +1696,7 @@ void planning_environment::CollisionModels::getCollisionMapAsMarkers(visualizati
         mark.scale.y = box->size[0];
         mark.scale.z = box->size[0];
       }
-      const btVector3 &c = no.shape_pose[i].getOrigin();
+      const tf::Vector3 &c = no.shape_pose[i].getOrigin();
       geometry_msgs::Point point;
       point.x = c.x();
       point.y = c.y();
@@ -1807,7 +1807,7 @@ void planning_environment::CollisionModels::getAttachedCollisionObjectMarkers(co
 
   ode_collision_model_->updateRobotModel(&state);
 
-  std::map<std::string, std::vector<btTransform> > att_pose_map;
+  std::map<std::string, std::vector<tf::Transform> > att_pose_map;
   ode_collision_model_->getAttachedBodyPoses(att_pose_map);
 
   for(unsigned int i = 0; i < attached_objects.size(); i++) {
@@ -2013,7 +2013,7 @@ void planning_environment::CollisionModels::getRobotPaddedMarkersGivenState(cons
     const planning_models::KinematicState::LinkState* ls = state.getLinkState(link_names[i]);
     if(ls->getLinkModel()->getLinkShape() == NULL) continue;
 
-    const btTransform& trans = ls->getGlobalCollisionBodyTransform();
+    const tf::Transform& trans = ls->getGlobalCollisionBodyTransform();
 
     visualization_msgs::Marker mark;
     mark.header.frame_id = getWorldFrameId();

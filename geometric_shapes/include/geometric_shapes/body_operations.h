@@ -39,7 +39,7 @@
 
 #include "geometric_shapes/shapes.h"
 #include "geometric_shapes/bodies.h"
-#include <LinearMath/btTransform.h>
+#include <tf/LinearMath/Transform.h>
 #include <vector>
 
 namespace bodies {
@@ -49,7 +49,7 @@ namespace bodies {
    are inside any body in any body vector, and otherwise sets them to true
  */
 
-void maskPosesInsideBodyVectors(const std::vector<btTransform>& poses,
+void maskPosesInsideBodyVectors(const std::vector<tf::Transform>& poses,
                                 const std::vector<bodies::BodyVector*>& bvs,
                                 std::vector<bool>& mask,
                                 bool use_padded);

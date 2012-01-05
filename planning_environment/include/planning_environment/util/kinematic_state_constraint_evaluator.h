@@ -145,7 +145,7 @@ protected:
 	
   arm_navigation_msgs::OrientationConstraint  m_oc;
   double m_roll, m_pitch, m_yaw;
-  btMatrix3x3 m_rotation_matrix;
+  tf::Matrix3x3 m_rotation_matrix;
   boost::scoped_ptr<bodies::Body> m_constraint_region;
 	
 };
@@ -176,7 +176,7 @@ public:
 	
 protected:	
   arm_navigation_msgs::VisibilityConstraint  m_vc;
-  btTransform m_sensor_offset_pose;
+  tf::Transform m_sensor_offset_pose;
 };
 
 class PositionConstraintEvaluator : public KinematicConstraintEvaluator
@@ -213,7 +213,7 @@ protected:
 	
   arm_navigation_msgs::PositionConstraint     m_pc;
   double                                       m_x, m_y, m_z;
-  btVector3                                    m_offset;
+  tf::Vector3                                    m_offset;
   boost::scoped_ptr<bodies::Body> m_constraint_region;
 };
         

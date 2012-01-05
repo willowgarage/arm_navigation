@@ -132,13 +132,13 @@ btCollisionObject* collision_space::EnvironmentModelBullet::createCollisionBody(
   case shapes::BOX:
     {
 	    const double *size = static_cast<const shapes::Box*>(shape)->size;
-	    btshape = dynamic_cast<btCollisionShape*>(new btBoxShape(btVector3(size[0] * scale / 2.0 + padding, size[1] * scale / 2.0 + padding, size[2] * scale / 2.0 + padding)));
+	    btshape = dynamic_cast<btCollisionShape*>(new btBoxShape(tf::Vector3(size[0] * scale / 2.0 + padding, size[1] * scale / 2.0 + padding, size[2] * scale / 2.0 + padding)));
     }	
     break;
   case shapes::CYLINDER:
     {
 	    double r2 = static_cast<const shapes::Cylinder*>(shape)->radius * scale + padding;
-	    btshape = dynamic_cast<btCollisionShape*>(new btCylinderShapeZ(btVector3(r2, r2, static_cast<const shapes::Cylinder*>(shape)->length * scale / 2.0 + padding)));
+	    btshape = dynamic_cast<btCollisionShape*>(new btCylinderShapeZ(tf::Vector3(r2, r2, static_cast<const shapes::Cylinder*>(shape)->length * scale / 2.0 + padding)));
     }
     break;
   case shapes::MESH:
@@ -147,9 +147,9 @@ btCollisionObject* collision_space::EnvironmentModelBullet::createCollisionBody(
 	    btConvexHullShape *btmesh = new btConvexHullShape();
 	    
 	    for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
-        btmesh->addPoint(btVector3(mesh->vertices[3*i], mesh->vertices[3*i + 1], mesh->vertices[3*i + 2]));
+        btmesh->addPoint(tf::Vector3(mesh->vertices[3*i], mesh->vertices[3*i + 1], mesh->vertices[3*i + 2]));
 	    
-	    btmesh->setLocalScaling(btVector3(scale, scale, scale));
+	    btmesh->setLocalScaling(tf::Vector3(scale, scale, scale));
 	    btmesh->setMargin(padding + 0.0001); // we need this to be positive
 	    btshape = dynamic_cast<btCollisionShape*>(btmesh);
     }
@@ -177,7 +177,7 @@ btCollisionObject* collision_space::EnvironmentModelBullet::createCollisionBody(
   case shapes::PLANE:
     {
 	    const shapes::Plane *p = static_cast<const shapes::Plane*>(shape);
-	    btshape = new btStaticPlaneShape(btVector3(p->a, p->b, p->c), p->d);
+	    btshape = new btStaticPlaneShape(tf::Vector3(p->a, p->b, p->c), p->d);
     }
     break;
 
@@ -320,11 +320,11 @@ void collision_space::EnvironmentModelBullet::removeCollidingObjects(const shape
 {
 }
 
-void collision_space::EnvironmentModelBullet::removeCollidingObjects(const shapes::Shape *shape, const btTransform &pose)
+void collision_space::EnvironmentModelBullet::removeCollidingObjects(const shapes::Shape *shape, const tf::Transform &pose)
 {
 }
 
-void collision_space::EnvironmentModelBullet::addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses)
+void collision_space::EnvironmentModelBullet::addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<tf::Transform> &poses)
 {
   assert(shapes.size() == poses.size());
   for (unsigned int i = 0 ; i < shapes.size() ; ++i)
@@ -339,7 +339,7 @@ void collision_space::EnvironmentModelBullet::addObject(const std::string &ns, s
   m_objects->addObject(ns, shape);
 }
 
-void collision_space::EnvironmentModelBullet::addObject(const std::string &ns, shapes::Shape *shape, const btTransform &pose)
+void collision_space::EnvironmentModelBullet::addObject(const std::string &ns, shapes::Shape *shape, const tf::Transform &pose)
 {
   btCollisionObject *obj = createCollisionBody(shape, 1.0, 0.0);
   obj->setWorldTransform(pose);

@@ -42,7 +42,7 @@
 #include <map>
 
 #include <geometric_shapes/shapes.h>
-#include <LinearMath/btTransform.h>
+#include <tf/LinearMath/Transform.h>
 
 namespace collision_space
 {
@@ -69,7 +69,7 @@ public:
     std::vector< shapes::Shape* > shape;
 
     /** \brief An array of shape poses */
-    std::vector< btTransform > shape_pose;
+    std::vector< tf::Transform > shape_pose;
   };
 	
   /** \brief Get the list of namespaces */
@@ -85,7 +85,7 @@ public:
   void addObject(const std::string &ns, shapes::StaticShape *shape);
 
   /** \brief Add an object to the namespace. The user releases ownership of the object. */
-  void addObject(const std::string &ns, shapes::Shape *shape, const btTransform &pose);
+  void addObject(const std::string &ns, shapes::Shape *shape, const tf::Transform &pose);
 	
   /** \brief Remove object. Object equality is verified by comparing pointers. Ownership of the object is renounced upon. Returns true on success. */
   bool removeObject(const std::string &ns, const shapes::Shape *shape);

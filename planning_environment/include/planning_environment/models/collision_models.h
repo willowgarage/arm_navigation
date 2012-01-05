@@ -127,7 +127,7 @@ public:
 
   void addStaticObject(const std::string& name,
                        std::vector<shapes::Shape*>& shapes,
-                       const std::vector<btTransform>& poses,
+                       const std::vector<tf::Transform>& poses,
                        double padding);
 
   void deleteStaticObject(const std::string& name);
@@ -139,13 +139,13 @@ public:
                        bool mask_before_insertion=true);
 
   void setCollisionMap(std::vector<shapes::Shape*>& shapes,
-                       const std::vector<btTransform>& poses,
+                       const std::vector<tf::Transform>& poses,
                        bool mask_before_insertion=true);
   
   void remaskCollisionMap();
 
   void maskAndDeleteShapeVector(std::vector<shapes::Shape*>& shapes,
-                                std::vector<btTransform>& poses);
+                                std::vector<tf::Transform>& poses);
   
   //this function will fail if the header is not in the world frame
   bool addAttachedObject(const arm_navigation_msgs::AttachedCollisionObject& att);
@@ -154,7 +154,7 @@ public:
   bool addAttachedObject(const std::string& object_name,
                          const std::string& link_name,
                          std::vector<shapes::Shape*>& shapes,
-                         const std::vector<btTransform>& poses,
+                         const std::vector<tf::Transform>& poses,
                          const std::vector<std::string>& touch_links,
                          double padding);
 
@@ -165,12 +165,12 @@ public:
 
   bool convertStaticObjectToAttachedObject(const std::string& object_name,
                                            const std::string& link_name,
-                                           const btTransform& link_pose,
+                                           const tf::Transform& link_pose,
                                            const std::vector<std::string>& touch_links);
   
   bool convertAttachedObjectToStaticObject(const std::string& object_name,
                                            const std::string& link_name,
-                                           const btTransform& link_pose);
+                                           const tf::Transform& link_pose);
 
   const std::map<std::string, std::map<std::string, bodies::BodyVector*> >& getLinkAttachedObjects() const
   {
@@ -415,7 +415,7 @@ public:
     return collision_map_shapes_;
   }
 
-  const std::vector<btTransform>& getCollisionMapPoses() const {
+  const std::vector<tf::Transform>& getCollisionMapPoses() const {
     return collision_map_poses_;
   }
 
@@ -459,7 +459,7 @@ protected:
   mutable boost::recursive_mutex bodies_lock_;
 
   std::vector<shapes::Shape*> collision_map_shapes_;
-  std::vector<btTransform> collision_map_poses_;
+  std::vector<tf::Transform> collision_map_poses_;
 
   std::map<std::string, bodies::BodyVector*> static_object_map_;
 

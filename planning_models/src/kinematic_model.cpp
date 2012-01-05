@@ -413,10 +413,10 @@ planning_models::KinematicModel::JointModel* planning_models::KinematicModel::co
 
 namespace planning_models
 {
-static inline btTransform urdfPose2btTransform(const urdf::Pose &pose)
+static inline tf::Transform urdfPose2TFTransform(const urdf::Pose &pose)
 {
-  return btTransform(btQuaternion(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w),
-                     btVector3(pose.position.x, pose.position.y, pose.position.z));
+  return tf::Transform(tf::Quaternion(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w),
+                     tf::Vector3(pose.position.x, pose.position.y, pose.position.z));
 }
 }
 
@@ -428,10 +428,10 @@ planning_models::KinematicModel::LinkModel* planning_models::KinematicModel::con
   result->name_ = urdf_link->name;
 
   if(urdf_link->collision && urdf_link->collision->geometry) {
-    result->collision_origin_transform_ = urdfPose2btTransform(urdf_link->collision->origin);
+    result->collision_origin_transform_ = urdfPose2TFTransform(urdf_link->collision->origin);
     result->shape_ = constructShape(urdf_link->collision->geometry.get());
   } else if(urdf_link->visual && urdf_link->visual->geometry){
-    result->collision_origin_transform_ = urdfPose2btTransform(urdf_link->visual->origin);
+    result->collision_origin_transform_ = urdfPose2TFTransform(urdf_link->visual->origin);
     result->shape_ = constructShape(urdf_link->visual->geometry.get());
   } else {
     result->collision_origin_transform_.setIdentity();
@@ -439,7 +439,7 @@ planning_models::KinematicModel::LinkModel* planning_models::KinematicModel::con
   }
 
   if (urdf_link->parent_joint.get()) {
-    result->joint_origin_transform_ = urdfPose2btTransform(urdf_link->parent_joint->parent_to_joint_origin_transform);
+    result->joint_origin_transform_ = urdfPose2TFTransform(urdf_link->parent_joint->parent_to_joint_origin_transform);
     ROS_DEBUG_STREAM("Setting joint origin for " << result->name_ << " to " 
                     << result->joint_origin_transform_.getOrigin().x() << " " 
                     << result->joint_origin_transform_.getOrigin().y() << " " 
@@ -476,7 +476,7 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
       const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
       if (!mesh->filename.empty())
       {
-        btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
+        tf::Vector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
         result = shapes::createMeshFromFilename(mesh->filename, &scale);
       }   
     } 
@@ -919,23 +919,23 @@ planning_models::KinematicModel::PlanarJointModel::PlanarJointModel(const std::s
   setVariableBounds(getEquiv("planar_th"),-M_PI,M_PI);
 }
 
-btTransform planning_models::KinematicModel::PlanarJointModel::computeTransform(const std::vector<double>& joint_values) const 
+tf::Transform planning_models::KinematicModel::PlanarJointModel::computeTransform(const std::vector<double>& joint_values) const 
 {
-  btTransform variable_transform;
+  tf::Transform variable_transform;
   variable_transform.setIdentity();
   if(joint_values.size() != 3) {
     ROS_ERROR("Planar joint given too few values");
     return variable_transform;
   }
-  variable_transform.setOrigin(btVector3(joint_values[0],
+  variable_transform.setOrigin(tf::Vector3(joint_values[0],
                                          joint_values[1],
                                          0.0));
-  variable_transform.setRotation(btQuaternion(btVector3(0.0, 0.0, 1.0),
+  variable_transform.setRotation(tf::Quaternion(tf::Vector3(0.0, 0.0, 1.0),
                                               joint_values[2]));
   return variable_transform;
 }
 
-std::vector<double> planning_models::KinematicModel::PlanarJointModel::computeJointStateValues(const btTransform& transform) const 
+std::vector<double> planning_models::KinematicModel::PlanarJointModel::computeJointStateValues(const tf::Transform& transform) const 
 {
   std::vector<double> ret;
   ret.push_back(transform.getOrigin().x());
@@ -971,23 +971,23 @@ planning_models::KinematicModel::FloatingJointModel::FloatingJointModel(const st
   setVariableBounds(getEquiv("floating_rot_w"),-1.0,1.0);
 }
 
-btTransform planning_models::KinematicModel::FloatingJointModel::computeTransform(const std::vector<double>& joint_values) const 
+tf::Transform planning_models::KinematicModel::FloatingJointModel::computeTransform(const std::vector<double>& joint_values) const 
 {
-  btTransform variable_transform;
+  tf::Transform variable_transform;
   variable_transform.setIdentity();
   if(joint_values.size() != 7) {
     ROS_ERROR("Floating joint given too few values");
     return variable_transform;
   }
-  variable_transform.setOrigin(btVector3(joint_values[0], joint_values[1], joint_values[2]));
-  variable_transform.setRotation(btQuaternion(joint_values[3], joint_values[4], joint_values[5], joint_values[6]));
+  variable_transform.setOrigin(tf::Vector3(joint_values[0], joint_values[1], joint_values[2]));
+  variable_transform.setRotation(tf::Quaternion(joint_values[3], joint_values[4], joint_values[5], joint_values[6]));
   if(joint_values[3] == 0.0 && joint_values[4] == 0.0 && joint_values[5] == 0.0 && joint_values[6] == 0.0) {
     ROS_INFO("Setting quaternion with all zeros");
   }                  
   return variable_transform;
 }
 
-std::vector<double> planning_models::KinematicModel::FloatingJointModel::computeJointStateValues(const btTransform& transform) const 
+std::vector<double> planning_models::KinematicModel::FloatingJointModel::computeJointStateValues(const tf::Transform& transform) const 
 {
   std::vector<double> ret;
   ret.push_back(transform.getOrigin().x());
@@ -1021,9 +1021,9 @@ planning_models::KinematicModel::PrismaticJointModel::PrismaticJointModel(const 
   initialize(local_names, multi_dof_config);
 }
 
-btTransform planning_models::KinematicModel::PrismaticJointModel::computeTransform(const std::vector<double>& joint_values) const 
+tf::Transform planning_models::KinematicModel::PrismaticJointModel::computeTransform(const std::vector<double>& joint_values) const 
 {
-  btTransform variable_transform;
+  tf::Transform variable_transform;
   variable_transform.setIdentity();
   if(joint_values.size() != 1) {
     ROS_ERROR("Prismatic joint given wrong number of values");
@@ -1033,7 +1033,7 @@ btTransform planning_models::KinematicModel::PrismaticJointModel::computeTransfo
   return variable_transform;
 }
 
-std::vector<double> planning_models::KinematicModel::PrismaticJointModel::computeJointStateValues(const btTransform& transform) const
+std::vector<double> planning_models::KinematicModel::PrismaticJointModel::computeJointStateValues(const tf::Transform& transform) const
 {
   std::vector<double> ret;
   ret.push_back(transform.getOrigin().dot(axis_));
@@ -1050,9 +1050,9 @@ planning_models::KinematicModel::RevoluteJointModel::RevoluteJointModel(const st
   initialize(local_names, multi_dof_config);
 }
 
-btTransform planning_models::KinematicModel::RevoluteJointModel::computeTransform(const std::vector<double>& joint_values) const 
+tf::Transform planning_models::KinematicModel::RevoluteJointModel::computeTransform(const std::vector<double>& joint_values) const 
 {
-  btTransform variable_transform;
+  tf::Transform variable_transform;
   variable_transform.setIdentity();
   if(joint_values.size() != 1) {
     ROS_ERROR("Revolute joint given wrong number of values");
@@ -1062,11 +1062,11 @@ btTransform planning_models::KinematicModel::RevoluteJointModel::computeTransfor
   if(continuous_) {
     val = angles::normalize_angle(val);
   }
-  variable_transform.setRotation(btQuaternion(axis_,val));
+  variable_transform.setRotation(tf::Quaternion(axis_,val));
   return variable_transform;
 }
 
-std::vector<double> planning_models::KinematicModel::RevoluteJointModel::computeJointStateValues(const btTransform& transform) const
+std::vector<double> planning_models::KinematicModel::RevoluteJointModel::computeJointStateValues(const tf::Transform& transform) const
 {
   std::vector<double> ret;
   ROS_DEBUG_STREAM("Transform angle is " << transform.getRotation().getAngle() 
@@ -1189,7 +1189,7 @@ void planning_models::KinematicModel::LinkModel::addAttachedBodyModel(planning_m
 
 planning_models::KinematicModel::AttachedBodyModel::AttachedBodyModel(const LinkModel *link, 
                                                                       const std::string& nid,
-                                                                      const std::vector<btTransform>& attach_trans,
+                                                                      const std::vector<tf::Transform>& attach_trans,
                                                                       const std::vector<std::string>& touch_links,
                                                                       std::vector<shapes::Shape*>& shapes)
 

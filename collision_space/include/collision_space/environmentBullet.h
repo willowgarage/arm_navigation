@@ -84,16 +84,16 @@ namespace collision_space
 	virtual void addObject(const std::string &ns, shapes::StaticShape *shape);
 
 	/** \brief Add a collision object to the map. The user releases ownership of the passed object. Memory allocated for the shape is freed by the collision environment. */
-	virtual void addObject(const std::string &ns, shapes::Shape* shape, const btTransform &pose);
+	virtual void addObject(const std::string &ns, shapes::Shape* shape, const tf::Transform &pose);
 
 	/** \brief Add a set of collision objects to the map. The user releases ownership of the passed objects. Memory allocated for the shapes is freed by the collision environment. */
-	virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses);
+	virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<tf::Transform> &poses);
 
 	/** \brief Remove objects in the collision space that are collising with the object supplied as argument */
 	virtual void removeCollidingObjects(const shapes::StaticShape *shape);
 
 	/** \brief Remove objects in the collision space that are collising with the object supplied as argument */
-	virtual void removeCollidingObjects(const shapes::Shape *shape, const btTransform &pose);
+	virtual void removeCollidingObjects(const shapes::Shape *shape, const tf::Transform &pose);
 
       virtual const std::vector<const planning_models::KinematicModel::AttachedBodyModel*> getAttachedBodies(void) const;
 	

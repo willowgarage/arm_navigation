@@ -138,7 +138,7 @@ bool planning_environment::createConstraintRegionFromMsg(const arm_navigation_ms
   }
   else if(constraint_region_shape.type == arm_navigation_msgs::Shape::MESH)
   {
-    std::vector<btVector3> vertices;
+    std::vector<tf::Vector3> vertices;
     std::vector<unsigned int> triangles; 
     for(unsigned int i=0; i < constraint_region_shape.triangles.size(); i++)
     {
@@ -146,7 +146,7 @@ bool planning_environment::createConstraintRegionFromMsg(const arm_navigation_ms
     }
     for(unsigned int i=0; i < constraint_region_shape.triangles.size(); i++)
     {
-      btVector3 tmp;
+      tf::Vector3 tmp;
       tf::pointMsgToTF(constraint_region_shape.vertices[i],tmp);
       vertices.push_back(tmp);
     }
@@ -158,7 +158,7 @@ bool planning_environment::createConstraintRegionFromMsg(const arm_navigation_ms
     ROS_ERROR("Could not recognize constraint type");
     return false;
   }
-  btTransform pose_tf;
+  tf::Transform pose_tf;
   tf::poseMsgToTF(constraint_region_pose,pose_tf);
   body->setPose(pose_tf);
   return true;
@@ -171,7 +171,7 @@ bool planning_environment::PositionConstraintEvaluator::use(const arm_navigation
   m_x = m_pc.position.x;
   m_y = m_pc.position.y;
   m_z = m_pc.position.z;
-  m_offset= btVector3(m_pc.target_point_offset.x,m_pc.target_point_offset.y,m_pc.target_point_offset.z);
+  m_offset= tf::Vector3(m_pc.target_point_offset.x,m_pc.target_point_offset.y,m_pc.target_point_offset.z);
 
   geometry_msgs::Pose constraint_region_pose;
   constraint_region_pose.orientation = pc.constraint_region_orientation;
@@ -191,9 +191,9 @@ bool planning_environment::PositionConstraintEvaluator::use(const arm_navigation
 bool planning_environment::OrientationConstraintEvaluator::use(const arm_navigation_msgs::OrientationConstraint &oc)
 {
   m_oc   = oc;
-  btQuaternion q;
+  tf::Quaternion q;
   tf::quaternionMsgToTF(m_oc.orientation,q);
-  m_rotation_matrix = btMatrix3x3(q);
+  m_rotation_matrix = tf::Matrix3x3(q);
   geometry_msgs::Pose id;
   id.orientation.w = 1.0;
   ROS_DEBUG("Orientation constraint: %f %f %f %f",m_oc.orientation.x,m_oc.orientation.y,m_oc.orientation.z,m_oc.orientation.w);
@@ -244,20 +244,20 @@ bool planning_environment::OrientationConstraintEvaluator::decide(const planning
     ROS_WARN_STREAM("No link in state with name " << m_oc.link_name);
     return false;
   }
-  /*  btScalar yaw, pitch, roll;
+  /*  tfScalar yaw, pitch, roll;
       m_link->global_collision_body_transform.getBasis().getEulerYPR(yaw, pitch, roll);
-      btVector3 orientation(roll,pitch,yaw);
+      tf::Vector3 orientation(roll,pitch,yaw);
   */
-  btScalar yaw, pitch, roll;
+  tfScalar yaw, pitch, roll;
   if(m_oc.type == m_oc.HEADER_FRAME)
   {
-    btMatrix3x3 result = link_state->getGlobalLinkTransform().getBasis() *  m_rotation_matrix.inverse();
+    tf::Matrix3x3 result = link_state->getGlobalLinkTransform().getBasis() *  m_rotation_matrix.inverse();
     result.getRPY(roll, pitch, yaw);
     //    result.getEulerYPR(yaw, pitch, roll);
   }
   else
   {
-    btMatrix3x3 result = m_rotation_matrix.inverse() * link_state->getGlobalLinkTransform().getBasis();
+    tf::Matrix3x3 result = m_rotation_matrix.inverse() * link_state->getGlobalLinkTransform().getBasis();
     result.getRPY(roll, pitch, yaw);
   }
   if(fabs(roll) < m_oc.absolute_roll_tolerance &&
@@ -268,7 +268,7 @@ bool planning_environment::OrientationConstraintEvaluator::decide(const planning
   }
   else
   {
-    btQuaternion quat;
+    tf::Quaternion quat;
     link_state->getGlobalLinkTransform().getBasis().getRotation(quat);
     geometry_msgs::Quaternion quat_msg;
     tf::quaternionTFToMsg(quat,quat_msg);
@@ -317,15 +317,15 @@ void planning_environment::OrientationConstraintEvaluator::evaluate(const planni
   }
 
   distAng = 0.0;
-  btScalar yaw, pitch, roll;
+  tfScalar yaw, pitch, roll;
   if(m_oc.type == m_oc.HEADER_FRAME)
   {
-    btMatrix3x3 result = m_rotation_matrix.inverse() * link_state->getGlobalLinkTransform().getBasis();
+    tf::Matrix3x3 result = m_rotation_matrix.inverse() * link_state->getGlobalLinkTransform().getBasis();
     result.getEulerYPR(yaw, pitch, roll);
   }
   else
   {
-    btMatrix3x3 result = link_state->getGlobalLinkTransform().getBasis() *  m_rotation_matrix.inverse();
+    tf::Matrix3x3 result = link_state->getGlobalLinkTransform().getBasis() *  m_rotation_matrix.inverse();
     result.getRPY(roll, pitch, yaw);
   }
   distAng += fabs(yaw); 
@@ -514,14 +514,14 @@ bool planning_environment::VisibilityConstraintEvaluator::decide(const planning_
     return false;
   }
 
-  btTransform sensor_pose = link_state->getGlobalLinkTransform() * m_sensor_offset_pose;
+  tf::Transform sensor_pose = link_state->getGlobalLinkTransform() * m_sensor_offset_pose;
   double dx = m_vc.target.point.x - sensor_pose.getOrigin().x();
   double dy = m_vc.target.point.y - sensor_pose.getOrigin().y();
   double dz = m_vc.target.point.z - sensor_pose.getOrigin().z();
 
-  btVector3 x_axis(1,0,0);
-  btVector3 target_vector(dx,dy,dz);
-  btVector3 sensor_x_axis = sensor_pose.getBasis()*x_axis;
+  tf::Vector3 x_axis(1,0,0);
+  tf::Vector3 target_vector(dx,dy,dz);
+  tf::Vector3 sensor_x_axis = sensor_pose.getBasis()*x_axis;
 
   double angle = fabs(target_vector.angle(sensor_x_axis));
   if(angle < m_vc.absolute_tolerance)

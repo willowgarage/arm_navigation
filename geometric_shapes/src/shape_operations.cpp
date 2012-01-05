@@ -127,7 +127,7 @@ namespace detail
 {
 struct myVertex
 {
-  btVector3    point;
+  tf::Vector3    point;
   unsigned int index;
 };
 	
@@ -135,8 +135,8 @@ struct ltVertexValue
 {
   bool operator()(const myVertex &p1, const myVertex &p2) const
   {
-    const btVector3 &v1 = p1.point;
-    const btVector3 &v2 = p2.point;
+    const tf::Vector3 &v1 = p1.point;
+    const tf::Vector3 &v2 = p2.point;
     if (v1.getX() < v2.getX())
       return true;
     if (v1.getX() > v2.getX())
@@ -161,7 +161,7 @@ struct ltVertexIndex
 
 }
     
-shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, const std::vector<unsigned int> &triangles)
+shapes::Mesh* createMeshFromVertices(const std::vector<tf::Vector3> &vertices, const std::vector<unsigned int> &triangles)
 {
   unsigned int nt = triangles.size() / 3;
   shapes::Mesh *mesh = new shapes::Mesh(vertices.size(), nt);
@@ -177,9 +177,9 @@ shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, con
   // compute normals 
   for (unsigned int i = 0 ; i < nt ; ++i)
   {
-    btVector3 s1 = vertices[triangles[i * 3    ]] - vertices[triangles[i * 3 + 1]];
-    btVector3 s2 = vertices[triangles[i * 3 + 1]] - vertices[triangles[i * 3 + 2]];
-    btVector3 normal = s1.cross(s2);
+    tf::Vector3 s1 = vertices[triangles[i * 3    ]] - vertices[triangles[i * 3 + 1]];
+    tf::Vector3 s2 = vertices[triangles[i * 3 + 1]] - vertices[triangles[i * 3 + 2]];
+    tf::Vector3 normal = s1.cross(s2);
     normal.normalize();
     mesh->normals[3 * i    ] = normal.getX();
     mesh->normals[3 * i + 1] = normal.getY();
@@ -188,7 +188,7 @@ shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &vertices, con
   return mesh;
 }
     
-shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &source)
+shapes::Mesh* createMeshFromVertices(const std::vector<tf::Vector3> &source)
 {
   if (source.size() < 3)
     return NULL;
@@ -257,9 +257,9 @@ shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &source)
   // compute normals 
   for (unsigned int i = 0 ; i < nt ; ++i)
   {
-    btVector3 s1 = vt[triangles[i * 3    ]].point - vt[triangles[i * 3 + 1]].point;
-    btVector3 s2 = vt[triangles[i * 3 + 1]].point - vt[triangles[i * 3 + 2]].point;
-    btVector3 normal = s1.cross(s2);
+    tf::Vector3 s1 = vt[triangles[i * 3    ]].point - vt[triangles[i * 3 + 1]].point;
+    tf::Vector3 s2 = vt[triangles[i * 3 + 1]].point - vt[triangles[i * 3 + 2]].point;
+    tf::Vector3 normal = s1.cross(s2);
     normal.normalize();
     mesh->normals[3 * i    ] = normal.getX();
     mesh->normals[3 * i + 1] = normal.getY();
@@ -269,7 +269,7 @@ shapes::Mesh* createMeshFromVertices(const std::vector<btVector3> &source)
   return mesh;
 }
 
-shapes::Mesh* createMeshFromFilename(const std::string& filename, const btVector3* scale) {
+shapes::Mesh* createMeshFromFilename(const std::string& filename, const tf::Vector3* scale) {
   resource_retriever::Retriever retriever;
   resource_retriever::MemoryResource res;
   try {
@@ -337,14 +337,14 @@ shapes::Mesh* createMeshFromFilename(const std::string& filename, const btVector
     return NULL;
   }
   aiMatrix4x4 transform = node->mTransformation;
-  btVector3 ts(1.0, 1.0, 1.0);
+  tf::Vector3 ts(1.0, 1.0, 1.0);
   if(scale != NULL) {
     ts = (*scale);
   }
   return(shapes::createMeshFromAsset(scene->mMeshes[node->mMeshes[0]], transform, ts));
 }
 
-shapes::Mesh* createMeshFromAsset(const aiMesh* a, const aiMatrix4x4& transform, const btVector3& scale)
+shapes::Mesh* createMeshFromAsset(const aiMesh* a, const aiMatrix4x4& transform, const tf::Vector3& scale)
 {
   if (!a->HasFaces())
   {
@@ -406,9 +406,9 @@ shapes::Mesh* createMeshFromAsset(const aiMesh* a, const aiMatrix4x4& transform,
     f3.z *= scale.z();          
     aiVector3D as1 = f1-f2;
     aiVector3D as2 = f2-f3;
-    btVector3   s1(as1.x, as1.y, as1.z);
-    btVector3   s2(as2.x, as2.y, as2.z);
-    btVector3 normal = s1.cross(s2);
+    tf::Vector3   s1(as1.x, as1.y, as1.z);
+    tf::Vector3   s2(as2.x, as2.y, as2.z);
+    tf::Vector3 normal = s1.cross(s2);
     normal.normalize();
     mesh->normals[3 * i    ] = normal.getX();
     mesh->normals[3 * i + 1] = normal.getY();

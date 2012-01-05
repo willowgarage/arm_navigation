@@ -83,12 +83,12 @@ public:
   virtual void addObject(const std::string &ns, shapes::StaticShape *shape);
 
   /** \brief Add a collision object to the map. The user releases ownership of the passed object. Memory allocated for the shape is freed by the collision environment. */
-  virtual void addObject(const std::string &ns, shapes::Shape* shape, const btTransform &pose);
+  virtual void addObject(const std::string &ns, shapes::Shape* shape, const tf::Transform &pose);
 
   /** \brief Add a set of collision objects to the map. The user releases ownership of the passed objects. Memory allocated for the shapes is freed by the collision environment. */
-  virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<btTransform> &poses);
+  virtual void addObjects(const std::string &ns, const std::vector<shapes::Shape*> &shapes, const std::vector<tf::Transform> &poses);
 
-  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<btTransform> >& pose_map) const;
+  virtual void getAttachedBodyPoses(std::map<std::string, std::vector<tf::Transform> >& pose_map) const;
 
   /** \brief Add a robot model. Ignore robot links if their name is not
       specified in the string vector. The scale argument can be
@@ -424,7 +424,7 @@ protected:
   void createODERobotModel();	
   dGeomID createODEGeom(dSpaceID space, ODEStorage &storage, const shapes::Shape *shape, double scale, double padding);
   dGeomID createODEGeom(dSpaceID space, ODEStorage &storage, const shapes::StaticShape *shape);
-  void updateGeom(dGeomID geom, const btTransform &pose) const;	
+  void updateGeom(dGeomID geom, const tf::Transform &pose) const;	
 
   void addAttachedBody(LinkGeom* lg, const planning_models::KinematicModel::AttachedBodyModel* attm,
                        double padd);

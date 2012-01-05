@@ -67,15 +67,15 @@ public:
       return false;
     }
 
-    btVector3 robot_visual_position = link_state->getGlobalLinkTransform().getOrigin();
-    btQuaternion robot_visual_orientation = link_state->getGlobalLinkTransform().getRotation();
+    tf::Vector3 robot_visual_position = link_state->getGlobalLinkTransform().getOrigin();
+    tf::Quaternion robot_visual_orientation = link_state->getGlobalLinkTransform().getRotation();
     visual_position = Ogre::Vector3( robot_visual_position.getX(), robot_visual_position.getY(), robot_visual_position.getZ() );
     visual_orientation = Ogre::Quaternion( robot_visual_orientation.getW(), robot_visual_orientation.getX(), robot_visual_orientation.getY(), robot_visual_orientation.getZ() );
     rviz::robotToOgre( visual_position );
     rviz::robotToOgre( visual_orientation );
 
-    btVector3 robot_collision_position = link_state->getGlobalLinkTransform().getOrigin();
-    btQuaternion robot_collision_orientation = link_state->getGlobalLinkTransform().getRotation();
+    tf::Vector3 robot_collision_position = link_state->getGlobalLinkTransform().getOrigin();
+    tf::Quaternion robot_collision_orientation = link_state->getGlobalLinkTransform().getRotation();
     collision_position = Ogre::Vector3( robot_collision_position.getX(), robot_collision_position.getY(), robot_collision_position.getZ() );
     collision_orientation = Ogre::Quaternion( robot_collision_orientation.getW(), robot_collision_orientation.getX(), robot_collision_orientation.getY(), robot_collision_orientation.getZ() );
     rviz::robotToOgre( collision_position );
@@ -394,7 +394,7 @@ void PlanningDisplay::calculateRobotPosition()
     return;
   }
 
-  tf::Stamped<tf::Pose> pose(btTransform(btQuaternion(0, 0, 0), btVector3(0, 0, 0)), displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp,
+  tf::Stamped<tf::Pose> pose(tf::Transform(tf::Quaternion(0, 0, 0), tf::Vector3(0, 0, 0)), displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp,
                              displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id);
 
   if (vis_manager_->getTFClient()->canTransform(target_frame_, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp))
@@ -412,7 +412,7 @@ void PlanningDisplay::calculateRobotPosition()
   Ogre::Vector3 position(pose.getOrigin().x(), pose.getOrigin().y(), pose.getOrigin().z());
   rviz::robotToOgre(position);
 
-  btScalar yaw, pitch, roll;
+  tfScalar yaw, pitch, roll;
   pose.getBasis().getEulerYPR(yaw, pitch, roll);
   Ogre::Matrix3 orientation;
   orientation.FromEulerAnglesYXZ(Ogre::Radian(yaw), Ogre::Radian(pitch), Ogre::Radian(roll));
