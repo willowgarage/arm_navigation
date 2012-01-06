@@ -1964,9 +1964,9 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
         continue;
       }
       mark.type = mark.MESH_RESOURCE;
-      mark.scale.x = scale;
-      mark.scale.y = scale;
-      mark.scale.z = scale;
+      mark.scale.x = mesh->scale.x*scale;
+      mark.scale.y = mesh->scale.y*scale;
+      mark.scale.z = mesh->scale.z*scale;
       mark.mesh_resource = mesh->filename;
     }
     else if(box)
