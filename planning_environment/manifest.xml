@@ -29,7 +29,7 @@
   <depend package="rviz" />
   <depend package="common_rosdeps"/>
 
-  <rosdep name="assimp" />
+  <rosdep name="eigen" />
   <rosdep name="yaml-cpp"/>
   <rosdep name="qt4" />
   <rosdep name="tinyxml" />

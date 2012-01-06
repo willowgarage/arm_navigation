@@ -8,16 +8,17 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
 
-set(ROS_BUILD_TYPE Release)
-
-rosbuild_init()
-
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package(Eigen REQUIRED)
 include_directories(${EIGEN_INCLUDE_DIRS})
 
+set(ROS_BUILD_TYPE Release)
+
+rosbuild_init()
+
 rosbuild_add_library(robot_self_filter src/self_mask.cpp)
-rosbuild_add_openmp_flags(robot_self_filter assimp)
+rosbuild_add_openmp_flags(robot_self_filter)
+target_link_libraries(robot_self_filter assimp)
 
 rosbuild_add_executable (test_filter src/test_filter.cpp)
 rosbuild_add_openmp_flags (test_filter)

@@ -41,6 +41,7 @@
 #include <ctype.h>
 #include <ros/package.h>
 #include <collision_space/environmentODE.h>
+#include <boost/thread.hpp>
 
 //urdf location relative to the planning_models path
 static const std::string rel_path = "/test_urdf/robot.xml";
