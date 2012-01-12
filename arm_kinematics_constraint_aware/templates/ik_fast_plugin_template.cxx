@@ -298,8 +298,9 @@ public:
                         int &error_code) {
 
     if(free_params_.size()==0){
+      //TODO - how to check consistency when there are no free params?
+      return getPositionIK(ik_pose, ik_seed_state,solution, error_code);
       ROS_WARN_STREAM("No free parameters, so can't search");
-      return false;
     }
 
     if(redundancy != (unsigned int)free_params_[0]) {
@@ -396,14 +397,21 @@ public:
                         int &error_code){
 
     if(free_params_.size()==0){
-      ROS_WARN_STREAM("No free parameters, so can't search");
-      return false;
+      if(!getPositionIK(ik_pose, ik_seed_state,solution, error_code)) {
+        ROS_DEBUG_STREAM("No solution whatsoever");
+        error_code = kinematics::NO_IK_SOLUTION; 
+        return false;
+      } 
+      solution_callback(ik_pose,solution,error_code);
+      if(error_code == kinematics::SUCCESS) {
+        ROS_DEBUG_STREAM("Solution passes");
+        return true;
+      } else {
+        ROS_DEBUG_STREAM("Solution has error code " << error_code);
+        return false;
+      }
     }
 
-    if(free_params_.size()==0){ // TODO: not closest, but valid solution!
-      return getPositionIK(ik_pose, ik_seed_state,solution, error_code);
-    }
-	
     if(!desired_pose_callback.empty())
       desired_pose_callback(ik_pose,ik_seed_state,error_code);
     if(error_code < 0)
@@ -494,8 +502,19 @@ public:
                         int &error_code){
 
     if(free_params_.size()==0){
-      ROS_WARN_STREAM("No free parameters, so can't search");
-      return false;
+      if(!getPositionIK(ik_pose, ik_seed_state,solution, error_code)) {
+        ROS_DEBUG_STREAM("No solution whatsoever");
+        error_code = kinematics::NO_IK_SOLUTION; 
+        return false;
+      } 
+      solution_callback(ik_pose,solution,error_code);
+      if(error_code == kinematics::SUCCESS) {
+        ROS_DEBUG_STREAM("Solution passes");
+        return true;
+      } else {
+        ROS_DEBUG_STREAM("Solution has error code " << error_code);
+        return false;
+      }
     }
 
     if(redundancy != (unsigned int) free_params_[0]) {
