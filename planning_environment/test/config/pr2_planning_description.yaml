@@ -300,6 +300,9 @@ default_collision_operations:
     object2: torso_lift_motor_screw_link
     operation: disable  # Adjacent in collision
   - object1: double_stereo_link
+    object2: head_pan_link
+    operation: disable  # Always in collision
+  - object1: double_stereo_link
     object2: head_plate_frame
     operation: disable  # Always in collision
   - object1: double_stereo_link
@@ -310,12 +313,6 @@ default_collision_operations:
     operation: disable  # Always in collision
   - object1: head_pan_link
     object2: sensor_mount_link
-    operation: disable  # Always in collision
-  - object1: head_tilt_link
-    object2: high_def_frame
-    operation: disable  # Always in collision
-  - object1: head_tilt_link
-    object2: projector_wg6802418_frame
     operation: disable  # Always in collision
   - object1: head_tilt_link
     object2: sensor_mount_link
