@@ -77,9 +77,11 @@ typedef collision_render_ops::CollisionRenderOp CollisionRenderOp;
 class CollisionMapDisplay : public rviz::Display
 {
 public:
-  CollisionMapDisplay(const std::string& name, rviz::VisualizationManager* manager);
+  CollisionMapDisplay();
 
   virtual ~CollisionMapDisplay();
+
+  virtual void onInitialize();
 
   void setTopic(const std::string& topic);
   const std::string& getTopic()
@@ -143,12 +145,11 @@ protected:
   float alpha_;
 
   Ogre::SceneNode* scene_node_;
-  Ogre::ManualObject* manual_object_;
   ogre_tools::PointCloud* cloud_;
 
   arm_navigation_msgs::CollisionMap::ConstPtr current_message_;
   message_filters::Subscriber<arm_navigation_msgs::CollisionMap> sub_;
-  tf::MessageFilter<arm_navigation_msgs::CollisionMap> tf_filter_;
+  tf::MessageFilter<arm_navigation_msgs::CollisionMap>* tf_filter_;
 
   rviz::ColorPropertyWPtr color_property_;
   rviz::ROSTopicStringPropertyWPtr topic_property_;

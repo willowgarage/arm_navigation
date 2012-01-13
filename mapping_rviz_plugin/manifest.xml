@@ -14,7 +14,7 @@
   <depend package="tf"/>
   
   <export>
-    <rviz plugin="${prefix}/lib/rviz_plugin.yaml"/>
+    <rviz plugin="${prefix}/plugin_description.xml"/>
   </export>
 
   <platform os="ubuntu" version="9.04"/>

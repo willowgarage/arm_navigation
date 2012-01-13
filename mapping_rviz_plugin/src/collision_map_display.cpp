@@ -33,7 +33,7 @@
 #include "rviz/visualization_manager.h"
 #include "rviz/properties/property.h"
 #include "rviz/properties/property_manager.h"
-#include "rviz/common.h"
+#include "rviz/frame_manager.h"
 
 #include <tf/transform_listener.h>
 
@@ -41,7 +41,6 @@
 
 #include <OGRE/OgreSceneNode.h>
 #include <OGRE/OgreSceneManager.h>
-#include <OGRE/OgreManualObject.h>
 #include <OGRE/OgreBillboardSet.h>
 
 #include <ogre_tools/point_cloud.h>
@@ -49,29 +48,32 @@
 namespace mapping_rviz_plugin
 {
 
-CollisionMapDisplay::CollisionMapDisplay(const std::string & name, rviz::VisualizationManager * manager)
-: Display(name, manager)
-, color_(0.1f, 1.0f, 0.0f)
-, render_operation_(collision_render_ops::CBoxes)
-, override_color_(false)
-, tf_filter_(*manager->getTFClient(), "", 2, update_nh_)
+CollisionMapDisplay::CollisionMapDisplay()
+  : Display()
+  , color_(0.1f, 1.0f, 0.0f)
+  , render_operation_(collision_render_ops::CBoxes)
+  , override_color_(false)
+  , tf_filter_(NULL)
 {
+
+}
+
+void CollisionMapDisplay::onInitialize() 
+{
+  tf_filter_ = new tf::MessageFilter<arm_navigation_msgs::CollisionMap>(*vis_manager_->getTFClient(), "", 2, update_nh_);
+
   scene_node_ = scene_manager_->getRootSceneNode()->createChildSceneNode();
 
   static int count = 0;
   std::stringstream ss;
   ss << "Collision Map" << count++;
-  manual_object_ = scene_manager_->createManualObject(ss.str());
-  manual_object_->setDynamic(true);
-  scene_node_->attachObject(manual_object_);
 
   cloud_ = new ogre_tools::PointCloud();
   setAlpha(1.0f);
-  setPointSize(0.05f);
   scene_node_->attachObject(cloud_);
 
-  tf_filter_.connectInput(sub_);
-  tf_filter_.registerCallback(boost::bind(&CollisionMapDisplay::incomingMessage, this, _1));
+  tf_filter_->connectInput(sub_);
+  tf_filter_->registerCallback(boost::bind(&CollisionMapDisplay::incomingMessage, this, _1));
 }
 
 CollisionMapDisplay::~CollisionMapDisplay()
@@ -79,14 +81,12 @@ CollisionMapDisplay::~CollisionMapDisplay()
   unsubscribe();
   clear();
 
-  scene_manager_->destroyManualObject(manual_object_);
-
+  delete tf_filter_;
   delete cloud_;
 }
 
 void CollisionMapDisplay::clear()
 {
-  manual_object_->clear();
   cloud_->clear();
 }
 
@@ -123,6 +123,12 @@ void CollisionMapDisplay::setOverrideColor(bool override)
 void CollisionMapDisplay::setRenderOperation(int op)
 {
   render_operation_ = op;
+
+  if(op == collision_render_ops::CPoints) {
+    cloud_->setRenderMode(ogre_tools::PointCloud::RM_BILLBOARD_SPHERES);
+  } else {
+    cloud_->setRenderMode(ogre_tools::PointCloud::RM_BOXES);
+  }
 
   propertyChanged(render_operation_property_);
 
@@ -182,7 +188,7 @@ void CollisionMapDisplay::onDisable()
 
 void CollisionMapDisplay::fixedFrameChanged()
 {
-  tf_filter_.setTargetFrame(fixed_frame_);
+  tf_filter_->setTargetFrame(fixed_frame_);
   clear();
 }
 
@@ -199,111 +205,48 @@ void CollisionMapDisplay::processMessage(const arm_navigation_msgs::CollisionMap
     return;
   }
 
-  tf::Stamped<tf::Pose> pose(tf::Transform(tf::Quaternion(0.0f, 0.0f, 0.0f),
-      tf::Vector3(0.0f, 0.0f, 0.0f)), msg->header.stamp,
-      msg->header.frame_id);
+  if(msg->boxes.size() == 0) return;
 
-  try
+  Ogre::Vector3 position;
+  Ogre::Quaternion orientation;
+  if (!vis_manager_->getFrameManager()->getTransform(msg->header, position, orientation))
   {
-    vis_manager_->getTFClient()->transformPose(fixed_frame_, pose, pose);
-  }
-  catch (tf::TransformException & e)
-  {
-    ROS_ERROR("Error transforming from frame 'map' to frame '%s'",
-        fixed_frame_.c_str());
+    ROS_DEBUG( "Error transforming from frame '%s' to frame '%s'", msg->header.frame_id.c_str(), fixed_frame_.c_str() );
   }
 
-  Ogre::Vector3 position = Ogre::Vector3(pose.getOrigin().x(),
-      pose.getOrigin().y(), pose.getOrigin().z());
-  rviz::robotToOgre(position);
-
-  tfScalar yaw, pitch, roll;
-  pose.getBasis().getEulerZYX(yaw, pitch, roll);
-
-  Ogre::Matrix3 orientation(rviz::ogreMatrixFromRobotEulers(yaw, pitch, roll));
-
-  manual_object_->clear();
+  scene_node_->setPosition( position );
+  scene_node_->setOrientation( orientation );
 
   Ogre::ColourValue color;
 
-  uint32_t num_boxes = msg->get_boxes_size();
-  ROS_DEBUG("Collision map contains %d boxes.", num_boxes);
+  unsigned int num_boxes = msg->boxes.size();
+  ROS_DEBUG("Collision map contains %d boxes.", num_boxes); 
 
-  // If we render points, we don't care about the order
-  if (render_operation_ == collision_render_ops::CPoints)
+  typedef std::vector<ogre_tools::PointCloud::Point> V_Point;
+  V_Point points;
+  points.resize(num_boxes);
+  //use first box extents
+
+  cloud_->setDimensions(msg->boxes[0].extents.x,
+                        msg->boxes[0].extents.y,
+                        msg->boxes[0].extents.z);
+  for (uint32_t i = 0; i < num_boxes; i++)
   {
-    typedef std::vector<ogre_tools::PointCloud::Point> V_Point;
-    V_Point points;
-    if (num_boxes > 0)
-    {
-      points.resize(num_boxes);
-      for (uint32_t i = 0; i < num_boxes; i++)
-      {
-        ogre_tools::PointCloud::Point & current_point = points[i];
-
-        current_point.x = msg->boxes[i].center.x;
-        current_point.y = msg->boxes[i].center.y;
-        current_point.z = msg->boxes[i].center.z;
-        color = Ogre::ColourValue(color_.r_, color_.g_, color_.b_, alpha_);
-        current_point.setColor(color.r, color.g, color.b);
-      }
-    }
-    cloud_->clear();
-
-    if (!points.empty())
-    {
-      cloud_->addPoints(&points.front(), points.size());
-    }
-  }
-  else
-  {
-    geometry_msgs::Point32 center, extents;
+    ogre_tools::PointCloud::Point & current_point = points[i];
+    
+    current_point.x = msg->boxes[i].center.x;
+    current_point.y = msg->boxes[i].center.y;
+    current_point.z = msg->boxes[i].center.z;
+    
     color = Ogre::ColourValue(color_.r_, color_.g_, color_.b_, alpha_);
-    if (num_boxes > 0)
-    {
-      for (uint32_t i = 0; i < num_boxes; i++)
-      {
-        manual_object_->estimateVertexCount(8);
-        manual_object_->begin("BaseWhiteNoLighting",
-            Ogre::RenderOperation::OT_LINE_STRIP);
-        center.x = msg->boxes[i].center.x;
-        center.y = msg->boxes[i].center.y;
-        center.z = msg->boxes[i].center.z;
-        extents.x = msg->boxes[i].extents.x;
-        extents.y = msg->boxes[i].extents.y;
-        extents.z = msg->boxes[i].extents.z;
-
-        manual_object_->position(center.x - extents.x, center.y - extents.y,
-            center.z - extents.z);
-        manual_object_->colour(color);
-        manual_object_->position(center.x - extents.x, center.y + extents.y,
-            center.z - extents.z);
-        manual_object_->colour(color);
-        manual_object_->position(center.x + extents.x, center.y + extents.y,
-            center.z - extents.z);
-        manual_object_->colour(color);
-        manual_object_->position(center.x + extents.x, center.y - extents.y,
-            center.z - extents.z);
-        manual_object_->colour(color);
-        manual_object_->position(center.x + extents.x, center.y - extents.y,
-            center.z + extents.z);
-        manual_object_->colour(color);
-        manual_object_->position(center.x + extents.x, center.y + extents.y,
-            center.z + extents.z);
-        manual_object_->colour(color);
-        manual_object_->position(center.x - extents.x, center.y + extents.y,
-            center.z + extents.z);
-        manual_object_->colour(color);
-        manual_object_->position(center.x - extents.x, center.y - extents.y,
-            center.z + extents.z);
-        manual_object_->colour(color);
-        manual_object_->end();
-      }
-    }
+    current_point.setColor(color.r, color.g, color.b);
   }
-
-  scene_node_->setPosition(position);
-  scene_node_->setOrientation(orientation);
+  cloud_->clear();
+  
+  if (!points.empty())
+  {
+    cloud_->addPoints(&points.front(), points.size());
+  }
 }
 
 void CollisionMapDisplay::incomingMessage(const arm_navigation_msgs::CollisionMap::ConstPtr& message)
@@ -341,7 +284,7 @@ void CollisionMapDisplay::createProperties()
   topic_property_ = property_manager_->createProperty<rviz::ROSTopicStringProperty> ("Topic", property_prefix_, boost::bind(&CollisionMapDisplay::getTopic, this),
                                                                                boost::bind(&CollisionMapDisplay::setTopic, this, _1), parent_category_, this);
   rviz::ROSTopicStringPropertyPtr topic_prop = topic_property_.lock();
-  topic_prop->setMessageType(arm_navigation_msgs::CollisionMap::__s_getDataType());
+  topic_prop->setMessageType(ros::message_traits::datatype<arm_navigation_msgs::CollisionMap>());
 }
 
 } // namespace mapping_rviz_plugin
