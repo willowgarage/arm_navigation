@@ -27,13 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "rviz/plugin/type_registry.h"
+#include <pluginlib/class_list_macros.h>
 
 #include "collision_map_display.h"
 
-using namespace mapping_rviz_plugin;
-
-extern "C" void rvizPluginInit(rviz::TypeRegistry* reg)
-{
-  reg->registerDisplay<CollisionMapDisplay>("mapping_rviz_plugin::CollisionMapDisplay");
-}
+PLUGINLIB_DECLARE_CLASS( mapping_rviz_plugin, CollisionMap, mapping_rviz_plugin::CollisionMapDisplay, rviz::Display )

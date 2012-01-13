@@ -29,6 +29,7 @@ rosbuild_add_library(planning_environment src/models/robot_models.cpp
 
 rosbuild_add_openmp_flags(planning_environment)
 rosbuild_link_boost(planning_environment thread)
+target_link_libraries(planning_environment yaml-cpp)
 
 rosbuild_add_executable(environment_server src/monitors/environment_server.cpp)
 rosbuild_link_boost(environment_server thread)

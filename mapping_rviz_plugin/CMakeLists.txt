@@ -13,28 +13,30 @@ include($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
 
 rosbuild_init()
 
+find_package(Qt4 COMPONENTS QtCore QtGui QtOpenGL REQUIRED)
+include(${QT_USE_FILE})
+
+add_definitions(-DQT_NO_KEYWORDS)
+
+qt4_wrap_cpp(MOC_FILES
+)
+
+set(SOURCE_FILES
+  src/collision_map_display.cpp
+  src/init.cpp
+  ${MOC_FILES}
+)
+
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-set(SOURCE_FILES src/collision_map_display.cpp
-                                    src/init.cpp)
-
-include(CMakeDetermineSystem)
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  rosbuild_add_library(${PROJECT_NAME} MODULE ${SOURCE_FILES})
-else(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  rosbuild_add_library(${PROJECT_NAME} ${SOURCE_FILES})
-endif(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-                                    
-find_package(wxWidgets REQUIRED)
-include(${wxWidgets_USE_FILE})
-include_directories( ${wxWidgets_INCLUDE_DIRS} )
-
 pkg_check_modules(OGRE OGRE)
 include_directories( ${OGRE_INCLUDE_DIRS} )
 link_directories( ${OGRE_LIBRARY_DIRS} )
+
+rosbuild_add_library(${PROJECT_NAME} ${SOURCE_FILES})
                                     
-target_link_libraries(${PROJECT_NAME} ${wxWidgets_LIBRARIES} ${OGRE_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${OGRE_LIBRARIES})
 rosbuild_link_boost(${PROJECT_NAME} thread)
