@@ -71,8 +71,10 @@ namespace motion_planning_rviz_plugin
 class PlanningDisplay : public rviz::Display
 {
 public:
-  PlanningDisplay( const std::string& name, rviz::VisualizationManager* manager );
+  PlanningDisplay();
   virtual ~PlanningDisplay();
+
+  virtual void onInitialize();
 
   /**
    * \brief Initializes the display.

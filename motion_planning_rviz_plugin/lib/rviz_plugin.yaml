@@ -1,8 +1,0 @@
-name: Motion Planning
-library: motion_planning_rviz_plugin
-displays:
-  - 
-    class_name: motion_planning_rviz_plugin::PlanningDisplay
-    display_name: Planning
-    description: |
-      Animates a robot along a planned path given by a motion_planning_msgs::KinematicPath message.

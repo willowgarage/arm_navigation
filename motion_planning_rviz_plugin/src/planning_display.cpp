@@ -28,7 +28,6 @@
  */
 
 #include "planning_display.h"
-#include "rviz/common.h"
 #include "rviz/visualization_manager.h"
 #include "rviz/robot/robot.h"
 #include "rviz/robot/link_updater.h"
@@ -71,15 +70,11 @@ public:
     tf::Quaternion robot_visual_orientation = link_state->getGlobalLinkTransform().getRotation();
     visual_position = Ogre::Vector3( robot_visual_position.getX(), robot_visual_position.getY(), robot_visual_position.getZ() );
     visual_orientation = Ogre::Quaternion( robot_visual_orientation.getW(), robot_visual_orientation.getX(), robot_visual_orientation.getY(), robot_visual_orientation.getZ() );
-    rviz::robotToOgre( visual_position );
-    rviz::robotToOgre( visual_orientation );
 
     tf::Vector3 robot_collision_position = link_state->getGlobalLinkTransform().getOrigin();
     tf::Quaternion robot_collision_orientation = link_state->getGlobalLinkTransform().getRotation();
     collision_position = Ogre::Vector3( robot_collision_position.getX(), robot_collision_position.getY(), robot_collision_position.getZ() );
     collision_orientation = Ogre::Quaternion( robot_collision_orientation.getW(), robot_collision_orientation.getX(), robot_collision_orientation.getY(), robot_collision_orientation.getZ() );
-    rviz::robotToOgre( collision_position );
-    rviz::robotToOgre( collision_orientation );
 
     return true;
   }
@@ -88,8 +83,16 @@ private:
   const planning_models::KinematicState* kinematic_state_;
 };
 
-PlanningDisplay::PlanningDisplay(const std::string& name, rviz::VisualizationManager* manager) :
-  Display(name, manager), env_models_(NULL), new_kinematic_path_(false), animating_path_(false), state_display_time_(0.05f)
+PlanningDisplay::PlanningDisplay():
+  Display(), 
+  env_models_(NULL), 
+  new_kinematic_path_(false), 
+  animating_path_(false), 
+  state_display_time_(0.05f)
+{
+}
+
+void PlanningDisplay::onInitialize()
 {
   robot_ = new rviz::Robot(vis_manager_, "Planning Robot " + name_);
 
@@ -99,6 +102,7 @@ PlanningDisplay::PlanningDisplay(const std::string& name, rviz::VisualizationMan
   setLoopDisplay(false);
   setAlpha(0.6f);
 }
+
 
 PlanningDisplay::~PlanningDisplay()
 {
@@ -394,7 +398,7 @@ void PlanningDisplay::calculateRobotPosition()
     return;
   }
 
-  tf::Stamped<tf::Pose> pose(tf::Transform(tf::Quaternion(0, 0, 0), tf::Vector3(0, 0, 0)), displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp,
+  tf::Stamped<tf::Pose> pose(tf::Transform(tf::Quaternion(0, 0, 0, 1.0), tf::Vector3(0, 0, 0)), displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp,
                              displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id);
 
   if (vis_manager_->getTFClient()->canTransform(target_frame_, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp))
@@ -410,9 +414,8 @@ void PlanningDisplay::calculateRobotPosition()
   }
 
   Ogre::Vector3 position(pose.getOrigin().x(), pose.getOrigin().y(), pose.getOrigin().z());
-  rviz::robotToOgre(position);
 
-  tfScalar yaw, pitch, roll;
+  double yaw, pitch, roll;
   pose.getBasis().getEulerYPR(yaw, pitch, roll);
   Ogre::Matrix3 orientation;
   orientation.FromEulerAnglesYXZ(Ogre::Radian(yaw), Ogre::Radian(pitch), Ogre::Radian(roll));
@@ -460,7 +463,7 @@ void PlanningDisplay::createProperties()
   topic_property_ = property_manager_->createProperty<rviz::ROSTopicStringProperty> ("Topic", property_prefix_, boost::bind(&PlanningDisplay::getTopic, this),
                                                                                boost::bind(&PlanningDisplay::setTopic, this, _1), parent_category_, this);
   rviz::ROSTopicStringPropertyPtr topic_prop = topic_property_.lock();
-  topic_prop->setMessageType(arm_navigation_msgs::DisplayTrajectory::__s_getDataType());
+  topic_prop->setMessageType(ros::message_traits::datatype<arm_navigation_msgs::DisplayTrajectory>());
 
   robot_->setPropertyManager(property_manager_, parent_category_);
 }

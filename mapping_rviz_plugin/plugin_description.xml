@@ -1,0 +1,7 @@
+<library path="lib/libmapping_rviz_plugin">
+  <class name="mapping_rviz_plugin/CollisionMap" type="mapping_rviz_plugin::CollisionMapDisplay" base_class_type="rviz::Display">
+    <description>
+      Displays data from a mapping_msgs::CollisionMap message as either points or lines.
+    </description>
+  </class>
+</library>
