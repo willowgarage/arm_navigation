@@ -401,15 +401,15 @@ void PlanningDisplay::calculateRobotPosition()
   tf::Stamped<tf::Pose> pose(tf::Transform(tf::Quaternion(0, 0, 0, 1.0), tf::Vector3(0, 0, 0)), displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp,
                              displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id);
 
-  if (vis_manager_->getTFClient()->canTransform(target_frame_, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp))
+  if (vis_manager_->getTFClient()->canTransform(fixed_frame_, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp))
   {
     try
     {
-      vis_manager_->getTFClient()->transformPose(target_frame_, pose, pose);
+      vis_manager_->getTFClient()->transformPose(fixed_frame_, pose, pose);
     }
     catch (tf::TransformException& e)
     {
-      ROS_ERROR( "Error transforming from frame '%s' to frame '%s'", pose.frame_id_.c_str(), target_frame_.c_str() );
+      ROS_ERROR( "Error transforming from frame '%s' to frame '%s'", pose.frame_id_.c_str(), fixed_frame_.c_str() );
     }
   }
 
@@ -430,7 +430,7 @@ void PlanningDisplay::incomingJointPath(const arm_navigation_msgs::DisplayTrajec
   new_kinematic_path_ = true;
 }
 
-void PlanningDisplay::targetFrameChanged()
+void PlanningDisplay::fixedFrameChanged()
 {
   calculateRobotPosition();
 }
