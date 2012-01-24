@@ -43,7 +43,7 @@
 #include <OGRE/OgreSceneManager.h>
 #include <OGRE/OgreBillboardSet.h>
 
-#include <ogre_tools/point_cloud.h>
+#include <rviz/ogre_helpers/point_cloud.h>
 
 namespace mapping_rviz_plugin
 {
@@ -68,7 +68,7 @@ void CollisionMapDisplay::onInitialize()
   std::stringstream ss;
   ss << "Collision Map" << count++;
 
-  cloud_ = new ogre_tools::PointCloud();
+  cloud_ = new rviz::PointCloud();
   setAlpha(1.0f);
   scene_node_->attachObject(cloud_);
 
@@ -125,9 +125,9 @@ void CollisionMapDisplay::setRenderOperation(int op)
   render_operation_ = op;
 
   if(op == collision_render_ops::CPoints) {
-    cloud_->setRenderMode(ogre_tools::PointCloud::RM_BILLBOARD_SPHERES);
+    cloud_->setRenderMode(rviz::PointCloud::RM_BILLBOARD_SPHERES);
   } else {
-    cloud_->setRenderMode(ogre_tools::PointCloud::RM_BOXES);
+    cloud_->setRenderMode(rviz::PointCloud::RM_BOXES);
   }
 
   propertyChanged(render_operation_property_);
@@ -222,7 +222,7 @@ void CollisionMapDisplay::processMessage(const arm_navigation_msgs::CollisionMap
   unsigned int num_boxes = msg->boxes.size();
   ROS_DEBUG("Collision map contains %d boxes.", num_boxes); 
 
-  typedef std::vector<ogre_tools::PointCloud::Point> V_Point;
+  typedef std::vector<rviz::PointCloud::Point> V_Point;
   V_Point points;
   points.resize(num_boxes);
   //use first box extents
@@ -232,7 +232,7 @@ void CollisionMapDisplay::processMessage(const arm_navigation_msgs::CollisionMap
                         msg->boxes[0].extents.z);
   for (uint32_t i = 0; i < num_boxes; i++)
   {
-    ogre_tools::PointCloud::Point & current_point = points[i];
+    rviz::PointCloud::Point & current_point = points[i];
     
     current_point.x = msg->boxes[i].center.x;
     current_point.y = msg->boxes[i].center.y;

@@ -47,7 +47,7 @@
 #include <message_filters/subscriber.h>
 #include <tf/message_filter.h>
 
-namespace ogre_tools
+namespace rviz
 {
 class PointCloud;
 }
@@ -145,7 +145,7 @@ protected:
   float alpha_;
 
   Ogre::SceneNode* scene_node_;
-  ogre_tools::PointCloud* cloud_;
+  rviz::PointCloud* cloud_;
 
   arm_navigation_msgs::CollisionMap::ConstPtr current_message_;
   message_filters::Subscriber<arm_navigation_msgs::CollisionMap> sub_;
