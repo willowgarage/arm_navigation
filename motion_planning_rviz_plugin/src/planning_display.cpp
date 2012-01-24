@@ -36,8 +36,6 @@
 
 #include <urdf/model.h>
 
-#include <ogre_tools/axes.h>
-
 #include <tf/transform_listener.h>
 #include <planning_environment/models/robot_models.h>
 #include <planning_models/kinematic_state.h>
