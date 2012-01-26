@@ -16,6 +16,8 @@ set(ROS_BUILD_TYPE Release)
 
 rosbuild_init()
 
+rosbuild_add_boost_directories()
+
 rosbuild_add_library(robot_self_filter src/self_mask.cpp)
 rosbuild_add_openmp_flags(robot_self_filter)
 target_link_libraries(robot_self_filter assimp)
@@ -27,3 +29,4 @@ target_link_libraries (test_filter robot_self_filter assimp)
 rosbuild_add_executable(self_filter src/self_filter.cpp)
 rosbuild_add_openmp_flags(self_filter)
 target_link_libraries(self_filter robot_self_filter assimp)
+rosbuild_link_boost(self_filter signals)
