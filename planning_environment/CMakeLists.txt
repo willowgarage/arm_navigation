@@ -58,7 +58,7 @@ target_link_libraries(visualize_planning_scene planning_environment)
 
 rosbuild_add_executable(filter_attached_objects src/tools/filter_attached_objects.cpp) 
 target_link_libraries(filter_attached_objects planning_environment)
-rosbuild_link_boost(filter_attached_objects thread)
+rosbuild_link_boost(filter_attached_objects thread signals)
 
 #rosbuild_add_executable(collision_operations_generator src/tools/collision_operations_generator.cpp) 
 
