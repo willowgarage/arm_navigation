@@ -134,6 +134,7 @@ void ArmKinematicsReachability::getPositionIndexedArrowMarkers(const kinematics_
   }
 }
 
+/*
 void ArmKinematicsReachability::getPositionIndexedArrowMarkers(const kinematics_msgs::WorkspacePoints &workspace,
                                                                const std::string &marker_namespace,
                                                                visualization_msgs::MarkerArray &marker_array)
@@ -181,8 +182,8 @@ void ArmKinematicsReachability::getPositionIndexedArrowMarkers(const kinematics_
   }
 }
 
-
-/*void ArmKinematicsReachability::getPositionIndexedMarkers(const kinematics_msgs::WorkspacePoints &workspace,
+*/
+void ArmKinematicsReachability::getPositionIndexedMarkers(const kinematics_msgs::WorkspacePoints &workspace,
                                                           const std::string &marker_namespace,
                                                           visualization_msgs::MarkerArray &marker_array)
 {
@@ -232,7 +233,7 @@ void ArmKinematicsReachability::getPositionIndexedArrowMarkers(const kinematics_
     marker_array.markers.push_back(marker);
   }
 }
-*/
+
 void ArmKinematicsReachability::getMarkers(const kinematics_msgs::WorkspacePoints &workspace,
                                            const std::string &marker_namespace,
                                            std::vector<const kinematics_msgs::WorkspacePoint*> points,
