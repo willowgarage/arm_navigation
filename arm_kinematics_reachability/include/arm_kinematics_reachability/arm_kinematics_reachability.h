@@ -129,7 +129,7 @@ private:
   void getPositionIndexedArrowMarkers(const kinematics_msgs::WorkspacePoints &workspace,
                                       const std::string &marker_namespace,
                                       visualization_msgs::MarkerArray &marker_array);
-    
+
   void getMarkers(const kinematics_msgs::WorkspacePoints &workspace,
                   const std::string &marker_namespace,
                   std::vector<const kinematics_msgs::WorkspacePoint*> points,

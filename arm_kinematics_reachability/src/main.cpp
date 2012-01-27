@@ -54,7 +54,8 @@ int main(int argc, char** argv)
   node_handle.param<std::string>(group_name+"/root_name", root_name, std::string());
   ros::NodeHandle root_handle;
 
-  /**** WORKSPACE PARAMETERS - These are the only parameters you should need to change ****/
+  /**** WORKSPACE PARAMETERS - These are the parameters you need to change to specify a different 
+region in the workspace for which reachability is to be computed****/
   arm_kinematics_reachability::ArmKinematicsReachability aw;
   kinematics_msgs::WorkspacePoints workspace;
   workspace.position_resolution = 0.05;
@@ -71,7 +72,7 @@ int main(int argc, char** argv)
   workspace.parameters.workspace_region_pose.pose.orientation.w = 1.0;
 
 
-  //ACTUAL REACHABILITY TESTS
+  //SET OF ORIENTATIONS TO TEST FOR REACHABILITY
 
   geometry_msgs::Quaternion quaternion;
   quaternion.w = 1.0;
@@ -126,6 +127,7 @@ int main(int argc, char** argv)
 
   aw.computeWorkspace(workspace);
   aw.visualize(workspace,"full");
+  //  aw.visualizeWithArrows(workspace,"full");
   //  aw.visualize(workspace,"RPY(0,0,0)",zero_orientation);
   ROS_INFO("Success");
 
