@@ -205,8 +205,17 @@ bool planning_environment::PlanningMonitor::getCompletePlanningScene(const arm_n
           acm.addEntry(planning_diff.attached_collision_objects[i].object.id, false);
         }
         acm.changeEntry(planning_diff.attached_collision_objects[i].object.id, planning_diff.attached_collision_objects[i].link_name, true);
+        std::vector<std::string> modded_touch_links; 
         for(unsigned int j = 0; j < planning_diff.attached_collision_objects[i].touch_links.size(); j++) {
-          acm.changeEntry(planning_diff.attached_collision_objects[i].object.id, planning_diff.attached_collision_objects[i].touch_links[j], true);
+          if(cm_->getKinematicModel()->getModelGroup(planning_diff.attached_collision_objects[i].touch_links[j])) {
+            std::vector<std::string> links = cm_->getKinematicModel()->getModelGroup(planning_diff.attached_collision_objects[i].touch_links[j])->getGroupLinkNames();
+            modded_touch_links.insert(modded_touch_links.end(), links.begin(), links.end());
+          } else {
+            modded_touch_links.push_back(planning_diff.attached_collision_objects[i].touch_links[j]);
+          }
+        }
+        for(unsigned int j = 0; j < modded_touch_links.size(); j++) {
+          acm.changeEntry(planning_diff.attached_collision_objects[i].object.id, modded_touch_links[j], true);
         }
         planning_scene.attached_collision_objects.push_back(planning_diff.attached_collision_objects[i]);
       }

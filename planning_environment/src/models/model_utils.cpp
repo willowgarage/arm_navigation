@@ -306,7 +306,7 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const arm_na
       }
     }
 
-    ROS_INFO_STREAM("Coll op first and second all " << first_all << " " << second_all);
+    ROS_DEBUG_STREAM("Coll op first and second all " << first_all << " " << second_all);
     if(first_all && second_all) {
       matrix.changeEntry(op);
     } else if(first_all) {
@@ -320,7 +320,7 @@ bool planning_environment::applyOrderedCollisionOperationsListToACM(const arm_na
     } else {
       bool ok = matrix.changeEntry(svec1, svec2, (*it).operation != arm_navigation_msgs::CollisionOperation::ENABLE);
       if(!ok) {
-        ROS_WARN_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
+        ROS_DEBUG_STREAM("No entry in acm for some member of " << (*it).object1 << " and " << (*it).object2);
         all_ok = false;
       }
     }
