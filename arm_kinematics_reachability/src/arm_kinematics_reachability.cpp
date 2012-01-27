@@ -137,6 +137,54 @@ void ArmKinematicsReachability::getPositionIndexedMarkers(const kinematics_msgs:
   }
 }
 
+void ArmKinematicsReachability::getPositionIndexedArrowMarkers(const kinematics_msgs::WorkspacePoints &workspace,
+                                                               const std::string &marker_namespace,
+                                                               visualization_msgs::MarkerArray &marker_array)
+{
+  unsigned int x_num_points,y_num_points,z_num_points;
+  getNumPoints(workspace,x_num_points,y_num_points,z_num_points);
+  unsigned int num_rotations = workspace.orientations.size();
+  unsigned int num_positions = x_num_points*y_num_points*z_num_points;
+
+  visualization_msgs::Marker marker;
+  marker.type = marker.ARROW;
+  marker.action = 0;
+  for(unsigned int i=0; i < num_positions; i++)
+  {
+    unsigned int start_index = i*num_rotations;
+    unsigned int end_index = (i+1)*num_rotations;
+    arm_navigation_msgs::ArmNavigationErrorCodes error_code;
+    for(unsigned int j = start_index; j < end_index; j++)
+    {
+      if(workspace.points[j].solution_code.val == workspace.points[j].solution_code.SUCCESS)
+      {
+        marker.ns = marker_namespace + "/reachable";
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+      }
+      else
+      {
+        marker.ns = marker_namespace + "/unreachable";
+        marker.color.r = 1.0;
+        marker.color.g = 0.0;
+      }
+      marker.header = workspace.points[j].pose_stamped.header;
+      marker.pose = workspace.points[j].pose_stamped.pose;
+      marker.header.stamp = ros::Time::now();
+      
+      marker.scale.x = 0.08;
+      marker.scale.y = 0.01;
+      marker.scale.z = 0.01;
+      
+      marker.id = j;
+      marker.color.a = 1.0;
+      marker.color.b = 0.0;
+      marker_array.markers.push_back(marker);
+    }
+  }
+}
+
+
 /*void ArmKinematicsReachability::getPositionIndexedMarkers(const kinematics_msgs::WorkspacePoints &workspace,
                                                           const std::string &marker_namespace,
                                                           visualization_msgs::MarkerArray &marker_array)
