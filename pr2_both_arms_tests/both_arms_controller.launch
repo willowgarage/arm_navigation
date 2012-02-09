@@ -1,0 +1,11 @@
+<launch>
+  <rosparam command="load" file="$(find pr2_arm_navigation_actions)/config/pr2_both_arms_controllers.yaml" />
+
+  <node name="collision_free_controllers_spawner"
+        pkg="pr2_controller_manager" type="spawner" output="screen"
+        args="--wait-for=calibrated both_arms_controller" />
+
+  <node name="collision_free_controllers_killer"
+        pkg="pr2_controller_manager" type="unspawner" output="screen"
+        args="r_arm_controller l_arm_controller" />
+</launch>
