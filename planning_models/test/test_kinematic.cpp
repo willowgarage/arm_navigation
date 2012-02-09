@@ -88,8 +88,6 @@ TEST(Loading, SimpleRobot)
   urdfModel.initString(MODEL0);
     
   std::vector<planning_models::KinematicModel::GroupConfig> gcs;
-  tf::Vector3 monk(0.0,0.0,0.0);
-  shapes::createMeshFromFilename("monk", &monk);
   planning_models::KinematicModel* model = new planning_models::KinematicModel(urdfModel,gcs,multi_dof_configs);
  
   //bracketing so the state gets destroyed before we bring down the model
