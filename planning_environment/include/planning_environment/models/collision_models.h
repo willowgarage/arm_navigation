@@ -419,6 +419,33 @@ public:
     return collision_map_poses_;
   }
 
+  void getCollisionObjectNames(std::vector<std::string>& o_strings) const {
+    o_strings.clear();
+    bodiesLock();
+    for(std::map<std::string, bodies::BodyVector*>::const_iterator it = static_object_map_.begin();
+        it != static_object_map_.end();
+        it++) {
+      o_strings.push_back(it->first);
+    }
+    o_strings.push_back(COLLISION_MAP_NAME);
+    bodiesUnlock();
+  }
+
+  void getAttachedCollisionObjectNames(std::vector<std::string>& a_strings) const {
+    a_strings.clear();
+    bodiesLock();
+    for(std::map<std::string, std::map<std::string, bodies::BodyVector*> >::const_iterator it = link_attached_objects_.begin();
+        it != link_attached_objects_.end();
+        it++) {
+      for(std::map<std::string, bodies::BodyVector*>::const_iterator it2 = it->second.begin();
+          it2 != it->second.end();
+          it2++) {
+        a_strings.push_back(it2->first);
+      }    
+    }
+    bodiesUnlock();
+  }
+
   void bodiesLock() const {
     bodies_lock_.lock();
   }

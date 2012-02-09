@@ -307,6 +307,14 @@ bool collision_space::EnvironmentModel::AllowedCollisionMatrix::changeEntry(cons
   return ok;
 }
 
+void collision_space::EnvironmentModel::AllowedCollisionMatrix::getAllEntryNames(std::vector<std::string>& names) const
+{
+  names.clear();
+  for(entry_type::right_const_iterator it = allowed_entries_bimap_.right.begin(); it != allowed_entries_bimap_.right.end(); it++) {
+    names.push_back(it->second);
+  }
+}
+
 void collision_space::EnvironmentModel::AllowedCollisionMatrix::print(std::ostream& out) const {
   for(entry_type::right_const_iterator it = allowed_entries_bimap_.right.begin(); it != allowed_entries_bimap_.right.end(); it++) {
     out << std::setw(40) << it->second;

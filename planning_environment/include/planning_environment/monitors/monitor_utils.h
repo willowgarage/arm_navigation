@@ -47,6 +47,8 @@
 #include <planning_environment/models/collision_models.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <sensor_msgs/JointState.h>
+#include <trajectory_msgs/JointTrajectory.h>
 
 namespace planning_environment 
 {
@@ -96,5 +98,18 @@ bool configureForAttachedBodyMask(planning_models::KinematicState& state,
 int computeAttachedObjectPointMask(const planning_environment::CollisionModels* cm,
                                    const btVector3 &pt, 
                                    const btVector3 &sensor_pos);
+
+
+int closestStateOnTrajectory(const boost::shared_ptr<urdf::Model> &model,
+                             const trajectory_msgs::JointTrajectory &trajectory, 
+                             const sensor_msgs::JointState &joint_state, 
+                             unsigned int start, 
+                             unsigned int end);
+
+bool removeCompletedTrajectory(const boost::shared_ptr<urdf::Model> &model,
+                               const trajectory_msgs::JointTrajectory &trajectory_in, 
+                               const sensor_msgs::JointState& current_state, 
+                               trajectory_msgs::JointTrajectory &trajectory_out, 
+                               bool zero_vel_acc);
 }
 #endif

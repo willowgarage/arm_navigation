@@ -100,94 +100,94 @@ shapes::Shape* planning_environment::constructObject(const arm_navigation_msgs::
 
 bool planning_environment::constructObjectMsg(const shapes::Shape* shape, arm_navigation_msgs::Shape &obj, double padding)
 {
-    obj.dimensions.clear();
-    obj.vertices.clear();
-    obj.triangles.clear();
-    if (shape->type == shapes::SPHERE)
-    {
-	obj.type = arm_navigation_msgs::Shape::SPHERE;
-	obj.dimensions.push_back(static_cast<const shapes::Sphere*>(shape)->radius+padding);
-    }
-    else
+  obj.dimensions.clear();
+  obj.vertices.clear();
+  obj.triangles.clear();
+  if (shape->type == shapes::SPHERE)
+  {
+    obj.type = arm_navigation_msgs::Shape::SPHERE;
+    obj.dimensions.push_back(static_cast<const shapes::Sphere*>(shape)->radius+padding);
+  }
+  else
     if (shape->type == shapes::BOX)
     {
-	obj.type = arm_navigation_msgs::Shape::BOX;
-	const double* sz = static_cast<const shapes::Box*>(shape)->size;	
-	obj.dimensions.push_back(sz[0]+padding*2.0);
-	obj.dimensions.push_back(sz[1]+padding*2.0);
-	obj.dimensions.push_back(sz[2]+padding*2.0);
+      obj.type = arm_navigation_msgs::Shape::BOX;
+      const double* sz = static_cast<const shapes::Box*>(shape)->size;	
+      obj.dimensions.push_back(sz[0]+padding*2.0);
+      obj.dimensions.push_back(sz[1]+padding*2.0);
+      obj.dimensions.push_back(sz[2]+padding*2.0);
     }
     else
-    if (shape->type == shapes::CYLINDER)
-    {	
+      if (shape->type == shapes::CYLINDER)
+      {	
 	obj.type = arm_navigation_msgs::Shape::CYLINDER;
 	obj.dimensions.push_back(static_cast<const shapes::Cylinder*>(shape)->radius+padding);
 	obj.dimensions.push_back(static_cast<const shapes::Cylinder*>(shape)->length+padding*2.0);
-    }
-    else
-    if (shape->type == shapes::MESH)
-    {
-      obj.type = arm_navigation_msgs::Shape::MESH;
+      }
+      else
+        if (shape->type == shapes::MESH)
+        {
+          obj.type = arm_navigation_msgs::Shape::MESH;
 
-	const shapes::Mesh *mesh = static_cast<const shapes::Mesh*>(shape);
-	const unsigned int t3 = mesh->triangleCount * 3;
+          const shapes::Mesh *mesh = static_cast<const shapes::Mesh*>(shape);
+          const unsigned int t3 = mesh->triangleCount * 3;
 
-	obj.vertices.resize(mesh->vertexCount);
-	obj.triangles.resize(t3);
+          obj.vertices.resize(mesh->vertexCount);
+          obj.triangles.resize(t3);
 	
-        double sx = 0.0, sy = 0.0, sz = 0.0;
-        for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
-        {
-          unsigned int i3 = i * 3;
-          obj.vertices[i].x = mesh->vertices[i3];
-          obj.vertices[i].y = mesh->vertices[i3 + 1];
-          obj.vertices[i].z = mesh->vertices[i3 + 2];
-          sx += obj.vertices[i].x;
-          sy += obj.vertices[i].y;
-          sz += obj.vertices[i].z;
-        }
-        // the center of the mesh
-        sx /= (double)mesh->vertexCount;
-        sy /= (double)mesh->vertexCount;
-        sz /= (double)mesh->vertexCount;
+          double sx = 0.0, sy = 0.0, sz = 0.0;
+          for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
+          {
+            unsigned int i3 = i * 3;
+            obj.vertices[i].x = mesh->vertices[i3];
+            obj.vertices[i].y = mesh->vertices[i3 + 1];
+            obj.vertices[i].z = mesh->vertices[i3 + 2];
+            sx += obj.vertices[i].x;
+            sy += obj.vertices[i].y;
+            sz += obj.vertices[i].z;
+          }
+          // the center of the mesh
+          sx /= (double)mesh->vertexCount;
+          sy /= (double)mesh->vertexCount;
+          sz /= (double)mesh->vertexCount;
 
-        // scale the mesh
-        for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
-        {
-          // vector from center to the vertex
-          double dx = obj.vertices[i].x - sx;
-          double dy = obj.vertices[i].y - sy;
-          double dz = obj.vertices[i].z - sz;
+          // scale the mesh
+          for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
+          {
+            // vector from center to the vertex
+            double dx = obj.vertices[i].x - sx;
+            double dy = obj.vertices[i].y - sy;
+            double dz = obj.vertices[i].z - sz;
 		
-          //double theta_xy = atan2(dy,dx);
-          //double theta_xz = atan2(dz,dx);
+            //double theta_xy = atan2(dy,dx);
+            //double theta_xz = atan2(dz,dx);
 
-          double ndx = ((dx > 0) ? dx+padding : dx-padding);
-          double ndy = ((dy > 0) ? dy+padding : dy-padding);
-          double ndz = ((dz > 0) ? dz+padding : dz-padding);
+            double ndx = ((dx > 0) ? dx+padding : dx-padding);
+            double ndy = ((dy > 0) ? dy+padding : dy-padding);
+            double ndz = ((dz > 0) ? dz+padding : dz-padding);
 
-          obj.vertices[i].x = sx + ndx;
-          obj.vertices[i].y = sy + ndy;
-          obj.vertices[i].z = sz + ndz;
-        }
+            obj.vertices[i].x = sx + ndx;
+            obj.vertices[i].y = sy + ndy;
+            obj.vertices[i].z = sz + ndz;
+          }
 
-	//for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
-	//{
-	//    obj.vertices[i].x = mesh->vertices[3 * i    ];
-	//    obj.vertices[i].y = mesh->vertices[3 * i + 1];
-	//    obj.vertices[i].z = mesh->vertices[3 * i + 2];
-	//}
+          //for (unsigned int i = 0 ; i < mesh->vertexCount ; ++i)
+          //{
+          //    obj.vertices[i].x = mesh->vertices[3 * i    ];
+          //    obj.vertices[i].y = mesh->vertices[3 * i + 1];
+          //    obj.vertices[i].z = mesh->vertices[3 * i + 2];
+          //}
 	
-	for (unsigned int i = 0 ; i < t3  ; ++i)
+          for (unsigned int i = 0 ; i < t3  ; ++i)
 	    obj.triangles[i] = mesh->triangles[i];
-    }
-    else
-    {
-	ROS_ERROR("Unable to construct object message for shape of type %d", (int)shape->type);
-	return false;
-    }
+        }
+        else
+        {
+          ROS_ERROR("Unable to construct object message for shape of type %d", (int)shape->type);
+          return false;
+        }
     
-    return true;
+  return true;
 }
 
 
