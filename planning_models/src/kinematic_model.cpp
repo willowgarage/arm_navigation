@@ -34,17 +34,15 @@
 
 /** \author Ioan Sucan */
 
+#include <queue>
+#include <cmath>
+#include <set>
+
+#include <ros/ros.h>
 #include <planning_models/kinematic_model.h>
 #include <geometric_shapes/shape_operations.h>
-#include <resource_retriever/retriever.h>
-#include <queue>
 #include <ros/console.h>
-#include <cmath>
 #include <angles/angles.h>
-#include <assimp/assimp.hpp>     
-#include <assimp/aiScene.h>      
-#include <assimp/aiPostProcess.h>
-
 
 /* ------------------------ KinematicModel ------------------------ */
 planning_models::KinematicModel::KinematicModel(const urdf::Model &model, 
@@ -477,93 +475,10 @@ shapes::Shape* planning_models::KinematicModel::constructShape(const urdf::Geome
       const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
       if (!mesh->filename.empty())
       {
-        resource_retriever::Retriever retriever;
-        resource_retriever::MemoryResource res;
-        bool ok = true;
-	
-        try
-        {
-          res = retriever.get(mesh->filename);
-        }
-        catch (resource_retriever::Exception& e)
-        {
-          ROS_ERROR("%s", e.what());
-          ok = false;
-        }
-	
-        if (ok)
-        {
-          if (res.size == 0)
-            ROS_WARN("Retrieved empty mesh for resource '%s'", mesh->filename.c_str());
-          else
-          {
-            // Create an instance of the Importer class
-            Assimp::Importer importer;
-            
-            // try to get a file extension
-            std::string hint;
-            std::size_t pos = mesh->filename.find_last_of(".");
-            if (pos != std::string::npos)
-            {
-              hint = mesh->filename.substr(pos + 1);
-              
-              // temp hack until everything is stl not stlb
-              if (hint.find("stl") != std::string::npos)
-                hint = "stl";
-            }
-            
-            // And have it read the given file with some postprocessing
-            const aiScene* scene = importer.ReadFileFromMemory(reinterpret_cast<void*>(res.data.get()), res.size,
-                                                               aiProcess_Triangulate            |
-                                                               aiProcess_JoinIdenticalVertices  |
-                                                               aiProcess_SortByPType, hint.c_str());
-            btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
-            ROS_DEBUG_STREAM("Scale for " << mesh->filename << " is " << mesh->scale.x << " " << mesh->scale.y << " " << mesh->scale.z);
-            if (scene)
-            {
-              if (scene->HasMeshes())
-              {
-                if(scene->mNumMeshes > 1) {
-                  ROS_WARN_STREAM("Mesh loaded from " << mesh->filename << " has " << scene->mNumMeshes << " but only the first one will be used");
-                }
-
-                aiNode *node = scene->mRootNode;
-
-                if(node->mNumMeshes > 0) {
-                  ROS_DEBUG_STREAM("Node has meshes");
-                } else {
-                  for (uint32_t i=0; i < node->mNumChildren; ++i) {
-                    if(node->mChildren[i]->mNumMeshes > 0) {
-                      ROS_DEBUG_STREAM("Child " << i << " has meshes");
-                      node = node->mChildren[i];
-                      break;
-                    }
-                  }
-                }
-                aiMatrix4x4 transform = node->mTransformation;
-                result = shapes::createMeshFromAsset(scene->mMeshes[node->mMeshes[0]], transform, scale);
-              }
-              else
-                ROS_ERROR("There is no mesh specified in the indicated resource");
-            }
-            else
-            {
-              std::string ext;
-              importer.GetExtensionList(ext);
-              ROS_ERROR("Failed to import scene containing mesh: %s. Supported extensions are: %s", importer.GetErrorString(), ext.c_str());
-            }
-            
-            if (result == NULL)
-              ROS_ERROR("Failed to load mesh '%s'", mesh->filename.c_str());
-            else
-              ROS_DEBUG("Loaded mesh '%s' consisting of %d triangles", mesh->filename.c_str(), static_cast<shapes::Mesh*>(result)->triangleCount);			
-          }
-        }
-      }
-      else
-        ROS_WARN("Empty mesh filename");
-    }
-    
+        btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
+        result = shapes::createMeshFromFilename(mesh->filename, &scale);
+      }   
+    } 
     break;
   default:
     ROS_ERROR("Unknown geometry type: %d", (int)geom->type);
@@ -821,7 +736,10 @@ std::vector<const planning_models::KinematicModel::AttachedBodyModel*> planning_
 void planning_models::KinematicModel::clearLinkAttachedBodyModels(const std::string& link_name)
 {
   exclusiveLock();
-  if(link_model_map_.find(link_name) == link_model_map_.end()) return;
+  if(link_model_map_.find(link_name) == link_model_map_.end()) {
+    exclusiveUnlock();
+    return;
+  }
   link_model_map_[link_name]->clearAttachedBodyModels();
   exclusiveUnlock();
 }
@@ -833,6 +751,7 @@ void planning_models::KinematicModel::replaceAttachedBodyModels(const std::strin
   if(link_model_map_.find(link_name) == link_model_map_.end())
   {
     ROS_WARN_STREAM("Model has no link named " << link_name << ".  This is probably going to introduce a memory leak");
+    exclusiveUnlock();
     return;
   }
   link_model_map_[link_name]->replaceAttachedBodyModels(attached_body_vector);
@@ -843,7 +762,10 @@ void planning_models::KinematicModel::clearLinkAttachedBodyModel(const std::stri
                                                                  const std::string& att_name)
 {
   exclusiveLock();
-  if(link_model_map_.find(link_name) == link_model_map_.end()) return;
+  if(link_model_map_.find(link_name) == link_model_map_.end()) {
+    exclusiveUnlock();
+    return;
+  }
   link_model_map_[link_name]->clearLinkAttachedBodyModel(att_name);
   exclusiveUnlock();
 }
@@ -854,6 +776,7 @@ void planning_models::KinematicModel::addAttachedBodyModel(const std::string& li
   exclusiveLock();
   if(link_model_map_.find(link_name) == link_model_map_.end()) {
     ROS_WARN_STREAM("Model has no link named " << link_name << " to attach body to.  This is probably going to introduce a memory leak");
+    exclusiveUnlock();
     return;
   }
   link_model_map_[link_name]->addAttachedBodyModel(ab);

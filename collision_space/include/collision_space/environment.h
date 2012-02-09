@@ -158,6 +158,8 @@ public:
                      const std::vector<std::string>& change_names_2,
                      bool allowed);
 
+    void getAllEntryNames(std::vector<std::string>& names) const;
+
     bool getValid() const {
       return valid_;
     };

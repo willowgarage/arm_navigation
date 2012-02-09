@@ -331,8 +331,7 @@ planning_environment::CollisionModels::setPlanningScene(const arm_navigation_msg
     ode_collision_model_->lock();
     ode_collision_model_->setAlteredCollisionMatrix(convertFromACMMsgToACM(planning_scene.allowed_collision_matrix));
     ode_collision_model_->unlock();
-  }
-
+  } 
   planning_scene_set_ = true;
   return state;
 }
@@ -845,8 +844,19 @@ bool planning_environment::CollisionModels::addAttachedObject(const std::string&
   //the poses will be totally incorrect until they are updated with a state
   link_attached_objects_[link_name][object_name] = new bodies::BodyVector(shapes, poses, padding);  
 
-  std::vector<std::string> modded_touch_links = touch_links;
-  if(find(touch_links.begin(), touch_links.end(), link_name) == touch_links.end()) {
+  std::vector<std::string> modded_touch_links;
+  
+  //first doing group expansion of touch links
+  for(unsigned int i = 0; i < touch_links.size(); i++) {
+    if(kmodel_->getModelGroup(touch_links[i])) {
+      std::vector<std::string> links = kmodel_->getModelGroup(touch_links[i])->getGroupLinkNames();
+      modded_touch_links.insert(modded_touch_links.end(), links.begin(), links.end());
+    } else {
+    modded_touch_links.push_back(touch_links[i]);
+    }
+  }
+
+  if(find(modded_touch_links.begin(), modded_touch_links.end(), link_name) == modded_touch_links.end()) {
     modded_touch_links.push_back(link_name);
   }
   planning_models::KinematicModel::AttachedBodyModel* ab = 
@@ -913,8 +923,10 @@ void planning_environment::CollisionModels::deleteAllAttachedObjects(const std::
   }
   
   if(link_name.empty()) {
+    ROS_DEBUG_STREAM("Clearing all attached body models");
     kmodel_->clearAllAttachedBodyModels();
   } else {
+    ROS_DEBUG_STREAM("Clearing all attached body models for link " << link_name);
     kmodel_->clearLinkAttachedBodyModels(link_name);
   }
   ode_collision_model_->lock();
@@ -1074,21 +1086,9 @@ bool planning_environment::CollisionModels::applyOrderedCollisionOperationsToCol
   ode_collision_model_->unlock();
 
   std::vector<std::string> o_strings;
-  for(std::map<std::string, bodies::BodyVector*>::const_iterator it = static_object_map_.begin();
-      it != static_object_map_.end();
-      it++) {
-    o_strings.push_back(it->first);
-  }
-  o_strings.push_back(COLLISION_MAP_NAME);
-  
-  kmodel_->sharedLock();  
+  getCollisionObjectNames(o_strings);
   std::vector<std::string> a_strings;
-  const std::vector<const planning_models::KinematicModel::AttachedBodyModel*>& att_vec = kmodel_->getAttachedBodyModels();
-  for(unsigned int i = 0; i < att_vec.size(); i++) 
-  {
-    a_strings.push_back(att_vec[i]->getName());
-  }
-  kmodel_->sharedUnlock();
+  getAttachedCollisionObjectNames(a_strings);
 
   bool ok = applyOrderedCollisionOperationsListToACM(ord, o_strings, a_strings, kmodel_, acm);
 
@@ -1964,9 +1964,9 @@ void planning_environment::CollisionModels::getRobotMarkersGivenState(const plan
         continue;
       }
       mark.type = mark.MESH_RESOURCE;
-      mark.scale.x = scale;
-      mark.scale.y = scale;
-      mark.scale.z = scale;
+      mark.scale.x = mesh->scale.x*scale;
+      mark.scale.y = mesh->scale.y*scale;
+      mark.scale.z = mesh->scale.z*scale;
       mark.mesh_resource = mesh->filename;
     }
     else if(box)

@@ -89,95 +89,20 @@ namespace robot_self_filter
           const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh*>(geom);
           if (!mesh->filename.empty())
           {
-            resource_retriever::Retriever retriever;
-            resource_retriever::MemoryResource res;
-            bool ok = true;
-           
-            try
-            {
-              res = retriever.get(mesh->filename);
-            }
-            catch (resource_retriever::Exception& e)
-            {
-              ROS_ERROR("%s", e.what());
-              ok = false;
-            }
-           
-            if (ok)
-            {
-              if (res.size == 0)
-                ROS_WARN("Retrieved empty mesh for resource '%s'", mesh->filename.c_str());
-              else
-              {
-                // Create an instance of the Importer class
-                Assimp::Importer importer;
-               
-                // try to get a file extension
-                std::string hint;
-                std::size_t pos = mesh->filename.find_last_of(".");
-                if (pos != std::string::npos)
-                {
-                  hint = mesh->filename.substr(pos + 1);
-                 
-                  // temp hack until everything is stl not stlb
-                  if (hint.find("stl") != std::string::npos)
-                    hint = "stl";
-                }
-               
-                // And have it read the given file with some postprocessing
-                const aiScene* scene = importer.ReadFileFromMemory(reinterpret_cast<void*>(res.data.get()), res.size,
-                                                                  aiProcess_Triangulate            |
-                                                                  aiProcess_JoinIdenticalVertices  |
-                                                                  aiProcess_SortByPType, hint.c_str());
-                btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
-                if (scene)
-                {
-                  if(scene->mNumMeshes > 1) {
-                    ROS_WARN_STREAM("Mesh loaded from " << mesh->filename << " has " << scene->mNumMeshes << " but only the first one will be used");
-                  }
-                  
-                  aiNode *node = scene->mRootNode;
-                  
-                  if(node->mNumMeshes > 0) {
-                    ROS_DEBUG_STREAM("Node has meshes");
-                  } else {
-                    for (uint32_t i=0; i < node->mNumChildren; ++i) {
-                      if(node->mChildren[i]->mNumMeshes > 0) {
-                        ROS_DEBUG_STREAM("Child " << i << " has meshes");
-                        node = node->mChildren[i];
-                        break;
-                      }
-                    }
-                  }
-                  aiMatrix4x4 transform = node->mTransformation;
-                  result = shapes::createMeshFromAsset(scene->mMeshes[node->mMeshes[0]], transform, scale);
-                }
-                else
-                {
-                  std::string ext;
-                  importer.GetExtensionList(ext);
-                  ROS_ERROR("Failed to import scene containing mesh: %s. Supported extensions are: %s", importer.GetErrorString(), ext.c_str());
-                }
-               
-                if (result == NULL)
-                  ROS_ERROR("Failed to load mesh '%s'", mesh->filename.c_str());
-                else
-                  ROS_DEBUG("Loaded mesh '%s' consisting of %d triangles", mesh->filename.c_str(), static_cast<shapes::Mesh*>(result)->triangleCount);			
-              }
-            }
-          }
-          else
+            btVector3 scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
+            result = shapes::createMeshFromFilename(mesh->filename, &scale);
+          } else
             ROS_WARN("Empty mesh filename");
-	      break;
-      }
+          break;
+        }
       default:
-      {
-  	    ROS_ERROR("Unknown geometry type: %d", (int)geom->type);
-        break;
+        {
+          ROS_ERROR("Unknown geometry type: %d", (int)geom->type);
+          break;
+        }
       }
-	  }
-    return (result);
-  }
+      return (result);
+    }
 }
 
 bool robot_self_filter::SelfMask::configure(const std::vector<LinkInfo> &links)
