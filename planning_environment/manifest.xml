@@ -29,7 +29,6 @@
   <depend package="rviz" />
   <depend package="common_rosdeps"/>
 
-  <rosdep name="eigen" />
   <rosdep name="yaml-cpp"/>
   <rosdep name="libqt4-dev" />
   <rosdep name="tinyxml" />
