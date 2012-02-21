@@ -31,7 +31,7 @@
 
   <rosdep name="eigen" />
   <rosdep name="yaml-cpp"/>
-  <rosdep name="qt4" />
+  <rosdep name="libqt4-dev" />
   <rosdep name="tinyxml" />
 
   <url>http://ros.org/wiki/planning_environment</url>
