@@ -70,13 +70,14 @@ public:
    * @brief This method computes and returns a discretized reachable workspace for an arm
    */
   bool computeWorkspace(kinematics_msgs::WorkspacePoints &workspace);
+  bool computeWorkspace(kinematics_msgs::WorkspacePoints &workspace, const geometry_msgs::Pose &tool_frame_offset);
 
   /**
    * @brief This method visualizes a workspace region for a given arm
    */
   void visualize(const kinematics_msgs::WorkspacePoints &workspace,
                  const std::string &marker_namespace);
-
+    
   bool getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace);
 
   void publishWorkspace(const kinematics_msgs::WorkspacePoints &workspace);
@@ -94,8 +95,10 @@ public:
 
   bool isActive();
 
+
 private:
 
+  void setToolFrameOffset(const geometry_msgs::Pose &pose);
 
   void findIKSolutions(kinematics_msgs::WorkspacePoints &workspace);
 
@@ -140,6 +143,7 @@ private:
 protected:
 
   ros::NodeHandle node_handle_;
+  tf::Pose tool_offset_, tool_offset_inverse_;
 };
 
 }

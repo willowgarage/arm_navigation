@@ -40,6 +40,8 @@ ArmKinematicsReachability::ArmKinematicsReachability():node_handle_("~")
 {
   visualization_publisher_ = node_handle_.advertise<visualization_msgs::MarkerArray>("workspace_markers",0,true);
   workspace_publisher_ = node_handle_.advertise<kinematics_msgs::WorkspacePoints>("workspace",0,true);
+  tool_offset_.setIdentity();
+  tool_offset_inverse_.setIdentity();
 }
 
 bool ArmKinematicsReachability::getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace)
@@ -50,12 +52,20 @@ bool ArmKinematicsReachability::getOnlyReachableWorkspace(kinematics_msgs::Works
   return true;
 }
 
-bool ArmKinematicsReachability::computeWorkspace(kinematics_msgs::WorkspacePoints &workspace)
+bool ArmKinematicsReachability::computeWorkspace(kinematics_msgs::WorkspacePoints &workspace, const geometry_msgs::Pose &tool_frame_offset)
 {
+  setToolFrameOffset(tool_frame_offset);
   if(!sampleUniform(workspace))
     return false;
   findIKSolutions(workspace);
   return true;
+}
+
+bool ArmKinematicsReachability::computeWorkspace(kinematics_msgs::WorkspacePoints &workspace)
+{
+  geometry_msgs::Pose pose;
+  pose.orientation.w = 1.0;
+  return computeWorkspace(workspace,pose);
 }
 
 bool ArmKinematicsReachability::isActive()
@@ -70,6 +80,11 @@ void ArmKinematicsReachability::findIKSolutions(kinematics_msgs::WorkspacePoints
   getDefaultIKRequest(request);
   for(unsigned int i=0; i < workspace.points.size(); i++)
   {
+    tf::Pose tmp_pose;
+    tf::poseMsgToTF(workspace.points[i].pose_stamped.pose,tmp_pose);
+    tmp_pose = tmp_pose * tool_offset_inverse_;
+    tf::poseTFToMsg(tmp_pose,workspace.points[i].pose_stamped.pose);
+
     request.ik_request.pose_stamped = workspace.points[i].pose_stamped;
     kinematics_solver_.getConstraintAwarePositionIK(request,response);
     workspace.points[i].solution_code = response.error_code;
@@ -279,6 +294,12 @@ void ArmKinematicsReachability::visualize(const kinematics_msgs::WorkspacePoints
   visualization_publisher_.publish(marker_array);
 }
 
+void ArmKinematicsReachability::setToolFrameOffset(const geometry_msgs::Pose &pose)
+{
+  tf::poseMsgToTF(pose,tool_offset_);
+  tool_offset_inverse_ = tool_offset_.inverse();
+}
+
 void ArmKinematicsReachability::visualizeWithArrows(const kinematics_msgs::WorkspacePoints &workspace,
                                                     const std::string &marker_namespace)
 {
@@ -390,6 +411,28 @@ std::vector<const kinematics_msgs::WorkspacePoint*> ArmKinematicsReachability::g
   return wp;
 }
 
+/*std::vector<const kinematics_msgs::WorkspacePoint*> ArmKinematicsReachability::getPointsWithinBox(const kinematics_msgs::WorkspacePoints &workspace,
+                                                                                                  const arm_navigation_msgs::WorkspaceParameters &desired_workspace)
+{
+  std::vector<const kinematics_msgs::WorkspacePoint*> wp;
+  shapes::Box box(desired_workspace.workspace_region_shape.dimensions[0],
+                  desired_workspace.workspace_region_shape.dimensions[1],
+                  desired_workspace.workspace_region_shape.dimensions[2]);
+  bodies::Box body(&box);
+  tf::Pose pose;
+  tf::poseMsgToTF(desired_workspace.workspace_region_pose.pose,pose);
+  body.setPose(pose);
+
+  for(unsigned int i = 0; i < workspace.points.size(); i++)
+  {
+    if(body.containsPoint(workspace.points[i].pose_stamped.pose.position.x,
+                          workspace.points[i].pose_stamped.pose.position.y,
+                          workspace.points[i].pose_stamped.pose.position.z))
+      wp.push_back(&(workspace.points[i]));
+  }
+  return wp;
+  }*/
+
 void ArmKinematicsReachability::getNumPoints(const kinematics_msgs::WorkspacePoints &workspace,
                                              unsigned int &x_num_points,
                                              unsigned int &y_num_points,
@@ -457,8 +500,8 @@ bool ArmKinematicsReachability::sampleUniform(kinematics_msgs::WorkspacePoints &
         {
           tf::Vector3 point(pose.position.x,pose.position.y,pose.position.z);
           point = workspace_offset_pose * point;
-
           tf::pointTFToMsg(point,ws_point.pose_stamped.pose.position);
+
           ws_point.pose_stamped.pose.orientation = workspace.orientations[m];
           ws_point.pose_stamped.header.frame_id = workspace.parameters.workspace_region_pose.header.frame_id;
           workspace.points.push_back(ws_point);
