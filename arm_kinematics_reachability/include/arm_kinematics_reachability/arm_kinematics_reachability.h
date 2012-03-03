@@ -78,7 +78,8 @@ public:
   void visualize(const kinematics_msgs::WorkspacePoints &workspace,
                  const std::string &marker_namespace);
     
-  bool getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace);
+  bool getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace, 
+                                 const geometry_msgs::Pose &tool_frame_offset);
 
   void publishWorkspace(const kinematics_msgs::WorkspacePoints &workspace);
 

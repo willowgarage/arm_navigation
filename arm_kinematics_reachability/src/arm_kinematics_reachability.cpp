@@ -44,9 +44,9 @@ ArmKinematicsReachability::ArmKinematicsReachability():node_handle_("~")
   tool_offset_inverse_.setIdentity();
 }
 
-bool ArmKinematicsReachability::getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace)
+bool ArmKinematicsReachability::getOnlyReachableWorkspace(kinematics_msgs::WorkspacePoints &workspace, const geometry_msgs::Pose &tool_frame_offset)
 {
-  if(!computeWorkspace(workspace))
+  if(!computeWorkspace(workspace, tool_frame_offset))
     return false;
   removeUnreachableWorkspace(workspace);
   return true;
