@@ -318,11 +318,11 @@ bool OmplRosPlanningGroup::initializeKPIECEPlanner()
     new_planner->setMinValidPathFraction(planner_config_->getParamDouble("min_valid_path_fraction",new_planner->getMinValidPathFraction()));
     ROS_DEBUG("KPIECEPlanner::Min valid path fraction is set to %g", new_planner->getMinValidPathFraction());
   }  
-  if (planner_config_->hasParam("good_cell_score_factor") && planner_config_->hasParam("bad_cell_score_factor"))
+  if (planner_config_->hasParam("failed_expansion_cell_score_factor"))
   {
-    new_planner->setCellScoreFactor(planner_config_->getParamDouble("cell_score_factor",new_planner->getBorderFraction()),
-                                    planner_config_->getParamDouble("good_cell_score_factor",new_planner->getBorderFraction()));
-    ROS_DEBUG("KPIECEPlanner::Border score factor is set to (good,bad):(%g,%g)", new_planner->getGoodCellScoreFactor(),new_planner->getBadCellScoreFactor());
+    new_planner->setFailedExpansionCellScoreFactor(planner_config_->getParamDouble("failed_expansion_cell_score_factor",
+                                                                                   new_planner->getFailedExpansionCellScoreFactor()));
+    ROS_DEBUG("KPIECEPlanner:: Filed expansion cell score factor is %g", new_planner->getFailedExpansionCellScoreFactor());
   }  
   return true;
 }
@@ -341,11 +341,11 @@ bool OmplRosPlanningGroup::initializeBKPIECEPlanner()
     new_planner->setBorderFraction(planner_config_->getParamDouble("border_fraction",new_planner->getBorderFraction()));
     ROS_DEBUG("BKPIECEPlanner::Range is set to %g", new_planner->getBorderFraction());
   }  
-  if (planner_config_->hasParam("good_cell_score_factor") && planner_config_->hasParam("bad_cell_score_factor"))
+  if (planner_config_->hasParam("failed_expansion_cell_score_factor"))
   {
-    new_planner->setCellScoreFactor(planner_config_->getParamDouble("cell_score_factor",new_planner->getBorderFraction()),
-                                    planner_config_->getParamDouble("good_cell_score_factor",new_planner->getBorderFraction()));
-    ROS_DEBUG("BKPIECEPlanner::Border score factor is set to (good,bad):(%g,%g)", new_planner->getGoodCellScoreFactor(),new_planner->getBadCellScoreFactor());
+    new_planner->setFailedExpansionCellScoreFactor(planner_config_->getParamDouble("failed_expansion_cell_score_factor",
+                                                                                   new_planner->getFailedExpansionCellScoreFactor()));
+    ROS_DEBUG("KPIECEPlanner:: Filed expansion cell score factor is %g", new_planner->getFailedExpansionCellScoreFactor());
   }  
   if (planner_config_->hasParam("min_valid_path_fraction"))
   {

@@ -120,25 +120,30 @@ void OmplRosProjectionEvaluator::project(const ompl::base::State *state, ompl::b
   if(mapping_type_ == ompl_ros_interface::REAL_VECTOR)
   {
     for(unsigned int i=0; i < dimension_; i++)
-      projection.values[i] = state->as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(mapping_index_)->values[i];
+      projection[i] = state->as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(mapping_index_)->values[i];
   }
   if(mapping_type_ == ompl_ros_interface::SO2)
   {
-    projection.values[0] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO2StateSpace::StateType>(mapping_index_)->value;
+    projection[0] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO2StateSpace::StateType>(mapping_index_)->value;
   }
   else if(mapping_type_ == ompl_ros_interface::SE2)
   {
-    memcpy(projection.values, state->as<ompl::base::CompoundState>()->as<ompl::base::SE2StateSpace::StateType>(mapping_index_)->as<ompl::base::RealVectorStateSpace::StateType>(0)->values, 2 * sizeof(double));
+    const double *se2_vals = state->as<ompl::base::CompoundState>()->as<ompl::base::SE2StateSpace::StateType>(mapping_index_)->as<ompl::base::RealVectorStateSpace::StateType>(0)->values;
+    projection[0] = se2_vals[0];
+    projection[1] = se2_vals[1];
   }
   else if(mapping_type_ == ompl_ros_interface::SO3)
   {
-    projection.values[0] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(mapping_index_)->x;
-    projection.values[1] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(mapping_index_)->y;
-    projection.values[2] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(mapping_index_)->z;
+    projection[0] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(mapping_index_)->x;
+    projection[1] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(mapping_index_)->y;
+    projection[2] = state->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(mapping_index_)->z;
   }
   else if(mapping_type_ == ompl_ros_interface::SE3)
   {
-    memcpy(projection.values, state->as<ompl::base::CompoundState>()->as<ompl::base::SE3StateSpace::StateType>(mapping_index_)->as<ompl::base::RealVectorStateSpace::StateType>(0)->values, 3 * sizeof(double));
+    const double *se3_vals = state->as<ompl::base::CompoundState>()->as<ompl::base::SE3StateSpace::StateType>(mapping_index_)->as<ompl::base::RealVectorStateSpace::StateType>(0)->values;
+    projection[0] = se3_vals[0];
+    projection[1] = se3_vals[1];
+    projection[2] = se3_vals[2];
   }
 };
 

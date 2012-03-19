@@ -945,7 +945,7 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
     ROS_ERROR("Robot trajectory needs to initialized before calling this function");
     return false;
   }
-  unsigned int num_points = path.states.size();
+  unsigned int num_points = path.getStateCount();
   unsigned int num_state_spaces = mapping.ompl_state_mapping.size();
   bool multi_dof = false;
   bool single_dof = false;
@@ -976,16 +976,16 @@ bool omplPathGeometricToRobotTrajectory(const ompl::geometric::PathGeometric &pa
     for(unsigned int j=0; j < num_state_spaces; j++)
     {
       if(mapping.mapping_type[j] == ompl_ros_interface::SO2)
-        robot_trajectory.joint_trajectory.points[i].positions[mapping.ompl_state_mapping[j]] = path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SO2StateSpace::StateType>(j)->value;
+        robot_trajectory.joint_trajectory.points[i].positions[mapping.ompl_state_mapping[j]] = path.getState(i)->as<ompl::base::CompoundState>()->as<ompl::base::SO2StateSpace::StateType>(j)->value;
       else if(mapping.mapping_type[j] == ompl_ros_interface::SE2)
-        ompl_ros_interface::SE2StateSpaceToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SE2StateSpace::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
+        ompl_ros_interface::SE2StateSpaceToPoseMsg(*(path.getState(i)->as<ompl::base::CompoundState>()->as<ompl::base::SE2StateSpace::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
       else if(mapping.mapping_type[j] == ompl_ros_interface::SE3)
-        ompl_ros_interface::SE3StateSpaceToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SE3StateSpace::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
+        ompl_ros_interface::SE3StateSpaceToPoseMsg(*(path.getState(i)->as<ompl::base::CompoundState>()->as<ompl::base::SE3StateSpace::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
       else if(mapping.mapping_type[j] == ompl_ros_interface::SO3)
-        ompl_ros_interface::SO3StateSpaceToPoseMsg(*(path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
+        ompl_ros_interface::SO3StateSpaceToPoseMsg(*(path.getState(i)->as<ompl::base::CompoundState>()->as<ompl::base::SO3StateSpace::StateType>(j)),robot_trajectory.multi_dof_joint_trajectory.points[i].poses[mapping.ompl_state_mapping[j]]);
       else // real vector value
       {
-        ompl::base::State* real_vector_state = path.states[i]->as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(mapping.real_vector_index);
+        const ompl::base::State* real_vector_state = path.getState(i)->as<ompl::base::CompoundState>()->as<ompl::base::RealVectorStateSpace::StateType>(mapping.real_vector_index);
         for(unsigned int k=0; k < mapping.real_vector_mapping.size(); k++)
           robot_trajectory.joint_trajectory.points[i].positions[mapping.real_vector_mapping[k]] = real_vector_state->as<ompl::base::RealVectorStateSpace::StateType>()->values[k];
       }

@@ -67,20 +67,20 @@ arm_navigation_msgs::RobotTrajectory OmplRosRPYIKTaskSpacePlanner::getSolutionPa
   
   ompl::geometric::PathGeometric path = planner_->getSolutionPath();
   path.interpolate();
-  unsigned int num_points = path.states.size();
-  ROS_DEBUG("Path has %d waypoints",(int)path.states.size());
+  unsigned int num_points = path.getStateCount();
+  ROS_DEBUG("Path has %d waypoints",(int)path.getStateCount());
   for(unsigned int i=0; i < num_points; i++)
   {
     arm_navigation_msgs::RobotState robot_state;
     trajectory_msgs::JointTrajectoryPoint joint_trajectory_point;
     arm_navigation_msgs::MultiDOFJointTrajectoryPoint multi_dof_joint_trajectory_point;
 
-    if(!state_transformer_->inverseTransform(*(path.states[i]),
+    if(!state_transformer_->inverseTransform(*(path.getState(i)),
                                              robot_state))
     {
       ROS_ERROR("Could not transform solution waypoint");
       std::stringstream string_stream;
-      state_space_->printState(path.states[i],string_stream);
+      state_space_->printState(path.getState(i),string_stream);
       ROS_ERROR("State: %d %s",i,string_stream.str().c_str());
     }
 

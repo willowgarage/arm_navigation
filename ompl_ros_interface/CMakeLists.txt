@@ -16,6 +16,11 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(OMPL REQUIRED ompl)
+include_directories(${OMPL_INCLUDE_DIRS})
+link_directories(${OMPL_LIBRARY_DIRS})
+
 #uncomment if you have defined messages
 rosbuild_genmsg()
 #uncomment if you have defined services
@@ -34,6 +39,7 @@ rosbuild_add_library(ompl_ros_interface
   src/ompl_ros_planner_config.cpp
   src/ompl_ros_planning_group.cpp
   src/ompl_ros_state_validity_checker.cpp
+  src/ompl_console.cpp
   src/helpers/ompl_ros_conversions.cpp
   src/ik/ompl_ros_ik_goal_sampleable_region.cpp
   src/ik/ompl_ros_ik_sampler.cpp
@@ -47,6 +53,8 @@ rosbuild_add_library(ompl_ros_interface
 )
 
 rosbuild_link_boost(ompl_ros_interface thread)
+target_link_libraries(ompl_ros_interface ${OMPL_LIBRARIES})
+
 rosbuild_add_executable(ompl_ros src/main.cpp)
 target_link_libraries(ompl_ros ompl_ros_interface)
 
