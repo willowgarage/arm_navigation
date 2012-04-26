@@ -99,5 +99,11 @@ void convertFromLinkPaddingMapToLinkPaddingVector(const std::map<std::string, do
 
 void convertAllowedContactSpecificationMsgToAllowedContactVector(const std::vector<arm_navigation_msgs::AllowedContactSpecification>& acmv,
                                                                  std::vector<collision_space::EnvironmentModel::AllowedContact>& acv);
+
+void getCollisionMarkersFromContactInformation(const std::vector<arm_navigation_msgs::ContactInformation>& contacts,
+                                               const std::string& world_frame_id,
+                                               visualization_msgs::MarkerArray& arr,
+                                               const std_msgs::ColorRGBA& color,
+                                               const ros::Duration& lifetime);
 }
 #endif

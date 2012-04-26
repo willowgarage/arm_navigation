@@ -597,3 +597,47 @@ void planning_environment::convertAllowedContactSpecificationMsgToAllowedContact
     acv.push_back(allc);
   }
 }
+
+void planning_environment::getCollisionMarkersFromContactInformation(const std::vector<arm_navigation_msgs::ContactInformation>& coll_info_vec,
+                                                                     const std::string& world_frame_id,
+                                                                     visualization_msgs::MarkerArray& arr,
+                                                                     const std_msgs::ColorRGBA& color,
+                                                                     const ros::Duration& lifetime)
+{
+  std::map<std::string, unsigned> ns_counts;
+  for(unsigned int i = 0; i < coll_info_vec.size(); i++) {
+    std::string ns_name;
+    ns_name = coll_info_vec[i].contact_body_1;
+    ns_name +="+";
+    ns_name += coll_info_vec[i].contact_body_2;
+    if(ns_counts.find(ns_name) == ns_counts.end()) {
+      ns_counts[ns_name] = 0;
+    } else {
+      ns_counts[ns_name]++;
+    }
+    visualization_msgs::Marker mk;
+    mk.header.stamp = ros::Time::now();
+    mk.header.frame_id = world_frame_id;
+    mk.ns = ns_name;
+    mk.id = ns_counts[ns_name];
+    mk.type = visualization_msgs::Marker::SPHERE;
+    mk.action = visualization_msgs::Marker::ADD;
+    mk.pose.position.x = coll_info_vec[i].position.x;
+    mk.pose.position.y = coll_info_vec[i].position.y;
+    mk.pose.position.z = coll_info_vec[i].position.z;
+    mk.pose.orientation.w = 1.0;
+    
+    mk.scale.x = mk.scale.y = mk.scale.z = 0.035;
+
+    mk.color.a = color.a;
+    if(mk.color.a == 0.0) {
+      mk.color.a = 1.0;
+    }
+    mk.color.r = color.r;
+    mk.color.g = color.g;
+    mk.color.b = color.b;
+    
+    mk.lifetime = lifetime;
+    arr.markers.push_back(mk);
+  }
+}

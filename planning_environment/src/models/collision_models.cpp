@@ -1373,6 +1373,22 @@ bool planning_environment::CollisionModels::isKinematicStateInEnvironmentCollisi
   return in_coll;
 }
 
+bool planning_environment::CollisionModels::isKinematicStateInObjectCollision(const planning_models::KinematicState &state, 
+                                                                              const std::string& object_name) {
+  ode_collision_model_->lock();
+  ode_collision_model_->updateRobotModel(&state);
+  bool in_coll = ode_collision_model_->isObjectRobotCollision(object_name);
+  ode_collision_model_->unlock();
+  return in_coll;
+}
+
+bool planning_environment::CollisionModels::isObjectInCollision(const std::string& object_name) {
+  ode_collision_model_->lock();
+  bool in_coll = ode_collision_model_->isObjectInEnvironmentCollision(object_name);
+  ode_collision_model_->unlock();
+  return in_coll;
+}
+
 void planning_environment::CollisionModels::getAllCollisionsForState(const planning_models::KinematicState& state,
                                                                      std::vector<arm_navigation_msgs::ContactInformation>& contacts,
                                                                      unsigned int num_per_pair) 
@@ -1413,6 +1429,41 @@ void planning_environment::CollisionModels::getAllCollisionsForState(const plann
   ode_collision_model_->unlock();
 }
 
+void planning_environment::CollisionModels::getAllEnvironmentCollisionsForObject(const std::string& object_name,  
+                                                                                 std::vector<arm_navigation_msgs::ContactInformation>& contacts, 
+                                                                                 unsigned int num_per_pair) {
+  ode_collision_model_->lock();
+  std::vector<collision_space::EnvironmentModel::Contact> coll_space_contacts;
+  ode_collision_model_->getAllObjectEnvironmentCollisionContacts(object_name, coll_space_contacts, num_per_pair);
+  for(unsigned int i = 0; i < coll_space_contacts.size(); i++) {
+    arm_navigation_msgs::ContactInformation contact_info;
+    contact_info.header.frame_id = getWorldFrameId();
+    collision_space::EnvironmentModel::Contact& contact = coll_space_contacts[i];
+    contact_info.contact_body_1 = contact.body_name_1;
+    contact_info.contact_body_2 = contact.body_name_2;
+    if(contact.body_type_1 == collision_space::EnvironmentModel::LINK) {
+      contact_info.body_type_1 = arm_navigation_msgs::ContactInformation::ROBOT_LINK;
+    } else if(contact.body_type_1 == collision_space::EnvironmentModel::ATTACHED) {
+      contact_info.body_type_1 = arm_navigation_msgs::ContactInformation::ATTACHED_BODY;
+    } else {
+      contact_info.body_type_1 = arm_navigation_msgs::ContactInformation::OBJECT;      
+    }
+    if(contact.body_type_2 == collision_space::EnvironmentModel::LINK) {
+      contact_info.body_type_2 = arm_navigation_msgs::ContactInformation::ROBOT_LINK;
+    } else if(contact.body_type_2 == collision_space::EnvironmentModel::ATTACHED) {
+      contact_info.body_type_2 = arm_navigation_msgs::ContactInformation::ATTACHED_BODY;
+    } else {
+      contact_info.body_type_2 = arm_navigation_msgs::ContactInformation::OBJECT;      
+    }
+    contact_info.position.x = contact.pos.x();
+    contact_info.position.y = contact.pos.y();
+    contact_info.position.z = contact.pos.z();
+    contacts.push_back(contact_info);
+  }
+  ode_collision_model_->unlock();
+
+}
+
 bool planning_environment::CollisionModels::isKinematicStateValid(const planning_models::KinematicState& state,
                                                                   const std::vector<std::string>& joint_names,
                                                                   arm_navigation_msgs::ArmNavigationErrorCodes& error_code,
@@ -1427,10 +1478,10 @@ bool planning_environment::CollisionModels::isKinematicStateValid(const planning
 	  std::pair<double, double> bounds; 
 	  state.getJointState(joint_names[j])->getJointModel()->getVariableBounds(joint_names[j], bounds);
           double val = state.getJointState(joint_names[j])->getJointStateValues()[0];
-	  ROS_INFO_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
-			  " value: " << val << 
-			  " low: " << bounds.first << " diff low: " << val-bounds.first << " high: " << bounds.second 
-                          << " diff high: " << val-bounds.second);
+	  ROS_DEBUG_STREAM("Joint " << joint_names[j] << " out of bounds. " <<
+                           " value: " << val << 
+                           " low: " << bounds.first << " diff low: " << val-bounds.first << " high: " << bounds.second 
+                           << " diff high: " << val-bounds.second);
 	}
       }
     }
@@ -1719,43 +1770,11 @@ void planning_environment::CollisionModels::getAllCollisionPointMarkers(const pl
 {
   std::vector<arm_navigation_msgs::ContactInformation> coll_info_vec;
   getAllCollisionsForState(state,coll_info_vec,1);
-
-  std::map<std::string, unsigned> ns_counts;
-  for(unsigned int i = 0; i < coll_info_vec.size(); i++) {
-    std::string ns_name;
-    ns_name = coll_info_vec[i].contact_body_1;
-    ns_name +="+";
-    ns_name += coll_info_vec[i].contact_body_2;
-    if(ns_counts.find(ns_name) == ns_counts.end()) {
-      ns_counts[ns_name] = 0;
-    } else {
-      ns_counts[ns_name]++;
-    }
-    visualization_msgs::Marker mk;
-    mk.header.stamp = ros::Time::now();
-    mk.header.frame_id = getWorldFrameId();
-    mk.ns = ns_name;
-    mk.id = ns_counts[ns_name];
-    mk.type = visualization_msgs::Marker::SPHERE;
-    mk.action = visualization_msgs::Marker::ADD;
-    mk.pose.position.x = coll_info_vec[i].position.x;
-    mk.pose.position.y = coll_info_vec[i].position.y;
-    mk.pose.position.z = coll_info_vec[i].position.z;
-    mk.pose.orientation.w = 1.0;
-    
-    mk.scale.x = mk.scale.y = mk.scale.z = 0.035;
-
-    mk.color.a = color.a;
-    if(mk.color.a == 0.0) {
-      mk.color.a = 1.0;
-    }
-    mk.color.r = color.r;
-    mk.color.g = color.g;
-    mk.color.b = color.b;
-    
-    mk.lifetime = lifetime;
-    arr.markers.push_back(mk);
-  }
+  getCollisionMarkersFromContactInformation(coll_info_vec,
+                                            getWorldFrameId(),
+                                            arr,
+                                            color,
+                                            lifetime);
 }
 
 void planning_environment::CollisionModels::getStaticCollisionObjectMarkers(visualization_msgs::MarkerArray& arr,

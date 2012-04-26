@@ -68,6 +68,33 @@ public:
   bool getTrajectoryValidity(arm_navigation_msgs::GetJointTrajectoryValidity::Request &req, 
                              arm_navigation_msgs::GetJointTrajectoryValidity::Response &res) 
   {
+    collision_models_interface_->bodiesLock();
+    if(!collision_models_interface_->isPlanningSceneSet()) {
+      res.error_code.val = res.error_code.COLLISION_CHECKING_UNAVAILABLE;
+      ROS_WARN_STREAM("Calling getTrajectoryValidity with no planning scene set");
+      collision_models_interface_->bodiesUnlock();
+      return true;
+    }
+    collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
+    planning_environment::setRobotStateAndComputeTransforms(req.robot_state,
+                                                            *collision_models_interface_->getPlanningSceneState());
+
+    arm_navigation_msgs::Constraints goal_constraints;
+    if(req.check_goal_constraints) {
+      goal_constraints = req.goal_constraints;
+    }
+    arm_navigation_msgs::Constraints path_constraints;
+    if(req.check_path_constraints) {
+      path_constraints = req.path_constraints;
+    }
+    collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
+                                                        req.trajectory,
+                                                        goal_constraints,
+                                                        path_constraints,
+                                                        res.error_code,
+                                                        res.trajectory_error_codes,
+                                                        req.check_full_trajectory);
+    collision_models_interface_->bodiesUnlock();
     return true;
   }
 
@@ -82,7 +109,16 @@ public:
       return true;
     }
     collision_models_interface_->resetToStartState(*collision_models_interface_->getPlanningSceneState());
+    const planning_models::KinematicModel::JointModelGroup* jmg = NULL;
+
     if(!req.group_name.empty()) {
+      jmg = collision_models_interface_->getKinematicModel()->getModelGroup(req.group_name);
+      if(!jmg) {
+        ROS_WARN_STREAM("No group name " << req.group_name << " in state validity check");
+        res.error_code.val = res.error_code.INVALID_GROUP_NAME;
+        collision_models_interface_->bodiesUnlock();
+        return true;
+      }
       collision_models_interface_->disableCollisionsForNonUpdatedLinks(req.group_name);
     }
     planning_environment::setRobotStateAndComputeTransforms(req.robot_state,
@@ -97,13 +133,23 @@ public:
     }
     std::vector<std::string> joint_names;
     if(req.check_joint_limits) {
-      joint_names = req.robot_state.joint_state.name;
+      if(!jmg) {
+        joint_names = req.robot_state.joint_state.name;
+      } else {
+        joint_names = jmg->getJointModelNames();
+      }
     }
     collision_models_interface_->isKinematicStateValid(*collision_models_interface_->getPlanningSceneState(),
                                                        joint_names,
                                                        res.error_code,
                                                        goal_constraints,
-                                                       path_constraints);
+                                                       path_constraints,
+                                                       true);
+    if(res.error_code.val == arm_navigation_msgs::ArmNavigationErrorCodes::COLLISION_CONSTRAINTS_VIOLATED) {
+      collision_models_interface_->getAllCollisionsForState(*collision_models_interface_->getPlanningSceneState(),
+                                                            res.contacts, 
+                                                            1);
+    }
     collision_models_interface_->bodiesUnlock();
     return true;
 

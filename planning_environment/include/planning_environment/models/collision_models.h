@@ -230,12 +230,21 @@ public:
 
   bool isKinematicStateInEnvironmentCollision(const planning_models::KinematicState& state);
 
+  bool isKinematicStateInObjectCollision(const planning_models::KinematicState &state, 
+                                         const std::string& object_name);
+
+  bool isObjectInCollision(const std::string& object_name);
+
   void getPlanningSceneGivenState(const planning_models::KinematicState& state,
                                   arm_navigation_msgs::PlanningScene& scene);
 
   void getAllCollisionsForState(const planning_models::KinematicState& state,
                                 std::vector<arm_navigation_msgs::ContactInformation>& contacts,
                                 unsigned int num_per_pair = 1);
+
+  void getAllEnvironmentCollisionsForObject(const std::string& object_name, 
+					    std::vector<arm_navigation_msgs::ContactInformation>& contacts,
+					    unsigned int num_per_pair = 1);
 
   bool isKinematicStateValid(const planning_models::KinematicState& state,
                              const std::vector<std::string>& names,
