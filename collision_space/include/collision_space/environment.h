@@ -241,7 +241,21 @@ public:
 
   /** \brief Check whether the model is in collision with the environment.  Self collisions are not checked */
   virtual bool isEnvironmentCollision(void) const = 0;
-	
+
+  /** \brief Check if a single static object is in collision with the robot. */
+  virtual bool isObjectRobotCollision(const std::string& object_name) const = 0;	
+
+  /** \brief Check if two static objects are in collision. */
+  virtual bool isObjectObjectCollision(const std::string& object1_name, 
+                                       const std::string& object2_name) const = 0;
+
+  /** \brief Check if an object is in collision with the other static objects. */
+  virtual bool isObjectInEnvironmentCollision(const std::string& object_name) const = 0;
+
+  virtual bool getAllObjectEnvironmentCollisionContacts (const std::string& object_name, 
+                                                         std::vector<Contact> &contacts,
+                                                         unsigned int num_contacts_per_pair) const = 0;
+    
   /** \brief Get the list of contacts (collisions). The maximum total number of contacts to be returned can be specified, and the max per pair of objects that are in collision*/
   virtual bool getCollisionContacts(std::vector<Contact> &contacts, unsigned int max_total = 1, unsigned int max_per_pair = 1) const = 0;
 

@@ -1015,6 +1015,118 @@ bool collision_space::EnvironmentModelODE::isEnvironmentCollision(void) const
   return cdata.collides;
 }
 
+bool collision_space::EnvironmentModelODE::isObjectRobotCollision(const std::string& object_name) const {
+  std::map<std::string, CollisionNamespace *>::const_iterator it =
+    coll_namespaces_.find(object_name);
+  if (it == coll_namespaces_.end()) {
+    ROS_WARN("Attempt to check collision for %s and robot, but no such object exists", object_name.c_str());
+    return false;
+  }
+  CollisionData cdata; 
+  cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
+  cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
+  checkThreadInit();
+  testObjectCollision(it->second, &cdata);
+  return cdata.collides;
+}
+
+bool collision_space::EnvironmentModelODE::isObjectObjectCollision(const std::string& object1_name, 
+                                                                   const std::string& object2_name) const
+{
+  CollisionData cdata; 
+  cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
+  cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
+  checkThreadInit();
+  testObjectObjectCollision(&cdata, object1_name, object2_name);
+  return cdata.collides;
+}
+
+bool collision_space::EnvironmentModelODE::isObjectInEnvironmentCollision(const std::string& object_name) const
+{
+  CollisionData cdata; 
+  cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
+  cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
+  checkThreadInit();
+  testObjectEnvironmentCollision(&cdata, object_name);
+  return cdata.collides;
+}
+
+bool collision_space::EnvironmentModelODE::getAllObjectEnvironmentCollisionContacts(const std::string& object_name, 
+                                                                                    std::vector<Contact> &contacts,
+                                                                                    unsigned int num_contacts_per_pair) const {
+  contacts.clear();
+  CollisionData cdata;
+  cdata.geom_lookup_map = &geom_lookup_map_;
+  cdata.dspace_lookup_map = &dspace_lookup_map_;
+  cdata.allowed_collision_matrix = &getCurrentAllowedCollisionMatrix();
+  cdata.contacts = &contacts;
+  cdata.max_contacts_total = UINT_MAX;
+  cdata.max_contacts_pair = num_contacts_per_pair;
+  if (!allowed_contacts_.empty())
+    cdata.allowed = &allowed_contact_map_;
+  checkThreadInit();
+  testObjectEnvironmentCollision(&cdata, object_name);
+  return cdata.collides;
+}
+
+void collision_space::EnvironmentModelODE::testObjectEnvironmentCollision(CollisionData *cdata, const std::string& object_name) const {
+  /* check collision with other ode bodies until done*/
+  for (std::map<std::string, CollisionNamespace*>::const_iterator it = coll_namespaces_.begin() ; it != coll_namespaces_.end() && !cdata->done ; ++it) {
+    if (it->first != object_name) // Don't check with itself.
+    {
+      testObjectObjectCollision(cdata, object_name, it->first);
+    }
+  }
+}
+
+void collision_space::EnvironmentModelODE::testObjectObjectCollision(CollisionData *cdata, 
+                                                                     const std::string& object1_name, 
+                                                                     const std::string& object2_name) const
+{
+  // Check if the given names are valid.
+  std::map<std::string, CollisionNamespace*>::const_iterator it1 = coll_namespaces_.find(object1_name);
+  if (it1 == coll_namespaces_.end())
+  {
+    ROS_WARN_STREAM("Failed to find object " << object1_name << " during collision check.");
+    return;
+  }
+  std::map<std::string, CollisionNamespace*>::const_iterator it2 = coll_namespaces_.find(object2_name);
+  if (it2 == coll_namespaces_.end())
+  {
+    ROS_WARN_STREAM("Failed to find object " << object2_name << " during collision check.");
+    return;
+  }
+
+  // Check if these two objects are allowed to collide.
+  bool allowed = false;
+  if(cdata->allowed_collision_matrix) {
+    if(!cdata->allowed_collision_matrix->getAllowedCollision(object1_name, object2_name, allowed)) {
+      ROS_WARN_STREAM("No entry in cdata allowed collision matrix for " << object1_name << " and " << object2_name);
+    } 
+  }
+
+  if (!allowed)
+  {
+    ROS_DEBUG_STREAM("Checking collision between " << object1_name << " and " << object2_name << ".");
+    dSpaceCollide2((dxGeom *)it1->second->space, (dxGeom *)it2->second->space, cdata, nearCallbackFn);
+  }
+  else
+  {
+    ROS_DEBUG_STREAM("Not checking collision between " << object1_name << " and " << object2_name << " since collision is allowed between the two.");
+    return;
+  }
+ 
+}
+
 void collision_space::EnvironmentModelODE::testObjectCollision(CollisionNamespace *cn, CollisionData *cdata) const
 { 
   if (cn->collide2.empty()) {

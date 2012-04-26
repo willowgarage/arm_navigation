@@ -69,6 +69,20 @@ public:
 
   /** \brief Check if a model is in environment collision */
   virtual bool isEnvironmentCollision(void) const;
+
+  /** \brief Check if a single static object is in collision with the robot. */
+  virtual bool isObjectRobotCollision(const std::string& object_name) const;	
+
+  /** \brief Check if two static objects are in collision. */
+  virtual bool isObjectObjectCollision(const std::string& object1_name, 
+                                       const std::string& object2_name) const;
+
+  /** \brief Check if an object is in collision with the other static objects. */
+  virtual bool isObjectInEnvironmentCollision(const std::string& object_name) const;
+
+  virtual bool getAllObjectEnvironmentCollisionContacts (const std::string& object_name, 
+                                                         std::vector<Contact> &contacts,
+                                                         unsigned int num_contacts_per_pair) const;
 	
   /** \brief Remove all objects from collision model */
   virtual void clearObjects(void);
@@ -417,9 +431,18 @@ protected:
   /** \brief Internal function for collision detection */
   void testEnvironmentCollision(CollisionData *data) const;
 
+  /** \brief Test collision between two static objects. */
+  void testObjectObjectCollision(CollisionData *cdata, 
+                                 const std::string& object1_name, 
+                                 const std::string& object2_name) const;
+
+  /** \brief Test collision between an object and all other static objects. */
+  void testObjectEnvironmentCollision(CollisionData *cdata, 
+                                      const std::string& object_name) const;
+
   /** \brief Internal function for collision detection */
   void testObjectCollision(CollisionNamespace *cn, CollisionData *data) const;
-
+  
   dGeomID copyGeom(dSpaceID space, ODEStorage &storage, dGeomID geom, ODEStorage &sourceStorage) const;
   void createODERobotModel();	
   dGeomID createODEGeom(dSpaceID space, ODEStorage &storage, const shapes::Shape *shape, double scale, double padding);
