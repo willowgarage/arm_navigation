@@ -74,7 +74,7 @@ namespace spline_smoother
     T trajectory_local = trajectory_in;
     if (!checkTrajectoryConsistency(trajectory_local))
       return false;
-    bool success = traj.parameterize(trajectory_local.trajectory,trajectory_local.limits,spline);
+    bool success = traj.parameterize(trajectory_local.request.trajectory,trajectory_local.request.limits,spline);
     if(!success)
       return false;
 
@@ -102,7 +102,7 @@ namespace spline_smoother
     }
     std::sort(times_vec.begin(), times_vec.end());
 
-    if(!spline_smoother::sampleSplineTrajectory(spline,times_vec,trajectory_out.trajectory))
+    if(!spline_smoother::sampleSplineTrajectory(spline,times_vec,trajectory_out.request.trajectory))
       return false;
 
     return true;

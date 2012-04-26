@@ -76,8 +76,8 @@ private:
 
   int service_type_;
 
-  filters::FilterChain<arm_navigation_msgs::FilterJointTrajectory::Request> filter_chain_;
-  filters::FilterChain<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request> filter_constraints_chain_;
+  filters::FilterChain<arm_navigation_msgs::FilterJointTrajectory> filter_chain_;
+  filters::FilterChain<arm_navigation_msgs::FilterJointTrajectoryWithConstraints> filter_constraints_chain_;
 
   urdf::Model urdf_model_;
 

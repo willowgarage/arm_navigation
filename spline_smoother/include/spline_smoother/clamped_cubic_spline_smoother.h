@@ -92,7 +92,7 @@ ClampedCubicSplineSmoother<T>::~ClampedCubicSplineSmoother()
 template <typename T>
 bool ClampedCubicSplineSmoother<T>::smooth(const T& trajectory_in, T& trajectory_out) const
 {
-  int length = trajectory_in.trajectory.points.size();
+  int length = trajectory_in.request.trajectory.points.size();
   trajectory_out = trajectory_in;
 
   if (!checkTrajectoryConsistency(trajectory_out))
@@ -103,7 +103,7 @@ bool ClampedCubicSplineSmoother<T>::smooth(const T& trajectory_in, T& trajectory
 
   if (length <= MAX_TRIDIAGONAL_SOLVER_ELEMENTS)
   {
-    smoothSegment(trajectory_out.trajectory.points);
+    smoothSegment(trajectory_out.request.trajectory.points);
   }
   else
   {

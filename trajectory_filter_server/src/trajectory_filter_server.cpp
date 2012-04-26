@@ -35,16 +35,19 @@
 /** \author Mrinal Kalakrishnan, Sachin Chitta */
 
 #include <trajectory_filter_server/trajectory_filter_server.h>
+#include <pluginlib/class_loader.h>
 
 namespace trajectory_filter_server
 {
 TrajectoryFilterServer::TrajectoryFilterServer() : private_handle_("~"),
-                                                   filter_chain_("arm_navigation_msgs::FilterJointTrajectory::Request"),
-                                                   filter_constraints_chain_("arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request")
+                                                   filter_chain_("arm_navigation_msgs::FilterJointTrajectory"),
+                                                   filter_constraints_chain_("arm_navigation_msgs::FilterJointTrajectoryWithConstraints")
 {
   std::string service_type_string;
   private_handle_.param<std::string>("service_type",service_type_string,"FilterJointTrajectory");
   private_handle_.param<bool>("use_safety_limits",use_safety_limits_,true);
+
+  ros::WallDuration(5.0).sleep();
 
   if(service_type_string == std::string("FilterJointTrajectory"))
     service_type_ = FILTER_JOINT_TRAJECTORY;
@@ -64,12 +67,28 @@ TrajectoryFilterServer::~TrajectoryFilterServer()
 
 bool TrajectoryFilterServer::init()
 {
-  if(service_type_ == FILTER_JOINT_TRAJECTORY)
-    if (!filter_chain_.configure("filter_chain",private_handle_))
+  bool print = false;
+  if(service_type_ == FILTER_JOINT_TRAJECTORY) {
+    if (!filter_chain_.configure("filter_chain",private_handle_)) {
+      pluginlib::ClassLoader<arm_navigation_msgs::FilterJointTrajectory> con_loader("filters", 
+                                                                                    "filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>");
+      std::vector<std::string> available = con_loader.getDeclaredClasses();
+      for(unsigned int i = 0; i < available.size(); i++) {
+        ROS_INFO_STREAM("Available class name " << available[i]);
+      }
       return false;
-  if(service_type_ == FILTER_JOINT_TRAJECTORY_WITH_CONSTRAINTS)
-    if (!filter_constraints_chain_.configure("filter_chain",private_handle_))
+    }
+  } else {
+    if (!filter_constraints_chain_.configure("filter_chain",private_handle_)) {
+      pluginlib::ClassLoader<arm_navigation_msgs::FilterJointTrajectoryWithConstraints> con_loader("filters", 
+                                                                                                   "filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>");
+      std::vector<std::string> available = con_loader.getDeclaredClasses();
+      for(unsigned int i = 0; i < available.size(); i++) {
+        ROS_INFO_STREAM("Available class name " << available[i]);
+      }
       return false;
+    }
+  }
 
   if(!loadURDF())
     return false;
@@ -88,13 +107,16 @@ bool TrajectoryFilterServer::filter(arm_navigation_msgs::FilterJointTrajectory::
             (int)req.trajectory.points.size(),
             (int)req.trajectory.joint_names.size());
   getLimits(req.trajectory,req.limits);
-  arm_navigation_msgs::FilterJointTrajectory::Request chain_response;
-  if (!filter_chain_.update(req,chain_response))
+  arm_navigation_msgs::FilterJointTrajectory orig_request;
+  orig_request.request = req;
+  arm_navigation_msgs::FilterJointTrajectory chain_response;
+  if (!filter_chain_.update(orig_request,chain_response))
   {
-    ROS_ERROR("Filter chain failed to process trajectory");
-    return false;
+    ROS_WARN("Filter chain failed to process trajectory");
+    resp.error_code.val = chain_response.response.error_code.val;
+    return true;
   }
-  resp.trajectory = chain_response.trajectory;
+  resp.trajectory = chain_response.request.trajectory;
   resp.error_code.val = resp.error_code.SUCCESS;
   return true;
 }
@@ -105,14 +127,17 @@ bool TrajectoryFilterServer::filterConstraints(arm_navigation_msgs::FilterJointT
   ROS_DEBUG("TrajectoryFilter::Got trajectory with %d points and %d joints",
             (int)req.trajectory.points.size(),
             (int)req.trajectory.joint_names.size());
-  arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request filter_response;
+  arm_navigation_msgs::FilterJointTrajectoryWithConstraints filter_response;
   getLimits(req.trajectory,req.limits);
-  if (!filter_constraints_chain_.update(req,filter_response))
+  arm_navigation_msgs::FilterJointTrajectoryWithConstraints orig_request;
+  orig_request.request = req;
+  if (!filter_constraints_chain_.update(orig_request,filter_response))
   {
-    ROS_ERROR("Filter chain failed to process trajectory");
-    return false;
+    ROS_WARN("Filter chain failed to process trajectory");
+    resp.error_code.val = filter_response.response.error_code.val;
+    return true;
   }
-  resp.trajectory = filter_response.trajectory;
+  resp.trajectory = filter_response.request.trajectory;
   resp.error_code.val = resp.error_code.SUCCESS;
   return true;
 }

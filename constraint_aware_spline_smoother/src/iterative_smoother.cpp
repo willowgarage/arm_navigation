@@ -100,21 +100,21 @@ template <typename T>
 void IterativeParabolicSmoother<T>::printStats(const T& trajectory) const
 {
   ROS_DEBUG("jointNames= %s %s %s %s %s %s %s",
-    trajectory.limits[0].joint_name.c_str(),trajectory.limits[1].joint_name.c_str(),trajectory.limits[2].joint_name.c_str(),
-    trajectory.limits[3].joint_name.c_str(),trajectory.limits[4].joint_name.c_str(),trajectory.limits[5].joint_name.c_str(),
-    trajectory.limits[6].joint_name.c_str());
+    trajectory.request.limits[0].joint_name.c_str(),trajectory.request.limits[1].joint_name.c_str(),trajectory.request.limits[2].joint_name.c_str(),
+    trajectory.request.limits[3].joint_name.c_str(),trajectory.request.limits[4].joint_name.c_str(),trajectory.request.limits[5].joint_name.c_str(),
+    trajectory.request.limits[6].joint_name.c_str());
   ROS_DEBUG("maxVelocities= %f %f %f %f %f %f %f",
-    trajectory.limits[0].max_velocity,trajectory.limits[1].max_velocity,trajectory.limits[2].max_velocity,
-    trajectory.limits[3].max_velocity,trajectory.limits[4].max_velocity,trajectory.limits[5].max_velocity,
-    trajectory.limits[6].max_velocity);
+    trajectory.request.limits[0].max_velocity,trajectory.request.limits[1].max_velocity,trajectory.request.limits[2].max_velocity,
+    trajectory.request.limits[3].max_velocity,trajectory.request.limits[4].max_velocity,trajectory.request.limits[5].max_velocity,
+    trajectory.request.limits[6].max_velocity);
   ROS_DEBUG("maxAccelerations= %f %f %f %f %f %f %f",
-    trajectory.limits[0].max_acceleration,trajectory.limits[1].max_acceleration,trajectory.limits[2].max_acceleration,
-    trajectory.limits[3].max_acceleration,trajectory.limits[4].max_acceleration,trajectory.limits[5].max_acceleration,
-    trajectory.limits[6].max_acceleration);
+    trajectory.request.limits[0].max_acceleration,trajectory.request.limits[1].max_acceleration,trajectory.request.limits[2].max_acceleration,
+    trajectory.request.limits[3].max_acceleration,trajectory.request.limits[4].max_acceleration,trajectory.request.limits[5].max_acceleration,
+    trajectory.request.limits[6].max_acceleration);
   // for every point in time:
-  for (unsigned int i=0; i<trajectory.trajectory.points.size(); ++i)
+  for (unsigned int i=0; i<trajectory.request.trajectory.points.size(); ++i)
   {
-    const trajectory_msgs::JointTrajectoryPoint& point = trajectory.trajectory.points[i];
+    const trajectory_msgs::JointTrajectoryPoint& point = trajectory.request.trajectory.points[i];
     printPoint(point, i);
   }
 }
@@ -123,35 +123,35 @@ void IterativeParabolicSmoother<T>::printStats(const T& trajectory) const
 template <typename T>
 void IterativeParabolicSmoother<T>::applyVelocityConstraints(T& trajectory, std::vector<double> &time_diff) const
 {
-  const unsigned int num_points = trajectory.trajectory.points.size();
-  const unsigned int num_joints = trajectory.trajectory.joint_names.size();
+  const unsigned int num_points = trajectory.request.trajectory.points.size();
+  const unsigned int num_joints = trajectory.request.trajectory.joint_names.size();
 
   // Initial values
   for (unsigned int i=0; i<num_points; ++i)
   {
-    trajectory_msgs::JointTrajectoryPoint& point = trajectory.trajectory.points[i];
+    trajectory_msgs::JointTrajectoryPoint& point = trajectory.request.trajectory.points[i];
     point.velocities.resize(num_joints);
     point.accelerations.resize(num_joints);
   }
 
   for (unsigned int i=0; i<num_points-1; ++i)
   {
-    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory.trajectory.points[i];
-    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory.trajectory.points[i+1];
+    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory.request.trajectory.points[i];
+    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory.request.trajectory.points[i+1];
 
     // Get velocity min/max
     for (unsigned int j=0; j<num_joints; ++j)
     {
       double v_max = 1.0;
 
-      if( trajectory.limits[j].has_velocity_limits )
+      if( trajectory.request.limits[j].has_velocity_limits )
       {
-        v_max = trajectory.limits[j].max_velocity;
+        v_max = trajectory.request.limits[j].max_velocity;
       }
       double a_max = 1.0;
-      if( trajectory.limits[j].has_velocity_limits )
+      if( trajectory.request.limits[j].has_velocity_limits )
       {
-        a_max = trajectory.limits[j].max_acceleration;
+        a_max = trajectory.request.limits[j].max_acceleration;
       }
 
       const double dq1 = point1.positions[j];
@@ -212,31 +212,31 @@ template <typename T>
 void updateTrajectory(T& trajectory, const std::vector<double>& time_diff )
 {
   double time_sum = 0.0;
-  unsigned int num_joints = trajectory.trajectory.joint_names.size();
-  const unsigned int num_points = trajectory.trajectory.points.size();
+  unsigned int num_joints = trajectory.request.trajectory.joint_names.size();
+  const unsigned int num_points = trajectory.request.trajectory.points.size();
 
 	// Error check
   if(time_diff.size() < 1)
 		return;
 
   // Times
-  trajectory.trajectory.points[0].time_from_start = ros::Duration(0);
+  trajectory.request.trajectory.points[0].time_from_start = ros::Duration(0);
   for (unsigned int i=1; i<num_points; ++i)
   {
     time_sum += time_diff[i-1];
-    trajectory.trajectory.points[i].time_from_start = ros::Duration(time_sum);
+    trajectory.request.trajectory.points[i].time_from_start = ros::Duration(time_sum);
   }
 
   // Velocities
 /*
   for (unsigned int j=0; j<num_joints; ++j)
   {
-    trajectory.trajectory.points[num_points-1].velocities[j] = 0.0;
+    trajectory.request.trajectory.points[num_points-1].velocities[j] = 0.0;
   }
   for (unsigned int i=0; i<num_points-1; ++i)
   {
-    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory.trajectory.points[i];
-    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory.trajectory.points[i+1];
+    trajectory_msgs::JointTrajectoryPoint& point1 = trajectory.request.trajectory.points[i];
+    trajectory_msgs::JointTrajectoryPoint& point2 = trajectory.request.trajectory.points[i+1];
     for (unsigned int j=0; j<num_joints; ++j)
     {
       const double dq1 = point1.positions[j];
@@ -260,25 +260,25 @@ void updateTrajectory(T& trajectory, const std::vector<double>& time_diff )
 
       if(i==0)
       {	// First point
-        q1 = trajectory.trajectory.points[i+1].positions[j];
-        q2 = trajectory.trajectory.points[i].positions[j];
-        q3 = trajectory.trajectory.points[i+1].positions[j];
+        q1 = trajectory.request.trajectory.points[i+1].positions[j];
+        q2 = trajectory.request.trajectory.points[i].positions[j];
+        q3 = trajectory.request.trajectory.points[i+1].positions[j];
         dt1 = time_diff[i];
         dt2 = time_diff[i];
       }
       else if(i < num_points-1)
       { // middle points
-        q1 = trajectory.trajectory.points[i-1].positions[j];
-        q2 = trajectory.trajectory.points[i].positions[j];
-        q3 = trajectory.trajectory.points[i+1].positions[j];
+        q1 = trajectory.request.trajectory.points[i-1].positions[j];
+        q2 = trajectory.request.trajectory.points[i].positions[j];
+        q3 = trajectory.request.trajectory.points[i+1].positions[j];
         dt1 = time_diff[i-1];
         dt2 = time_diff[i];
       }
       else
       { // last point
-        q1 = trajectory.trajectory.points[i-1].positions[j];
-        q2 = trajectory.trajectory.points[i].positions[j];
-        q3 = trajectory.trajectory.points[i-1].positions[j];
+        q1 = trajectory.request.trajectory.points[i-1].positions[j];
+        q2 = trajectory.request.trajectory.points[i].positions[j];
+        q3 = trajectory.request.trajectory.points[i-1].positions[j];
         dt1 = time_diff[i-1];
         dt2 = time_diff[i-1];
       }
@@ -286,8 +286,8 @@ void updateTrajectory(T& trajectory, const std::vector<double>& time_diff )
       const double v1 = (q2-q1)/dt1;
       const double v2 = (q3-q2)/dt2;
       const double a = 2*(v2-v1)/(dt1+dt2);
-      trajectory.trajectory.points[i].velocities[j] = (v2+v1)/2;
-      trajectory.trajectory.points[i].accelerations[j] = a;
+      trajectory.request.trajectory.points[i].velocities[j] = (v2+v1)/2;
+      trajectory.request.trajectory.points[i].accelerations[j] = a;
     }
   }
 }
@@ -297,8 +297,8 @@ void updateTrajectory(T& trajectory, const std::vector<double>& time_diff )
 template <typename T>
 void IterativeParabolicSmoother<T>::applyAccelerationConstraints(const T& trajectory, std::vector<double> & time_diff) const
 {
-  const unsigned int num_points = trajectory.trajectory.points.size();
-  const unsigned int num_joints = trajectory.trajectory.joint_names.size();
+  const unsigned int num_points = trajectory.request.trajectory.points.size();
+  const unsigned int num_joints = trajectory.request.trajectory.joint_names.size();
   int num_updates = 0;
   int iteration= 0;
   bool backwards = false;
@@ -337,33 +337,33 @@ void IterativeParabolicSmoother<T>::applyAccelerationConstraints(const T& trajec
 
           // Get acceleration limits
           double a_max = 1.0;
-          if( trajectory.limits[j].has_acceleration_limits )
+          if( trajectory.request.limits[j].has_acceleration_limits )
           {
-            a_max = trajectory.limits[j].max_acceleration;
+            a_max = trajectory.request.limits[j].max_acceleration;
           }
 
           if(index==0)
           {	// First point
-            q1 = trajectory.trajectory.points[index+1].positions[j];
-            q2 = trajectory.trajectory.points[index].positions[j];
-            q3 = trajectory.trajectory.points[index+1].positions[j];
+            q1 = trajectory.request.trajectory.points[index+1].positions[j];
+            q2 = trajectory.request.trajectory.points[index].positions[j];
+            q3 = trajectory.request.trajectory.points[index+1].positions[j];
             dt1 = time_diff[index];
             dt2 = time_diff[index];
             ROS_ASSERT(!backwards);
           }
           else if(index < num_points-1)
           { // middle points
-            q1 = trajectory.trajectory.points[index-1].positions[j];
-            q2 = trajectory.trajectory.points[index].positions[j];
-            q3 = trajectory.trajectory.points[index+1].positions[j];
+            q1 = trajectory.request.trajectory.points[index-1].positions[j];
+            q2 = trajectory.request.trajectory.points[index].positions[j];
+            q3 = trajectory.request.trajectory.points[index+1].positions[j];
             dt1 = time_diff[index-1];
             dt2 = time_diff[index];
           }
           else
           { // last point - careful, there are only numpoints-1 time intervals
-            q1 = trajectory.trajectory.points[index-1].positions[j];
-            q2 = trajectory.trajectory.points[index].positions[j];
-            q3 = trajectory.trajectory.points[index-1].positions[j];
+            q1 = trajectory.request.trajectory.points[index-1].positions[j];
+            q2 = trajectory.request.trajectory.points[index].positions[j];
+            q3 = trajectory.request.trajectory.points[index-1].positions[j];
             dt1 = time_diff[index-1];
             dt2 = time_diff[index-1];
             ROS_ASSERT(backwards);
@@ -405,7 +405,7 @@ bool IterativeParabolicSmoother<T>::smooth(const T& trajectory_in,
 {
   bool success = true;
   trajectory_out = trajectory_in;	//copy
-  const unsigned int num_points = trajectory_out.trajectory.points.size();
+  const unsigned int num_points = trajectory_out.request.trajectory.points.size();
   std::vector<double> time_diff(num_points,0.0);	// the time difference between adjacent points
 
   applyVelocityConstraints(trajectory_out, time_diff);
@@ -419,6 +419,7 @@ bool IterativeParabolicSmoother<T>::smooth(const T& trajectory_in,
 }
 
 
-PLUGINLIB_REGISTER_CLASS(IterativeParabolicSmootherFilterJointTrajectoryWithConstraints,
-                         constraint_aware_spline_smoother::IterativeParabolicSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>,
-                         filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_DECLARE_CLASS(constraint_aware_spline_smoother,
+                        IterativeParabolicSmootherFilterJointTrajectoryWithConstraints,
+                        constraint_aware_spline_smoother::IterativeParabolicSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>,
+                        filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>)

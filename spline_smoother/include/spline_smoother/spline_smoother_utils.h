@@ -121,36 +121,36 @@ void tridiagonalSolve(std::vector<T>& a,
 template <typename T>
 bool checkTrajectoryConsistency(T& waypoint_traj)
 {
-  unsigned int length = waypoint_traj.trajectory.points.size();
-  unsigned int num_joints = waypoint_traj.trajectory.joint_names.size();
+  unsigned int length = waypoint_traj.request.trajectory.points.size();
+  unsigned int num_joints = waypoint_traj.request.trajectory.joint_names.size();
 
   double prev_time = -1.0;
 
   for (unsigned int i=0; i<length; i++)
   {
-    if (waypoint_traj.trajectory.points[i].positions.size() != num_joints)
+    if (waypoint_traj.request.trajectory.points[i].positions.size() != num_joints)
     {
       ROS_ERROR("Number of positions (%d) at trajectory index %d doesn't match number of joint names (%d)",
-                (int) waypoint_traj.trajectory.points[i].positions.size(), (int) i, (int) num_joints);
+                (int) waypoint_traj.request.trajectory.points[i].positions.size(), (int) i, (int) num_joints);
       return false;
     }
-    if (waypoint_traj.trajectory.points[i].time_from_start.toSec() < prev_time)
+    if (waypoint_traj.request.trajectory.points[i].time_from_start.toSec() < prev_time)
     {
       ROS_ERROR("Time of waypoint at trajectory index %d (%f) is not greater than or equal to the previous time (%f)",
-                (int) i, waypoint_traj.trajectory.points[i].time_from_start.toSec(), prev_time);
+                (int) i, waypoint_traj.request.trajectory.points[i].time_from_start.toSec(), prev_time);
       return false;
     }
-    if(waypoint_traj.trajectory.points[i].time_from_start.toSec() < 0.0)
+    if(waypoint_traj.request.trajectory.points[i].time_from_start.toSec() < 0.0)
     {
       ROS_ERROR("Time of waypoint at trajectory index %d (%f) is negative",
-                (int) i, waypoint_traj.trajectory.points[i].time_from_start.toSec());
+                (int) i, waypoint_traj.request.trajectory.points[i].time_from_start.toSec());
       return false;
     }      
-    prev_time = waypoint_traj.trajectory.points[i].time_from_start.toSec();
-    if(waypoint_traj.trajectory.points[i].velocities.size() != waypoint_traj.trajectory.points[i].positions.size()) 
-      waypoint_traj.trajectory.points[i].velocities.resize(num_joints, 0.0);
-    if(waypoint_traj.trajectory.points[i].accelerations.size() != waypoint_traj.trajectory.points[i].positions.size()) 
-      waypoint_traj.trajectory.points[i].accelerations.resize(num_joints, 0.0);
+    prev_time = waypoint_traj.request.trajectory.points[i].time_from_start.toSec();
+    if(waypoint_traj.request.trajectory.points[i].velocities.size() != waypoint_traj.request.trajectory.points[i].positions.size()) 
+      waypoint_traj.request.trajectory.points[i].velocities.resize(num_joints, 0.0);
+    if(waypoint_traj.request.trajectory.points[i].accelerations.size() != waypoint_traj.request.trajectory.points[i].positions.size()) 
+      waypoint_traj.request.trajectory.points[i].accelerations.resize(num_joints, 0.0);
   }
   return true;
 }

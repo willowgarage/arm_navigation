@@ -164,7 +164,7 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
     return false;
   }
 
-  ROS_INFO("Got trajectory with %d points",(int)trajectory_in.trajectory.points.size());
+  ROS_INFO("Got trajectory with %d points",(int)trajectory_in.request.trajectory.points.size());
   if(!collision_models_interface_->isPlanningSceneSet()) {
     ROS_INFO("Planning scene not set, can't do anything");
     return false;
@@ -179,32 +179,32 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
 
   trajectory_out = trajectory_in;
 
-  collision_models_interface_->disableCollisionsForNonUpdatedLinks(trajectory_in.group_name);
+  collision_models_interface_->disableCollisionsForNonUpdatedLinks(trajectory_in.request.group_name);
 
-  planning_environment::setRobotStateAndComputeTransforms(trajectory_in.start_state,
+  planning_environment::setRobotStateAndComputeTransforms(trajectory_in.request.start_state,
                                                           *collision_models_interface_->getPlanningSceneState());
 
   if (!spline_smoother::checkTrajectoryConsistency(trajectory_out))
     return false;
 
-  shortcut.limits = trajectory_in.limits;
-  shortcut.trajectory.joint_names = trajectory_in.trajectory.joint_names;
+  shortcut.limits = trajectory_in.request.limits;
+  shortcut.trajectory.joint_names = trajectory_in.request.trajectory.joint_names;
 
-  discretized_trajectory.limits = trajectory_in.limits;
-  discretized_trajectory.trajectory.joint_names = trajectory_in.trajectory.joint_names;
+  discretized_trajectory.limits = trajectory_in.request.limits;
+  discretized_trajectory.trajectory.joint_names = trajectory_in.request.trajectory.joint_names;
 
   ros::Time start_time = ros::Time::now();
-  ros::Duration timeout = trajectory_in.allowed_time;
+  ros::Duration timeout = trajectory_in.request.allowed_time;
 
-  bool success = trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline);      
-  getWaypoints(spline,trajectory_out.trajectory);
-  printTrajectory(trajectory_out.trajectory);
+  bool success = trajectory_solver.parameterize(trajectory_out.request.trajectory,trajectory_in.request.limits,spline);      
+  getWaypoints(spline,trajectory_out.request.trajectory);
+  printTrajectory(trajectory_out.request.trajectory);
   std::vector<double> sample_times;
   sample_times.resize(2);
   bool first_try = true;
   while(ros::Time::now() - start_time < timeout)
   {
-    double total_time = trajectory_out.trajectory.points.back().time_from_start.toSec();
+    double total_time = trajectory_out.request.trajectory.points.back().time_from_start.toSec();
     double segment_start_time = getRandomTimeStamp(0.0,total_time);
     double segment_end_time = getRandomTimeStamp(segment_start_time,total_time);
     if(segment_start_time == segment_end_time)
@@ -224,7 +224,7 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
     shortcut.trajectory.points[0].time_from_start = ros::Duration(0.0);
     shortcut.trajectory.points[1].time_from_start = ros::Duration(0.0);
     
-    if(!trajectory_solver.parameterize(shortcut.trajectory,trajectory_in.limits,shortcut_spline))
+    if(!trajectory_solver.parameterize(shortcut.trajectory,trajectory_in.request.limits,shortcut_spline))
       return false;
     discretizeTrajectory(shortcut_spline,discretization,discretized_trajectory.trajectory);
     ROS_DEBUG("Succeeded in sampling trajectory with size: %d",(int)discretized_trajectory.trajectory.points.size());
@@ -234,7 +234,7 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
     if(collision_models_interface_->isJointTrajectoryValid(*collision_models_interface_->getPlanningSceneState(),
                                                            discretized_trajectory.trajectory,
                                                            empty_goal_constraints,
-                                                           trajectory_in.path_constraints,
+                                                           trajectory_in.request.path_constraints,
                                                            error_code,
                                                            trajectory_error_codes,
                                                            false))
@@ -242,28 +242,28 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
      ros::Duration shortcut_duration = discretized_trajectory.trajectory.points.back().time_from_start - discretized_trajectory.trajectory.points.front().time_from_start;
       if(segment_end_time-segment_start_time <= shortcut_duration.toSec())
         continue;
-      if(!trimTrajectory(trajectory_out.trajectory,segment_start_time,segment_end_time))
+      if(!trimTrajectory(trajectory_out.request.trajectory,segment_start_time,segment_end_time))
         continue;
-      ROS_DEBUG("Trimmed trajectory has %u points",trajectory_out.trajectory.points.size());
+      ROS_DEBUG("Trimmed trajectory has %u points",(unsigned int) trajectory_out.request.trajectory.points.size());
 
       ROS_DEBUG("Shortcut reduced duration from: %f to %f",
                 segment_end_time-segment_start_time,
                 shortcut_duration.toSec());
       shortcut.trajectory.points[0].time_from_start = ros::Duration(segment_start_time);
       shortcut.trajectory.points[1].time_from_start = ros::Duration(segment_start_time) + shortcut_duration;
-      addToTrajectory(trajectory_out.trajectory,
+      addToTrajectory(trajectory_out.request.trajectory,
                       shortcut.trajectory.points[0],
                       ros::Duration(0.0));
-      addToTrajectory(trajectory_out.trajectory,
+      addToTrajectory(trajectory_out.request.trajectory,
                       shortcut.trajectory.points[1],
                       shortcut_duration-ros::Duration(segment_end_time-segment_start_time));
       spline.segments.clear();
-      if(!trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline))
+      if(!trajectory_solver.parameterize(trajectory_out.request.trajectory,trajectory_in.request.limits,spline))
         return false;
-      if(!getWaypoints(spline,trajectory_out.trajectory))
+      if(!getWaypoints(spline,trajectory_out.request.trajectory))
         return false;
-      printTrajectory(trajectory_out.trajectory);
-      if(trajectory_out.trajectory.points.size() < 3)
+      printTrajectory(trajectory_out.request.trajectory);
+      if(trajectory_out.request.trajectory.points.size() < 3)
         break;
     }
     else 
@@ -273,25 +273,25 @@ bool LinearSplineShortCutter<T>::smooth(const T& trajectory_in,
     }
   }
   ROS_INFO("Trajectory filter took %f seconds",(ros::Time::now() - start_time).toSec());
-  for(unsigned int i=0; i < trajectory_out.trajectory.points.size(); i++)
+  for(unsigned int i=0; i < trajectory_out.request.trajectory.points.size(); i++)
   {
-    trajectory_out.trajectory.points[i].accelerations.clear();
-    trajectory_out.trajectory.points[i].velocities.clear();
+    trajectory_out.request.trajectory.points[i].accelerations.clear();
+    trajectory_out.request.trajectory.points[i].velocities.clear();
   }
-  printTrajectory(trajectory_out.trajectory);
+  printTrajectory(trajectory_out.request.trajectory);
   /*
-  refineTrajectory(trajectory_out);
-  if(!trajectory_solver.parameterize(trajectory_out.trajectory,trajectory_in.limits,spline))
+  refineTrajectory(trajectory_out.request);
+  if(!trajectory_solver.parameterize(trajectory_out.request.trajectory,trajectory_in.limits,spline))
     return false;
-  if(!getWaypoints(spline,trajectory_out.trajectory))
+  if(!getWaypoints(spline,trajectory_out.request.trajectory))
     return false;
-  discretizeTrajectory(spline,discretization,trajectory_out.trajectory);
+  discretizeTrajectory(spline,discretization,trajectory_out.request.trajectory);
   */
-  trajectory_out.limits = trajectory_in.limits;
-  printTrajectory(trajectory_out.trajectory);
+  trajectory_out.request.limits = trajectory_in.request.limits;
+  printTrajectory(trajectory_out.request.trajectory);
 	
-  ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.trajectory.points.size(),
-            trajectory_out.trajectory.points.back().time_from_start.toSec());
+  ROS_DEBUG("Final trajectory has %d points and %f total time",(int)trajectory_out.request.trajectory.points.size(),
+            trajectory_out.request.trajectory.points.back().time_from_start.toSec());
   //  planning_monitor_->getEnvironmentModel()->unlock();
   //  planning_monitor_->getKinematicModel()->unlock();
   return success;
@@ -541,7 +541,7 @@ bool LinearSplineShortCutter<T>::addToTrajectory(trajectory_msgs::JointTrajector
 {
 
   ROS_DEBUG("Inserting point at time: %f",trajectory_point.time_from_start.toSec());
-  ROS_DEBUG("Old trajectory has %u points",trajectory_out.points.size());
+  ROS_DEBUG("Old trajectory has %u points",(unsigned int)trajectory_out.points.size());
 
   if(trajectory_out.points.empty())
   {

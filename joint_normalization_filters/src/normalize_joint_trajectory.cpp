@@ -38,7 +38,12 @@
 #include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 #include <joint_normalization_filters/normalize_joint_trajectory.h>
 
-PLUGINLIB_REGISTER_CLASS(NormalizeFilterJointTrajectoryWithConstraints,joint_normalization_filters::NormalizeJointTrajectory<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>,filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)
-PLUGINLIB_REGISTER_CLASS(NormalizeFilterJointTrajectory,joint_normalization_filters::NormalizeJointTrajectory<arm_navigation_msgs::FilterJointTrajectory::Request>,filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>)
-PLUGINLIB_REGISTER_CLASS(NormalizeJointTrajectoryWithLimits,joint_normalization_filters::NormalizeJointTrajectory<arm_navigation_msgs::JointTrajectoryWithLimits>,filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>)
+PLUGINLIB_DECLARE_CLASS(joint_normalization_filters,
+                        NormalizeFilterJointTrajectoryWithConstraints,
+                        joint_normalization_filters::NormalizeJointTrajectory<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>,
+                        filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>)
+PLUGINLIB_DECLARE_CLASS(joint_normalization_filters,
+                        NormalizeFilterJointTrajectory,
+                        joint_normalization_filters::NormalizeJointTrajectory<arm_navigation_msgs::FilterJointTrajectory>,
+                        filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>)
 

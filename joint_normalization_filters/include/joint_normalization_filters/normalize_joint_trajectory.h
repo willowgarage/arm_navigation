@@ -65,20 +65,20 @@ bool NormalizeJointTrajectory<T>::smooth(const T& data_in,
 {
   data_out = data_in;
 
-  int size = data_in.trajectory.points.size();
-  int num_joints = data_in.trajectory.joint_names.size();
+  int size = data_in.request.trajectory.points.size();
+  int num_joints = data_in.request.trajectory.joint_names.size();
 
   if (!spline_smoother::checkTrajectoryConsistency(data_out))
     return false;
 
   for (int i=0; i<num_joints; ++i)
   {
-    if (!data_out.limits[i].has_position_limits)
+    if (!data_out.request.limits[i].has_position_limits)
     {
       for (int j=1; j<size; ++j)
       {
-        double& cur = data_out.trajectory.points[j].positions[i];
-        double prev = data_out.trajectory.points[j-1].positions[i];
+        double& cur = data_out.request.trajectory.points[j].positions[i];
+        double prev = data_out.request.trajectory.points[j-1].positions[i];
 
         cur = prev + angles::shortest_angular_distance(prev, cur);
       }

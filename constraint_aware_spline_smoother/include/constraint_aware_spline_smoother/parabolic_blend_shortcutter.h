@@ -297,45 +297,45 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
     return false;
   }
   
-  feasibility_checker_->setInitial(trajectory_in.trajectory,
-                                   trajectory_in.group_name,
-                                   trajectory_in.start_state,
-                                   trajectory_in.path_constraints);
+  feasibility_checker_->setInitial(trajectory_in.request.trajectory,
+                                   trajectory_in.request.group_name,
+                                   trajectory_in.request.start_state,
+                                   trajectory_in.request.path_constraints);
   std::vector<Vector> path;        //the sequence of milestones
   Vector vmax,amax;           //velocity and acceleration bounds, respectively
   Vector pmin,pmax;           //joint position bounds
   Real tol=1e-4;              //if a point is feasible, any point within tol is considered acceptable
   //TODO: compute milestones, velocity and acceleration bounds
 
-  vmax.resize(trajectory_in.limits.size());
-  amax.resize(trajectory_in.limits.size());
-  pmin.resize(trajectory_in.limits.size());
-  pmax.resize(trajectory_in.limits.size());
+  vmax.resize(trajectory_in.request.limits.size());
+  amax.resize(trajectory_in.request.limits.size());
+  pmin.resize(trajectory_in.request.limits.size());
+  pmax.resize(trajectory_in.request.limits.size());
 
-  for(unsigned int i=0; i < trajectory_in.limits.size(); i++)
+  for(unsigned int i=0; i < trajectory_in.request.limits.size(); i++)
   {
-    if( trajectory_in.limits[i].has_velocity_limits )
+    if( trajectory_in.request.limits[i].has_velocity_limits )
     {
-      vmax[i] = trajectory_in.limits[i].max_velocity;
+      vmax[i] = trajectory_in.request.limits[i].max_velocity;
     }
     else
     {
       vmax[i] = DEFAULT_VEL_MAX;
     }
 
-    if( trajectory_in.limits[i].has_acceleration_limits )
+    if( trajectory_in.request.limits[i].has_acceleration_limits )
     {
-      amax[i] = trajectory_in.limits[i].max_acceleration;
+      amax[i] = trajectory_in.request.limits[i].max_acceleration;
     }
     else
     {
       amax[i] = DEFAULT_ACC_MAX;
     }
 
-    if( trajectory_in.limits[i].has_position_limits )
+    if( trajectory_in.request.limits[i].has_position_limits )
     {
-      pmin[i] = trajectory_in.limits[i].min_position;
-      pmax[i] = trajectory_in.limits[i].max_position;
+      pmin[i] = trajectory_in.request.limits[i].min_position;
+      pmax[i] = trajectory_in.request.limits[i].max_position;
     }
     else
     {
@@ -343,13 +343,13 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
       pmax[i] = DEFAULT_POS_MAX;
     }
 
-    ROS_ERROR("joint %s min_pos=%f max_pos=%f", trajectory_in.limits[i].joint_name.c_str(),
-      trajectory_in.limits[i].min_position, trajectory_in.limits[i].max_position);
+    ROS_ERROR("joint %s min_pos=%f max_pos=%f", trajectory_in.request.limits[i].joint_name.c_str(),
+      trajectory_in.request.limits[i].min_position, trajectory_in.request.limits[i].max_position);
   }
 
-  for(unsigned int i=0; i<trajectory_in.trajectory.points.size(); i++)
+  for(unsigned int i=0; i<trajectory_in.request.trajectory.points.size(); i++)
   {
-    path.push_back(trajectory_in.trajectory.points[i].positions);
+    path.push_back(trajectory_in.request.trajectory.points[i].positions);
   }                   
 
   DynamicPath traj;
@@ -372,9 +372,9 @@ bool ParabolicBlendShortCutter<T>::smooth(const T& trajectory_in,
     point.positions = x;
     point.velocities = dx;
     point.time_from_start = ros::Duration(t);
-    trajectory_out.trajectory.points.push_back(point);
+    trajectory_out.request.trajectory.points.push_back(point);
   }
-  trajectory_out.trajectory.joint_names = trajectory_in.trajectory.joint_names;
+  trajectory_out.request.trajectory.joint_names = trajectory_in.request.trajectory.joint_names;
   feasibility_checker_->resetRequest();
   return res;
 }

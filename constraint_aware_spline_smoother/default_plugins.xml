@@ -1,25 +1,29 @@
 <class_libraries>
   <library path="lib/libconstraint_aware_spline_smoother">
-    <class name="CubicSplineShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::CubicSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+    <class name="constraint_aware_spline_smoother/CubicSplineShortCutterFilterJointTrajectoryWithConstraints" 
+	   type="constraint_aware_spline_smoother::CubicSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+           base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
         Generates collision free cubic spline trajectories
       </description>
     </class>
-    <class name="ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::ParabolicBlendShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+    <class name="constraint_aware_spline_smoother/ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints" 
+	   type="constraint_aware_spline_smoother::ParabolicBlendShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+           base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
         Generates collision free parabolic spline trajectories
       </description>
     </class>
-    <class name="LinearSplineShortCutterFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::LinearSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+    <class name="constraint_aware_spline_smoother/LinearSplineShortCutterFilterJointTrajectoryWithConstraints" 
+	   type="constraint_aware_spline_smoother::LinearSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+           base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
         Generates collision free linear trajectories
       </description>
     </class>
-    <class name="IterativeParabolicSmootherFilterJointTrajectoryWithConstraints" type="constraint_aware_spline_smoother::IterativeParabolicSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-            base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+    <class name="constraint_aware_spline_smoother/IterativeParabolicSmootherFilterJointTrajectoryWithConstraints" 
+	   type="constraint_aware_spline_smoother::IterativeParabolicSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+           base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
         Generates parabolic trajectories.  No collision checking.
       </description>

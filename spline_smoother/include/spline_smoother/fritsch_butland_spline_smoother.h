@@ -77,8 +77,8 @@ bool FritschButlandSplineSmoother<T>::smooth(const T& trajectory_in,
 {
   bool success = true;
 
-  int size = trajectory_in.trajectory.points.size();
-  int num_traj = trajectory_in.trajectory.joint_names.size();
+  int size = trajectory_in.request.trajectory.points.size();
+  int num_traj = trajectory_in.request.trajectory.joint_names.size();
   trajectory_out = trajectory_in;
 
   if (!checkTrajectoryConsistency(trajectory_out))
@@ -89,14 +89,14 @@ bool FritschButlandSplineSmoother<T>::smooth(const T& trajectory_in,
   // for every point in time:
   for (int i=1; i<size-1; ++i)
   {
-    double h1 = (trajectory_in.trajectory.points[i].time_from_start - trajectory_in.trajectory.points[i-1].time_from_start).toSec();
-    double h2 = (trajectory_in.trajectory.points[i+1].time_from_start - trajectory_in.trajectory.points[i].time_from_start).toSec();
+    double h1 = (trajectory_in.request.trajectory.points[i].time_from_start - trajectory_in.request.trajectory.points[i-1].time_from_start).toSec();
+    double h2 = (trajectory_in.request.trajectory.points[i+1].time_from_start - trajectory_in.request.trajectory.points[i].time_from_start).toSec();
 
     // for every (joint) trajectory
     for (int j=0; j<num_traj; ++j)
     {
-      double s1 = (trajectory_in.trajectory.points[i].positions[j] - trajectory_in.trajectory.points[i-1].positions[j])/h1;
-      double s2 = (trajectory_in.trajectory.points[i+1].positions[j] - trajectory_in.trajectory.points[i].positions[j])/h2;
+      double s1 = (trajectory_in.request.trajectory.points[i].positions[j] - trajectory_in.request.trajectory.points[i-1].positions[j])/h1;
+      double s2 = (trajectory_in.request.trajectory.points[i+1].positions[j] - trajectory_in.request.trajectory.points[i].positions[j])/h2;
 
       double alpha = (1 + h2/(h1+h2))/3.0;
 
@@ -105,8 +105,8 @@ bool FritschButlandSplineSmoother<T>::smooth(const T& trajectory_in,
       {
         vel = (s1*s2)/(alpha*s2 + (1.0-alpha)*s1);
       }
-      trajectory_out.trajectory.points[i].velocities[j] = vel;
-      trajectory_out.trajectory.points[i].accelerations[j] = 0.0;
+      trajectory_out.request.trajectory.points[i].velocities[j] = vel;
+      trajectory_out.request.trajectory.points[i].accelerations[j] = 0.0;
     }
   }
   return success;

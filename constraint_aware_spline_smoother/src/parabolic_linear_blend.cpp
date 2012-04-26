@@ -58,23 +58,23 @@ bool ParabolicLinearBlendSmoother<T>::smooth(const T& trajectory_in,
   double smin = 0.03;		// minimum waypoint separation
 
   // Convert to expected form
-  vmax.resize(trajectory_in.limits.size());
-  amax.resize(trajectory_in.limits.size());
+  vmax.resize(trajectory_in.request.limits.size());
+  amax.resize(trajectory_in.request.limits.size());
 
   // limits
-  for(unsigned int i=0; i<trajectory_in.limits.size(); i++)
+  for(unsigned int i=0; i<trajectory_in.request.limits.size(); i++)
   {
-    if( trajectory_in.limits[i].has_velocity_limits )
+    if( trajectory_in.request.limits[i].has_velocity_limits )
     {
-      vmax[i] = trajectory_in.limits[i].max_velocity;
+      vmax[i] = trajectory_in.request.limits[i].max_velocity;
     }
     else
     {
       vmax[i] = DEFAULT_VEL_MAX;
     }
-    if( trajectory_in.limits[i].has_acceleration_limits )
+    if( trajectory_in.request.limits[i].has_acceleration_limits )
     {
-      amax[i] = trajectory_in.limits[i].max_acceleration;
+      amax[i] = trajectory_in.request.limits[i].max_acceleration;
     }
     else
     {
@@ -84,15 +84,15 @@ bool ParabolicLinearBlendSmoother<T>::smooth(const T& trajectory_in,
 
 
   // trajectory points
-  for(unsigned int i=0; i<trajectory_in.trajectory.points.size(); i++)
+  for(unsigned int i=0; i<trajectory_in.request.trajectory.points.size(); i++)
   {
     Eigen::VectorXd point;
-    point.resize(trajectory_in.trajectory.points[i].positions.size());
-    for(unsigned int j=0; j<trajectory_in.trajectory.points[i].positions.size(); j++)
+    point.resize(trajectory_in.request.trajectory.points[i].positions.size());
+    for(unsigned int j=0; j<trajectory_in.request.trajectory.points[i].positions.size(); j++)
     {
-      point[j]=trajectory_in.trajectory.points[i].positions[j];
+      point[j]=trajectory_in.request.trajectory.points[i].positions[j];
     }
-    std::vector<double> positions=trajectory_in.trajectory.points[i].positions;
+    std::vector<double> positions=trajectory_in.request.trajectory.points[i].positions;
     path.push_back(point);
   }
 
@@ -100,13 +100,13 @@ bool ParabolicLinearBlendSmoother<T>::smooth(const T& trajectory_in,
 
   // Convert back
   trajectory_out = trajectory_in;
-  unsigned int num_joints = trajectory_in.trajectory.joint_names.size();
+  unsigned int num_joints = trajectory_in.request.trajectory.joint_names.size();
   unsigned int num_points = NUM_OUTPUT_POINTS;
   double duration = blend_trajectory.getDuration();
   double discretization = duration / num_points;
 
   // add on the new trjectory points
-  trajectory_out.trajectory.points.clear();
+  trajectory_out.request.trajectory.points.clear();
   for (unsigned int i=0; i<=num_points; ++i)
   {
    double time_from_start = discretization * i;
@@ -125,13 +125,14 @@ bool ParabolicLinearBlendSmoother<T>::smooth(const T& trajectory_in,
       point.velocities[j] = velocities[j];
     }
 
-    trajectory_out.trajectory.points.push_back(point);	// TODO - can make this faster by initializing the size
+    trajectory_out.request.trajectory.points.push_back(point);	// TODO - can make this faster by initializing the size
   }
 
   return true;
 }
 
 
-PLUGINLIB_REGISTER_CLASS(ParabolicLinearBlendFilterJointTrajectoryWithConstraints,
-                         constraint_aware_spline_smoother::ParabolicLinearBlendSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>,
-                         filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_DECLARE_CLASS(constraint_aware_spline_smoother,
+                        ParabolicLinearBlendFilterJointTrajectoryWithConstraints,
+                        constraint_aware_spline_smoother::ParabolicLinearBlendSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>,
+                        filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>)

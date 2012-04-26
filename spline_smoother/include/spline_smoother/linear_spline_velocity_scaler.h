@@ -72,7 +72,7 @@ bool LinearSplineVelocityScaler<T>::smooth(const T& trajectory_in,
 {
   spline_smoother::LinearTrajectory traj;
   spline_smoother::SplineTrajectory spline;
-  bool success = traj.parameterize(trajectory_in.trajectory,trajectory_in.limits,spline);
+  bool success = traj.parameterize(trajectory_in.request.trajectory,trajectory_in.request.limits,spline);
   if(!success)
     return false;
 
@@ -88,8 +88,8 @@ bool LinearSplineVelocityScaler<T>::smooth(const T& trajectory_in,
 
   trajectory_msgs::JointTrajectory joint_traj;
   spline_smoother::sampleSplineTrajectory(spline,times,joint_traj);
-  trajectory_out.trajectory = joint_traj;
-  trajectory_out.trajectory.joint_names = trajectory_in.trajectory.joint_names;
+  trajectory_out.request.trajectory = joint_traj;
+  trajectory_out.request.trajectory.joint_names = trajectory_in.request.trajectory.joint_names;
 
   return success;
 }

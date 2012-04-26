@@ -1,121 +1,86 @@
 <class_libraries>
   <library path="lib/libspline_smoother">
-    <class name="NumericalDifferentiationSplineSmootherJointTrajectoryWithLimits" type="spline_smoother::NumericalDifferentiationSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>">
+    <class name="spline_smoother/NumericalDifferentiationSplineSmootherFilterJointTrajectory" 
+	   type="spline_smoother::NumericalDifferentiationSplineSmoother<arm_navigation_msgs::FilterJointTrajectory>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>">
       <description>
 	Generates velocities and accelerations from numerical differentiation
       </description>
     </class>
-    <class name="ClampedCubicSplineSmootherJointTrajectoryWithLimits" type="spline_smoother::ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>">
+    <class name="spline_smoother/ClampedCubicSplineSmootherFilterJointTrajectory" 
+	   type="spline_smoother::ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectory>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>">
       <description>
 	Generates velocities using clamped cubic splines
       </description>
     </class>
-    <class name="FritschButlandSplineSmootherJointTrajectoryWithLimits" type="spline_smoother::FritschButlandSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>">
+    <class name="spline_smoother/FritschButlandSplineSmootherFilterJointTrajectory" 
+	   type="spline_smoother::FritschButlandSplineSmoother<arm_navigation_msgs::FilterJointTrajectory>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>">
       <description>
 	Generates velocities using monotonic cubic spline interpolation by Fritsch, Butland
       </description>
     </class>
-    <class name="LinearSplineVelocityScalerJointTrajectoryWithLimits" type="spline_smoother::LinearSplineVelocityScaler<arm_navigation_msgs::JointTrajectoryWithLimits>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>">
+    <class name="spline_smoother/LinearSplineVelocityScalerFilterJointTrajectory" 
+	   type="spline_smoother::LinearSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectory>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>">
       <description>
 	Generates position trajectories that conform to velocity limits
       </description>
     </class>
-    <class name="CubicSplineVelocityScalerJointTrajectoryWithLimits" type="spline_smoother::CubicSplineVelocityScaler<arm_navigation_msgs::JointTrajectoryWithLimits>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>">
+    <class name="spline_smoother/CubicSplineVelocityScalerFilterJointTrajectory" 
+	   type="spline_smoother::CubicSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectory>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>">
       <description>
 	      Generates position trajectories that conform to velocity limits
       </description>
     </class>
-    <class name="CubicParameterizedSplineVelocityScalerJointTrajectoryWithLimits" type="spline_smoother::CubicParameterizedSplineVelocityScaler<arm_navigation_msgs::JointTrajectoryWithLimits>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::JointTrajectoryWithLimits>">
+    <class name="spline_smoother/CubicParameterizedSplineVelocityScalerFilterJointTrajectory" 
+	   type="spline_smoother::CubicParameterizedSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectory>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory>">
       <description>
 	      Generates position trajectories that conform to velocity limits
       </description>
     </class>
 
-
-
-
-
-    <class name="NumericalDifferentiationSplineSmootherFilterJointTrajectory" type="spline_smoother::NumericalDifferentiationSplineSmoother<arm_navigation_msgs::FilterJointTrajectory::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
+    <class name="spline_smoother/NumericalDifferentiationSplineSmootherFilterJointTrajectoryWithConstraints" 
+	   type="spline_smoother::NumericalDifferentiationSplineSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
 	Generates velocities and accelerations from numerical differentiation
       </description>
     </class>
-    <class name="ClampedCubicSplineSmootherFilterJointTrajectory" type="spline_smoother::ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectory::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
+    <class name="spline_smoother/ClampedCubicSplineSmootherFilterJointTrajectoryWithConstraints" 
+	   type="spline_smoother::ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
 	Generates velocities using clamped cubic splines
       </description>
     </class>
-    <class name="FritschButlandSplineSmootherFilterJointTrajectory" type="spline_smoother::FritschButlandSplineSmoother<arm_navigation_msgs::FilterJointTrajectory::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
+    <class name="spline_smoother/FritschButlandSplineSmootherFilterJointTrajectoryWithConstraints" 
+	   type="spline_smoother::FritschButlandSplineSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
 	Generates velocities using monotonic cubic spline interpolation by Fritsch, Butland
       </description>
     </class>
-    <class name="LinearSplineVelocityScalerFilterJointTrajectory" type="spline_smoother::LinearSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectory::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
+    <class name="spline_smoother/LinearSplineVelocityScalerFilterJointTrajectoryWithConstraints" 
+	   type="spline_smoother::LinearSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
 	Generates position trajectories that conform to velocity limits
       </description>
     </class>
-    <class name="CubicSplineVelocityScalerFilterJointTrajectory" type="spline_smoother::CubicSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectory::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
+    <class name="spline_smoother/CubicSplineVelocityScalerFilterJointTrajectoryWithConstraints" 
+	   type="spline_smoother::CubicSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
 	      Generates position trajectories that conform to velocity limits
       </description>
     </class>
-    <class name="CubicParameterizedSplineVelocityScalerFilterJointTrajectory" type="spline_smoother::CubicParameterizedSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectory::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectory::Request>">
-      <description>
-	      Generates position trajectories that conform to velocity limits
-      </description>
-    </class>
-
-
-
-
-
-
-
-    <class name="NumericalDifferentiationSplineSmootherFilterJointTrajectoryWithConstraints" type="spline_smoother::NumericalDifferentiationSplineSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
-      <description>
-	Generates velocities and accelerations from numerical differentiation
-      </description>
-    </class>
-    <class name="ClampedCubicSplineSmootherFilterJointTrajectoryWithConstraints" type="spline_smoother::ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
-      <description>
-	Generates velocities using clamped cubic splines
-      </description>
-    </class>
-    <class name="FritschButlandSplineSmootherFilterJointTrajectoryWithConstraints" type="spline_smoother::FritschButlandSplineSmoother<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
-      <description>
-	Generates velocities using monotonic cubic spline interpolation by Fritsch, Butland
-      </description>
-    </class>
-    <class name="LinearSplineVelocityScalerFilterJointTrajectoryWithConstraints" type="spline_smoother::LinearSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
-      <description>
-	Generates position trajectories that conform to velocity limits
-      </description>
-    </class>
-    <class name="CubicSplineVelocityScalerFilterJointTrajectoryWithConstraints" type="spline_smoother::CubicSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
-      <description>
-	      Generates position trajectories that conform to velocity limits
-      </description>
-    </class>
-    <class name="CubicParameterizedSplineVelocityScalerFilterJointTrajectoryWithConstraints" type="spline_smoother::CubicParameterizedSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>" 
-	    base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>">
+    <class name="spline_smoother/CubicParameterizedSplineVelocityScalerFilterJointTrajectoryWithConstraints" 
+	   type="spline_smoother::CubicParameterizedSplineVelocityScaler<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>" 
+	   base_class_type="filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>">
       <description>
 	      Generates position trajectories that conform to velocity limits
       </description>

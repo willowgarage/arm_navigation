@@ -107,18 +107,18 @@ bool UnNormalizeJointTrajectory<T>::smooth(const T& trajectory_in,
     return false;
   }
 
-  if(trajectory_in.start_state.joint_state.name.size() == 0) {
+  if(trajectory_in.request.start_state.joint_state.name.size() == 0) {
     ROS_WARN_STREAM("Unnormalizer requires the start state to be set");
     return false;
   }
   std::map<std::string, double> joint_values;
-  for(unsigned int i = 0; i < trajectory_in.start_state.joint_state.name.size(); i++) {
-    joint_values[trajectory_in.start_state.joint_state.name[i]] = trajectory_in.start_state.joint_state.position[i];
+  for(unsigned int i = 0; i < trajectory_in.request.start_state.joint_state.name.size(); i++) {
+    joint_values[trajectory_in.request.start_state.joint_state.name[i]] = trajectory_in.request.start_state.joint_state.position[i];
   }
 
   std::vector<double> current_values;
   std::vector<int> wraparound;
-  trajectory_msgs::JointTrajectory input_trajectory = trajectory_in.trajectory;
+  trajectory_msgs::JointTrajectory input_trajectory = trajectory_in.request.trajectory;
   for (size_t i=0; i<input_trajectory.joint_names.size(); i++)
   {
     std::string name = input_trajectory.joint_names[i];
@@ -156,7 +156,7 @@ bool UnNormalizeJointTrajectory<T>::smooth(const T& trajectory_in,
       current_values.at(j) = traj;
     }  
   }
-  trajectory_out.trajectory = normalized_trajectory;
+  trajectory_out.request.trajectory = normalized_trajectory;
   return true;
 }
 }

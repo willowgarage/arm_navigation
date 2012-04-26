@@ -40,4 +40,7 @@
 
 #include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 
-PLUGINLIB_REGISTER_CLASS(ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints, constraint_aware_spline_smoother::ParabolicBlendShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>, filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_DECLARE_CLASS(constraint_aware_spline_smoother,
+                        ParabolicBlendShortCutterFilterJointTrajectoryWithConstraints, 
+                        constraint_aware_spline_smoother::ParabolicBlendShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>, 
+                        filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>)

@@ -40,6 +40,7 @@
 
 #include <arm_navigation_msgs/FilterJointTrajectoryWithConstraints.h>
 
-PLUGINLIB_REGISTER_CLASS(LinearSplineShortCutterFilterJointTrajectoryWithConstraints, 
-                         constraint_aware_spline_smoother::LinearSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>, 
-                         filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints::Request>)
+PLUGINLIB_DECLARE_CLASS(constraint_aware_spline_smoother,
+                        LinearSplineShortCutterFilterJointTrajectoryWithConstraints, 
+                        constraint_aware_spline_smoother::LinearSplineShortCutter<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>, 
+                        filters::FilterBase<arm_navigation_msgs::FilterJointTrajectoryWithConstraints>)

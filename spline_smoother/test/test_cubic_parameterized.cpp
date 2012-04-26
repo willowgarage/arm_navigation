@@ -79,7 +79,7 @@ void run_test(int num_times)
   }
   spline_smoother::SplineTrajectory spline;
   double eps = 1e-1;
-  for(unsigned int i=0; i < num_times; i++)
+  for(int i=0; i < num_times; i++)
   {
     //24.752475, -66.336634, velocities: 0.000000, 0.000000
     //[ INFO] [WallTime: 1285288331.834028213]: Limits: 14.851485, 6.930693
