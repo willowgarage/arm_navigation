@@ -2,4 +2,4 @@ TestLinearSplineVelocityScaler:
   filter_chain:
     -
       name: linear_spline_velocity_scaler
-      type: LinearSplineVelocityScalerJointTrajectoryWithLimits
+      type: spline_smoother/LinearSplineVelocityScalerFilterJointTrajectory

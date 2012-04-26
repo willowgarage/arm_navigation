@@ -38,66 +38,67 @@
 #include <spline_smoother/splines.h>
 #include <spline_smoother/clamped_cubic_spline_smoother.h>
 #include <spline_smoother/numerical_differentiation_spline_smoother.h>
+#include <arm_navigation_msgs/FilterJointTrajectory.h>
 #include <stdlib.h>
 
 using namespace spline_smoother;
 
 TEST(TestClampedCubicSplineSmoother, TestZeroPositionsSmall)
 {
-  int length = ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS - 2;
+  int length = ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectory>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS - 2;
 
-  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
-  arm_navigation_msgs::JointTrajectoryWithLimits wpt_out;
-  wpt.trajectory.points.resize(length);
-  wpt.trajectory.joint_names.resize(1);
-  wpt.trajectory.joint_names[0] = std::string("test");
+  arm_navigation_msgs::FilterJointTrajectory wpt;
+  arm_navigation_msgs::FilterJointTrajectory wpt_out;
+  wpt.request.trajectory.points.resize(length);
+  wpt.request.trajectory.joint_names.resize(1);
+  wpt.request.trajectory.joint_names[0] = std::string("test");
   for (int i=0; i<length; i++)
   {
-    wpt.trajectory.points[i].positions.resize(1);
-    wpt.trajectory.points[i].accelerations.resize(1);
-    wpt.trajectory.points[i].velocities.resize(1);
-    wpt.trajectory.points[i].positions[0] = 0.0;
-    wpt.trajectory.points[i].velocities[0] = 0.0;
-    wpt.trajectory.points[i].accelerations[0] = 0.0;
-    wpt.trajectory.points[i].time_from_start = ros::Duration(i);
+    wpt.request.trajectory.points[i].positions.resize(1);
+    wpt.request.trajectory.points[i].accelerations.resize(1);
+    wpt.request.trajectory.points[i].velocities.resize(1);
+    wpt.request.trajectory.points[i].positions[0] = 0.0;
+    wpt.request.trajectory.points[i].velocities[0] = 0.0;
+    wpt.request.trajectory.points[i].accelerations[0] = 0.0;
+    wpt.request.trajectory.points[i].time_from_start = ros::Duration(i);
   }
 
-  ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits> ccss;
+  ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectory> ccss;
   ccss.smooth(wpt, wpt_out);
 
   // verify that velocities are 0:
   for (int i=0; i<length; i++)
   {
-    EXPECT_NEAR(wpt_out.trajectory.points[i].velocities[0], 0.0, 1e-8);
+    EXPECT_NEAR(wpt_out.request.trajectory.points[i].velocities[0], 0.0, 1e-8);
   }
 }
 
 TEST(TestClampedCubicSplineSmoother, TestStraightLineSmall)
 {
-  int length = ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS-2;
+  int length = ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectory>::MAX_TRIDIAGONAL_SOLVER_ELEMENTS-2;
 
-  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
-  arm_navigation_msgs::JointTrajectoryWithLimits wpt_out;
-  wpt.trajectory.points.resize(length);
-  wpt.trajectory.joint_names.resize(1);
-  wpt.trajectory.joint_names[0] = std::string("test");
+  arm_navigation_msgs::FilterJointTrajectory wpt;
+  arm_navigation_msgs::FilterJointTrajectory wpt_out;
+  wpt.request.trajectory.points.resize(length);
+  wpt.request.trajectory.joint_names.resize(1);
+  wpt.request.trajectory.joint_names[0] = std::string("test");
   for (int i=0; i<length; i++)
   {
-    wpt.trajectory.points[i].positions.resize(1);
-    wpt.trajectory.points[i].accelerations.resize(1);
-    wpt.trajectory.points[i].velocities.resize(1);
-    wpt.trajectory.points[i].positions[0] = i;
-    wpt.trajectory.points[i].velocities[0] = 1.0;
-    wpt.trajectory.points[i].accelerations[0] = 0.0;
-    wpt.trajectory.points[i].time_from_start = ros::Duration(i);
+    wpt.request.trajectory.points[i].positions.resize(1);
+    wpt.request.trajectory.points[i].accelerations.resize(1);
+    wpt.request.trajectory.points[i].velocities.resize(1);
+    wpt.request.trajectory.points[i].positions[0] = i;
+    wpt.request.trajectory.points[i].velocities[0] = 1.0;
+    wpt.request.trajectory.points[i].accelerations[0] = 0.0;
+    wpt.request.trajectory.points[i].time_from_start = ros::Duration(i);
   }
 
-  ClampedCubicSplineSmoother<arm_navigation_msgs::JointTrajectoryWithLimits> ccss;
+  ClampedCubicSplineSmoother<arm_navigation_msgs::FilterJointTrajectory> ccss;
   ccss.smooth(wpt, wpt_out);
 
   // verify that velocities are still 1:
   for (int i=0; i<length; i++)
   {
-    EXPECT_NEAR(wpt.trajectory.points[i].velocities[0], 1.0, 1e-8);
+    EXPECT_NEAR(wpt.request.trajectory.points[i].velocities[0], 1.0, 1e-8);
   }
 }

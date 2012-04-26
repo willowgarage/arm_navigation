@@ -2,4 +2,4 @@ TestSmoothersAsFilters:
   filter_chain:
     -
       name: numerical_differentiation_spline_smoother
-      type: NumericalDifferentiationSplineSmootherJointTrajectoryWithLimits
+      type: spline_smoother/NumericalDifferentiationSplineSmootherFilterJointTrajectory

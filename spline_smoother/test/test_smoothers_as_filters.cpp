@@ -35,7 +35,7 @@
 /** \author Mrinal Kalakrishnan */
 
 #include <gtest/gtest.h>
-#include <arm_navigation_msgs/JointTrajectoryWithLimits.h>
+#include <arm_navigation_msgs/FilterJointTrajectory.h>
 #include <filters/filter_chain.h>
 
 using namespace filters;
@@ -43,25 +43,25 @@ using namespace filters;
 TEST(TestSmoothersAsFilters, TestSmoothersAsFilters1)
 {
   // make the filter chain:
-  FilterChain<arm_navigation_msgs::JointTrajectoryWithLimits> chain("arm_navigation_msgs::JointTrajectoryWithLimits");
+  FilterChain<arm_navigation_msgs::FilterJointTrajectory> chain("arm_navigation_msgs::FilterJointTrajectory");
   ASSERT_TRUE(chain.configure("TestSmoothersAsFilters"));
 
   // create the input:
   int length = 5;
-  arm_navigation_msgs::JointTrajectoryWithLimits wpt;
-  arm_navigation_msgs::JointTrajectoryWithLimits wpt_out;
-  wpt.trajectory.points.resize(length);
-  wpt.trajectory.joint_names.resize(1);
-  wpt.trajectory.joint_names[0] = std::string("test");
+  arm_navigation_msgs::FilterJointTrajectory wpt;
+  arm_navigation_msgs::FilterJointTrajectory wpt_out;
+  wpt.request.trajectory.points.resize(length);
+  wpt.request.trajectory.joint_names.resize(1);
+  wpt.request.trajectory.joint_names[0] = std::string("test");
   for (int i=0; i<length; i++)
   {
-    wpt.trajectory.points[i].positions.resize(1);
-    wpt.trajectory.points[i].accelerations.resize(1);
-    wpt.trajectory.points[i].velocities.resize(1);
-    wpt.trajectory.points[i].positions[0] = 0.0;
-    wpt.trajectory.points[i].velocities[0] = 0.0;
-    wpt.trajectory.points[i].accelerations[0] = 0.0;
-    wpt.trajectory.points[i].time_from_start = ros::Duration(i);
+    wpt.request.trajectory.points[i].positions.resize(1);
+    wpt.request.trajectory.points[i].accelerations.resize(1);
+    wpt.request.trajectory.points[i].velocities.resize(1);
+    wpt.request.trajectory.points[i].positions[0] = 0.0;
+    wpt.request.trajectory.points[i].velocities[0] = 0.0;
+    wpt.request.trajectory.points[i].accelerations[0] = 0.0;
+    wpt.request.trajectory.points[i].time_from_start = ros::Duration(i);
   }
 
   chain.update(wpt, wpt_out);
@@ -69,7 +69,7 @@ TEST(TestSmoothersAsFilters, TestSmoothersAsFilters1)
   // verify that velocities are 0:
   for (int i=0; i<length; i++)
   {
-    EXPECT_NEAR(wpt_out.trajectory.points[i].velocities[0], 0.0, 1e-8);
+    EXPECT_NEAR(wpt_out.request.trajectory.points[i].velocities[0], 0.0, 1e-8);
   }
 
 }
