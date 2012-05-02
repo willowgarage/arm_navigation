@@ -40,7 +40,7 @@ namespace ompl_ros_interface
 OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSpace *state_space, 
                                                        const std::string &evaluator_name) : ompl::base::ProjectionEvaluator(state_space)
 {
-  if(!state_space->as<ompl::base::CompoundStateSpace>()->hasSubSpace(evaluator_name) && 
+  if(!state_space->as<ompl::base::CompoundStateSpace>()->hasSubspace(evaluator_name) && 
      !(evaluator_name == "joint_state"))
   {
     ROS_ERROR("Evaluator name %s does not match any state space name",evaluator_name.c_str());
@@ -49,12 +49,12 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSp
 
   if(evaluator_name == "joint_state")
   {
-    if(!state_space->as<ompl::base::CompoundStateSpace>()->hasSubSpace("real_vector"))
+    if(!state_space->as<ompl::base::CompoundStateSpace>()->hasSubspace("real_vector"))
     {      
       ROS_ERROR("Could not find subspace for defining projection evaluator");
       throw new OMPLROSException();
     }
-    mapping_index_ = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
+    mapping_index_ = state_space->as<ompl::base::CompoundStateSpace>()->getSubspaceIndex("real_vector");
     dimension_ = std::min<unsigned int>(state_space->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(mapping_index_)->getDimension(),2);
     cellSizes_.resize(dimension_);
     const ompl::base::RealVectorBounds &b = state_space->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(mapping_index_)->getBounds();
@@ -65,8 +65,8 @@ OmplRosProjectionEvaluator::OmplRosProjectionEvaluator(const ompl::base::StateSp
     return;
   }
 
-  mapping_index_ = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex(evaluator_name);
-  mapping_type_ = ompl_ros_interface::getMappingType(state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping_index_).get());
+  mapping_index_ = state_space->as<ompl::base::CompoundStateSpace>()->getSubspaceIndex(evaluator_name);
+  mapping_type_ = ompl_ros_interface::getMappingType(state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping_index_).get());
 
   if(mapping_type_ == ompl_ros_interface::SO2)
   {

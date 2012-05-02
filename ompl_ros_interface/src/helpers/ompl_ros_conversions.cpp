@@ -60,9 +60,9 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
     {
       ompl::base::SO2StateSpace *subspace = new ompl::base::SO2StateSpace();
       subspace->setName(revolute_joint->getName());
-      state_space->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+      state_space->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
 
-      kinematic_ompl_mapping.joint_state_mapping.push_back(state_space->getSubSpaceCount()-1);
+      kinematic_ompl_mapping.joint_state_mapping.push_back(state_space->getSubspaceCount()-1);
       kinematic_ompl_mapping.joint_mapping_type.push_back(ompl_ros_interface::SO2);
 
       ompl_kinematic_mapping.ompl_state_mapping.push_back(i);
@@ -77,9 +77,9 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
       {
         ompl::base::SE2StateSpace *subspace = new ompl::base::SE2StateSpace();
         subspace->setName(planar_joint->getName());
-        state_space->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+        state_space->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
 
-        kinematic_ompl_mapping.joint_state_mapping.push_back(state_space->getSubSpaceCount()-1);
+        kinematic_ompl_mapping.joint_state_mapping.push_back(state_space->getSubspaceCount()-1);
         kinematic_ompl_mapping.joint_mapping_type.push_back(ompl_ros_interface::SE2);
 
         ompl_kinematic_mapping.ompl_state_mapping.push_back(i);
@@ -93,9 +93,9 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
         {
           ompl::base::SE3StateSpace *subspace = new ompl::base::SE3StateSpace();
           subspace->setName(floating_joint->getName());
-          state_space->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+          state_space->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
 
-          kinematic_ompl_mapping.joint_state_mapping.push_back(state_space->getSubSpaceCount()-1);
+          kinematic_ompl_mapping.joint_state_mapping.push_back(state_space->getSubspaceCount()-1);
           kinematic_ompl_mapping.joint_mapping_type.push_back(ompl_ros_interface::SE3);
 
           ompl_kinematic_mapping.ompl_state_mapping.push_back(i);
@@ -125,15 +125,15 @@ ompl::base::StateSpacePtr jointGroupToOmplStateSpacePtr(const planning_models::K
     subspace->setBounds(real_vector_bounds);
     for(unsigned int i=0; i < real_vector_names.size(); i++)
       subspace->setDimensionName(i,real_vector_names[i]);
-    state_space->addSubSpace(ompl::base::StateSpacePtr(subspace),1.0);
-    kinematic_ompl_mapping.real_vector_index = state_space->getSubSpaceCount()-1;
+    state_space->addSubspace(ompl::base::StateSpacePtr(subspace),1.0);
+    kinematic_ompl_mapping.real_vector_index = state_space->getSubspaceCount()-1;
     ompl_kinematic_mapping.real_vector_index = kinematic_ompl_mapping.real_vector_index;
     ompl_kinematic_mapping.ompl_state_mapping.push_back(-1);
     ompl_kinematic_mapping.mapping_type.push_back(ompl_ros_interface::REAL_VECTOR);
   }
-  for(unsigned int i=0; i < state_space->getSubSpaceCount(); i++)
+  for(unsigned int i=0; i < state_space->getSubspaceCount(); i++)
   {
-    ROS_DEBUG("State state space: subspace %d has name %s",i,state_space->getSubSpace(i)->getName().c_str());
+    ROS_DEBUG("State state space: subspace %d has name %s",i,state_space->getSubspace(i)->getName().c_str());
   }
   return ompl_state_space;
 };
@@ -157,7 +157,7 @@ bool addToOmplStateSpace(const planning_models::KinematicModel* kinematic_model,
   {
     ompl::base::SO2StateSpace *subspace = new ompl::base::SO2StateSpace();
     subspace->setName(revolute_joint->getName());
-    state_space->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+    state_space->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
     ROS_DEBUG("Adding SO2 state space with name %s",revolute_joint->getName().c_str());
   }
   else
@@ -168,7 +168,7 @@ bool addToOmplStateSpace(const planning_models::KinematicModel* kinematic_model,
     {
       ompl::base::SE2StateSpace *subspace = new ompl::base::SE2StateSpace();
       subspace->setName(planar_joint->getName());
-      state_space->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+      state_space->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
     }
     else
     {
@@ -178,23 +178,23 @@ bool addToOmplStateSpace(const planning_models::KinematicModel* kinematic_model,
       {
         ompl::base::SE3StateSpace *subspace = new ompl::base::SE3StateSpace();
         subspace->setName(floating_joint->getName());
-        state_space->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+        state_space->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
       }
       else
       {
         // the only other case we consider is R^n; since we know that for now at least the only other type of joint available are single-dof joints
         int real_vector_index = -1;
-        if(state_space->hasSubSpace("real_vector"))
-          real_vector_index = state_space->getSubSpaceIndex("real_vector");
+        if(state_space->hasSubspace("real_vector"))
+          real_vector_index = state_space->getSubspaceIndex("real_vector");
  
         if(real_vector_index < 0)
         {
-          real_vector_index = state_space->getSubSpaceCount();
+          real_vector_index = state_space->getSubspaceCount();
           ompl::base::RealVectorStateSpace *subspace = new ompl::base::RealVectorStateSpace(0);
           subspace->setName("real_vector");
-          state_space->addSubSpace(ompl::base::StateSpacePtr(subspace),1.0);
+          state_space->addSubspace(ompl::base::StateSpacePtr(subspace),1.0);
         }
-        ompl::base::StateSpacePtr real_vector_state_space = state_space->getSubSpace("real_vector");
+        ompl::base::StateSpacePtr real_vector_state_space = state_space->getSubspace("real_vector");
         double min_value, max_value;
         std::pair<double,double> bounds;
         joint_model->getVariableBounds(joint_name, bounds);
@@ -270,7 +270,7 @@ bool getJointStateGroupToOmplStateMapping(planning_models::KinematicState::Joint
                                           const ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state,
                                           ompl_ros_interface::KinematicStateToOmplStateMapping &mapping)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   unsigned int num_states = joint_state_group->getDimension();
   mapping.joint_state_mapping.resize(num_states,-1);
   mapping.joint_mapping_type.resize(num_states,ompl_ros_interface::UNKNOWN);
@@ -278,7 +278,7 @@ bool getJointStateGroupToOmplStateMapping(planning_models::KinematicState::Joint
   bool joint_state_index_found = false;
   for(unsigned int j=0; j < num_state_spaces; j++)
   {
-    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j).get()))
+    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j).get()))
     {
       mapping.real_vector_index = j;
       joint_state_index_found = true;
@@ -295,7 +295,7 @@ bool getJointStateGroupToOmplStateMapping(planning_models::KinematicState::Joint
     bool mapping_found = false;
     for(unsigned int j=0; j < num_state_spaces; j++)
     {
-      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j)->getName() == name)
+      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j)->getName() == name)
       {
         mapping.joint_state_mapping[i] = j;
         mapping.joint_mapping_type[i] = getMappingType(joint_models[i]);
@@ -308,7 +308,7 @@ bool getJointStateGroupToOmplStateMapping(planning_models::KinematicState::Joint
       //search through the real vector if it exists
       if(joint_state_index_found)
       {
-        ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping.real_vector_index);
+        ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping.real_vector_index);
         for(unsigned int j=0; j < real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimension(); j++)
         {
           if(real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimensionName(j) == name)
@@ -334,7 +334,7 @@ bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::ba
                                           planning_models::KinematicState::JointStateGroup* joint_state_group,
                                           ompl_ros_interface::OmplStateToKinematicStateMapping &mapping)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   unsigned int num_states = joint_state_group->getDimension();
   mapping.ompl_state_mapping.resize(num_state_spaces,-1);
   mapping.mapping_type.resize(num_state_spaces,ompl_ros_interface::UNKNOWN);
@@ -342,7 +342,7 @@ bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::ba
   bool joint_state_index_found = false;
   for(unsigned int j=0; j < num_state_spaces; j++)
   {
-    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j).get()))
+    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j).get()))
     {
       mapping.real_vector_index = j;
       mapping.mapping_type[j] = ompl_ros_interface::REAL_VECTOR;
@@ -358,7 +358,7 @@ bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::ba
     bool mapping_found = false;
     for(unsigned int j=0; j < num_states; j++)
     {
-      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName() == joint_names[j])
+      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName() == joint_names[j])
       {
         mapping.ompl_state_mapping[i] = j;
         mapping.mapping_type[i] = getMappingType(joint_models[j]);
@@ -367,7 +367,7 @@ bool getOmplStateToJointStateGroupMapping(const ompl::base::ScopedState<ompl::ba
       }    
     }
   }
-  ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping.real_vector_index);
+  ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping.real_vector_index);
   mapping.real_vector_mapping.resize(real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimension(),-1);
   for(unsigned int i=0; i < real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimension(); i++)
   {
@@ -394,7 +394,7 @@ bool getRobotStateToOmplStateMapping(const arm_navigation_msgs::RobotState &robo
                                      ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                                      const bool &fail_if_match_not_found)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   mapping.multi_dof_mapping.resize(robot_state.multi_dof_joint_state.joint_names.size(),-1);
   mapping.multi_dof_joint_mapping_type.resize(robot_state.multi_dof_joint_state.joint_names.size(),ompl_ros_interface::UNKNOWN);
   for(unsigned int i=0; i < robot_state.multi_dof_joint_state.joint_names.size(); i++)
@@ -403,10 +403,10 @@ bool getRobotStateToOmplStateMapping(const arm_navigation_msgs::RobotState &robo
     bool mapping_found = false;
     for(unsigned int j=0; j < num_state_spaces; j++)
     {
-      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j)->getName() == name)
+      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j)->getName() == name)
       {
         mapping.multi_dof_mapping[i] = j;
-        mapping.multi_dof_joint_mapping_type[i] = getMappingType((ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j)).get());
+        mapping.multi_dof_joint_mapping_type[i] = getMappingType((ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j)).get());
         mapping_found = true;
         break;
       }    
@@ -430,11 +430,11 @@ bool getJointStateToOmplStateMapping(const sensor_msgs::JointState &joint_state,
                                      ompl_ros_interface::RobotStateToOmplStateMapping &mapping,
                                      const bool &fail_if_match_not_found)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   bool joint_state_index_found = false;
   for(unsigned int j=0; j < num_state_spaces; j++)
   {
-    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j).get()))
+    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j).get()))
     {
       mapping.real_vector_index = j;
       joint_state_index_found = true;
@@ -445,7 +445,7 @@ bool getJointStateToOmplStateMapping(const sensor_msgs::JointState &joint_state,
     return false;
   mapping.joint_state_mapping.resize(joint_state.name.size(),-1);  
   mapping.joint_mapping_type.resize(joint_state.name.size(),ompl_ros_interface::UNKNOWN);
-  ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping.real_vector_index);
+  ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping.real_vector_index);
   for(unsigned int i=0; i < joint_state.name.size(); i++)
   {
     bool joint_state_mapping_found = false;
@@ -460,7 +460,7 @@ bool getJointStateToOmplStateMapping(const sensor_msgs::JointState &joint_state,
     }
     for(unsigned int j=0; j < num_state_spaces; j++)
     {
-      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j)->getName() == joint_state.name[i])
+      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j)->getName() == joint_state.name[i])
       {
         mapping.joint_state_mapping[i] = j;
         joint_state_mapping_found = true;
@@ -482,7 +482,7 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
                                      ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                                      const bool &fail_if_match_not_found)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   if(mapping.ompl_state_mapping.size() != num_state_spaces)
     mapping.ompl_state_mapping.resize(num_state_spaces,-1);
   if(mapping.mapping_type.size() != num_state_spaces)
@@ -490,7 +490,7 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
   bool ompl_real_vector_index_found = false;
   for(unsigned int j=0; j < num_state_spaces; j++)
   {
-    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(j).get()))
+    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(j).get()))
     {
       mapping.real_vector_index = j;
       mapping.mapping_type[j] = ompl_ros_interface::REAL_VECTOR;
@@ -501,7 +501,7 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
   if(!ompl_real_vector_index_found)
     return false;
 
-  ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping.real_vector_index);
+  ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping.real_vector_index);
   mapping.real_vector_mapping.resize(real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimension(),-1);
   for(unsigned int i=0; i < real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimension(); i++)
   {
@@ -523,12 +523,12 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
   // Now do SO(2) separately
   for(unsigned int i=0; i < num_state_spaces; i++)
   {
-    if(dynamic_cast<ompl::base::SO2StateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i).get()))
+    if(dynamic_cast<ompl::base::SO2StateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i).get()))
     {
       bool ompl_state_mapping_found = false;
       for(unsigned int j=0; j < joint_state.name.size(); j++)
       {
-        if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName() == joint_state.name[j])
+        if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName() == joint_state.name[j])
         {
           mapping.ompl_state_mapping[i] = j;
           mapping.mapping_type[i] = ompl_ros_interface::SO2;
@@ -538,7 +538,7 @@ bool getOmplStateToJointStateMapping(const ompl::base::ScopedState<ompl::base::C
       }
       if(fail_if_match_not_found && !ompl_state_mapping_found)
       {
-        ROS_ERROR("Could not find mapping for ompl state %s",ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName().c_str());
+        ROS_ERROR("Could not find mapping for ompl state %s",ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName().c_str());
         return false;
       }
     }
@@ -551,7 +551,7 @@ bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::C
                                      ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                                      const bool &fail_if_match_not_found)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   mapping.ompl_state_mapping.resize(num_state_spaces,-1);
   mapping.mapping_type.resize(num_state_spaces,ompl_ros_interface::UNKNOWN);
   for(unsigned int i=0; i < num_state_spaces; i++)
@@ -559,17 +559,17 @@ bool getOmplStateToRobotStateMapping(const ompl::base::ScopedState<ompl::base::C
     bool ompl_state_mapping_found = false;
     for(unsigned int j=0; j < robot_state.multi_dof_joint_state.joint_names.size(); j++)
     {
-      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName() == robot_state.multi_dof_joint_state.joint_names[j])
+      if(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName() == robot_state.multi_dof_joint_state.joint_names[j])
       {
         mapping.ompl_state_mapping[i] = j;
-        mapping.mapping_type[i] = getMappingType((ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)).get());
+        mapping.mapping_type[i] = getMappingType((ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i)).get());
         ompl_state_mapping_found = true;
         break;
       } 
     }
-    if(fail_if_match_not_found && !ompl_state_mapping_found && !dynamic_cast<ompl::base::SO2StateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i).get()) && !dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i).get()))
+    if(fail_if_match_not_found && !ompl_state_mapping_found && !dynamic_cast<ompl::base::SO2StateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i).get()) && !dynamic_cast<ompl::base::RealVectorStateSpace*>(ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i).get()))
     {
-      ROS_ERROR("Could not find mapping for ompl state %s",ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName().c_str());
+      ROS_ERROR("Could not find mapping for ompl state %s",ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName().c_str());
       return false;
     }
   }
@@ -580,7 +580,7 @@ bool omplStateToRobotState(const ompl::base::ScopedState<ompl::base::CompoundSta
                            const ompl_ros_interface::OmplStateToRobotStateMapping &mapping,
                            arm_navigation_msgs::RobotState &robot_state)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   for(unsigned int i=0; i < num_state_spaces; i++)
   {
     if(mapping.mapping_type[i] == ompl_ros_interface::SO2 && mapping.ompl_state_mapping[i] > -1)
@@ -589,7 +589,7 @@ bool omplStateToRobotState(const ompl::base::ScopedState<ompl::base::CompoundSta
       ompl_ros_interface::SE3StateSpaceToPoseMsg(*(ompl_scoped_state->as<ompl::base::SE3StateSpace::StateType>(i)),robot_state.multi_dof_joint_state.poses[mapping.ompl_state_mapping[i]]);
     else if(mapping.mapping_type[i] == ompl_ros_interface::REAL_VECTOR) // real vector value
     {
-      //      ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping.real_vector_index);
+      //      ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping.real_vector_index);
       ompl_ros_interface::omplRealVectorStateToJointState(*(ompl_scoped_state->as<ompl::base::RealVectorStateSpace::StateType>(i)),mapping,robot_state.joint_state);
     }
   }
@@ -732,7 +732,7 @@ bool kinematicStateGroupToOmplState(const planning_models::KinematicState::Joint
                                     const ompl_ros_interface::KinematicStateToOmplStateMapping &mapping,
                                     ompl::base::ScopedState<ompl::base::CompoundStateSpace> &ompl_scoped_state)
 {
-  //  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  //  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   unsigned int num_states = joint_state_group->getDimension();
 
   std::vector<planning_models::KinematicState::JointState*> joint_states = joint_state_group->getJointStateVector();
@@ -781,7 +781,7 @@ bool omplStateToKinematicStateGroup(const ompl::base::ScopedState<ompl::base::Co
                                     const ompl_ros_interface::OmplStateToKinematicStateMapping &mapping,
                                     planning_models::KinematicState::JointStateGroup* joint_state_group)
 {
-  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   //  unsigned int num_states = joint_state_group->getDimension();
 
   std::vector<planning_models::KinematicState::JointState*> joint_states = joint_state_group->getJointStateVector();
@@ -815,7 +815,7 @@ bool omplStateToKinematicStateGroup(const ompl::base::ScopedState<ompl::base::Co
     }
     else if(mapping.mapping_type[i] == ompl_ros_interface::REAL_VECTOR)
     {
-      ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping.real_vector_index);
+      ompl::base::StateSpacePtr real_vector_state_space = ompl_scoped_state.getSpace()->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping.real_vector_index);
       unsigned int real_vector_size = mapping.real_vector_mapping.size();
       for(unsigned int j=0; j < real_vector_size; j++)
       {
@@ -998,19 +998,19 @@ bool getOmplStateToRobotTrajectoryMapping(const ompl::base::StateSpacePtr &state
                                           const arm_navigation_msgs::RobotTrajectory &robot_trajectory, 
                                           ompl_ros_interface::OmplStateToRobotStateMapping &mapping)
 {
-  unsigned int num_state_spaces = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = state_space->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   mapping.ompl_state_mapping.resize(num_state_spaces,-1);
   mapping.mapping_type.resize(num_state_spaces,ompl_ros_interface::UNKNOWN);
   for(unsigned int i=0; i < num_state_spaces; i++)
   {
-    ROS_DEBUG("Trajectory state space %d has name %s",i,state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName().c_str());
+    ROS_DEBUG("Trajectory state space %d has name %s",i,state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName().c_str());
     bool ompl_state_mapping_found = false;
     for(unsigned int j=0; j < robot_trajectory.multi_dof_joint_trajectory.joint_names.size(); j++)
     {
-      if(state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName() == robot_trajectory.multi_dof_joint_trajectory.joint_names[j])
+      if(state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName() == robot_trajectory.multi_dof_joint_trajectory.joint_names[j])
       {
         mapping.ompl_state_mapping[i] = j;
-        mapping.mapping_type[i] = getMappingType((state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)).get());
+        mapping.mapping_type[i] = getMappingType((state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(i)).get());
         ompl_state_mapping_found = true;
         break;
       } 
@@ -1021,7 +1021,7 @@ bool getOmplStateToRobotTrajectoryMapping(const ompl::base::StateSpacePtr &state
   {
     if(mapping.ompl_state_mapping[i] < 0 && i != (int) mapping.real_vector_index)
     {
-      ROS_ERROR("Could not find mapping for state space %s",state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName().c_str());
+      ROS_ERROR("Could not find mapping for state space %s",state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName().c_str());
       return false;
     }
   };
@@ -1032,7 +1032,7 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state
                                           const trajectory_msgs::JointTrajectory &joint_trajectory,
                                           ompl_ros_interface::OmplStateToRobotStateMapping &mapping)
 {
-  unsigned int num_state_spaces = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+  unsigned int num_state_spaces = state_space->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
   if(mapping.ompl_state_mapping.size() != num_state_spaces)
     mapping.ompl_state_mapping.resize(num_state_spaces,-1);
   if(mapping.mapping_type.size() != num_state_spaces)
@@ -1041,12 +1041,12 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state
   // Do SO(2) separately
   for(unsigned int i=0; i < num_state_spaces; i++)
   {
-    if(dynamic_cast<ompl::base::SO2StateSpace*>(state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(i).get()))
+    if(dynamic_cast<ompl::base::SO2StateSpace*>(state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(i).get()))
     {
       bool ompl_state_mapping_found = false;
       for(unsigned int j=0; j < joint_trajectory.joint_names.size(); j++)
       {
-        if(state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName() == joint_trajectory.joint_names[j])
+        if(state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName() == joint_trajectory.joint_names[j])
         {
           mapping.ompl_state_mapping[i] = j;
           mapping.mapping_type[i] = ompl_ros_interface::SO2;
@@ -1057,7 +1057,7 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state
       }
       if(!ompl_state_mapping_found)
       {
-        ROS_ERROR("Could not find mapping for ompl state %s",state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(i)->getName().c_str());
+        ROS_ERROR("Could not find mapping for ompl state %s",state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(i)->getName().c_str());
         return false;
       }
     }
@@ -1066,7 +1066,7 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state
   bool ompl_real_vector_index_found = false;
   for(unsigned int j=0; j < num_state_spaces; j++)
   {
-    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(j).get()))
+    if(dynamic_cast<ompl::base::RealVectorStateSpace*>(state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(j).get()))
     {
       mapping.real_vector_index = j;
       mapping.mapping_type[j] = ompl_ros_interface::REAL_VECTOR;
@@ -1080,7 +1080,7 @@ bool getOmplStateToJointTrajectoryMapping(const ompl::base::StateSpacePtr &state
     return true;
   }
 
-  ompl::base::StateSpacePtr real_vector_state_space = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace(mapping.real_vector_index);
+  ompl::base::StateSpacePtr real_vector_state_space = state_space->as<ompl::base::CompoundStateSpace>()->getSubspace(mapping.real_vector_index);
   mapping.real_vector_mapping.resize(real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimension(),-1);
   for(unsigned int i=0; i < real_vector_state_space->as<ompl::base::RealVectorStateSpace>()->getDimension(); i++)
   {

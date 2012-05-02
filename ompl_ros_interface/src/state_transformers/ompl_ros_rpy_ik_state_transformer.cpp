@@ -50,7 +50,7 @@ bool OmplRosRPYIKStateTransformer::initialize()
   solution_state_.joint_state.position.resize(kinematics_solver_->getJointNames().size());
   //  arm_navigation_msgs::printJointState(solution_state_.joint_state);
 
-  real_vector_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
+  real_vector_index_ = state_space_->as<ompl::base::CompoundStateSpace>()->getSubspaceIndex("real_vector");
 
   if(real_vector_index_ > -1)
   {

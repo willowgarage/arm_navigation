@@ -116,12 +116,12 @@ bool OmplRosTaskSpacePlanner::getSpaceFromParamServer(const ros::NodeHandle &nod
   {
     if(real_vector_index < 0)
     {
-      real_vector_index = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpaceCount();
+      real_vector_index = state_space->as<ompl::base::CompoundStateSpace>()->getSubspaceCount();
       ompl::base::RealVectorStateSpace *subspace = new ompl::base::RealVectorStateSpace(0);
       subspace->setName("real_vector");
-      state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace),1.0);
+      state_space->as<ompl::base::CompoundStateSpace>()->addSubspace(ompl::base::StateSpacePtr(subspace),1.0);
     }
-    ompl::base::StateSpacePtr real_vector_state_space = state_space->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector");
+    ompl::base::StateSpacePtr real_vector_state_space = state_space->as<ompl::base::CompoundStateSpace>()->getSubspace("real_vector");
     double min_value, max_value;
     node_handle.param("min",min_value,-M_PI);
     node_handle.param("max",max_value,M_PI);
@@ -143,7 +143,7 @@ bool OmplRosTaskSpacePlanner::getSpaceFromParamServer(const ros::NodeHandle &nod
     node_handle.getParam("y/max",real_vector_bounds.high[1]);
     subspace->setBounds(real_vector_bounds);
 
-    state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+    state_space->as<ompl::base::CompoundStateSpace>()->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
   } 
   else if(type == "Floating")
   {
@@ -166,13 +166,13 @@ bool OmplRosTaskSpacePlanner::getSpaceFromParamServer(const ros::NodeHandle &nod
     node_handle.getParam("z/max",real_vector_bounds.high[2]);
 
     subspace->setBounds(real_vector_bounds);
-    state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+    state_space->as<ompl::base::CompoundStateSpace>()->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
   } 
   else if(type == "Continuous")
   {
     ompl::base::SO2StateSpace *subspace = new ompl::base::SO2StateSpace();
     subspace->setName(space_name);
-    state_space->as<ompl::base::CompoundStateSpace>()->addSubSpace(ompl::base::StateSpacePtr(subspace), 1.0);
+    state_space->as<ompl::base::CompoundStateSpace>()->addSubspace(ompl::base::StateSpacePtr(subspace), 1.0);
   } 
   else
   {

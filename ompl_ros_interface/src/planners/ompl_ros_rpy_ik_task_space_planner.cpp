@@ -57,7 +57,7 @@ bool OmplRosRPYIKTaskSpacePlanner::initializeStateValidityChecker(ompl_ros_inter
     return false;
   }
   node_handle_.getParam(state_space_->getName()+"/tip_name",end_effector_name_);
-  original_real_vector_bounds_.reset(new ompl::base::RealVectorBounds(state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector")->as<ompl::base::RealVectorStateSpace>()->getBounds()));
+  original_real_vector_bounds_.reset(new ompl::base::RealVectorBounds(state_space_->as<ompl::base::CompoundStateSpace>()->getSubspace("real_vector")->as<ompl::base::RealVectorStateSpace>()->getBounds()));
   return true;
 }
 
@@ -112,7 +112,7 @@ bool OmplRosRPYIKTaskSpacePlanner::setStart(arm_navigation_msgs::GetMotionPlan::
 {
   //Use the path constraints to set component bounds first
   arm_navigation_msgs::ArmNavigationErrorCodes error_code;
-  state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector")->as<ompl::base::RealVectorStateSpace>()->setBounds(*original_real_vector_bounds_);
+  state_space_->as<ompl::base::CompoundStateSpace>()->getSubspace("real_vector")->as<ompl::base::RealVectorStateSpace>()->setBounds(*original_real_vector_bounds_);
   arm_navigation_msgs::Constraints tmp_constraints = request.motion_plan_request.path_constraints;
   collision_models_interface_->convertConstraintsGivenNewWorldTransform(*collision_models_interface_->getPlanningSceneState(),
                                                                         tmp_constraints,
@@ -226,12 +226,12 @@ bool OmplRosRPYIKTaskSpacePlanner::constraintsToOmplState(const arm_navigation_m
 bool OmplRosRPYIKTaskSpacePlanner::positionConstraintToOmplStateBounds(const arm_navigation_msgs::PositionConstraint &position_constraint,
                                                                        ompl::base::StateSpacePtr &goal)
 {
-  int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
+  int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubspaceIndex("real_vector");
   int x_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("x");
   int y_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("y");
   int z_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("z");
     
-  ompl::base::RealVectorBounds real_vector_bounds = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector")->as<ompl::base::RealVectorStateSpace>()->getBounds();
+  ompl::base::RealVectorBounds real_vector_bounds = state_space_->as<ompl::base::CompoundStateSpace>()->getSubspace("real_vector")->as<ompl::base::RealVectorStateSpace>()->getBounds();
 
   real_vector_bounds.low[x_index] = position_constraint.position.x-position_constraint.constraint_region_shape.dimensions[0]/2.0;
   real_vector_bounds.low[y_index] = position_constraint.position.y-position_constraint.constraint_region_shape.dimensions[1]/2.0;
@@ -247,13 +247,13 @@ bool OmplRosRPYIKTaskSpacePlanner::positionConstraintToOmplStateBounds(const arm
 bool OmplRosRPYIKTaskSpacePlanner::orientationConstraintToOmplStateBounds(const arm_navigation_msgs::OrientationConstraint &orientation_constraint,
                                                                           ompl::base::StateSpacePtr &goal)
 {
-  int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
+  int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubspaceIndex("real_vector");
     
   int roll_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("roll");
   int pitch_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("pitch");
   int yaw_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("yaw");
 
-  ompl::base::RealVectorBounds real_vector_bounds = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector")->as<ompl::base::RealVectorStateSpace>()->getBounds();
+  ompl::base::RealVectorBounds real_vector_bounds = state_space_->as<ompl::base::CompoundStateSpace>()->getSubspace("real_vector")->as<ompl::base::RealVectorStateSpace>()->getBounds();
 
   tf::Quaternion orientation;
   double roll,pitch,yaw;
@@ -297,7 +297,7 @@ bool OmplRosRPYIKTaskSpacePlanner::orientationConstraintToOmplStateBounds(const 
   ROS_DEBUG("Pitch constraint: [%f, %f]",min_pitch,max_pitch);
   ROS_DEBUG("Yaw constraint: [%f, %f]",min_yaw,max_yaw);
 
-  state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpace("real_vector")->as<ompl::base::RealVectorStateSpace>()->setBounds(real_vector_bounds);
+  state_space_->as<ompl::base::CompoundStateSpace>()->getSubspace("real_vector")->as<ompl::base::RealVectorStateSpace>()->setBounds(real_vector_bounds);
   return true;
 }
 
@@ -349,7 +349,7 @@ bool OmplRosRPYIKTaskSpacePlanner::poseStampedToOmplState(const geometry_msgs::P
   y = desired_pose.pose.position.y;
   z = desired_pose.pose.position.z;
 
-  int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubSpaceIndex("real_vector");
+  int real_vector_index = state_space_->as<ompl::base::CompoundStateSpace>()->getSubspaceIndex("real_vector");
   int x_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("x");
   int y_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("y");
   int z_index = state_space_->as<ompl::base::CompoundStateSpace>()->as<ompl::base::RealVectorStateSpace>(real_vector_index)->getDimensionIndex("z");
