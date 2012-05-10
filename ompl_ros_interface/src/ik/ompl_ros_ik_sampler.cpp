@@ -197,7 +197,7 @@ bool OmplRosIKSampler::sampleGoals(const ompl::base::GoalLazySamples *gls, ompl:
     num_samples_++;
   //  return continue_sampling && gls->maxSampleCount() < max_sample_count_ && !gls->isAchieved();
 
-  if(num_samples_ > max_sample_count_ || gls->isAchieved())
+  if(num_samples_ > max_sample_count_)
     return false;
   else
     return true;
