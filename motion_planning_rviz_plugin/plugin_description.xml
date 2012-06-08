@@ -1,5 +1,5 @@
 <library path="lib/libmotion_planning_rviz_plugin">
-  <class name="motiong_planning_rviz_plugin/Planning" type="motion_planning_rviz_plugin::PlanningDisplay" base_class_type="rviz::Display">
+  <class name="motion_planning_rviz_plugin/Planning" type="motion_planning_rviz_plugin::PlanningDisplay" base_class_type="rviz::Display">
     <description>
       Animates a robot along a planned path given by a motion_planning_msgs::KinematicPath message.
     </description>

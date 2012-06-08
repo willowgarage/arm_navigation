@@ -84,6 +84,7 @@ private:
 PlanningDisplay::PlanningDisplay():
   Display(), 
   env_models_(NULL), 
+  kinematic_model_(NULL),
   new_kinematic_path_(false), 
   animating_path_(false), 
   state_display_time_(0.05f)
