@@ -42,7 +42,7 @@
 #include <ompl_ros_interface/ik/ompl_ros_ik_sampler.h>
 #include <ompl_ros_interface/state_validity_checkers/ompl_ros_task_space_validity_checker.h>
 
-#include <ompl/base/GoalStates.h>
+#include <ompl/base/goals/GoalStates.h>
 
 namespace ompl_ros_interface
 {

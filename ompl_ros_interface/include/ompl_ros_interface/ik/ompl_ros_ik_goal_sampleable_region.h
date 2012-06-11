@@ -38,7 +38,7 @@
 #define OMPL_ROS_IK_GOAL_SAMPLEABLE_H_
 
 // OMPL
-#include <ompl/base/GoalSampleableRegion.h>
+#include <ompl/base/goals/GoalSampleableRegion.h>
 #include <ompl/base/ScopedState.h>
 #include <ompl/base/State.h>
 

@@ -35,6 +35,7 @@
 /** \author E. Gil Jones, Ioan Sucan */
 
 #include <planning_models/kinematic_state.h>
+#include <ros/console.h>
 
 planning_models::KinematicState::KinematicState(const KinematicModel* kinematic_model) :
   kinematic_model_(kinematic_model), dimension_(0)

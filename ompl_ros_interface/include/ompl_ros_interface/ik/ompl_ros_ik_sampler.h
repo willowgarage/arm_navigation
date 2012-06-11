@@ -38,8 +38,8 @@
 #define OMPL_ROS_IK_SAMPLER_H_
 
 // OMPL
-#include <ompl/base/GoalSampleableRegion.h>
-#include <ompl/base/GoalLazySamples.h>
+#include <ompl/base/goals/GoalSampleableRegion.h>
+#include <ompl/base/goals/GoalLazySamples.h>
 #include <ompl/base/ScopedState.h>
 #include <ompl/base/State.h>
 
