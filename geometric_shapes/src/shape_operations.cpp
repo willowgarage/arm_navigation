@@ -43,9 +43,16 @@
 
 #include <ros/console.h>
 #include <resource_retriever/retriever.h>
-#include <assimp/assimp.hpp>     
-#include <assimp/aiScene.h>      
+
+#if defined(IS_ASSIMP3)
+#include <assimp/scene.h>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#else
+#include <assimp/aiScene.h>
+#include <assimp/assimp.hpp>
 #include <assimp/aiPostProcess.h>
+#endif
 
 namespace shapes
 {

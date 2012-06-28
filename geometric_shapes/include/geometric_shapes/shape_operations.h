@@ -41,7 +41,12 @@
 
 #include <vector>
 #include <tf/LinearMath/Vector3.h>
+
+#if defined(IS_ASSIMP3)
+#include <assimp/mesh.h>
+#else
 #include <assimp/aiMesh.h>
+#endif
 
 namespace shapes
 {
