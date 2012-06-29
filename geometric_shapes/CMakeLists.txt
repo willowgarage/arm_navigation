@@ -13,6 +13,8 @@ rosbuild_init()
 
 set(ROS_BUILD_TYPE Debug)
 
+find_package(PkgConfig REQUIRED)
+
 find_package(ASSIMP QUIET)
 if (NOT ASSIMP_FOUND)
   pkg_check_modules(ASSIMP assimp)

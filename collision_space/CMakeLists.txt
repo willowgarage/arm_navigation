@@ -9,6 +9,8 @@ rosbuild_add_boost_directories()
 rosbuild_add_library(collision_space src/environment_objects.cpp
 				    src/environment.cpp
 				    src/environmentODE.cpp)
+
+find_package(PkgConfig REQUIRED)
 find_package(ASSIMP QUIET)
 if (NOT ASSIMP_FOUND)
   pkg_check_modules(ASSIMP assimp)

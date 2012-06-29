@@ -14,6 +14,7 @@ include_directories(${EIGEN_INCLUDE_DIRS})
 
 set(ROS_BUILD_TYPE Release)
 
+find_package(PkgConfig REQUIRED)
 find_package(ASSIMP QUIET)
 if (NOT ASSIMP_FOUND)
   pkg_check_modules(ASSIMP assimp)

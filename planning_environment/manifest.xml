@@ -32,6 +32,7 @@
   <rosdep name="yaml-cpp"/>
   <rosdep name="libqt4-dev" />
   <rosdep name="tinyxml" />
+  <rosdep name="pkg-config" />
 
   <url>http://ros.org/wiki/planning_environment</url>
 

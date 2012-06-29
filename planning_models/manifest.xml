@@ -12,6 +12,7 @@
   <depend package="geometric_shapes"/>
   <depend package="bullet"/>
   <depend package="angles"/>
+  <rosdep name="pkg-config" />
 
   <export>
     <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lplanning_models `rosboost-cfg --lflags thread`"/>
