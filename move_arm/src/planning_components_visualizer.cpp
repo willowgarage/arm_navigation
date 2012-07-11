@@ -502,7 +502,7 @@ class PlanningComponentsVisualizer
         collision_poles_.erase(removals[i]);
       }
 
-      convertKinematicStateToRobotState(*robot_state_, ros::Time::now(), cm_->getWorldFrameId(),
+      planning_environment::convertKinematicStateToRobotState(*robot_state_, ros::Time::now(), cm_->getWorldFrameId(),
                                         planning_scene_req.planning_scene_diff.robot_state);
 
 
@@ -968,7 +968,7 @@ class PlanningComponentsVisualizer
       ik_request.pose_stamped.header.stamp = ros::Time::now();
       tf::poseTFToMsg(gc.getState(ik_control_type_)->getLinkState(gc.ik_link_name_)->getGlobalLinkTransform(),
                       ik_request.pose_stamped.pose);
-      convertKinematicStateToRobotState(*gc.getState(ik_control_type_), ros::Time::now(), cm_->getWorldFrameId(),
+      planning_environment::convertKinematicStateToRobotState(*gc.getState(ik_control_type_), ros::Time::now(), cm_->getWorldFrameId(),
                                         ik_request.robot_state);
       ik_request.ik_seed_state = ik_request.robot_state;
 
@@ -1170,7 +1170,7 @@ class PlanningComponentsVisualizer
                                                 motion_plan_request.goal_constraints.orientation_constraints[0],
                                                 motion_plan_request.path_constraints.orientation_constraints[0]);
       }
-      convertKinematicStateToRobotState(*gc.getState(StartPosition), ros::Time::now(), cm_->getWorldFrameId(),
+      planning_environment::convertKinematicStateToRobotState(*gc.getState(StartPosition), ros::Time::now(), cm_->getWorldFrameId(),
                                         motion_plan_request.start_state);
       GetMotionPlan::Request plan_req;
       plan_req.motion_plan_request = motion_plan_request;
@@ -1255,7 +1255,7 @@ class PlanningComponentsVisualizer
       FilterJointTrajectoryWithConstraints::Request filter_req;
       FilterJointTrajectoryWithConstraints::Response filter_res;
 
-      convertKinematicStateToRobotState(*gc.getState(StartPosition), ros::Time::now(), cm_->getWorldFrameId(),
+      planning_environment::convertKinematicStateToRobotState(*gc.getState(StartPosition), ros::Time::now(), cm_->getWorldFrameId(),
                                         filter_req.start_state);
       StateTrajectoryDisplay& planner_disp = gc.state_trajectory_display_map_["planner"];
       filter_req.trajectory = planner_disp.joint_trajectory_;
