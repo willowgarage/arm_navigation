@@ -10,7 +10,10 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package(Eigen REQUIRED)
-include_directories(${EIGEN_INCLUDE_DIRS})
+find_package(PCL REQUIRED)
+include_directories(SYSTEM ${EIGEN_INCLUDE_DIRS}
+                           ${PCL_INCLUDE_DIRS}
+)
 
 set(ROS_BUILD_TYPE Release)
 
@@ -46,7 +49,10 @@ rosbuild_add_boost_directories()
 
 rosbuild_add_library(robot_self_filter src/self_mask.cpp)
 rosbuild_add_openmp_flags(robot_self_filter)
-target_link_libraries(robot_self_filter assimp)
+target_link_libraries(robot_self_filter assimp
+                                        geometric_shapes
+                                        ${PCL_LIBRARIES}
+)
 
 rosbuild_add_executable (test_filter src/test_filter.cpp)
 rosbuild_add_openmp_flags (test_filter)
@@ -54,5 +60,8 @@ target_link_libraries (test_filter robot_self_filter assimp)
 
 rosbuild_add_executable(self_filter src/self_filter.cpp)
 rosbuild_add_openmp_flags(self_filter)
-target_link_libraries(self_filter robot_self_filter assimp)
+target_link_libraries(self_filter assimp
+                                  geometric_shapes
+                                  robot_self_filter
+)
 rosbuild_link_boost(self_filter signals)

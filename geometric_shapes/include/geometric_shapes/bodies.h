@@ -39,6 +39,7 @@
 
 #include "geometric_shapes/shapes.h"
 #include <tf/LinearMath/Transform.h>
+#include <tf/LinearMath/Vector3.h>
 // #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 // #include <BulletCollision/CollisionShapes/btTriangleMesh.h>
 #include <vector>
@@ -406,10 +407,10 @@ protected:
   virtual void useDimensions(const shapes::Shape *shape);
   virtual void updateInternalData(void);
 	
-  unsigned int countVerticesBehindPlane(const btVector4& planeNormal) const;
+  unsigned int countVerticesBehindPlane(const tf::tfVector4& planeNormal) const;
   bool isPointInsidePlanes(const tf::Vector3& point) const;
 	
-  std::vector<btVector4>    m_planes;
+  std::vector<tf::tfVector4>    m_planes;
   std::vector<tf::Vector3>    m_vertices;
   std::vector<tf::Vector3>    m_scaledVertices;
   std::vector<unsigned int> m_triangles;

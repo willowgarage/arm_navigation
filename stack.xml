@@ -9,7 +9,6 @@
   <depend stack="actionlib" /> <!-- actionlib -->
   <depend stack="bullet" /> <!-- bullet -->
   <depend stack="common_msgs" /> <!-- geometry_msgs, actionlib_msgs, trajectory_msgs, sensor_msgs, visualization_msgs -->
-  <depend stack="common_rosdeps" /> <!-- common_rosdeps -->
   <depend stack="control" /> <!-- control_msgs -->
   <depend stack="filters" /> <!-- filters -->
   <depend stack="geometry" /> <!-- tf, tf_conversions, angles -->

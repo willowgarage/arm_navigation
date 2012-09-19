@@ -16,7 +16,7 @@
   <depend package="urdf"/>
   <depend package="resource_retriever"/>
   <rosdep name="pcl"/>
-  <depend package="common_rosdeps"/>
+  <depend package="shape_msgs"/>
 
   <rosdep name="assimp" />
   <rosdep name="pkg-config" />

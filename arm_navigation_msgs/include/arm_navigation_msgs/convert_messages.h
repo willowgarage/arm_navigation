@@ -136,7 +136,7 @@ inline  trajectory_msgs::JointTrajectory jointConstraintsToJointTrajectory(const
 inline  geometry_msgs::PoseStamped poseConstraintsToPoseStamped(const arm_navigation_msgs::PositionConstraint &position_constraint, const arm_navigation_msgs::OrientationConstraint &orientation_constraint)
   {
     geometry_msgs::PoseStamped pose_stamped;
-    btQuaternion tmp_quat;
+    tf::Quaternion tmp_quat;
     pose_stamped.header = position_constraint.header;
     pose_stamped.pose.position = position_constraint.position;
     //    tmp_quat.setRPY(orientation_constraint.orientation.x,orientation_constraint.orientation.y,orientation_constraint.orientation.z);

@@ -11,7 +11,6 @@
   <depend package="tf"/>
   <depend package="filters"/>
   <depend package="trajectory_msgs"/>
-  <depend package="common_rosdeps"/>
 
   <export>
     <cpp cflags="-I${prefix}/include" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lconstraint_aware_spline_smoother"/>

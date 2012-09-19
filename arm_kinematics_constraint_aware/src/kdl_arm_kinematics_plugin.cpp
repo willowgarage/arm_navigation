@@ -32,6 +32,7 @@
  */
 
 #include <arm_kinematics_constraint_aware/kdl_arm_kinematics_plugin.h>
+#include <kdl_conversions/kdl_msg.h>
 #include <pluginlib/class_list_macros.h>
 
 using namespace KDL;
@@ -283,7 +284,7 @@ bool KDLArmKinematicsPlugin::getPositionIK(const geometry_msgs::Pose &ik_pose,
                    ik_pose.orientation.w);
 
   KDL::Frame pose_desired;
-  tf::PoseMsgToKDL(ik_pose, pose_desired);
+  tf::poseMsgToKDL(ik_pose, pose_desired);
   //Do the inverse kinematics
   KDL::JntArray jnt_pos_in;
   KDL::JntArray jnt_pos_out;
@@ -326,7 +327,7 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
     return false;
   }
   KDL::Frame pose_desired;
-  tf::PoseMsgToKDL(ik_pose, pose_desired);
+  tf::poseMsgToKDL(ik_pose, pose_desired);
 
   ROS_DEBUG_STREAM("searchPositionIK1:Position request pose is " <<
                    ik_pose.position.x << " " <<
@@ -385,7 +386,7 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
     return false;
   }
   KDL::Frame pose_desired;
-  tf::PoseMsgToKDL(ik_pose, pose_desired);
+  tf::poseMsgToKDL(ik_pose, pose_desired);
 
   ROS_DEBUG_STREAM("searchPositionIK1:Position request pose is " <<
                    ik_pose.position.x << " " <<
@@ -445,7 +446,7 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
     return false;
   }
   KDL::Frame pose_desired;
-  tf::PoseMsgToKDL(ik_pose, pose_desired);
+  tf::poseMsgToKDL(ik_pose, pose_desired);
 
   ROS_DEBUG_STREAM("searchPositionIK2: Position request pose is " <<
                    ik_pose.position.x << " " <<
@@ -515,7 +516,7 @@ bool KDLArmKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose &ik_pose
     return false;
   }
   KDL::Frame pose_desired;
-  tf::PoseMsgToKDL(ik_pose, pose_desired);
+  tf::poseMsgToKDL(ik_pose, pose_desired);
 
   ROS_DEBUG_STREAM("searchPositionIK2: Position request pose is " <<
                    ik_pose.position.x << " " <<
@@ -601,7 +602,7 @@ bool KDLArmKinematicsPlugin::getPositionFK(const std::vector<std::string> &link_
     ROS_DEBUG("End effector index: %d",getKDLSegmentIndex(link_names[i]));
     if(fk_solver_->JntToCart(jnt_pos_in,p_out,getKDLSegmentIndex(link_names[i])) >=0)
     {
-      tf::PoseKDLToMsg(p_out,poses[i]);
+      tf::poseKDLToMsg(p_out,poses[i]);
     }
     else
     {

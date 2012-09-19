@@ -6,8 +6,10 @@ set(ROS_BUILD_TYPE Release)
 
 rosbuild_add_library(planning_models src/kinematic_model.cpp src/kinematic_state.cpp)
 
-find_package(PkgConfig REQUIRED)
 find_package(ASSIMP QUIET)
+find_package(Eigen REQUIRED)
+find_package(PkgConfig REQUIRED)
+include_directories(SYSTEM ${Eigen_INCLUDE_DIRS})
 if (NOT ASSIMP_FOUND)
   pkg_check_modules(ASSIMP assimp)
 endif()

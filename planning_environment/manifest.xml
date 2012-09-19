@@ -27,7 +27,6 @@
   <depend package="pcl_ros" />
   <depend package="robot_self_filter" />
   <depend package="rviz" />
-  <depend package="common_rosdeps"/>
 
   <rosdep name="yaml-cpp"/>
   <rosdep name="libqt4-dev" />

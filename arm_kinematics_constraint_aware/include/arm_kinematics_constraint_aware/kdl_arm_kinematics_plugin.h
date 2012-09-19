@@ -69,6 +69,7 @@
 
 // MISC
 #include <angles/angles.h>
+#include <urdf/model.h>
 
 namespace arm_kinematics_constraint_aware
 {
