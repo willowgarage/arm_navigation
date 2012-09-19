@@ -15,7 +15,7 @@
   <depend package="geometric_shapes"/>
   <depend package="urdf"/>
   <depend package="resource_retriever"/>
-  <depend package="pcl"/>
+  <rosdep name="pcl"/>
   <depend package="common_rosdeps"/>
 
   <rosdep name="assimp" />
