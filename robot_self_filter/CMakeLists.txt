@@ -17,6 +17,8 @@ include_directories(SYSTEM ${EIGEN_INCLUDE_DIRS}
 
 set(ROS_BUILD_TYPE Release)
 
+find_package(PCL)
+include_directories(SYSTEM ${PCL_INCLUDE_DIRS})
 find_package(PkgConfig REQUIRED)
 find_package(ASSIMP QUIET)
 if (NOT ASSIMP_FOUND)
