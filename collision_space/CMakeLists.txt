@@ -5,7 +5,7 @@ rosbuild_init()
 set(ROS_BUILD_TYPE Release)
 
 rosbuild_add_boost_directories()
-
+add_definitions(-DdDOUBLE)
 rosbuild_add_library(collision_space src/environment_objects.cpp
 				    src/environment.cpp
 				    src/environmentODE.cpp)
