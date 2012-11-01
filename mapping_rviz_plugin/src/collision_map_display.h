@@ -35,7 +35,6 @@
 
 #include "rviz/display.h"
 #include "rviz/helpers/color.h"
-#include "rviz/properties/forwards.h"
 
 #include <boost/thread/mutex.hpp>
 
@@ -50,6 +49,11 @@
 namespace rviz
 {
 class PointCloud;
+class ColorProperty;
+class RosTopicProperty;
+class BoolProperty;
+class EnumProperty;
+class FloatProperty;
 }
 
 namespace Ogre
@@ -83,46 +87,16 @@ public:
 
   virtual void onInitialize();
 
-  void setTopic(const std::string& topic);
-  const std::string& getTopic()
-  {
-    return (topic_);
-  }
+  void changedTopic();
 
-  void setColor(const rviz::Color& color);
-  const rviz::Color& getColor()
-  {
-    return (color_);
-  }
+  void changedColor();
+  void changedOverrideColor();
 
-  void setOverrideColor(bool override);
-  bool getOverrideColor()
-  {
-    return (override_color_);
-  }
+  void changedRenderOperation();
+  void changedPointSize();
+  void changedAlpha();
 
-  void setRenderOperation(int op);
-  int getRenderOperation()
-  {
-    return (render_operation_);
-  }
 
-  void setPointSize(float size);
-  float getPointSize()
-  {
-    return (point_size_);
-  }
-
-  void setAlpha(float alpha);
-  float getAlpha()
-  {
-    return (alpha_);
-  }
-
-  // Overrides from Display
-  virtual void targetFrameChanged();
-  virtual void fixedFrameChanged();
-  virtual void createProperties();
   virtual void update(float wall_dt, float ros_dt);
   virtual void reset();
 
@@ -136,6 +110,7 @@ protected:
   // overrides from Display
   virtual void onEnable();
   virtual void onDisable();
+  virtual void fixedFrameChanged();
 
   std::string topic_;
   rviz::Color color_;
@@ -151,12 +126,12 @@ protected:
   message_filters::Subscriber<arm_navigation_msgs::CollisionMap> sub_;
   tf::MessageFilter<arm_navigation_msgs::CollisionMap>* tf_filter_;
 
-  rviz::ColorPropertyWPtr color_property_;
-  rviz::ROSTopicStringPropertyWPtr topic_property_;
-  rviz::BoolPropertyWPtr override_color_property_;
-  rviz::EnumPropertyWPtr render_operation_property_;
-  rviz::FloatPropertyWPtr point_size_property_;
-  rviz::FloatPropertyWPtr alpha_property_;
+  rviz::ColorProperty* color_property_;
+  rviz::RosTopicProperty* topic_property_;
+  rviz::BoolProperty* override_color_property_;
+  rviz::EnumProperty* render_operation_property_;
+  rviz::FloatProperty* point_size_property_;
+  rviz::FloatProperty* alpha_property_;
 };
 
 } // namespace mapping_rviz_plugin
