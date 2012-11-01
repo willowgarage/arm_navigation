@@ -31,7 +31,6 @@
 #define MOTION_PLANNING_RVIZ_PLUGIN_PLANNING_DISPLAY_H
 
 #include "rviz/display.h"
-#include "rviz/properties/forwards.h"
 
 #include <arm_navigation_msgs/DisplayTrajectory.h>
 #include <std_msgs/Bool.h>
@@ -59,6 +58,10 @@ class RobotModels;
 namespace rviz
 {
 class Robot;
+class BoolProperty;
+class FloatProperty;
+class StringProperty;
+class RosTopicProperty;
 }
 
 namespace motion_planning_rviz_plugin
@@ -77,62 +80,42 @@ public:
   virtual void onInitialize();
 
   /**
-   * \brief Initializes the display.
-   * @param description_param The ROS parameter name which contains the robot xml description
-   * @param kinematic_path_topic The topic to listen on for a NamedJointPath
-   */
-  void initialize( const std::string& description_param, const std::string& kinematic_path_topic );
-
-  /**
    * \brief Set the robot description parameter
    * @param description_param The ROS parameter name which contains the robot xml description
    */
-  void setRobotDescription( const std::string& description_param );
+  void changedRobotDescription(  );
 
   /**
    * \brief Set the topic to listen on for the JointPath message
    * @param topic The ROS topic
    */
-  void setTopic( const std::string& topic );
+  void changedTopic(  );
 
   /**
    * \brief Set the amount of time each state should display for
    * @param time The length of time, in seconds
    */
-  void setStateDisplayTime( float time );
+  void changedStateDisplayTime(  );
 
   /**
    * \brief Set whether the visual mesh representation should be displayed
    * @param visible
    */
-  void setVisualVisible( bool visible );
+  void changedVisualVisible(  );
 
   /**
    * \brief Set whether the collision representation should be displayed
    * @param visible
    */
-  void setCollisionVisible( bool visible );
+  void changedCollisionVisible(  );
 
-  const std::string& getRobotDescription() { return description_param_; }
-  const std::string& getTopic() { return kinematic_path_topic_; }
-  float getStateDisplayTime() { return state_display_time_; }
-
-  float getAlpha() { return alpha_; }
-  void setAlpha( float alpha );
-
-  bool getLoopDisplay() { return loop_display_; }
-  void setLoopDisplay(bool loop_display);
+  void changedAlpha();
+  void changedLoopDisplay();
         
-  bool isVisualVisible();
-  bool isCollisionVisible();
-
   virtual void update(float wall_dt, float ros_dt);
 
   // Overrides from Display
-  virtual void targetFrameChanged() {}
   virtual void fixedFrameChanged();
-  virtual void createProperties();
-
 
 protected:
   /**
@@ -191,13 +174,13 @@ protected:
   float current_state_time_;
   float alpha_;
 
-  rviz::BoolPropertyWPtr visual_enabled_property_;
-  rviz::BoolPropertyWPtr collision_enabled_property_;
-  rviz::FloatPropertyWPtr state_display_time_property_;
-  rviz::StringPropertyWPtr robot_description_property_;
-  rviz::ROSTopicStringPropertyWPtr topic_property_;
-  rviz::FloatPropertyWPtr alpha_property_;
-  rviz::BoolPropertyWPtr loop_display_property_;
+  rviz::BoolProperty* visual_enabled_property_;
+  rviz::BoolProperty* collision_enabled_property_;
+  rviz::FloatProperty* state_display_time_property_;
+  rviz::StringProperty* robot_description_property_;
+  rviz::RosTopicProperty* topic_property_;
+  rviz::FloatProperty* alpha_property_;
+  rviz::BoolProperty* loop_display_property_;
 
   ros::Publisher state_publisher_;
 

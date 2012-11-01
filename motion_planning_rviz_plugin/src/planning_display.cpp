@@ -28,11 +28,18 @@
  */
 
 #include "planning_display.h"
-#include "rviz/visualization_manager.h"
+
 #include "rviz/robot/robot.h"
 #include "rviz/robot/link_updater.h"
 #include "rviz/properties/property.h"
-#include "rviz/properties/property_manager.h"
+
+#include <rviz/visualization_manager.h>
+
+#include <rviz/properties/property.h>
+#include <rviz/properties/string_property.h>
+#include <rviz/properties/bool_property.h>
+#include <rviz/properties/float_property.h>
+#include <rviz/properties/ros_topic_property.h>
 
 #include <urdf/model.h>
 
@@ -53,9 +60,8 @@ public:
   {}
 
   virtual bool getLinkTransforms(const std::string& link_name, Ogre::Vector3& visual_position, Ogre::Quaternion& visual_orientation,
-                                 Ogre::Vector3& collision_position, Ogre::Quaternion& collision_orientation, bool& apply_offset_transforms) const
+                                 Ogre::Vector3& collision_position, Ogre::Quaternion& collision_orientation) const
   {
-    apply_offset_transforms = false;
 
     const planning_models::KinematicState::LinkState* link_state = kinematic_state_->getLinkState( link_name );
 
@@ -89,17 +95,34 @@ PlanningDisplay::PlanningDisplay():
   animating_path_(false), 
   state_display_time_(0.05f)
 {
+  visual_enabled_property_ = new rviz::BoolProperty ("Visual Enabled", true, "", this,
+                                                     SLOT (changedVisualVisible()), this);
+  
+  
+  collision_enabled_property_ = new rviz::BoolProperty ("Collision Enabled", false, "", this,
+                                                        SLOT (changedCollisionVisible()), this);
+
+  state_display_time_property_ = new rviz::FloatProperty("State Display Time", 0.05f, "", this,
+                                                         SLOT(changedStateDisplayTime()), this);
+
+  state_display_time_property_->setMin(0.0001);
+
+  loop_display_property_ = new rviz::BoolProperty("Loop Display", false, "", this,
+                                                  SLOT(changedLoopDisplay), this);
+  
+  alpha_property_ = new rviz::FloatProperty ("Alpha", 1.0f, "", this,
+                                             SLOT(changedAlpha()), this);
+  
+  robot_description_property_ = new rviz::StringProperty("Robot Description", "robot_description", "", this,
+                                                         SLOT(changedRobotDescription()), this);
+  
+  topic_property_ = new rviz::RosTopicProperty("Topic", "", ros::message_traits::datatype<arm_navigation_msgs::DisplayTrajectory>(), "", this, 
+                                               SLOT(changedTopic()), this);
 }
 
 void PlanningDisplay::onInitialize()
 {
-  robot_ = new rviz::Robot(vis_manager_, "Planning Robot " + name_);
-
-  setVisualVisible(false);
-  setCollisionVisible(true);
-
-  setLoopDisplay(false);
-  setAlpha(0.6f);
+  robot_ = new rviz::Robot(scene_node_, context_, "Planning Robot", this);  
 }
 
 
@@ -111,86 +134,47 @@ PlanningDisplay::~PlanningDisplay()
   delete robot_;
 }
 
-void PlanningDisplay::initialize(const std::string& description_param, const std::string& kinematic_path_topic)
+void PlanningDisplay::changedRobotDescription()
 {
-  setRobotDescription(description_param);
-  setTopic(kinematic_path_topic);
-}
-
-void PlanningDisplay::setRobotDescription(const std::string& description_param)
-{
-  description_param_ = description_param;
-
-  propertyChanged(robot_description_property_);
+  description_param_ = robot_description_property_->getStdString();
 
   if (isEnabled())
-  {
     load();
-    causeRender();
-  }
 }
 
-void  PlanningDisplay::setLoopDisplay(bool loop_display)
+void  PlanningDisplay::changedLoopDisplay()
 {
-    loop_display_ = loop_display;
-    propertyChanged(loop_display_property_);
+  loop_display_ = loop_display_property_->getBool();
 }
 
-void PlanningDisplay::setAlpha(float alpha)
+void PlanningDisplay::changedAlpha()
 {
-  alpha_ = alpha;
-
+  alpha_ = alpha_property_->getFloat();
   robot_->setAlpha(alpha_);
-
-  propertyChanged(alpha_property_);
 }
 
-void PlanningDisplay::setTopic(const std::string& topic)
+void PlanningDisplay::changedTopic()
 {
   unsubscribe();
   unadvertise();
-  kinematic_path_topic_ = topic;
+  kinematic_path_topic_ = topic_property_->getStdString();
   subscribe();
   advertise();
-
-  propertyChanged(topic_property_);
 }
 
-void PlanningDisplay::setStateDisplayTime(float time)
+void PlanningDisplay::changedStateDisplayTime()
 {
-  state_display_time_ = time;
-
-  propertyChanged(state_display_time_property_);
-
-  causeRender();
+  state_display_time_ = state_display_time_property_->getFloat();
 }
 
-void PlanningDisplay::setVisualVisible(bool visible)
+void PlanningDisplay::changedVisualVisible()
 {
-  robot_->setVisualVisible(visible);
-
-  propertyChanged(visual_enabled_property_);
-
-  causeRender();
+  robot_->setVisualVisible(visual_enabled_property_->getBool());
 }
 
-void PlanningDisplay::setCollisionVisible(bool visible)
+void PlanningDisplay::changedCollisionVisible()
 {
-  robot_->setCollisionVisible(visible);
-
-  propertyChanged(collision_enabled_property_);
-
-  causeRender();
-}
-
-bool PlanningDisplay::isVisualVisible()
-{
-  return robot_->isVisualVisible();
-}
-
-bool PlanningDisplay::isCollisionVisible()
-{
-  return robot_->isCollisionVisible();
+  robot_->setCollisionVisible(collision_enabled_property_->getBool());
 }
 
 void PlanningDisplay::load()
@@ -214,7 +198,7 @@ void PlanningDisplay::load()
 
   urdf::Model descr;
   descr.initXml(doc.RootElement());
-  robot_->load(doc.RootElement(), descr);
+  robot_->load( descr);
 
   delete env_models_;
   env_models_ = new planning_environment::RobotModels(description_param_);
@@ -374,7 +358,6 @@ void PlanningDisplay::update(float wall_dt, float ros_dt)
 	    state.updateKinematicLinks();
 	
         robot_->update(PlanningLinkUpdater(&state));
-        causeRender();
       }
       else
       {
@@ -400,15 +383,15 @@ void PlanningDisplay::calculateRobotPosition()
   tf::Stamped<tf::Pose> pose(tf::Transform(tf::Quaternion(0, 0, 0, 1.0), tf::Vector3(0, 0, 0)), displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp,
                              displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id);
 
-  if (vis_manager_->getTFClient()->canTransform(fixed_frame_, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp))
+  if (context_->getTFClient()->canTransform(fixed_frame_.toStdString(), displaying_kinematic_path_message_->trajectory.joint_trajectory.header.frame_id, displaying_kinematic_path_message_->trajectory.joint_trajectory.header.stamp))
   {
     try
     {
-      vis_manager_->getTFClient()->transformPose(fixed_frame_, pose, pose);
+      context_->getTFClient()->transformPose(fixed_frame_.toStdString(), pose, pose);
     }
     catch (tf::TransformException& e)
     {
-      ROS_ERROR( "Error transforming from frame '%s' to frame '%s'", pose.frame_id_.c_str(), fixed_frame_.c_str() );
+      ROS_ERROR( "Error transforming from frame '%s' to frame '%s'", pose.frame_id_.c_str(), fixed_frame_.toStdString().c_str() );
     }
   }
 
@@ -434,38 +417,6 @@ void PlanningDisplay::fixedFrameChanged()
   calculateRobotPosition();
 }
 
-void PlanningDisplay::createProperties()
-{
-  visual_enabled_property_ = property_manager_->createProperty<rviz::BoolProperty> ("Visual Enabled", property_prefix_,
-                                                                              boost::bind(&PlanningDisplay::isVisualVisible, this),
-                                                                              boost::bind(&PlanningDisplay::setVisualVisible, this, _1), parent_category_, this);
-  collision_enabled_property_ = property_manager_->createProperty<rviz::BoolProperty> ("Collision Enabled", property_prefix_,
-                                                                                 boost::bind(&PlanningDisplay::isCollisionVisible, this),
-                                                                                 boost::bind(&PlanningDisplay::setCollisionVisible, this, _1), parent_category_, this);
-  state_display_time_property_ = property_manager_->createProperty<rviz::FloatProperty> ("State Display Time", property_prefix_,
-                                                                                   boost::bind(&PlanningDisplay::getStateDisplayTime, this),
-                                                                                   boost::bind(&PlanningDisplay::setStateDisplayTime, this, _1), parent_category_,
-                                                                                   this);
-  rviz::FloatPropertyPtr float_prop = state_display_time_property_.lock();
-  float_prop->setMin(0.0001);
-
-  loop_display_property_ = property_manager_->createProperty<rviz::BoolProperty>("Loop Display", property_prefix_, boost::bind(&PlanningDisplay::getLoopDisplay, this),
-                                                                                 boost::bind(&PlanningDisplay::setLoopDisplay, this, _1), parent_category_, this);
-  
-  alpha_property_ = property_manager_->createProperty<rviz::FloatProperty> ("Alpha", property_prefix_, boost::bind(&PlanningDisplay::getAlpha, this),
-                                                                      boost::bind(&PlanningDisplay::setAlpha, this, _1), parent_category_, this);
-
-  robot_description_property_ = property_manager_->createProperty<rviz::StringProperty> ("Robot Description", property_prefix_,
-                                                                                   boost::bind(&PlanningDisplay::getRobotDescription, this),
-                                                                                   boost::bind(&PlanningDisplay::setRobotDescription, this, _1), parent_category_,
-                                                                                   this);
-  topic_property_ = property_manager_->createProperty<rviz::ROSTopicStringProperty> ("Topic", property_prefix_, boost::bind(&PlanningDisplay::getTopic, this),
-                                                                               boost::bind(&PlanningDisplay::setTopic, this, _1), parent_category_, this);
-  rviz::ROSTopicStringPropertyPtr topic_prop = topic_property_.lock();
-  topic_prop->setMessageType(ros::message_traits::datatype<arm_navigation_msgs::DisplayTrajectory>());
-
-  robot_->setPropertyManager(property_manager_, parent_category_);
-}
 
 } // namespace motion_planning_rviz_plugin
 
