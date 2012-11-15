@@ -11,7 +11,6 @@
   <depend package="kinematics_base"/>
   <depend package="arm_navigation_msgs"/>
   <depend package="kinematics_msgs"/>
-  <depend package="kdl"/>
   <depend package="roscpp"/>
   <depend package="tf"/>
   <depend package="sensor_msgs"/>

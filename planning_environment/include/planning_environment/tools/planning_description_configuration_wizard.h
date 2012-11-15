@@ -10,12 +10,14 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 
+#ifndef Q_MOC_RUN
 #include <planning_environment/models/collision_models.h>
 #include <planning_environment/models/model_utils.h>
 #include <tf/transform_broadcaster.h>
 #include <collision_space/environmentODE.h>
 #include <rosgraph_msgs/Clock.h>
 #include <planning_environment/util/collision_operations_generator.h>
+#endif
 #include <qt4/QtGui/qwidget.h>
 #include <qt4/QtGui/qwizard.h>
 #include <qt4/QtGui/qlabel.h>

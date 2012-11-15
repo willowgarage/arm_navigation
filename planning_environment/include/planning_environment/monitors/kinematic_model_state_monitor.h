@@ -40,8 +40,10 @@
 #include "planning_environment/models/robot_models.h"
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
+#ifndef Q_MOC_RUN
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
+#endif
 #include <sensor_msgs/JointState.h>
 #include <arm_navigation_msgs/RobotState.h>
 #include <boost/bind.hpp>
