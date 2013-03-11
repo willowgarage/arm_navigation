@@ -37,7 +37,7 @@
 This publishes wall clock to the /clock topic to test simulated time routines
 """
 
-import roslib; roslib.load_manifest('test_ros')
+import roslib;
 
 import time
 import rospy
