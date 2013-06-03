@@ -68,7 +68,7 @@
 #include <ompl/geometric/planners/kpiece/KPIECE1.h>
 #include <ompl/geometric/planners/kpiece/BKPIECE1.h>
 #include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
-#include <ompl/contrib/rrt_star/RRTstar.h>
+#include <ompl/geometric/planners/rrt/RRTstar.h>
 
 namespace ompl_ros_interface
 {

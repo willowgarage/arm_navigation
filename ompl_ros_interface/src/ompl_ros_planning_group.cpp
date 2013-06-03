@@ -189,16 +189,6 @@ bool OmplRosPlanningGroup::initializeRRTStarPlanner()
     new_planner->setRange(planner_config_->getParamDouble("range",new_planner->getRange()));
     ROS_DEBUG("RRTStarPlanner::Range is set to %g", new_planner->getRange());
   }  
-  if (planner_config_->hasParam("ball_radius_constant"))
-  {
-    new_planner->setBallRadiusConstant(planner_config_->getParamDouble("ball_radius_constant",new_planner->getBallRadiusConstant()));
-    ROS_DEBUG("RRTStarPlanner::Ball radius constant is set to %g", new_planner->getBallRadiusConstant());
-  }  
-  if (planner_config_->hasParam("max_ball_radius"))
-  {
-    new_planner->setMaxBallRadius(planner_config_->getParamDouble("max_ball_radius",new_planner->getMaxBallRadius()));
-    ROS_DEBUG("RRTStarPlanner::Ball radius constant is set to %g", new_planner->getMaxBallRadius());
-  }  
   return true;
 }
 
