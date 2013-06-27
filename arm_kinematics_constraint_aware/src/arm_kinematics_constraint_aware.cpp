@@ -238,7 +238,7 @@ bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK:
                                                  kinematics_msgs::GetPositionIK::Response &response)
 {
   if(!isReady(response.error_code)) {
-    if(request.ik_request.pose_stamped.header.frame_id != root_name_) {
+    if(request.ik_request.pose_stamped.header.frame_id != solver_->getBaseName()) {
       response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
       return true;
     }
@@ -260,9 +260,8 @@ bool ArmKinematicsConstraintAware::getPositionIK(kinematics_msgs::GetPositionIK:
 
   geometry_msgs::PoseStamped pose_msg_in = request.ik_request.pose_stamped;
   geometry_msgs::PoseStamped pose_msg_out;
-  planning_environment::setRobotStateAndComputeTransforms(request.ik_request.robot_state, *state);
   
-  if(!collision_models_interface_->convertPoseGivenWorldTransform(*collision_models_interface_->getPlanningSceneState(),
+  if(!collision_models_interface_->convertPoseGivenWorldTransform(*state,
                                                                   solver_->getBaseName(),
                                                                   pose_msg_in.header,
                                                                   pose_msg_in.pose,
@@ -339,6 +338,8 @@ bool ArmKinematicsConstraintAware::getPositionFK(kinematics_msgs::GetPositionFK:
                                       request.fk_link_names,
                                       poses);
   if(valid) {
+    response.pose_stamped.resize(poses.size());
+    response.fk_link_names.resize(poses.size()); 
     for(unsigned int i=0; i < poses.size(); i++) {      
       std_msgs::Header world_header;
       world_header.frame_id = collision_models_interface_->getWorldFrameId();
@@ -349,6 +350,7 @@ bool ArmKinematicsConstraintAware::getPositionFK(kinematics_msgs::GetPositionFK:
                                                                       poses[i],
                                                                       response.pose_stamped[i])) {
         response.error_code.val = response.error_code.FRAME_TRANSFORM_FAILURE;
+        delete state;
         return true;
       }
       response.fk_link_names[i] = request.fk_link_names[i];

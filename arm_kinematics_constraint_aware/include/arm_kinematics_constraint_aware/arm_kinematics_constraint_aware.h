@@ -122,7 +122,7 @@ private:
   ros::NodeHandle node_handle_,root_handle_;
   ros::ServiceServer ik_collision_service_, ik_service_, fk_service_, ik_solver_info_service_, fk_solver_info_service_;
   planning_environment::CollisionModelsInterface *collision_models_interface_;
-  std::string group_,root_name_;
+  std::string group_;
   ros::Publisher vis_marker_publisher_;
   ros::Publisher vis_marker_array_publisher_;
   void printStringVec(const std::string &prefix, const std::vector<std::string> &string_vector);
