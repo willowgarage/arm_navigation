@@ -103,7 +103,7 @@ public:
   {
 	  pcl::PointCloud<pcl::PointXYZ> in;
 	
-	in.header.stamp = ros::Time::now();
+	  in.header.stamp = ros::Time::now().toNSec();
 	in.header.frame_id = "base_link";
 /*	in.channels.resize(1);
 	in.channels[0].name = "stamps";*/

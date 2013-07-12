@@ -52,7 +52,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <arm_navigation_msgs/AttachedCollisionObject.h>
 #include <robot_self_filter/self_mask.h>
-#include <pcl/ros/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/transforms.h>
 
 class FilterAttachedObjects

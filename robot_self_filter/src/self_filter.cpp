@@ -39,8 +39,7 @@
 #include "robot_self_filter/self_see_filter.h"
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
-
-#include <pcl/ros/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
 
 class SelfFilter
@@ -113,10 +112,11 @@ class SelfFilter
 
       double sec = (ros::WallTime::now() - tm).toSec ();
 
+      ROS_DEBUG ("Self filter: reduced %d points to %d points in %f seconds", (int)cloud.points.size(), (int)cloud_filtered.points.size (), sec);
+
       sensor_msgs::PointCloud2 out;
       pcl::toROSMsg (cloud_filtered, out);
       pointCloudPublisher_.publish (out);
-      ROS_DEBUG ("Self filter: reduced %d points to %d points in %f seconds", (int)cloud.points.size(), (int)cloud_filtered.points.size (), sec);
     }
 
     tf::TransformListener                                 tf_;

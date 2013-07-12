@@ -9,6 +9,7 @@ add_definitions(-DdDOUBLE)
 rosbuild_add_library(collision_space src/environment_objects.cpp
 				    src/environment.cpp
 				    src/environmentODE.cpp)
+target_link_libraries(collision_space ode)
 
 find_package(PkgConfig REQUIRED)
 find_package(ASSIMP QUIET)

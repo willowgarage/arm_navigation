@@ -37,8 +37,30 @@
 #include "geometric_shapes/bodies.h"
 
 #include <ros/console.h>
-#include <LinearMath/btConvexHull.h>
-// #include <BulletCollision/CollisionShapes/btTriangleShape.h>
+
+extern "C"
+{
+#ifdef GEOMETRIC_SHAPES_HAVE_QHULL_2011
+#include <libqhull/libqhull.h>
+#include <libqhull/mem.h>
+#include <libqhull/qset.h>
+#include <libqhull/geom.h>
+#include <libqhull/merge.h>
+#include <libqhull/poly.h>
+#include <libqhull/io.h>
+#include <libqhull/stat.h>
+#else
+#include <qhull/qhull.h>
+#include <qhull/mem.h>
+#include <qhull/qset.h>
+#include <qhull/geom.h>
+#include <qhull/merge.h>
+#include <qhull/poly.h>
+#include <qhull/io.h>
+#include <qhull/stat.h>
+#endif
+}
+
 #include <algorithm>
 #include <iostream>
 #include <cmath>
@@ -467,14 +489,14 @@ void bodies::Box::computeBoundingCylinder(BoundingCylinder &cylinder) const
     cylinder.length = m_length2*2.0;
     a = m_width2;
     b = m_height2;
-    tf::Transform rot(tf::Quaternion(tf::Vector3(0,1,0),btRadians(90)));
+    tf::Transform rot(tf::Quaternion(tf::Vector3(0,1,0),M_PI));
     cylinder.pose = m_pose*rot;
   } else if(m_width2 > m_height2) {
     cylinder.length = m_width2*2.0;
     a = m_height2;
     b = m_length2;
     cylinder.radius = sqrt(m_height2*m_height2+m_length2*m_length2);
-    tf::Transform rot(tf::Quaternion(tf::Vector3(1,0,0),btRadians(90)));
+    tf::Transform rot(tf::Quaternion(tf::Vector3(1,0,0),M_PI));
     cylinder.pose = m_pose*rot;
   } else {
     cylinder.length = m_height2*2.0;
@@ -832,23 +854,92 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
   }
 
 
-  btVector3 *vertices = new btVector3[mesh->vertexCount];
+  /* compute convex hull */
+  coordT *points = (coordT *)calloc(mesh->vertexCount*3, sizeof(coordT));
   for(unsigned int i = 0; i < mesh->vertexCount ; ++i)
   {
-    vertices[i].setX(mesh->vertices[3 * i    ]);
-    vertices[i].setY(mesh->vertices[3 * i + 1]);
-    vertices[i].setZ(mesh->vertices[3 * i + 2]);
-      
+    points[3*i+0] = (coordT) mesh->vertices[3*i+0];
+    points[3*i+1] = (coordT) mesh->vertices[3*i+1];
+    points[3*i+2] = (coordT) mesh->vertices[3*i+2];
+
     double dista = mesh->vertices[3 * i + off1]-pose1;
     double distb = mesh->vertices[3 * i + off2]-pose2;
     double dist = sqrt(((dista*dista)+(distb*distb)));
-    if(dist > maxdist) {
+    if(dist > maxdist)
       maxdist = dist;
-    }
   }
+
   m_boundingCylinder.radius = maxdist;
   m_boundingCylinder.length = cyl_length;
-    
+
+  FILE* null = fopen ("/dev/null","w");
+
+  char flags[] = "qhull Tv";
+  int exitcode = qh_new_qhull(3, mesh->vertexCount, points, true, flags, null, null);
+
+  if (exitcode != 0)
+  {
+      ROS_WARN("Convex hull creation failed");
+    qh_freeqhull (!qh_ALL);
+    int curlong, totlong;
+    qh_memfreeshort (&curlong, &totlong);
+    return;
+  }
+
+  int num_facets = qh num_facets;
+
+  int num_vertices = qh num_vertices;
+  m_vertices.reserve(num_vertices);
+  tf::Vector3 sum(0, 0, 0);
+
+  //necessary for FORALLvertices
+  std::map<unsigned int, unsigned int> qhull_vertex_table;
+  vertexT * vertex;
+  FORALLvertices
+  {
+    tf::Vector3 vert(vertex->point[0],
+                         vertex->point[1],
+                         vertex->point[2]);
+    qhull_vertex_table[vertex->id] = m_vertices.size();
+    sum = sum + vert;
+    m_vertices.push_back(vert);
+  }
+
+  m_meshCenter = sum / (double)(num_vertices);
+  for (unsigned int j = 0 ; j < m_vertices.size() ; ++j)
+  {
+      double dist = m_vertices[j].distance2(m_meshCenter);
+    if (dist > m_radiusB)
+      m_radiusB = dist;
+  }
+
+  m_radiusB = sqrt(m_radiusB);
+  m_triangles.reserve(num_facets);
+
+  //neccessary for qhull macro
+  facetT * facet;
+  FORALLfacets
+  {
+    tf::tfVector4 planeEquation(facet->normal[0], facet->normal[1], facet->normal[2], facet->offset);
+    m_planes.push_back(planeEquation);
+
+    // Needed by FOREACHvertex_i_
+    int vertex_n, vertex_i;
+    FOREACHvertex_i_ ((*facet).vertices)
+    {
+      m_triangles.push_back(qhull_vertex_table[vertex->id]);
+    }
+
+  }
+  qh_freeqhull(!qh_ALL);
+  int curlong, totlong;
+  qh_memfreeshort (&curlong, &totlong);
+
+
+
+
+  
+  /*  
   HullDesc hd(QF_TRIANGLES, mesh->vertexCount, vertices);
   HullResult hr;
   HullLibrary hl;
@@ -919,10 +1010,11 @@ void bodies::ConvexMesh::useDimensions(const shapes::Shape *shape)
     }
   }
   else
-    ROS_ERROR("Unable to compute convex hull.");
+  */
+
     
-  hl.ReleaseResult(hr);    
-  delete[] vertices;
+  //  hl.ReleaseResult(hr);    
+    //  delete[] vertices;
     
 }
 

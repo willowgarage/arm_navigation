@@ -365,7 +365,7 @@ bool planning_environment::computeAttachedObjectPointCloudMask(const pcl::PointC
                                                      cm,
                                                      tf,
                                                      sensor_frame,
-                                                     pcl_cloud.header.stamp,
+                                                     ros::Time(pcl_cloud.header.stamp),
                                                      sensor_pos);
 
   // transform pointcloud into fixed frame, if needed

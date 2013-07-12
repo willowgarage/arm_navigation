@@ -65,5 +65,6 @@ rosbuild_add_openmp_flags(self_filter)
 target_link_libraries(self_filter assimp
                                   geometric_shapes
                                   robot_self_filter
+				  BulletCollision BulletDynamics BulletSoftBody BulletMultiThreaded
 )
 rosbuild_link_boost(self_filter signals)

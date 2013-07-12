@@ -40,6 +40,13 @@ else()
   set(IS_ASSIMP3 0) # most likely not
 endif()
 
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}/cmake/" ${CMAKE_MODULE_PATH})
+
+find_package(Qhull REQUIRED)
+if (HAVE_QHULL_2011)
+  add_definitions(-DGEOMETRIC_SHAPES_HAVE_QHULL_2011)
+endif()
+
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
@@ -47,7 +54,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 rosbuild_add_library(${PROJECT_NAME} src/shape_operations.cpp
 				     src/bodies.cpp
 				     src/body_operations.cpp)
-target_link_libraries(${PROJECT_NAME} assimp)
+target_link_libraries(${PROJECT_NAME} assimp ${QHULL_LIBRARIES})
 
 
 # Unit tests

@@ -10,8 +10,8 @@
   <depend package="rosconsole"/>
   <depend package="planning_models"/>
   <depend package="geometric_shapes"/>
-  <depend package="opende"/>
-  <depend package="bullet"/>
+  <rosdep name="opende"/>
+  <rosdep name="bullet"/>
   <rosdep name="pkg-config" />
 
   <export>
