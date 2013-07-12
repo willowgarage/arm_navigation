@@ -12,6 +12,7 @@
   <depend package="geometric_shapes"/>
   <depend package="bullet"/>
   <depend package="angles"/>
+  <depend package="roslib"/>
   <rosdep name="pkg-config" />
 
   <export>
